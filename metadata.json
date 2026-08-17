@@ -1,0 +1,6 @@
+{
+  "name": "Gestor Financeiro & Estoque",
+  "description": "Gestor financeiro simples com fluxo de caixa, cadastros de clientes/fornecedores, contas bancárias, estoque de produtos e leitor de comprovantes com IA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
