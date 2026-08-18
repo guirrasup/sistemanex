@@ -22,8 +22,12 @@ import { LivroDiarioView } from "./components/LivroDiarioView";
 import { LivroRazaoView } from "./components/LivroRazaoView";
 import { RelatoriosFiscaisView } from "./components/RelatoriosFiscaisView";
 import { ExportacaoView } from "./components/ExportacaoView";
+import { useTheme } from "./contexts/ThemeContext";
 
 export default function App() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  
   const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
   const [, setSearchQuery] = useState("");
 
@@ -39,19 +43,22 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen w-screen bg-[#020617] text-slate-300 flex flex-col font-sans antialiased relative overflow-hidden">
+    <div className={`h-screen w-screen flex flex-col font-sans antialiased relative overflow-hidden transition-colors duration-300 ${
+      isDark ? 'bg-[#020617]' : 'bg-[#f1f5f9]'
+    } text-slate-300`}>
       
-      {/* Background Glows */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute -top-[20%] -left-[10%] w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px]"></div>
-        <div className="absolute -bottom-[20%] -right-[10%] w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px]"></div>
-      </div>
+      {/* Background Glows - apenas no modo escuro */}
+      {isDark && (
+        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute -top-[20%] -left-[10%] w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px]"></div>
+          <div className="absolute -bottom-[20%] -right-[10%] w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px]"></div>
+        </div>
+      )}
 
       {/* Top Header - Fixo */}
       <Header
         onSearch={setSearchQuery}
-        onOpenNewDoc={handleOpenNewDoc}
-        onOpenOcr={handleOpenOcr}
+        // REMOVIDOS: onOpenNewDoc e onOpenOcr
       />
 
       {/* Main Workspace - Ocupa o resto, sem overflow */}
@@ -63,7 +70,9 @@ export default function App() {
         </div>
 
         {/* CONTENT AREA - COM SCROLL PRÓPRIO E ISOLADO */}
-        <main className="flex-1 h-full overflow-y-auto overflow-x-hidden p-6 md:p-8 bg-transparent">
+        <main className={`flex-1 h-full overflow-y-auto overflow-x-hidden p-6 md:p-8 transition-colors duration-300 ${
+          isDark ? 'bg-transparent' : 'bg-[#f1f5f9]'
+        }`}>
           <div className="max-w-7xl mx-auto space-y-6">
             {/* Principal */}
             {activeTab === "dashboard" && (
@@ -104,7 +113,11 @@ export default function App() {
       </div>
 
       {/* Status Bar - Fixo */}
-      <footer className="h-8 bg-slate-950/80 border-t border-white/5 flex items-center px-6 justify-between text-[11px] text-slate-500 z-10 shrink-0 font-mono">
+      <footer className={`h-8 border-t flex items-center px-6 justify-between text-[11px] shrink-0 font-mono transition-colors duration-300 ${
+        isDark 
+          ? 'bg-slate-950/80 border-white/5 text-slate-500' 
+          : 'bg-white/80 border-slate-200 text-slate-500'
+      }`}>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
           <span>Sistema NEX Enterprise Core Ativo — API Rest, Audit & Fiscal SEFAZ</span>

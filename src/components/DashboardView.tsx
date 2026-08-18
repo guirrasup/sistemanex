@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { store } from "../services/store";
+import { useTheme } from "../contexts/ThemeContext";
 import {
   TrendingUp, 
   TrendingDown, 
@@ -38,7 +39,7 @@ import {
   FileArchive,
   ShieldCheck,
   ArrowLeftRight,
-  Plus, // ← ADICIONADO
+  Plus,
 } from "lucide-react";
 
 interface DashboardViewProps {
@@ -47,6 +48,9 @@ interface DashboardViewProps {
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onOpenNewDoc }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  
   const [, setTick] = useState(0);
   useEffect(() => {
     return store.subscribe(() => setTick(t => t + 1));
@@ -73,14 +77,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
   const todayStr = new Date().toISOString().split("T")[0];
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
 
-  // Função auxiliar para adicionar dias
   const addDays = (dateStr: string, days: number): string => {
     const d = new Date(dateStr);
     d.setDate(d.getDate() + days);
     return d.toISOString().split("T")[0];
   };
 
-  // Parcelas
   installments.forEach(inst => {
     const doc = docs.find(d => d.id === inst.financial_document_id);
     if (!doc) return;
@@ -179,13 +181,49 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
     { period: "+3 Meses", inflows: 210000, outflows: 125000, net: 85000 },
   ];
 
+  // Classes dinâmicas baseadas no tema
+  const themeClasses = {
+    // Header premium
+    headerBg: isDark 
+      ? 'bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-white/5' 
+      : 'bg-gradient-to-r from-slate-100 via-white to-slate-100 border-slate-200',
+    headerText: isDark ? 'text-white' : 'text-slate-900',
+    headerSubtext: isDark ? 'text-slate-400' : 'text-slate-500',
+    headerStatus: isDark ? 'text-slate-500' : 'text-slate-400',
+    
+    // Cards
+    cardBg: isDark ? 'bg-slate-950/60' : 'bg-white/80',
+    cardBorder: isDark ? 'border-white/5' : 'border-slate-200',
+    cardHover: isDark ? 'hover:border-opacity-50' : 'hover:shadow-md',
+    
+    // Textos
+    textPrimary: isDark ? 'text-white' : 'text-slate-900',
+    textSecondary: isDark ? 'text-slate-400' : 'text-slate-600',
+    textMuted: isDark ? 'text-slate-500' : 'text-slate-400',
+    
+    // Sub-cards
+    subCardBg: isDark ? 'bg-slate-900/60' : 'bg-slate-50',
+    subCardBorder: isDark ? 'border-white/5' : 'border-slate-200',
+    
+    // Botões
+    btnPrimary: isDark 
+      ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20' 
+      : 'bg-cyan-600 hover:bg-cyan-700 text-white shadow-cyan-600/20',
+    btnSecondary: isDark 
+      ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-white/5' 
+      : 'bg-slate-200 hover:bg-slate-300 text-slate-700 border-slate-300',
+    
+    // Métricas
+    metricBg: isDark ? 'bg-slate-900/60' : 'bg-white/60',
+  };
+
   return (
     <div className="space-y-6">
       
       {/* ============================================================ */}
       {/* HEADER PREMIUM */}
       {/* ============================================================ */}
-      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-white/5 p-6 rounded-2xl shadow-2xl relative overflow-hidden">
+      <div className={`${themeClasses.headerBg} border p-6 rounded-2xl shadow-2xl relative overflow-hidden transition-colors duration-300`}>
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl"></div>
         
@@ -196,10 +234,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
               <span>NEX COMMAND CENTER</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
             </div>
-            <h1 className="text-3xl font-black text-white mt-1 tracking-tight">
+            <h1 className={`text-3xl font-black mt-1 tracking-tight ${themeClasses.textPrimary}`}>
               Visão Estratégica
             </h1>
-            <p className="text-sm text-slate-400 mt-1 max-w-xl">
+            <p className={`text-sm mt-1 max-w-xl ${themeClasses.textSecondary}`}>
               {new Date().toLocaleDateString("pt-BR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
             </p>
           </div>
@@ -207,14 +245,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
           <div className="flex items-center gap-4">
             <button
               onClick={() => onNavigateTab("financial")}
-              className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all"
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg transition-all ${themeClasses.btnPrimary}`}
             >
               <Zap className="w-4 h-4" />
               Ação Rápida
             </button>
             <button
               onClick={onOpenNewDoc}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold flex items-center gap-2 border border-white/5 transition-all"
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border transition-all ${themeClasses.btnSecondary}`}
             >
               <Plus className="w-4 h-4" />
               Novo Lançamento
@@ -223,7 +261,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
         </div>
 
         {/* Status Bar */}
-        <div className="flex flex-wrap items-center gap-6 mt-4 pt-4 border-t border-white/5 relative z-10">
+        <div className={`flex flex-wrap items-center gap-6 mt-4 pt-4 border-t relative z-10 ${isDark ? 'border-white/5' : 'border-slate-200'}`}>
           <div className="flex items-center gap-2 text-xs text-emerald-400">
             <CheckCircle2 className="w-4 h-4" />
             <span>Sistema Operacional</span>
@@ -240,7 +278,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
             <FileCheck className="w-4 h-4" />
             <span>{authorizedFiscalCount} Notas Autorizadas</span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-500 font-mono ml-auto">
+          <div className={`flex items-center gap-2 text-xs font-mono ml-auto ${themeClasses.textMuted}`}>
             <Clock className="w-3 h-3" />
             <span>Última atualização: {new Date().toLocaleTimeString("pt-BR")}</span>
           </div>
@@ -260,13 +298,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
             <div
               key={widget.id}
               onClick={() => widget.action && onNavigateTab(widget.action)}
-              className={`bg-slate-950/60 border ${widget.border} p-5 rounded-2xl shadow-xl cursor-pointer hover:border-opacity-50 transition-all group relative overflow-hidden`}
+              className={`${themeClasses.cardBg} border ${widget.border} ${themeClasses.cardBorder} p-5 rounded-2xl shadow-xl cursor-pointer hover:shadow-lg transition-all group relative overflow-hidden`}
             >
               {widget.highlight && (
                 <div className="absolute top-0 right-0 w-16 h-16 bg-rose-500/5 rounded-full blur-2xl"></div>
               )}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">{widget.label}</span>
+                <span className={`text-xs font-medium uppercase tracking-wider ${themeClasses.textSecondary}`}>{widget.label}</span>
                 <div className={`p-2 rounded-xl ${widget.bg} ${widget.color}`}>
                   <Icon className="w-4 h-4" />
                 </div>
@@ -274,11 +312,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
               <div className="mt-3">
                 <div className={`text-2xl font-black font-mono tracking-tight ${
                   isNegative && widget.value > 0 ? "text-rose-400" :
-                  isPositive ? "text-emerald-400" : "text-white"
+                  isPositive ? "text-emerald-400" : themeClasses.textPrimary
                 }`}>
                   R$ {widget.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                <div className={`text-[10px] mt-1 flex items-center gap-1 ${themeClasses.textMuted}`}>
                   {widget.id === "overdue" && widget.value > 0 && (
                     <AlertTriangle className="w-3 h-3 text-rose-400" />
                   )}
@@ -299,13 +337,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Aging de Parcelas */}
-        <div className="bg-slate-950/60 border border-white/5 p-5 rounded-2xl shadow-xl">
+        <div className={`${themeClasses.cardBg} border ${themeClasses.cardBorder} p-5 rounded-2xl shadow-xl transition-colors duration-300`}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className={`text-sm font-bold flex items-center gap-2 ${themeClasses.textPrimary}`}>
               <Timer className="w-4 h-4 text-amber-400" />
               Aging de Parcelas
             </h3>
-            <span className="text-[10px] text-slate-500 font-mono">Vencimento</span>
+            <span className={`text-[10px] font-mono ${themeClasses.textMuted}`}>Vencimento</span>
           </div>
           
           <div className="space-y-3">
@@ -339,12 +377,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
               </span>
             </div>
             
-            <div className="flex items-center justify-between p-3 bg-slate-900/60 border border-white/5 rounded-xl">
+            <div className={`flex items-center justify-between p-3 rounded-xl ${isDark ? 'bg-slate-900/60 border-white/5' : 'bg-slate-50 border-slate-200'} border`}>
               <div>
-                <span className="text-xs font-bold text-slate-300 block">Acima de 30 Dias</span>
-                <span className="text-[9px] text-slate-400 font-mono">Longo prazo</span>
+                <span className={`text-xs font-bold block ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Acima de 30 Dias</span>
+                <span className={`text-[9px] font-mono ${themeClasses.textMuted}`}>Longo prazo</span>
               </div>
-              <span className="text-sm font-black text-slate-200 font-mono">
+              <span className={`text-sm font-black font-mono ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
                 R$ 75.000,00
               </span>
             </div>
@@ -352,66 +390,66 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
         </div>
 
         {/* Indicadores Estratégicos */}
-        <div className="bg-slate-950/60 border border-white/5 p-5 rounded-2xl shadow-xl">
+        <div className={`${themeClasses.cardBg} border ${themeClasses.cardBorder} p-5 rounded-2xl shadow-xl transition-colors duration-300`}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className={`text-sm font-bold flex items-center gap-2 ${themeClasses.textPrimary}`}>
               <Target className="w-4 h-4 text-cyan-400" />
               Indicadores Estratégicos
             </h3>
-            <span className="text-[10px] text-slate-500 font-mono">Desempenho</span>
+            <span className={`text-[10px] font-mono ${themeClasses.textMuted}`}>Desempenho</span>
           </div>
           
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Liquidez Imediata</span>
+                <span className={themeClasses.textSecondary}>Liquidez Imediata</span>
                 <span className={`font-bold font-mono ${liquidityIndex > 50 ? "text-emerald-400" : "text-amber-400"}`}>
                   {liquidityIndex.toFixed(1)}%
                 </span>
               </div>
-              <div className="w-full h-1.5 bg-slate-800 rounded-full mt-1 overflow-hidden">
+              <div className={`w-full h-1.5 rounded-full mt-1 overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
                 <div 
                   className={`h-full rounded-full transition-all ${liquidityIndex > 50 ? "bg-emerald-400" : "bg-amber-400"}`}
                   style={{ width: `${Math.min(liquidityIndex, 100)}%` }}
                 ></div>
               </div>
-              <div className="text-[9px] text-slate-500 mt-0.5">
+              <div className={`text-[9px] mt-0.5 ${themeClasses.textMuted}`}>
                 {liquidityIndex > 50 ? "✅ Saudável" : "⚠️ Atenção necessária"}
               </div>
             </div>
             
             <div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Eficiência de Recebimento</span>
+                <span className={themeClasses.textSecondary}>Eficiência de Recebimento</span>
                 <span className={`font-bold font-mono ${efficiencyIndex > 50 ? "text-emerald-400" : "text-amber-400"}`}>
                   {efficiencyIndex.toFixed(1)}%
                 </span>
               </div>
-              <div className="w-full h-1.5 bg-slate-800 rounded-full mt-1 overflow-hidden">
+              <div className={`w-full h-1.5 rounded-full mt-1 overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
                 <div 
                   className={`h-full rounded-full transition-all ${efficiencyIndex > 50 ? "bg-emerald-400" : "bg-amber-400"}`}
                   style={{ width: `${Math.min(efficiencyIndex, 100)}%` }}
                 ></div>
               </div>
-              <div className="text-[9px] text-slate-500 mt-0.5">
+              <div className={`text-[9px] mt-0.5 ${themeClasses.textMuted}`}>
                 {efficiencyIndex > 50 ? "✅ Bom desempenho" : "⚠️ Melhorar cobrança"}
               </div>
             </div>
             
             <div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Taxa de Recebimento</span>
+                <span className={themeClasses.textSecondary}>Taxa de Recebimento</span>
                 <span className={`font-bold font-mono ${collectionRate > 50 ? "text-emerald-400" : "text-amber-400"}`}>
                   {collectionRate.toFixed(1)}%
                 </span>
               </div>
-              <div className="w-full h-1.5 bg-slate-800 rounded-full mt-1 overflow-hidden">
+              <div className={`w-full h-1.5 rounded-full mt-1 overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
                 <div 
                   className={`h-full rounded-full transition-all ${collectionRate > 50 ? "bg-emerald-400" : "bg-amber-400"}`}
                   style={{ width: `${Math.min(collectionRate, 100)}%` }}
                 ></div>
               </div>
-              <div className="text-[9px] text-slate-500 mt-0.5">
+              <div className={`text-[9px] mt-0.5 ${themeClasses.textMuted}`}>
                 {collectionRate > 50 ? "✅ Fluxo positivo" : "⚠️ Fluxo negativo"}
               </div>
             </div>
@@ -419,58 +457,58 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
         </div>
 
         {/* Métricas Rápidas */}
-        <div className="bg-slate-950/60 border border-white/5 p-5 rounded-2xl shadow-xl">
+        <div className={`${themeClasses.cardBg} border ${themeClasses.cardBorder} p-5 rounded-2xl shadow-xl transition-colors duration-300`}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className={`text-sm font-bold flex items-center gap-2 ${themeClasses.textPrimary}`}>
               <Gauge className="w-4 h-4 text-cyan-400" />
               Métricas do Negócio
             </h3>
-            <span className="text-[10px] text-slate-500 font-mono">Snapshot</span>
+            <span className={`text-[10px] font-mono ${themeClasses.textMuted}`}>Snapshot</span>
           </div>
           
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-slate-900/60 p-3 rounded-xl border border-white/5">
-              <div className="flex items-center gap-2 text-slate-400 text-[10px]">
+            <div className={`p-3 rounded-xl border ${themeClasses.subCardBg} ${themeClasses.subCardBorder}`}>
+              <div className={`flex items-center gap-2 text-[10px] ${themeClasses.textSecondary}`}>
                 <Users className="w-3 h-3" />
                 <span>Clientes</span>
               </div>
-              <span className="text-lg font-bold text-white">{totalCustomers}</span>
+              <span className={`text-lg font-bold ${themeClasses.textPrimary}`}>{totalCustomers}</span>
             </div>
             
-            <div className="bg-slate-900/60 p-3 rounded-xl border border-white/5">
-              <div className="flex items-center gap-2 text-slate-400 text-[10px]">
+            <div className={`p-3 rounded-xl border ${themeClasses.subCardBg} ${themeClasses.subCardBorder}`}>
+              <div className={`flex items-center gap-2 text-[10px] ${themeClasses.textSecondary}`}>
                 <Briefcase className="w-3 h-3" />
                 <span>Fornecedores</span>
               </div>
-              <span className="text-lg font-bold text-white">{totalSuppliers}</span>
+              <span className={`text-lg font-bold ${themeClasses.textPrimary}`}>{totalSuppliers}</span>
             </div>
             
-            <div className="bg-slate-900/60 p-3 rounded-xl border border-white/5">
-              <div className="flex items-center gap-2 text-slate-400 text-[10px]">
+            <div className={`p-3 rounded-xl border ${themeClasses.subCardBg} ${themeClasses.subCardBorder}`}>
+              <div className={`flex items-center gap-2 text-[10px] ${themeClasses.textSecondary}`}>
                 <Package className="w-3 h-3" />
                 <span>Produtos</span>
               </div>
-              <span className="text-lg font-bold text-white">{totalProducts}</span>
+              <span className={`text-lg font-bold ${themeClasses.textPrimary}`}>{totalProducts}</span>
             </div>
             
-            <div className="bg-slate-900/60 p-3 rounded-xl border border-white/5">
-              <div className="flex items-center gap-2 text-slate-400 text-[10px]">
+            <div className={`p-3 rounded-xl border ${themeClasses.subCardBg} ${themeClasses.subCardBorder}`}>
+              <div className={`flex items-center gap-2 text-[10px] ${themeClasses.textSecondary}`}>
                 <FileCheck className="w-3 h-3" />
                 <span>Notas Fiscais</span>
               </div>
-              <span className="text-lg font-bold text-white">{authorizedFiscalCount}</span>
+              <span className={`text-lg font-bold ${themeClasses.textPrimary}`}>{authorizedFiscalCount}</span>
             </div>
           </div>
           
-          <div className="mt-3 p-3 bg-slate-900/60 rounded-xl border border-white/5">
+          <div className={`mt-3 p-3 rounded-xl border ${themeClasses.subCardBg} ${themeClasses.subCardBorder}`}>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400">Valor Faturado (Mês)</span>
+              <span className={themeClasses.textSecondary}>Valor Faturado (Mês)</span>
               <span className="font-bold text-emerald-400 font-mono">
                 R$ {totalFiscalValue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs mt-1">
-              <span className="text-slate-400">CBS + IBS</span>
+              <span className={themeClasses.textSecondary}>CBS + IBS</span>
               <span className="font-bold text-cyan-400 font-mono">
                 R$ {(totalCBS + totalIBS).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
               </span>
@@ -485,13 +523,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Projeção de Fluxo */}
-        <div className="bg-slate-950/60 border border-white/5 p-5 rounded-2xl shadow-xl">
+        <div className={`${themeClasses.cardBg} border ${themeClasses.cardBorder} p-5 rounded-2xl shadow-xl transition-colors duration-300`}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className={`text-sm font-bold flex items-center gap-2 ${themeClasses.textPrimary}`}>
               <LineChart className="w-4 h-4 text-cyan-400" />
               Projeção de Fluxo de Caixa
             </h3>
-            <span className="text-[10px] text-slate-500 font-mono">Visão 90 dias</span>
+            <span className={`text-[10px] font-mono ${themeClasses.textMuted}`}>Visão 90 dias</span>
           </div>
           
           <div className="space-y-3">
@@ -502,9 +540,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
               const isPositive = item.net >= 0;
 
               return (
-                <div key={idx} className="bg-slate-900/60 p-3 rounded-xl border border-white/5">
+                <div key={idx} className={`p-3 rounded-xl border ${themeClasses.subCardBg} ${themeClasses.subCardBorder}`}>
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-300">{item.period}</span>
+                    <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>{item.period}</span>
                     <span className={`font-mono ${isPositive ? "text-cyan-400" : "text-rose-400"}`}>
                       {isPositive ? "+" : ""}R$ {item.net.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
                     </span>
@@ -512,7 +550,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
                   <div className="space-y-1 mt-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-[9px] text-emerald-400 w-14 text-right font-mono">Entrada</span>
-                      <div className="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div className={`flex-1 h-2 rounded-full overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
                         <div className="bg-emerald-400 h-full rounded-full" style={{ width: `${inWidth}%` }}></div>
                       </div>
                       <span className="text-[9px] text-emerald-400 font-mono w-16 text-right">
@@ -521,7 +559,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-[9px] text-rose-400 w-14 text-right font-mono">Saída</span>
-                      <div className="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div className={`flex-1 h-2 rounded-full overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
                         <div className="bg-rose-400 h-full rounded-full" style={{ width: `${outWidth}%` }}></div>
                       </div>
                       <span className="text-[9px] text-rose-400 font-mono w-16 text-right">
@@ -536,74 +574,74 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
         </div>
 
         {/* Ações Rápidas */}
-        <div className="bg-slate-950/60 border border-white/5 p-5 rounded-2xl shadow-xl">
+        <div className={`${themeClasses.cardBg} border ${themeClasses.cardBorder} p-5 rounded-2xl shadow-xl transition-colors duration-300`}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className={`text-sm font-bold flex items-center gap-2 ${themeClasses.textPrimary}`}>
               <Rocket className="w-4 h-4 text-cyan-400" />
               Ações Estratégicas
             </h3>
-            <span className="text-[10px] text-slate-500 font-mono">Atalhos</span>
+            <span className={`text-[10px] font-mono ${themeClasses.textMuted}`}>Atalhos</span>
           </div>
           
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => onNavigateTab("financial")}
-              className="p-3 bg-slate-900/60 border border-white/5 rounded-xl text-left hover:bg-slate-800/50 transition-all group"
+              className={`p-3 border rounded-xl text-left transition-all ${themeClasses.subCardBg} ${themeClasses.subCardBorder} ${isDark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-100'}`}
             >
               <DollarSign className="w-5 h-5 text-cyan-400 mb-1" />
-              <div className="text-xs font-bold text-white">Financeiro</div>
-              <div className="text-[9px] text-slate-500">Contas pagar/receber</div>
+              <div className={`text-xs font-bold ${themeClasses.textPrimary}`}>Financeiro</div>
+              <div className={`text-[9px] ${themeClasses.textMuted}`}>Contas pagar/receber</div>
             </button>
             
             <button
               onClick={() => onNavigateTab("fiscal")}
-              className="p-3 bg-slate-900/60 border border-white/5 rounded-xl text-left hover:bg-slate-800/50 transition-all group"
+              className={`p-3 border rounded-xl text-left transition-all ${themeClasses.subCardBg} ${themeClasses.subCardBorder} ${isDark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-100'}`}
             >
               <FileCheck className="w-5 h-5 text-indigo-400 mb-1" />
-              <div className="text-xs font-bold text-white">Notas Fiscais</div>
-              <div className="text-[9px] text-slate-500">Emissão NF-e/NFC-e</div>
+              <div className={`text-xs font-bold ${themeClasses.textPrimary}`}>Notas Fiscais</div>
+              <div className={`text-[9px] ${themeClasses.textMuted}`}>Emissão NF-e/NFC-e</div>
             </button>
             
             <button
               onClick={() => onNavigateTab("contabil-dashboard")}
-              className="p-3 bg-slate-900/60 border border-white/5 rounded-xl text-left hover:bg-slate-800/50 transition-all group"
+              className={`p-3 border rounded-xl text-left transition-all ${themeClasses.subCardBg} ${themeClasses.subCardBorder} ${isDark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-100'}`}
             >
               <BarChart3 className="w-5 h-5 text-emerald-400 mb-1" />
-              <div className="text-xs font-bold text-white">Dashboard Contábil</div>
-              <div className="text-[9px] text-slate-500">DRE, Balanço, Impostos</div>
+              <div className={`text-xs font-bold ${themeClasses.textPrimary}`}>Dashboard Contábil</div>
+              <div className={`text-[9px] ${themeClasses.textMuted}`}>DRE, Balanço, Impostos</div>
             </button>
             
             <button
               onClick={() => onNavigateTab("reconciliation")}
-              className="p-3 bg-slate-900/60 border border-white/5 rounded-xl text-left hover:bg-slate-800/50 transition-all group"
+              className={`p-3 border rounded-xl text-left transition-all ${themeClasses.subCardBg} ${themeClasses.subCardBorder} ${isDark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-100'}`}
             >
               <ArrowLeftRight className="w-5 h-5 text-purple-400 mb-1" />
-              <div className="text-xs font-bold text-white">Conciliação</div>
-              <div className="text-[9px] text-slate-500">Auto-Match com IA</div>
+              <div className={`text-xs font-bold ${themeClasses.textPrimary}`}>Conciliação</div>
+              <div className={`text-[9px] ${themeClasses.textMuted}`}>Auto-Match com IA</div>
             </button>
             
             <button
               onClick={() => onNavigateTab("sped")}
-              className="p-3 bg-slate-900/60 border border-white/5 rounded-xl text-left hover:bg-slate-800/50 transition-all group"
+              className={`p-3 border rounded-xl text-left transition-all ${themeClasses.subCardBg} ${themeClasses.subCardBorder} ${isDark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-100'}`}
             >
               <FileArchive className="w-5 h-5 text-amber-400 mb-1" />
-              <div className="text-xs font-bold text-white">SPED ECD/ECF</div>
-              <div className="text-[9px] text-slate-500">Gerador de Arquivos RFB</div>
+              <div className={`text-xs font-bold ${themeClasses.textPrimary}`}>SPED ECD/ECF</div>
+              <div className={`text-[9px] ${themeClasses.textMuted}`}>Gerador de Arquivos RFB</div>
             </button>
             
             <button
               onClick={() => onNavigateTab("audit")}
-              className="p-3 bg-slate-900/60 border border-white/5 rounded-xl text-left hover:bg-slate-800/50 transition-all group"
+              className={`p-3 border rounded-xl text-left transition-all ${themeClasses.subCardBg} ${themeClasses.subCardBorder} ${isDark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-100'}`}
             >
               <ShieldCheck className="w-5 h-5 text-rose-400 mb-1" />
-              <div className="text-xs font-bold text-white">Auditoria</div>
-              <div className="text-[9px] text-slate-500">Trilha imutável</div>
+              <div className={`text-xs font-bold ${themeClasses.textPrimary}`}>Auditoria</div>
+              <div className={`text-[9px] ${themeClasses.textMuted}`}>Trilha imutável</div>
             </button>
           </div>
           
-          <div className="mt-3 p-3 bg-slate-900/60 border border-white/5 rounded-xl">
+          <div className={`mt-3 p-3 rounded-xl border ${themeClasses.subCardBg} ${themeClasses.subCardBorder}`}>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400 flex items-center gap-2">
+              <span className={`flex items-center gap-2 ${themeClasses.textSecondary}`}>
                 <Crown className="w-3 h-3 text-amber-400" />
                 Status do Sistema
               </span>
@@ -619,8 +657,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
       {/* ============================================================ */}
       {/* RODAPÉ */}
       {/* ============================================================ */}
-      <div className="bg-slate-950/60 border border-white/5 p-4 rounded-2xl shadow-xl">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
+      <div className={`${themeClasses.cardBg} border ${themeClasses.cardBorder} p-4 rounded-2xl shadow-xl transition-colors duration-300`}>
+        <div className={`flex flex-wrap items-center justify-between gap-2 text-[10px] ${themeClasses.textMuted}`}>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
