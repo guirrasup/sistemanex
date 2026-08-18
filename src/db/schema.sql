@@ -1,5 +1,5 @@
 -- =========================================================
--- NEXS ERP - DATABASE SCHEMA (PostgreSQL 16)
+-- NEX ERP - DATABASE SCHEMA (PostgreSQL 16)
 -- Complete Schema with UUIDs, Foreign Keys, and Indexes
 -- =========================================================
 

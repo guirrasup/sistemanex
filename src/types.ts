@@ -1,5 +1,5 @@
 /**
- * NEXS - Tipos e Interfaces do Sistema Completo de Bancos e Relacionamentos
+ * NEX - Tipos e Interfaces do Sistema Completo de Bancos e Relacionamentos
  */
 
 export type TaxRegime = 'simples' | 'presumed_profit' | 'actual_profit';

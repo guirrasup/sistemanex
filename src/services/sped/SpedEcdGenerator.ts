@@ -207,7 +207,7 @@ export class SpedEcdGenerator {
     return {
       tipo: '0180',
       codigo_identificacao: '1',
-      descricao: 'LANÇAMENTOS CONTÁBEIS NEXS ERP',
+      descricao: 'LANÇAMENTOS CONTÁBEIS NEX ERP',
       data_inicio: this.periodo.data_inicio.replace(/-/g, ''),
       data_fim: this.periodo.data_fim.replace(/-/g, ''),
     };
@@ -219,8 +219,8 @@ export class SpedEcdGenerator {
     return {
       tipo: 'I010',
       indicador_plano: '0',
-      codigo_plano: 'NEXS',
-      descricao_plano: 'PLANO DE CONTAS NEXS EMPRESARIAL',
+      codigo_plano: 'NEX',
+      descricao_plano: 'PLANO DE CONTAS NEX EMPRESARIAL',
       data_inicio: this.periodo.data_inicio.replace(/-/g, ''),
       data_fim: this.periodo.data_fim.replace(/-/g, ''),
     };
@@ -236,7 +236,7 @@ export class SpedEcdGenerator {
   private gerarRegistroI015(): SpedRegistroI015 {
     return {
       tipo: 'I015',
-      codigo_identificacao: 'NEXS001',
+      codigo_identificacao: 'NEX001',
     };
   }
 
@@ -577,7 +577,7 @@ export class SpedEcdGenerator {
     const config = CONTABIL_CONFIG_PADRAO;
     return {
       tipo: 'J930',
-      assinante_nome: config.assinante.nome || 'NEXS ENTERPRISE SISTEMAS',
+      assinante_nome: config.assinante.nome || 'NEX ENTERPRISE SISTEMAS',
       assinante_cpf: config.assinante.cpf.replace(/\D/g, '') || '12345678901',
       assinante_qualificacao: config.assinante.qualificacao || '01',
       codigo_assinatura: 'ASSINATURA_DIGITAL',
@@ -618,7 +618,7 @@ export class SpedEcdGenerator {
       tipo: 'I150',
       data_lancamento: hoje,
       codigo_historico: '1',
-      historico_complementar: 'LANÇAMENTO PADRÃO - NEXS ERP',
+      historico_complementar: 'LANÇAMENTO PADRÃO - NEX ERP',
       codigo_conta: '1.1.04',
       valor: 0,
       indicador_valor: 'D',
@@ -631,7 +631,7 @@ export class SpedEcdGenerator {
       tipo: 'I200',
       data_lancamento: hoje,
       codigo_historico: '1',
-      historico_complementar: 'LANÇAMENTO PADRÃO - NEXS ERP',
+      historico_complementar: 'LANÇAMENTO PADRÃO - NEX ERP',
       valor: 0,
       codigo_conta_debito: '1.1.04',
       codigo_conta_credito: '3.1.01',

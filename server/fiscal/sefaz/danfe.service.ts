@@ -37,7 +37,7 @@ export class DanfeService {
     <table class="header-table">
       <tr>
         <td style="width: 45%;">
-          <div class="title">${emitente?.razaoSocial || "NEXS GESTOR TECNOLOGIA SA"}</div>
+          <div class="title">${emitente?.razaoSocial || "NEX GESTOR TECNOLOGIA SA"}</div>
           <div class="subtitle">${emitente?.endereco.logradouro || "Av. Paulista"}, ${emitente?.endereco.numero || "1100"} - ${emitente?.endereco.nomeMunicipio || "São Paulo"}/${emitente?.endereco.uf || "SP"}</div>
           <div class="subtitle">CNPJ: ${emitente?.cnpj || "12.345.678/0001-90"} - IE: ${emitente?.inscricaoEstadual || "110.293.840.111"}</div>
         </td>

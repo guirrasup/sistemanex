@@ -43,7 +43,7 @@ export const CONTABIL_CONFIG_PADRAO: ContabilConfig = {
     email_contador: 'contador@empresa.com.br',
   },
   assinante: {
-    nome: 'NEXS ENTERPRISE SISTEMAS',
+    nome: 'NEX ENTERPRISE SISTEMAS',
     cpf: '000.000.000-00',
     qualificacao: '01',
   },

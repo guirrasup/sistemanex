@@ -21,7 +21,7 @@ export const ConfiguracoesView: React.FC = () => {
   const empresas = store.companies || [];
 
   const handleSalvarConfig = () => {
-    localStorage.setItem('nexs_contabil_config', JSON.stringify(config));
+    localStorage.setItem('nex_contabil_config', JSON.stringify(config));
     alert('Configurações salvas com sucesso!');
   };
 

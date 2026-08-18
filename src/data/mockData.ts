@@ -10,13 +10,13 @@ import {
 export const mockCompanies: Company[] = [
   {
     id: "comp-001",
-    legal_name: "NEXS Tecnologia e Soluções Logísticas S.A.",
-    trade_name: "NEXS Enterprise",
+    legal_name: "NEX Tecnologia e Soluções Logísticas S.A.",
+    trade_name: "NEX Enterprise",
     cnpj: "34.891.204/0001-92",
     state_registration: "110.492.381.112",
     municipal_registration: "8.912.401-0",
     tax_regime: "actual_profit", // Lucro Real
-    email: "financeiro@nexs.com.br",
+    email: "financeiro@nex.com.br",
     phone: "(11) 4003-8920",
     is_active: true,
     created_at: "2025-01-15T08:00:00Z",
@@ -134,7 +134,7 @@ export const mockUsers: AppUser[] = [
   {
     id: "user-001",
     company_id: "comp-001",
-    email: "carlos.silva@nexs.com.br",
+    email: "carlos.silva@nex.com.br",
     password_hash: "$2a$10$e812...",
     first_name: "Carlos",
     last_name: "Silva",
@@ -148,7 +148,7 @@ export const mockUsers: AppUser[] = [
   {
     id: "user-002",
     company_id: "comp-001",
-    email: "mariana.costa@nexs.com.br",
+    email: "mariana.costa@nex.com.br",
     password_hash: "$2a$10$p902...",
     first_name: "Mariana",
     last_name: "Costa",
@@ -231,7 +231,7 @@ export const mockFinancialDocuments: FinancialDocument[] = [
     document_type: "invoice",
     person_id: "pers-004", // Varejo Brasil
     document_number: "NF-9021",
-    description: "Fornecimento de Servidores NEXS Edge & Licenciamento Anual",
+    description: "Fornecimento de Servidores NEX Edge & Licenciamento Anual",
     issue_date: "2026-08-01",
     total_amount: 150000.00,
     category_id: "cat-001",
@@ -452,8 +452,8 @@ export const mockProducts: Product[] = [
   {
     id: "prod-001",
     company_id: "comp-001",
-    sku: "NEXS-SRV-EDGE01",
-    name: "Servidor NEXS Edge AI Industrial v2",
+    sku: "NEX-SRV-EDGE01",
+    name: "Servidor NEX Edge AI Industrial v2",
     description: "Servidor embarcado com aceleração de inferência para visão computacional",
     product_type: "product",
     ncm_code: "8471.50.10",
@@ -470,7 +470,7 @@ export const mockProducts: Product[] = [
   {
     id: "prod-002",
     company_id: "comp-001",
-    sku: "NEXS-MOD-IOT02",
+    sku: "NEX-MOD-IOT02",
     name: "Módulo Sensor Telemetria LoRaWAN/5G",
     description: "Módulo transceptor para monitoramento de frotas e estoques",
     product_type: "product",
@@ -512,7 +512,7 @@ export const mockLots: Lot[] = [
     id: "lot-001",
     product_id: "prod-001",
     lot_number: "LOT-2026-08A",
-    serial_number: "SN-NEXS-99210",
+    serial_number: "SN-NEX-99210",
     manufacture_date: "2026-07-15",
     expiration_date: "2031-07-15",
     received_at: "2026-07-25T14:30:00Z",
@@ -572,7 +572,7 @@ export const mockFiscalDocuments: FiscalDocument[] = [
     cbs_value: 13200.00, // Reforma Tributária CBS (8.8%)
     ibs_value: 26500.00, // Reforma Tributária IBS (17.7%)
     tax_regime: "actual_profit",
-    signer_certificate: "A1_NEXS_CERT_EXP2027",
+    signer_certificate: "A1_NEX_CERT_EXP2027",
     created_by: "user-001",
     created_at: "2026-08-01T10:00:00Z",
     updated_at: "2026-08-01T10:02:00Z"
@@ -610,7 +610,7 @@ export const mockTaxCalculations: TaxCalculation[] = [
     base_value: 150000.00,
     tax_rate: 0.088,
     tax_value: 13200.00,
-    rule_version: "NEXS-TAX-REFORMA-2026.1",
+    rule_version: "NEX-TAX-REFORMA-2026.1",
     calculated_at: "2026-08-01T10:00:00Z",
     calculated_by: "user-001"
   },
@@ -623,7 +623,7 @@ export const mockTaxCalculations: TaxCalculation[] = [
     base_value: 150000.00,
     tax_rate: 0.177,
     tax_value: 26500.00,
-    rule_version: "NEXS-TAX-REFORMA-2026.1",
+    rule_version: "NEX-TAX-REFORMA-2026.1",
     calculated_at: "2026-08-01T10:00:00Z",
     calculated_by: "user-001"
   }
@@ -690,7 +690,7 @@ export const mockPredictiveModelOutputs: PredictiveModelOutput[] = [
     prediction_interval_lower: 350000.00,
     prediction_interval_upper: 410000.00,
     features_used: { historical_conversion: 0.94, recurring_revenue: 120000 },
-    model_version: "NEXS-PREDICT-CASH-v3",
+    model_version: "NEX-PREDICT-CASH-v3",
     accuracy_score: 0.95,
     created_at: "2026-08-11T08:00:00Z"
   }
@@ -744,7 +744,7 @@ export const mockAuditLogs: AuditLog[] = [
     new_values: { status: "authorized", access_key: "35260834891204000192550010000090211004819201" },
     change_reason: "Emissão e autorização de NF-e junto à SEFAZ SP",
     ip_address: "187.102.44.12",
-    user_agent: "Mozilla/5.0 NEXS Web App v2.4",
+    user_agent: "Mozilla/5.0 NEX Web App v2.4",
     created_at: "2026-08-01T10:02:00Z"
   },
   {
@@ -757,7 +757,7 @@ export const mockAuditLogs: AuditLog[] = [
     new_values: { paid_amount: 75000.00, payment_method: "pix", installment_id: "inst-001" },
     change_reason: "Liquidação de parcela de recebimento via PIX",
     ip_address: "187.102.44.12",
-    user_agent: "Mozilla/5.0 NEXS Web App v2.4",
+    user_agent: "Mozilla/5.0 NEX Web App v2.4",
     created_at: "2026-08-10T15:20:00Z"
   }
 ];

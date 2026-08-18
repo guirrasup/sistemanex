@@ -12,8 +12,8 @@ export interface User {
 export function useAuth() {
   const [user, setUser] = useState<User | null>({
     id: "usr-demo-admin",
-    email: "admin@nexs.com.br",
-    name: "Gestor NEXS Admin",
+    email: "admin@nex.com.br",
+    name: "Gestor NEX Admin",
     role: "admin",
     companyId: "comp-001"
   });

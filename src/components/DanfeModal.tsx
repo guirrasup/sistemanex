@@ -154,7 +154,7 @@ export const DanfeModal: React.FC<DanfeModalProps> = ({ document: doc, onClose }
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>Assinatura Digital Certificado A1: {doc.signer_certificate}</span>
             </div>
-            <span>NEXS Fiscal Engine — Autorizado em {new Date(doc.issue_date).toLocaleString('pt-BR')}</span>
+            <span>NEX Fiscal Engine — Autorizado em {new Date(doc.issue_date).toLocaleString('pt-BR')}</span>
           </div>
         </div>
       </div>

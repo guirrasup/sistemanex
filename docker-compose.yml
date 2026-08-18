@@ -3,12 +3,12 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: nexs_postgres
+    container_name: nex_postgres
     restart: always
     environment:
-      POSTGRES_DB: nexs_erp
-      POSTGRES_USER: nexs_user
-      POSTGRES_PASSWORD: nexs_secure_pass_2026
+      POSTGRES_DB: nex_erp
+      POSTGRES_USER: nex_user
+      POSTGRES_PASSWORD: nex_secure_pass_2026
     ports:
       - "5432:5432"
     volumes:
@@ -17,7 +17,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: nexs_redis
+    container_name: nex_redis
     restart: always
     ports:
       - "6379:6379"
@@ -28,23 +28,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: nexs_app
+    container_name: nex_app
     restart: always
     ports:
       - "3000:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://nexs_user:nexs_secure_pass_2026@postgres:5432/nexs_erp
+      DATABASE_URL: postgresql://nex_user:nex_secure_pass_2026@postgres:5432/nex_erp
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: nexs-erp-secure-jwt-secret-key-2026
+      JWT_SECRET: nex-erp-secure-jwt-secret-key-2026
     depends_on:
       - postgres
       - redis
 
   nginx:
     image: nginx:alpine
-    container_name: nexs_nginx
+    container_name: nex_nginx
     restart: always
     ports:
       - "80:80"

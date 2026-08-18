@@ -2,7 +2,7 @@ import { FinancialService } from "../server/services/financial.service";
 
 // Simple test suite simulation for Financial Service
 async function runTests() {
-  console.log("🧪 Running NEXS Financial Service Rules Tests...");
+  console.log("🧪 Running NEX Financial Service Rules Tests...");
 
   // Test 1: Successful Settlement with sufficient balance
   try {

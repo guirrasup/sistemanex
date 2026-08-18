@@ -59,7 +59,7 @@ export const ReconciliationView: React.FC = () => {
       if (data.matchedSettlementId) {
         setSelectedTxId(targetTx.id);
         setSelectedSettleId(data.matchedSettlementId);
-        setAiReasoning(`IA NEXS: ${data.reasoning || "Correspondência identificada com " + Math.round((data.confidenceScore || 0.9) * 100) + "% de confiança."}`);
+        setAiReasoning(`IA NEX: ${data.reasoning || "Correspondência identificada com " + Math.round((data.confidenceScore || 0.9) * 100) + "% de confiança."}`);
       } else {
         setAiReasoning("Nenhum match com alta confiança encontrado automaticamente.");
       }

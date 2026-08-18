@@ -107,7 +107,7 @@ export default function App() {
       <footer className="h-8 bg-slate-950/80 border-t border-white/5 flex items-center px-6 justify-between text-[11px] text-slate-500 z-10 shrink-0 font-mono">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span>Sistema NEXS Enterprise Core Ativo — API Rest, Audit & Fiscal SEFAZ</span>
+          <span>Sistema NEX Enterprise Core Ativo — API Rest, Audit & Fiscal SEFAZ</span>
         </div>
         <div>Uma Verdade Só • ERP Gestão Financeira Completa</div>
       </footer>

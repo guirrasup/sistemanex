@@ -38,7 +38,7 @@ router.post("/ocr", requireRole(["admin", "financial_manager", "operator"]), asy
       });
     }
 
-    const prompt = `Você é o Motor de OCR do NEXS ERP. Analise o documento (${documentType || 'Nota Fiscal/Recibo'}) e extraia em JSON com:
+    const prompt = `Você é o Motor de OCR do NEX ERP. Analise o documento (${documentType || 'Nota Fiscal/Recibo'}) e extraia em JSON com:
 - legal_name: nome da empresa/fornecedor
 - cnpj: CNPJ ou CPF
 - document_number: número do documento
@@ -92,7 +92,7 @@ router.post("/reconcile-suggest", requireRole(["admin", "financial_manager", "op
     matchedSettlementId: bestCandidate?.id || null,
     confidenceScore: 0.92,
     matchingType: "exact_amount",
-    reasoning: "Match confirmado com tolerância de valor e favorecido pelo algoritmo inteligente NEXS."
+    reasoning: "Match confirmado com tolerância de valor e favorecido pelo algoritmo inteligente NEX."
   });
 });
 

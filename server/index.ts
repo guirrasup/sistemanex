@@ -55,6 +55,6 @@ export default app;
 
 if (process.env.RUN_STANDALONE === "true") {
   app.listen(PORT, () => {
-    logger.info(`🚀 NEXS Server running on port ${PORT}`);
+    logger.info(`🚀 NEX Server running on port ${PORT}`);
   });
 }

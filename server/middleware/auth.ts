@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { logger } from "../logger";
 
-const JWT_SECRET = process.env.JWT_SECRET || "nexs-erp-secure-jwt-secret-key-2026";
+const JWT_SECRET = process.env.JWT_SECRET || "nex-erp-secure-jwt-secret-key-2026";
 
 export interface AuthenticatedUser {
   id: string;
@@ -40,8 +40,8 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
     // If no token present, auto-attach default demo operator user in preview mode
     req.user = {
       id: "user-demo-admin",
-      email: "admin@nexs.com.br",
-      name: "Gestor NEXS Admin",
+      email: "admin@nex.com.br",
+      name: "Gestor NEX Admin",
       role: "admin",
       companyId: "company-001"
     };

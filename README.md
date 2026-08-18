@@ -1,4 +1,4 @@
-# NEXS Enterprise ERP
+# NEX Enterprise ERP
 
 ## Sistema de Gestão Financeira Completo e Inteligente
 
@@ -6,7 +6,7 @@
 
 ## Sumário Executivo
 
-O **NEXS Enterprise ERP** é uma plataforma de gestão financeira desenvolvida para empresas que buscam **controle total, governança e inteligência** em suas operações.
+O **NEX Enterprise ERP** é uma plataforma de gestão financeira desenvolvida para empresas que buscam **controle total, governança e inteligência** em suas operações.
 
 Com arquitetura moderna e segura, o sistema oferece um conjunto completo de ferramentas para gestão de contas a pagar e receber, emissão fiscal, conciliação bancária automatizada, leitura inteligente de documentos, obrigações fiscais (SPED ECD/ECF), relatórios contábeis completos e auditoria imutável.
 
@@ -363,7 +363,7 @@ Proteção robusta para seus dados:
 ## Suporte e Manutenção
 
 ### Canais de Suporte
-- E-mail: suporte@nexs.com.br
+- E-mail: suporte@nex.com.br
 - Chat in-app
 - Telefone: (11) 4003-8920
 - Portal de conhecimento
@@ -408,7 +408,7 @@ Proteção robusta para seus dados:
 
 ## Conclusão
 
-O **NEXS Enterprise ERP** é a solução completa para empresas que buscam **eficiência, governança e inteligência** em sua gestão financeira.
+O **NEX Enterprise ERP** é a solução completa para empresas que buscam **eficiência, governança e inteligência** em sua gestão financeira.
 
 Com recursos avançados de automação, conformidade fiscal, relatórios contábeis completos e inteligência artificial, o sistema permite que sua empresa **economize tempo, reduza custos e tome melhores decisões**.
 
@@ -416,11 +416,11 @@ Com recursos avançados de automação, conformidade fiscal, relatórios contáb
 
 ## Contato
 
-- **Site**: www.nexs.com.br
-- **E-mail**: contato@nexs.com.br
+- **Site**: www.nex.com.br
+- **E-mail**: contato@nex.com.br
 - **Telefone**: (11) 4003-8920
 - **Endereço**: Av. Paulista, 1100 - São Paulo - SP
 
 ---
 
-*NEXS Enterprise ERP - Uma Verdade Só*
+*NEX Enterprise ERP - Uma Verdade Só*

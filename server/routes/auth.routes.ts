@@ -17,7 +17,7 @@ router.post("/login", (req, res) => {
     const userPayload = {
       id: "usr-" + Math.floor(1000 + Math.random() * 9000),
       email,
-      name: email.split("@")[0].toUpperCase() || "Gestor NEXS",
+      name: email.split("@")[0].toUpperCase() || "Gestor NEX",
       role: "admin" as const,
       companyId: "comp-001"
     };

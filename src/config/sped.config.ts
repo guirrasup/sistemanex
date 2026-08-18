@@ -20,7 +20,7 @@ export const SPED_CONFIG = {
   },
   // Mensagens
   mensagens: {
-    historico_padrao: 'LANÇAMENTO CONTÁBIL - NEXS ERP',
-    observacao: 'Sistema NEXS Enterprise - Escrituração Contábil Digital',
+    historico_padrao: 'LANÇAMENTO CONTÁBIL - NEX ERP',
+    observacao: 'Sistema NEX Enterprise - Escrituração Contábil Digital',
   }
 };

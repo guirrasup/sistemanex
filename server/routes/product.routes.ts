@@ -12,7 +12,7 @@ router.get("/", requireRole(["admin", "financial_manager", "operator", "auditor"
       {
         id: "prod-001",
         sku: "SOFT-001",
-        name: "Licença Anual NEXS Gestor Financeiro",
+        name: "Licença Anual NEX Gestor Financeiro",
         category: "Software",
         unit_price: 1490.00,
         cost_price: 250.00,

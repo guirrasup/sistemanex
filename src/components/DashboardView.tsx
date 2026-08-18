@@ -70,7 +70,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateTab, onO
         <div>
           <div className="flex items-center gap-2 text-cyan-400 font-bold text-xs tracking-widest uppercase font-mono">
             <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span>NEXS COMMAND MATRIX</span>
+            <span>NEX COMMAND MATRIX</span>
           </div>
           <h1 className="text-2xl font-black text-white mt-1 tracking-tight">
             Visão Geral Executiva — {store.getActiveCompany().trade_name || store.getActiveCompany().legal_name}

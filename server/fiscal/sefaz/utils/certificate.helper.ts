@@ -40,7 +40,7 @@ export class CertificateHelper {
 
     return {
       cnpj,
-      commonName: `EMPRESA DEMO NEXS ERP LTDA:${cnpj}`,
+      commonName: `EMPRESA DEMO NEX ERP LTDA:${cnpj}`,
       issuer: "AC SERASA RFB v5 (ICP-Brasil)",
       validFrom,
       validTo,

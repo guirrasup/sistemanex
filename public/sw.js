@@ -1,4 +1,4 @@
-const CACHE_NAME = "nexs-erp-v1";
+const CACHE_NAME = "nex-erp-v1";
 const ASSETS_TO_CACHE = [
   "/",
   "/index.html",

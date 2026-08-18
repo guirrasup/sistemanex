@@ -120,7 +120,7 @@ export const OutboxAuditView: React.FC = () => {
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-1.5 text-white font-bold font-sans">
                             <User className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                            <span>Gestor NEXS Admin</span>
+                            <span>Gestor NEX Admin</span>
                           </div>
                           <div className="text-[10px] text-slate-400 font-mono">Role: admin</div>
                         </td>
@@ -245,7 +245,7 @@ export const OutboxAuditView: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase block font-bold">Usuário</span>
-                  <span className="text-slate-300">Gestor NEXS Admin ({selectedAuditLog.user_id})</span>
+                  <span className="text-slate-300">Gestor NEX Admin ({selectedAuditLog.user_id})</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase block font-bold">IP</span>

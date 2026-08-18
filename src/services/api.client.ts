@@ -1,21 +1,21 @@
-// NEXS Gestor Financeiro Frontend API Client
+// NEX Gestor Financeiro Frontend API Client
 
 const API_BASE_URL = "/api";
 
 export class ApiClient {
-  private static token: string | null = localStorage.getItem("nexs_jwt_token");
+  private static token: string | null = localStorage.getItem("nex_jwt_token");
 
   public static setToken(newToken: string | null) {
     this.token = newToken;
     if (newToken) {
-      localStorage.setItem("nexs_jwt_token", newToken);
+      localStorage.setItem("nex_jwt_token", newToken);
     } else {
-      localStorage.removeItem("nexs_jwt_token");
+      localStorage.removeItem("nex_jwt_token");
     }
   }
 
   public static getToken(): string | null {
-    return this.token || localStorage.getItem("nexs_jwt_token");
+    return this.token || localStorage.getItem("nex_jwt_token");
   }
 
   public static async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

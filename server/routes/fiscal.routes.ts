@@ -14,7 +14,7 @@ router.get("/invoices", requireRole(["admin", "financial_manager", "operator", "
         number: "10293",
         series: "1",
         issue_date: "2026-08-01T10:30:00Z",
-        issuer: "NEXS Gestor Tecnologia SA",
+        issuer: "NEX Gestor Tecnologia SA",
         recipient: "Distribuidora e Comércio Silva SA",
         total_value: 12500.00,
         icms_value: 1500.00,

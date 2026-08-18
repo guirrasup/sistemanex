@@ -115,7 +115,7 @@ export class NexsStore {
       new_values: newValues,
       change_reason: changeReason || `Ação ${action} executada em ${entityType}`,
       ip_address: "187.102.44.12",
-      user_agent: "NEXS Web Client",
+      user_agent: "NEX Web Client",
       created_at: new Date().toISOString()
     };
     this.auditLogs.unshift(newLog);
@@ -388,7 +388,7 @@ export class NexsStore {
       cbs_value: totalCBS,
       ibs_value: totalIBS,
       tax_regime: this.getActiveCompany().tax_regime,
-      signer_certificate: "A1_NEXS_CERT_ACTIVE",
+      signer_certificate: "A1_NEX_CERT_ACTIVE",
       created_by: this.currentUser.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()

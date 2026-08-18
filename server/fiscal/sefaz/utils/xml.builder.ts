@@ -125,7 +125,7 @@ export class XmlBuilder {
       <indFinal>1</indFinal>
       <indPres>1</indPres>
       <procEmi>0</procEmi>
-      <verProc>NEXS_ERP_v2.5</verProc>
+      <verProc>NEX_ERP_v2.5</verProc>
     </ide>
     <emit>
       <CNPJ>${payload.emitente.cnpj.replace(/\D/g, "")}</CNPJ>

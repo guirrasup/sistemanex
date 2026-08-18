@@ -48,7 +48,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    logger.info(`🚀 NEXS ERP Enterprise Server running on http://0.0.0.0:${PORT}`);
+    logger.info(`🚀 NEX ERP Enterprise Server running on http://0.0.0.0:${PORT}`);
   });
 }
 

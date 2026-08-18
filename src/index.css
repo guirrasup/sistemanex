@@ -1,1 +1,101 @@
+/* src/index.css */
+
 @import "tailwindcss";
+
+/* ===== CONFIGURAÇÕES GLOBAIS ===== */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden !important;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  overscroll-behavior: none;
+  background: #020617;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ================================================================ */
+/* CORREÇÃO DE Z-INDEX - HEADER E DROPDOWNS                        */
+/* ================================================================ */
+
+/* HEADER - Deve ficar acima de tudo */
+header {
+  z-index: 9999 !important;
+  position: sticky !important;
+  top: 0 !important;
+}
+
+/* DROPDOWNS DO HEADER - Acima do header e de tudo */
+header .absolute {
+  z-index: 99999 !important;
+}
+
+/* OVERLAY - Abaixo dos dropdowns, acima do conteúdo */
+.fixed.inset-0 {
+  z-index: 9998 !important;
+}
+
+/* SIDEBAR - Abaixo do header */
+aside {
+  z-index: 100 !important;
+}
+
+/* CONTEÚDO PRINCIPAL - Abaixo do sidebar */
+main {
+  z-index: 50 !important;
+}
+
+/* FOOTER - Abaixo de tudo */
+footer {
+  z-index: 40 !important;
+}
+
+/* ================================================================ */
+/* CORREÇÃO ESPECÍFICA PARA DROPDOWNS DO HEADER                    */
+/* ================================================================ */
+
+/* Garantir que qualquer elemento com classe de dropdown fique no topo */
+.dropdown-menu,
+[class*="absolute"][class*="top-full"] {
+  z-index: 99999 !important;
+}
+
+/* Garantir que o overlay de fundo fique abaixo dos dropdowns */
+[class*="fixed"][class*="inset-0"] {
+  z-index: 9998 !important;
+}
+
+/* ================================================================ */
+/* SCROLLBAR CUSTOMIZADA                                            */
+/* ================================================================ */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(6, 182, 212, 0.3);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.5);
+}

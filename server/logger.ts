@@ -1,4 +1,4 @@
-// Structured Logger for NEXS Production Backend Engine
+// Structured Logger for NEX Production Backend Engine
 
 export interface LogEntry {
   timestamp: string;

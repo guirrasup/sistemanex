@@ -60,7 +60,7 @@ export const SpedView: React.FC = () => {
       setGenerated(true);
 
       // Salvar no localStorage para preview
-      localStorage.setItem(`nexs_sped_${tipoSped}_${empresaSelecionada}`, content);
+      localStorage.setItem(`nex_sped_${tipoSped}_${empresaSelecionada}`, content);
 
     } catch (err: any) {
       setError(err.message || 'Erro ao gerar arquivo SPED');

@@ -8,3 +8,4 @@ coverage/
 !.env.example
 allcode.bat
 estrutura_src.txt
+.codeboarding

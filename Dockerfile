@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for NEXS Gestor Financeiro Enterprise
+# Multi-stage Dockerfile for NEX Gestor Financeiro Enterprise
 FROM node:20-alpine AS builder
 
 WORKDIR /app

@@ -1,4 +1,4 @@
-// Prisma Schema for NEXS Gestor Financeiro Enterprise
+// Prisma Schema for NEX Gestor Financeiro Enterprise
 generator client {
   provider = "prisma-client-js"
 }
