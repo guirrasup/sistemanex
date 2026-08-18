@@ -159,11 +159,15 @@ export class SpedEcfGenerator {
       .filter(d => d.direction === 'receivable' && d.category_id === 'cat-002')
       .reduce((acc, d) => acc + d.total_amount, 0);
 
+    const outrasReceitas = docs
+      .filter(d => d.direction === 'receivable' && !['cat-001', 'cat-002'].includes(d.category_id || ''))
+      .reduce((acc, d) => acc + d.total_amount, 0);
+
     return {
       tipo: 'C040',
       codigo_receita: '101',
       descricao_receita: 'RECEITA BRUTA DE VENDAS DE MERCADORIAS',
-      valor: receitasMercadorias,
+      valor: receitasMercadorias + receitasServicos + outrasReceitas,
       indicador_ajuste: '0',
     };
   }
@@ -185,7 +189,7 @@ export class SpedEcfGenerator {
 
     const receitaLiquida = receitaBruta - deducoes;
     const lucroBruto = receitaLiquida - (despesas * 0.5);
-    const lucroOperacional = lucroBruto - despesas * 0.3;
+    const lucroOperacional = lucroBruto - (despesas * 0.3);
 
     return {
       tipo: 'C100',
@@ -440,56 +444,123 @@ export class SpedEcfGenerator {
     };
   }
 
+  // ===== REGISTROS PADRÃO QUANDO NÃO HÁ DADOS =====
+
+  private gerarRegistroC040Padrao(): SpedRegistroC040 {
+    return {
+      tipo: 'C040',
+      codigo_receita: '101',
+      descricao_receita: 'RECEITA BRUTA DE VENDAS DE MERCADORIAS',
+      valor: 0,
+      indicador_ajuste: '0',
+    };
+  }
+
+  private gerarRegistroC100Padrao(): SpedRegistroC100 {
+    return {
+      tipo: 'C100',
+      codigo_receita: '101',
+      valor_receita_bruta: 0,
+      valor_deducao: 0,
+      valor_receita_liquida: 0,
+      valor_custo: 0,
+      valor_lucro_bruto: 0,
+      valor_despesas_operacionais: 0,
+      valor_resultado_operacional: 0,
+      valor_resultado_antes_ir: 0,
+    };
+  }
+
+  private gerarRegistroM100Padrao(): SpedRegistroM100 {
+    return {
+      tipo: 'M100',
+      codigo_conta: '1.1.04',
+      valor_debito: 0,
+      valor_credito: 0,
+      saldo: 0,
+    };
+  }
+
   // ===== MÉTODO PRINCIPAL =====
 
   public generate(): string {
-    this.registros = [];
-    this.contadorLinhas = 0;
+    try {
+      const company = this.getCompany();
+      const docs = this.getFinancialDocuments();
 
-    // === BLOCO 0: ABERTURA ===
-    this.addRegistro(this.gerarRegistro0000());
+      if (!company) {
+        throw new Error('Empresa não encontrada');
+      }
 
-    // === BLOCO C: IRPJ ===
-    this.addRegistro(this.gerarRegistroC001());
-    this.addRegistro(this.gerarRegistroC010());
-    this.addRegistro(this.gerarRegistroC040());
-    this.addRegistro(this.gerarRegistroC100());
-    this.addRegistro(this.gerarRegistroC200());
-    this.addRegistro(this.gerarRegistroC300());
-    this.addRegistro(this.gerarRegistroC400());
-    this.addRegistro(this.gerarRegistroC500());
+      this.registros = [];
+      this.contadorLinhas = 0;
 
-    // === BLOCO E: CSLL ===
-    this.addRegistro(this.gerarRegistroE001());
-    this.addRegistro(this.gerarRegistroE010());
-    this.addRegistro(this.gerarRegistroE100());
+      // === BLOCO 0: ABERTURA ===
+      this.addRegistro(this.gerarRegistro0000());
 
-    // === BLOCO M: APURAÇÃO ===
-    this.addRegistro(this.gerarRegistroM001());
-    this.addRegistro(this.gerarRegistroM100());
-    this.addRegistro(this.gerarRegistroM200());
-    this.addRegistro(this.gerarRegistroM300());
-    this.addRegistro(this.gerarRegistroM350());
+      // === BLOCO C: IRPJ ===
+      this.addRegistro(this.gerarRegistroC001());
+      this.addRegistro(this.gerarRegistroC010());
+      
+      if (docs.length > 0) {
+        this.addRegistro(this.gerarRegistroC040());
+        this.addRegistro(this.gerarRegistroC100());
+        this.addRegistro(this.gerarRegistroC200());
+        this.addRegistro(this.gerarRegistroC300());
+        this.addRegistro(this.gerarRegistroC400());
+        this.addRegistro(this.gerarRegistroC500());
+      } else {
+        this.addRegistro(this.gerarRegistroC040Padrao());
+        this.addRegistro(this.gerarRegistroC100Padrao());
+        this.addRegistro(this.gerarRegistroC200());
+        this.addRegistro(this.gerarRegistroC300());
+        this.addRegistro(this.gerarRegistroC400());
+        this.addRegistro(this.gerarRegistroC500());
+      }
 
-    // === BLOCO P: PATRIMÔNIO LÍQUIDO ===
-    this.addRegistro(this.gerarRegistroP001());
-    this.addRegistro(this.gerarRegistroP010());
-    this.addRegistro(this.gerarRegistroP100());
-    this.addRegistro(this.gerarRegistroP150());
+      // === BLOCO E: CSLL ===
+      this.addRegistro(this.gerarRegistroE001());
+      this.addRegistro(this.gerarRegistroE010());
+      this.addRegistro(this.gerarRegistroE100());
 
-    // === ENCERRAMENTO ===
-    const totalLinhas = this.registros.length + 1;
-    this.addRegistro({
-      tipo: '9990',
-      quantidade_linhas: totalLinhas,
-    } as SpedRegistro9990);
+      // === BLOCO M: APURAÇÃO ===
+      this.addRegistro(this.gerarRegistroM001());
+      
+      if (docs.length > 0) {
+        this.addRegistro(this.gerarRegistroM100());
+        this.addRegistro(this.gerarRegistroM200());
+        this.addRegistro(this.gerarRegistroM300());
+        this.addRegistro(this.gerarRegistroM350());
+      } else {
+        this.addRegistro(this.gerarRegistroM100Padrao());
+        this.addRegistro(this.gerarRegistroM200());
+        this.addRegistro(this.gerarRegistroM300());
+        this.addRegistro(this.gerarRegistroM350());
+      }
 
-    this.addRegistro({
-      tipo: '9999',
-      quantidade_linhas: totalLinhas,
-    } as SpedRegistro9999);
+      // === BLOCO P: PATRIMÔNIO LÍQUIDO ===
+      this.addRegistro(this.gerarRegistroP001());
+      this.addRegistro(this.gerarRegistroP010());
+      this.addRegistro(this.gerarRegistroP100());
+      this.addRegistro(this.gerarRegistroP150());
 
-    return this.registros.join('\n');
+      // === ENCERRAMENTO ===
+      const totalLinhas = this.registros.length + 1;
+      this.addRegistro({
+        tipo: '9990',
+        quantidade_linhas: totalLinhas,
+      } as SpedRegistro9990);
+
+      this.addRegistro({
+        tipo: '9999',
+        quantidade_linhas: totalLinhas,
+      } as SpedRegistro9999);
+
+      return this.registros.join('\n');
+    } catch (error: any) {
+      console.error('Erro ao gerar ECF:', error);
+      throw new Error(`Falha ao gerar ECF: ${error.message}`);
+    }
   }
 
   public generateAndSave(filePath: string): void {

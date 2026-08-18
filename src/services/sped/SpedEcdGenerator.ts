@@ -46,6 +46,7 @@ import {
 import { PeriodoConfig } from '../../config/periodo.config';
 import { SPED_CONFIG } from '../../config/sped.config';
 import { PLANO_REFERENCIAL_SPED, mapearContaParaReferencial } from '../contabil/PlanoContasReferencial';
+import { CONTABIL_CONFIG_PADRAO } from '../../config/contabil.config';
 
 export interface SpedEcdOptions {
   companyId: string;
@@ -572,7 +573,8 @@ export class SpedEcdGenerator {
   }
 
   private gerarRegistroJ930(): SpedRegistroJ930 {
-    const config = require('../../config/contabil.config').getContabilConfig();
+    // Usar import estático em vez de require
+    const config = CONTABIL_CONFIG_PADRAO;
     return {
       tipo: 'J930',
       assinante_nome: config.assinante.nome || 'NEXS ENTERPRISE SISTEMAS',
@@ -584,7 +586,8 @@ export class SpedEcdGenerator {
   }
 
   private gerarRegistroJ935(): SpedRegistroJ935 {
-    const config = require('../../config/contabil.config').getContabilConfig();
+    // Usar import estático em vez de require
+    const config = CONTABIL_CONFIG_PADRAO;
     return {
       tipo: 'J935',
       nome_contador: config.empresa.nome_contador || 'CONTADOR RESPONSÁVEL',
@@ -595,111 +598,179 @@ export class SpedEcdGenerator {
     };
   }
 
+  // ===== REGISTROS PADRÃO QUANDO NÃO HÁ DADOS =====
+
+  private gerarRegistro0150Padrao(): SpedRegistro0150 {
+    const company = this.getCompany();
+    return {
+      tipo: '0150',
+      codigo_participante: '0001',
+      nome_participante: company.legal_name || 'PARTICIPANTE PADRÃO',
+      codigo_pais: '1058',
+      cnpj_cpf: company.cnpj.replace(/\D/g, '') || '00000000000000',
+      codigo_qualificacao: '00',
+    };
+  }
+
+  private gerarRegistroI150Padrao(): SpedRegistroI150 {
+    const hoje = new Date().toISOString().replace(/-/g, '').slice(0, 8);
+    return {
+      tipo: 'I150',
+      data_lancamento: hoje,
+      codigo_historico: '1',
+      historico_complementar: 'LANÇAMENTO PADRÃO - NEXS ERP',
+      codigo_conta: '1.1.04',
+      valor: 0,
+      indicador_valor: 'D',
+    };
+  }
+
+  private gerarRegistroI200Padrao(): SpedRegistroI200 {
+    const hoje = new Date().toISOString().replace(/-/g, '').slice(0, 8);
+    return {
+      tipo: 'I200',
+      data_lancamento: hoje,
+      codigo_historico: '1',
+      historico_complementar: 'LANÇAMENTO PADRÃO - NEXS ERP',
+      valor: 0,
+      codigo_conta_debito: '1.1.04',
+      codigo_conta_credito: '3.1.01',
+    };
+  }
+
   // ===== MÉTODO PRINCIPAL =====
 
   public generate(): string {
-    const company = this.getCompany();
-    const accounts = this.getFinancialAccounts();
-    const people = this.getPeople();
-    const docs = this.getFinancialDocuments();
+    try {
+      const company = this.getCompany();
+      const accounts = this.getFinancialAccounts();
+      const people = this.getPeople();
+      const docs = this.getFinancialDocuments();
 
-    this.registros = [];
-    this.contadorLinhas = 0;
-
-    // === BLOCO 0: ABERTURA ===
-    this.addRegistro(this.gerarRegistro0000());
-    this.addRegistro(this.gerarRegistro0001());
-    this.addRegistro(this.gerarRegistro0007());
-    this.addRegistro(this.gerarRegistro0020());
-
-    people.forEach(p => {
-      this.addRegistro(this.gerarRegistro0150(p));
-    });
-
-    this.addRegistro(this.gerarRegistro0180());
-
-    // === BLOCO I: PLANO DE CONTAS ===
-    this.addRegistro(this.gerarRegistroI010());
-    this.addRegistro(this.gerarRegistroI012());
-    this.addRegistro(this.gerarRegistroI015());
-
-    accounts.forEach(conta => {
-      this.addRegistro(this.gerarRegistroI020(conta));
-      this.addRegistro(this.gerarRegistroI030(conta));
-
-      if (this.incluirSaldosIniciais) {
-        this.addRegistro(this.gerarRegistroI050(conta));
-        this.addRegistro(this.gerarRegistroI075(conta));
+      if (!company) {
+        throw new Error('Empresa não encontrada');
       }
 
-      this.addRegistro(this.gerarRegistroI100(conta));
-    });
+      if (accounts.length === 0) {
+        throw new Error('Nenhuma conta contábil encontrada. Cadastre pelo menos uma conta.');
+      }
 
-    // === BLOCO I: LANÇAMENTOS ===
-    if (this.incluirLancamentos) {
-      docs.forEach(doc => {
-        this.addRegistro(this.gerarRegistroI150(doc));
-        this.addRegistro(this.gerarRegistroI157(doc, doc.financial_account_id || '1.1.99.999', Math.abs(doc.total_amount), doc.direction === 'receivable' ? 'D' : 'C'));
-        this.addRegistro(this.gerarRegistroI200(doc));
-        this.addRegistro(this.gerarRegistroI250(
-          doc.direction === 'receivable' ? '1.1.04' : '4.5.01',
-          Math.abs(doc.total_amount),
-          doc.direction === 'receivable' ? 'D' : 'C'
-        ));
+      this.registros = [];
+      this.contadorLinhas = 0;
+
+      // === BLOCO 0: ABERTURA ===
+      this.addRegistro(this.gerarRegistro0000());
+      this.addRegistro(this.gerarRegistro0001());
+      this.addRegistro(this.gerarRegistro0007());
+      this.addRegistro(this.gerarRegistro0020());
+
+      if (people.length > 0) {
+        people.forEach(p => {
+          this.addRegistro(this.gerarRegistro0150(p));
+        });
+      } else {
+        this.addRegistro(this.gerarRegistro0150Padrao());
+      }
+
+      this.addRegistro(this.gerarRegistro0180());
+
+      // === BLOCO I: PLANO DE CONTAS ===
+      this.addRegistro(this.gerarRegistroI010());
+      this.addRegistro(this.gerarRegistroI012());
+      this.addRegistro(this.gerarRegistroI015());
+
+      accounts.forEach(conta => {
+        this.addRegistro(this.gerarRegistroI020(conta));
+        this.addRegistro(this.gerarRegistroI030(conta));
+
+        if (this.incluirSaldosIniciais) {
+          this.addRegistro(this.gerarRegistroI050(conta));
+          this.addRegistro(this.gerarRegistroI075(conta));
+        }
+
+        this.addRegistro(this.gerarRegistroI100(conta));
       });
 
-      // Saldos diários e mensais
-      const datas = [...new Set(docs.map(d => d.issue_date))].sort();
-      datas.forEach(data => {
-        const docsData = docs.filter(d => d.issue_date === data);
-        const totalDia = docsData.reduce((acc, d) => {
-          const valor = d.direction === 'receivable' ? d.total_amount : -d.total_amount;
-          return acc + valor;
-        }, 0);
-
-        accounts.forEach(conta => {
-          const totalConta = docsData
-            .filter(d => d.financial_account_id === conta.id)
-            .reduce((acc, d) => {
-              const valor = d.direction === 'receivable' ? d.total_amount : -d.total_amount;
-              return acc + valor;
-            }, 0);
-
-          if (totalConta !== 0) {
-            this.addRegistro(this.gerarRegistroI300(data, conta.code, totalConta));
-          }
+      // === BLOCO I: LANÇAMENTOS ===
+      if (this.incluirLancamentos && docs.length > 0) {
+        docs.forEach(doc => {
+          this.addRegistro(this.gerarRegistroI150(doc));
+          this.addRegistro(
+            this.gerarRegistroI157(
+              doc,
+              doc.financial_account_id || '1.1.99.999',
+              Math.abs(doc.total_amount),
+              doc.direction === 'receivable' ? 'D' : 'C'
+            )
+          );
+          this.addRegistro(this.gerarRegistroI200(doc));
+          this.addRegistro(
+            this.gerarRegistroI250(
+              doc.direction === 'receivable' ? '1.1.04' : '4.5.01',
+              Math.abs(doc.total_amount),
+              doc.direction === 'receivable' ? 'D' : 'C'
+            )
+          );
         });
 
-        this.addRegistro(this.gerarRegistroI310(data, '1.1.04', totalDia));
-      });
+        const datas = [...new Set(docs.map(d => d.issue_date))].sort();
+        datas.forEach(data => {
+          const docsData = docs.filter(d => d.issue_date === data);
+          const totalDia = docsData.reduce((acc, d) => {
+            const valor = d.direction === 'receivable' ? d.total_amount : -d.total_amount;
+            return acc + valor;
+          }, 0);
+
+          accounts.forEach(conta => {
+            const totalConta = docsData
+              .filter(d => d.financial_account_id === conta.id)
+              .reduce((acc, d) => {
+                const valor = d.direction === 'receivable' ? d.total_amount : -d.total_amount;
+                return acc + valor;
+              }, 0);
+
+            if (totalConta !== 0) {
+              this.addRegistro(this.gerarRegistroI300(data, conta.code, totalConta));
+            }
+          });
+
+          this.addRegistro(this.gerarRegistroI310(data, '1.1.04', totalDia));
+        });
+      } else if (this.incluirLancamentos && docs.length === 0) {
+        this.addRegistro(this.gerarRegistroI150Padrao());
+        this.addRegistro(this.gerarRegistroI200Padrao());
+      }
+
+      // === BLOCO J: DEMONSTRAÇÕES ===
+      this.addRegistro(this.gerarRegistroJ005());
+      this.addRegistro(this.gerarRegistroJ015());
+      this.addRegistro(this.gerarRegistroJ020());
+      this.addRegistro(this.gerarRegistroJ050());
+      this.addRegistro(this.gerarRegistroJ051());
+      this.addRegistro(this.gerarRegistroJ100());
+      this.addRegistro(this.gerarRegistroJ150());
+      this.addRegistro(this.gerarRegistroJ210());
+      this.addRegistro(this.gerarRegistroJ215());
+      this.addRegistro(this.gerarRegistroJ930());
+      this.addRegistro(this.gerarRegistroJ935());
+
+      // === ENCERRAMENTO ===
+      const totalLinhas = this.registros.length + 1;
+      this.addRegistro({
+        tipo: '9990',
+        quantidade_linhas: totalLinhas,
+      } as SpedRegistro9990);
+
+      this.addRegistro({
+        tipo: '9999',
+        quantidade_linhas: totalLinhas,
+      } as SpedRegistro9999);
+
+      return this.registros.join('\n');
+    } catch (error: any) {
+      console.error('Erro ao gerar ECD:', error);
+      throw new Error(`Falha ao gerar ECD: ${error.message}`);
     }
-
-    // === BLOCO J: DEMONSTRAÇÕES ===
-    this.addRegistro(this.gerarRegistroJ005());
-    this.addRegistro(this.gerarRegistroJ015());
-    this.addRegistro(this.gerarRegistroJ020());
-    this.addRegistro(this.gerarRegistroJ050());
-    this.addRegistro(this.gerarRegistroJ051());
-    this.addRegistro(this.gerarRegistroJ100());
-    this.addRegistro(this.gerarRegistroJ150());
-    this.addRegistro(this.gerarRegistroJ210());
-    this.addRegistro(this.gerarRegistroJ215());
-    this.addRegistro(this.gerarRegistroJ930());
-    this.addRegistro(this.gerarRegistroJ935());
-
-    // === ENCERRAMENTO ===
-    const totalLinhas = this.registros.length + 1;
-    this.addRegistro({
-      tipo: '9990',
-      quantidade_linhas: totalLinhas,
-    } as SpedRegistro9990);
-
-    this.addRegistro({
-      tipo: '9999',
-      quantidade_linhas: totalLinhas,
-    } as SpedRegistro9999);
-
-    return this.registros.join('\n');
   }
 
   public generateAndSave(filePath: string): void {

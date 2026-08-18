@@ -10,10 +10,9 @@ export class SpedValidator {
     const registros: string[] = [];
     const totalPorRegistro: Record<string, number> = {};
 
-    // Registros obrigatórios por tipo
-    const obrigatorios = tipo === 'ecd'
-      ? ['0000', '0001', 'I010', 'I050', 'I100', 'J005', 'J015', 'J020', 'J930', 'J935', '9990', '9999']
-      : ['0000', 'C001', 'C010', 'E001', 'E010', 'M001', 'M100', 'P001', 'P010', '9990', '9999'];
+    const obrigatoriosECD = ['0000', '0001', 'I010', 'I050', 'I100', 'J005', 'J015', 'J020', 'J930', 'J935', '9990', '9999'];
+    const obrigatoriosECF = ['0000', 'C001', 'C010', 'E001', 'E010', 'M001', 'M100', 'P001', 'P010', '9990', '9999'];
+    const obrigatorios = tipo === 'ecd' ? obrigatoriosECD : obrigatoriosECF;
 
     let linhaNumero = 0;
 
@@ -38,7 +37,6 @@ export class SpedValidator {
       registros.push(registro);
       totalPorRegistro[registro] = (totalPorRegistro[registro] || 0) + 1;
 
-      // Validação básica de campos
       if (campos.length < 2) {
         erros.push({
           linha: linhaNumero,
@@ -49,21 +47,32 @@ export class SpedValidator {
         });
       }
 
-      // Validação de registros específicos
       if (registro === '0000') {
         this.validarRegistro0000(campos, linhaNumero, erros);
       }
 
-      if (registro === 'I020' && tipo === 'ecd') {
-        this.validarRegistroI020(campos, linhaNumero, erros);
+      if (tipo === 'ecd') {
+        if (registro === 'I020') {
+          this.validarRegistroI020(campos, linhaNumero, erros);
+        }
+        if (registro === 'J930') {
+          this.validarRegistroJ930(campos, linhaNumero, erros);
+        }
       }
 
-      if (registro === 'J930' && tipo === 'ecd') {
-        this.validarRegistroJ930(campos, linhaNumero, erros);
+      if (tipo === 'ecf') {
+        if (registro === 'C100') {
+          this.validarRegistroC100(campos, linhaNumero, erros);
+        }
+        if (registro === 'E100') {
+          this.validarRegistroE100(campos, linhaNumero, erros);
+        }
+        if (registro === 'P010') {
+          this.validarRegistroP010(campos, linhaNumero, erros);
+        }
       }
     }
 
-    // Verifica registros obrigatórios
     for (const obrigatorio of obrigatorios) {
       if (!registros.includes(obrigatorio)) {
         erros.push({
@@ -76,12 +85,31 @@ export class SpedValidator {
       }
     }
 
-    // Avisos
-    if (linhas.length < 100) {
+    if (linhas.length < 10) {
       avisos.push({
         linha: 0,
         registro: 'Geral',
         mensagem: 'Arquivo com poucas linhas. Verifique se todos os dados foram incluídos.',
+      });
+    }
+
+    if (tipo === 'ecd' && !registros.includes('I020')) {
+      erros.push({
+        linha: 0,
+        registro: 'I020',
+        campo: 'registro',
+        erro: 'Nenhum registro I020 encontrado (plano de contas)',
+        sugericao: 'Adicione pelo menos uma conta contábil',
+      });
+    }
+
+    if (tipo === 'ecf' && !registros.includes('C001')) {
+      erros.push({
+        linha: 0,
+        registro: 'C001',
+        campo: 'registro',
+        erro: 'Registro C001 ausente (abertura do bloco C)',
+        sugericao: 'Adicione o registro C001',
       });
     }
 
@@ -101,8 +129,10 @@ export class SpedValidator {
     };
   }
 
+  // ===== VALIDAÇÃO REGISTRO 0000 (CORRIGIDA) =====
+
   private validarRegistro0000(campos: string[], linha: number, erros: any[]) {
-    if (campos.length < 20) {
+    if (campos.length < 6) {
       erros.push({
         linha: linha,
         registro: '0000',
@@ -110,19 +140,85 @@ export class SpedValidator {
         erro: 'Registro 0000 incompleto',
         sugericao: 'Verifique todos os campos obrigatórios do registro 0000',
       });
+      return;
     }
 
-    const cnpj = campos[4];
-    if (cnpj && cnpj.length !== 14) {
+    // CNPJ no índice 5
+    const cnpj = campos[5];
+    
+    if (!cnpj) {
       erros.push({
         linha: linha,
         registro: '0000',
         campo: 'cnpj',
-        erro: 'CNPJ inválido no registro 0000',
+        erro: 'CNPJ não informado no registro 0000',
+        sugericao: 'Preencha o CNPJ da empresa',
+      });
+      return;
+    }
+
+    const cnpjLimpo = cnpj.replace(/\D/g, '');
+    
+    if (cnpjLimpo.length !== 14) {
+      erros.push({
+        linha: linha,
+        registro: '0000',
+        campo: 'cnpj',
+        erro: `CNPJ inválido: "${cnpj}" (${cnpjLimpo.length} dígitos)`,
         sugericao: 'CNPJ deve ter 14 dígitos numéricos',
+      });
+      return;
+    }
+
+    if (!this.validarCNPJ(cnpjLimpo)) {
+      erros.push({
+        linha: linha,
+        registro: '0000',
+        campo: 'cnpj',
+        erro: `CNPJ com dígitos verificadores inválidos: ${cnpjLimpo}`,
+        sugericao: 'Verifique se o CNPJ está correto',
       });
     }
   }
+
+  // ===== VALIDAÇÃO CNPJ =====
+
+  private validarCNPJ(cnpj: string): boolean {
+    if (cnpj.length !== 14) return false;
+    if (/^(\d)\1+$/.test(cnpj)) return false;
+
+    let tamanho = 12;
+    let soma = 0;
+    let pos = 0;
+    const pesos = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+    for (let i = 0; i < tamanho; i++) {
+      soma += parseInt(cnpj[i]) * pesos[pos];
+      pos++;
+    }
+
+    let resto = soma % 11;
+    let digito = resto < 2 ? 0 : 11 - resto;
+    if (digito !== parseInt(cnpj[12])) return false;
+
+    tamanho = 13;
+    soma = 0;
+    pos = 0;
+    const pesos2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+    for (let i = 0; i < tamanho; i++) {
+      soma += parseInt(cnpj[i]) * pesos2[pos];
+      pos++;
+    }
+
+    resto = soma % 11;
+    digito = resto < 2 ? 0 : 11 - resto;
+    if (digito !== parseInt(cnpj[13])) return false;
+
+    return true;
+  }
+
+  // ===== OUTRAS VALIDAÇÕES =====
 
   private validarRegistroI020(campos: string[], linha: number, erros: any[]) {
     if (campos.length < 7) {
@@ -168,15 +264,40 @@ export class SpedValidator {
         sugericao: 'Verifique nome, CPF e CRC do assinante',
       });
     }
+  }
 
-    const cpf = campos[2];
-    if (cpf && cpf.length !== 11) {
+  private validarRegistroC100(campos: string[], linha: number, erros: any[]) {
+    if (campos.length < 11) {
       erros.push({
         linha: linha,
-        registro: 'J930',
-        campo: 'cpf',
-        erro: 'CPF do assinante inválido',
-        sugericao: 'CPF deve ter 11 dígitos numéricos',
+        registro: 'C100',
+        campo: 'quantidade_campos',
+        erro: 'Registro C100 incompleto',
+        sugericao: 'Verifique os campos do registro C100',
+      });
+    }
+  }
+
+  private validarRegistroE100(campos: string[], linha: number, erros: any[]) {
+    if (campos.length < 5) {
+      erros.push({
+        linha: linha,
+        registro: 'E100',
+        campo: 'quantidade_campos',
+        erro: 'Registro E100 incompleto',
+        sugericao: 'Verifique os campos do registro E100',
+      });
+    }
+  }
+
+  private validarRegistroP010(campos: string[], linha: number, erros: any[]) {
+    if (campos.length < 8) {
+      erros.push({
+        linha: linha,
+        registro: 'P010',
+        campo: 'quantidade_campos',
+        erro: 'Registro P010 incompleto',
+        sugericao: 'Verifique os campos do registro P010',
       });
     }
   }
