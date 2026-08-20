@@ -9,8 +9,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-nex_erp}
       POSTGRES_USER: ${POSTGRES_USER:-nex_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no arquivo .env}
-    ports:
-      - "5432:5432"
+    # Porta não publicada no host: só os containers da mesma rede (app) precisam acessar o Postgres.
+    # Se quiser conectar um cliente (ex: DBeaver) direto do seu computador, descomente as linhas abaixo
+    # e restrinja no firewall (ufw) o IP de origem permitido.
+    # ports:
+    #   - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./src/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
@@ -19,8 +22,9 @@ services:
     image: redis:7-alpine
     container_name: nex_redis
     restart: always
-    ports:
-      - "6379:6379"
+    # Idem: Redis só precisa ser alcançado pelo container "app" na rede interna do Compose.
+    # ports:
+    #   - "6379:6379"
     volumes:
       - redis_data:/data
 
@@ -30,8 +34,10 @@ services:
       dockerfile: Dockerfile
     container_name: nex_app
     restart: always
-    ports:
-      - "3000:3000"
+    # Não publica a porta 3000 no host: todo o tráfego externo passa pelo nginx (80/443),
+    # que já enxerga o app pela rede interna do Compose (proxy_pass http://app:3000).
+    # ports:
+    #   - "3000:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
