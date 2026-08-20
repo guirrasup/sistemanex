@@ -22,12 +22,16 @@ import { LivroDiarioView } from "./components/LivroDiarioView";
 import { LivroRazaoView } from "./components/LivroRazaoView";
 import { RelatoriosFiscaisView } from "./components/RelatoriosFiscaisView";
 import { ExportacaoView } from "./components/ExportacaoView";
+import { LoginView } from "./components/LoginView";
 import { useTheme } from "./contexts/ThemeContext";
+import { useAuth } from "./hooks/useAuth";
 
 export default function App() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  
+
+  const { user, isAuthenticated, loading: authLoading, actionLoading, error: authError, login, logout } = useAuth();
+
   const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
   const [, setSearchQuery] = useState("");
 
@@ -41,6 +45,20 @@ export default function App() {
   const handleOpenOcr = () => {
     setActiveTab("ocr");
   };
+
+  // Enquanto verifica se já existe uma sessão válida (token salvo), não mostra nada ainda
+  if (authLoading) {
+    return (
+      <div className={`h-screen w-screen flex items-center justify-center ${isDark ? 'bg-[#020617]' : 'bg-[#f1f5f9]'}`}>
+        <span className="text-sm opacity-60">Carregando...</span>
+      </div>
+    );
+  }
+
+  // Sem sessão válida: mostra a tela de login em vez do sistema
+  if (!isAuthenticated) {
+    return <LoginView onLogin={login} loading={actionLoading} error={authError} />;
+  }
 
   return (
     <div className={`h-screen w-screen flex flex-col font-sans antialiased relative overflow-hidden transition-colors duration-300 ${
@@ -58,6 +76,10 @@ export default function App() {
       {/* Top Header - Fixo */}
       <Header
         onSearch={setSearchQuery}
+        onLogout={logout}
+        userName={user?.name}
+        userEmail={user?.email}
+        userRole={user?.role}
         // REMOVIDOS: onOpenNewDoc e onOpenOcr
       />
 

@@ -37,15 +37,10 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
   const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
 
   if (!token) {
-    // If no token present, auto-attach default demo operator user in preview mode
-    req.user = {
-      id: "user-demo-admin",
-      email: "admin@nex.com.br",
-      name: "Gestor NEX Admin",
-      role: "admin",
-      companyId: "company-001"
-    };
-    return next();
+    // Antes, quando não havia token nenhum, um usuário admin fictício era anexado
+    // automaticamente aqui — ou seja, qualquer requisição sem login virava admin.
+    // Isso foi removido: sem token válido, o acesso é negado.
+    return res.status(401).json({ error: "Não autenticado. Faça login para continuar." });
   }
 
   try {
