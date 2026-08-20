@@ -3,6 +3,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Alpine não vem com OpenSSL instalado por padrão. Sem isso, o "prisma generate"
+# não consegue detectar a versão do OpenSSL e baixa o engine errado (daí o erro
+# "Unable to require libquery_engine-linux-musl.so.node ... libssl.so.1.1").
+RUN apk add --no-cache openssl
+
 COPY package*.json ./
 RUN npm ci
 
@@ -14,6 +19,10 @@ RUN npm run build
 FROM node:20-alpine AS runner
 
 WORKDIR /app
+
+# Mesmo motivo do estágio de build: o engine do Prisma também precisa do OpenSSL
+# presente em tempo de execução, senão falha ao carregar o .so do query engine.
+RUN apk add --no-cache openssl
 
 ENV NODE_ENV=production
 ENV PORT=3000

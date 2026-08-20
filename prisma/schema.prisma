@@ -1,6 +1,9 @@
 // Prisma Schema for NEX Gestor Financeiro Enterprise
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Garante que o engine certo (compatível com OpenSSL 3.x do Alpine) seja
+  // gerado e empacotado, independente de qual OpenSSL o build detectar.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
