@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 
@@ -10,8 +9,10 @@ import { checkDatabaseConnection } from "./server/config/database";
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Nota: este arquivo é bundlado para CommonJS (esbuild --format=cjs) no build de produção.
+// "import.meta.url" / fileURLToPath não funcionam nesse formato (não existe import.meta em
+// CJS), e derrubavam o processo com "ERR_INVALID_ARG_TYPE: path ... Received undefined".
+// __filename/__dirname não eram usados no restante do arquivo, então foram removidos.
 
 const PORT = 3000;
 
