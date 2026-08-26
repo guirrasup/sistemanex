@@ -1,0 +1,871 @@
+// C:\emissornfe\backend\prisma\schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum TipoPessoa {
+  PF
+  PJ
+  EXTERIOR
+}
+
+enum TipoCliente {
+  CLIENTE
+  FORNECEDOR
+  AMBOS
+}
+
+enum StatusDocumento {
+  RASCUNHO
+  PROCESSANDO
+  AUTORIZADA
+  REJEITADA
+  CANCELADA
+  SUBSTITUIDA
+}
+
+enum TipoAmbiente {
+  PRODUCAO
+  HOMOLOGACAO
+}
+
+enum StatusTitulo {
+  PENDENTE
+  PAGO
+  VENCIDO
+  CANCELADO
+}
+
+enum TipoTitulo {
+  RECEBER
+  PAGAR
+}
+
+enum CategoriaFinanceira {
+  VENDA_PRODUTOS
+  PRESTACAO_SERVICOS
+  COMPRA_MERCADORIAS
+  FOLHA_PAGAMENTO
+  IMPOSTOS_TRIBUTOS
+  ALUGUEL_INFRA
+  MARKETING_VENDAS
+  DESPESAS_ADMINISTRATIVAS
+  OUTRAS_RECEITAS
+  OUTRAS_DESPESAS
+}
+
+enum RegimeTributario {
+  SIMPLES_NACIONAL
+  SIMPLES_EXCESSO
+  NORMAL
+}
+
+enum TipoMovimentacaoEstoque {
+  ENTRADA_COMPRA
+  SAIDA_VENDA
+  SAIDA_NFE
+  AJUSTE_POSITIVO
+  AJUSTE_NEGATIVO
+  INVENTARIO
+}
+
+enum PerfilUsuario {
+  ADMIN
+  FISCAL
+  OPERADOR
+}
+
+// ============================================
+// TABELAS PRINCIPAIS
+// ============================================
+
+model Empresa {
+  id                    String    @id @default(cuid())
+  razaoSocial           String
+  nomeFantasia          String?
+  cnpj                  String    @unique
+  inscricaoEstadual     String?
+  inscricaoMunicipal    String?
+  cnae                  String?
+  regimeTributario      RegimeTributario @default(SIMPLES_NACIONAL)
+  aliquotaSimples       Float?    @default(6.0)
+  ambienteEmissao       TipoAmbiente @default(PRODUCAO)
+  
+  serieNfe              Int       @default(1)
+  proximoNumeroNfe      Int       @default(1)
+  serieNfse             Int       @default(1)
+  proximoNumeroNfse     Int       @default(1)
+  serieNfce             Int       @default(1)
+  proximoNumeroNfce     Int       @default(1)
+  serieCte              Int       @default(1)
+  proximoNumeroCte      Int       @default(1)
+  serieNfae             Int       @default(900)
+  proximoNumeroNfae     Int       @default(1)
+  
+  chavePixPadrao        String?
+  bancoPadrao           String?
+  optanteSimples        Boolean   @default(true)
+  optanteMEI            Boolean   @default(false)
+  
+  enderecoId            String    @unique
+  endereco              Endereco  @relation(fields: [enderecoId], references: [id])
+  
+  certificadoId         String?   @unique
+  certificado           CertificadoDigital? @relation(fields: [certificadoId], references: [id])
+  
+  usuarios              Usuario[]
+  clientes              Cliente[]
+  produtos              Produto[]
+  servicos              Servico[]
+  nfses                 NFSe[]
+  nfes                  NFe[]
+  nfces                 NFCe[]
+  ctes                  CTe[]
+  nfaes                 NFAe[]
+  titulos               TituloFinanceiro[]
+  movimentacoes         MovimentacaoEstoque[]
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("empresas")
+}
+
+model Endereco {
+  id                String    @id @default(cuid())
+  logradouro        String
+  numero            String
+  complemento       String?
+  bairro            String
+  codigoMunicipio   String
+  nomeMunicipio     String
+  uf                String    @db.Char(2)
+  cep               String    @db.Char(9)
+  telefone          String?
+  email             String?
+  codigoPais        String?   @default("1058")
+  nomePais          String?   @default("BRASIL")
+  
+  empresa           Empresa?
+  cliente           Cliente?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@map("enderecos")
+}
+
+model CertificadoDigital {
+  id                    String    @id @default(cuid())
+  tipo                  String    @default("A1")
+  nomeTitular           String
+  cnpjCpf               String
+  emissora              String
+  dataValidadeInicio    DateTime
+  dataValidadeFim       DateTime
+  diasRestantes         Int
+  arquivoCarregadoNome  String?
+  status                String    @default("VALIDO")
+  arquivoBase64         String?   @db.Text
+  
+  empresa               Empresa?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("certificados_digitais")
+}
+
+model Usuario {
+  id                String    @id @default(cuid())
+  nome              String
+  email             String    @unique
+  senhaHash         String    @db.Text
+  cargo             String?
+  perfil            PerfilUsuario @default(OPERADOR)
+  ativo             Boolean   @default(true)
+  ultimoLogin       DateTime?
+  
+  empresaId         String
+  empresa           Empresa   @relation(fields: [empresaId], references: [id])
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@map("usuarios")
+}
+
+model Cliente {
+  id                    String    @id @default(cuid())
+  tipo                  TipoCliente @default(CLIENTE)
+  tipoPessoa            TipoPessoa @default(PJ)
+  documento             String    @unique
+  razaoSocial           String
+  nomeFantasia          String?
+  inscricaoEstadual     String?
+  inscricaoMunicipal    String?
+  indicadorIE           String    @default("9")
+  email                 String?
+  telefone              String?
+  celularWhatsApp       String?
+  contato               String?
+  observacoes           String?
+  ativo                 Boolean   @default(true)
+  
+  enderecoId            String    @unique
+  endereco              Endereco  @relation(fields: [enderecoId], references: [id])
+  
+  empresaId             String
+  empresa               Empresa   @relation(fields: [empresaId], references: [id])
+  
+  titulos               TituloFinanceiro[]
+  
+  // 🔥 RELACIONAMENTOS INVERSOS
+  nfsesTomador          NFSe[]    @relation("NFSeTomador")
+  nfesDestinatario      NFe[]     @relation("NFeDestinatario")
+  nfcesConsumidor       NFCe[]    @relation("NFCeConsumidor")
+  cteRemetente          CTe[]     @relation("CTeRemetente")
+  cteDestinatario       CTe[]     @relation("CTeDestinatario")
+  nfaesDestinatario     NFAe[]    @relation("NFAeDestinatario")
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("clientes")
+}
+
+model Produto {
+  id                    String    @id @default(cuid())
+  codigo                String    @unique
+  codigoBarrasEAN       String?
+  descricao             String
+  categoria             String
+  unidade               String    @default("UN")
+  ncm                   String    @db.Char(8)
+  cest                  String?   @db.Char(7)
+  cfopPadrao            String    @default("5102")
+  origem                Int       @default(0)
+  
+  precoCusto            Float     @default(0)
+  margemLucro           Float     @default(0)
+  precoVenda            Float     @default(0)
+  
+  estoqueAtual          Float     @default(0)
+  estoqueMinimo         Float     @default(0)
+  
+  aliquotaICMS          Float     @default(18.0)
+  aliquotaPIS           Float     @default(1.65)
+  aliquotaCOFINS        Float     @default(7.6)
+  aliquotaIPI           Float     @default(0)
+  aliquotaIBS           Float     @default(0.1)
+  aliquotaCBS           Float     @default(0.9)
+  
+  ativo                 Boolean   @default(true)
+  
+  empresaId             String
+  empresa               Empresa   @relation(fields: [empresaId], references: [id])
+  
+  movimentacoes         MovimentacaoEstoque[]
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("produtos")
+}
+
+model Servico {
+  id                          String    @id @default(cuid())
+  codigoInterno               String    @unique
+  descricao                   String
+  codigoTributacaoNacional    String    @db.Char(6)
+  codigoTributacaoMunicipal   String?   @db.Char(4)
+  codigoNBS                   String?
+  
+  valorUnitario               Float     @default(0)
+  
+  aliquotaISS                 Float     @default(5.0)
+  retencaoISSPadrao           Boolean   @default(false)
+  
+  aliquotaPIS                 Float     @default(0.65)
+  aliquotaCOFINS              Float     @default(3.0)
+  aliquotaIRRF                Float     @default(0)
+  aliquotaCSLL                Float     @default(0)
+  aliquotaINSS                Float     @default(0)
+  
+  aliquotaIBS                 Float     @default(0.1)
+  aliquotaCBS                 Float     @default(0.9)
+  
+  ativo                       Boolean   @default(true)
+  
+  empresaId                   String
+  empresa                     Empresa   @relation(fields: [empresaId], references: [id])
+  
+  nfses                       NFSe[]
+  
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+  
+  @@map("servicos")
+}
+
+model NFSe {
+  id                    String    @id @default(cuid())
+  chaveAcesso           String    @unique @db.Char(53)
+  numeroNfse            Int
+  serieDPS              Int       @default(1)
+  numeroDPS             Int
+  dataCompetencia       DateTime
+  dataHoraEmissao       DateTime
+  dataHoraProcessamento DateTime
+  codigoVerificacao     String    @db.Char(9)
+  ambiente              TipoAmbiente @default(PRODUCAO)
+  tipoEmissao           Int       @default(1)
+  status                StatusDocumento @default(PROCESSANDO)
+  
+  valorTotalServicos    Float
+  valorTotalDescontos   Float     @default(0)
+  valorTotalDeducoes    Float     @default(0)
+  baseCalculoISS        Float
+  valorTotalISS         Float
+  valorTotalISSRetido   Float     @default(0)
+  valorTotalRetencoesFed Float    @default(0)
+  valorTotalIBS         Float     @default(0)
+  valorTotalCBS         Float     @default(0)
+  valorLiquidoNfse      Float
+  valorTotalNotaFinal   Float
+  
+  informacoesComplementares String?
+  numeroPedido           String?
+  motivoCancelamento     String?
+  dataHoraCancelamento   DateTime?
+  chaveNfseSubstituta    String?
+  
+  xmlAssinado            String    @db.Text
+  urlVisualizacao        String?
+  
+  empresaId             String
+  empresa               Empresa   @relation(fields: [empresaId], references: [id])
+  
+  tomadorId             String
+  tomador               Cliente   @relation("NFSeTomador", fields: [tomadorId], references: [id])
+  
+  servicoId             String
+  servico               Servico   @relation(fields: [servicoId], references: [id])
+  
+  tributacaoISSQN       Int       @default(1)
+  tipoRetencaoISS       Int       @default(1)
+  aliquotaISS           Float
+  valorISS              Float
+  
+  aliquotaPIS           Float?
+  valorPIS              Float?
+  retidoPIS             Boolean   @default(false)
+  aliquotaCOFINS        Float?
+  valorCOFINS           Float?
+  retidoCOFINS          Boolean   @default(false)
+  aliquotaIRRF          Float?
+  valorIRRF             Float?
+  aliquotaCSLL          Float?
+  valorCSLL             Float?
+  aliquotaINSS          Float?
+  valorINSS             Float?
+  
+  aliquotaIBSUF         Float     @default(0.05)
+  valorIBSUF            Float     @default(0)
+  aliquotaIBSMun        Float     @default(0.05)
+  valorIBSMun           Float     @default(0)
+  aliquotaCBS           Float     @default(0.9)
+  valorCBS              Float     @default(0)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("nfses")
+}
+
+model NFe {
+  id                    String    @id @default(cuid())
+  modelo                String    @default("55")
+  serie                 Int
+  numero                Int
+  chaveAcesso           String    @unique @db.Char(44)
+  dataHoraEmissao       DateTime
+  dataHoraSaida         DateTime?
+  naturezaOperacao      String
+  ambiente              TipoAmbiente @default(PRODUCAO)
+  tipoEmissao           Int       @default(1)
+  tipoDocumento         Int       @default(1)
+  finalidade            Int       @default(1)
+  consumidorFinal       Boolean   @default(false)
+  presencaComprador     Int       @default(2)
+  status                StatusDocumento @default(PROCESSANDO)
+  
+  valorTotalProdutos    Float
+  valorTotalFrete       Float     @default(0)
+  valorTotalSeguro      Float     @default(0)
+  valorTotalDesconto    Float     @default(0)
+  valorTotalOutrasDesp  Float     @default(0)
+  baseCalculoICMS       Float
+  valorTotalICMS        Float
+  baseCalculoICMSST     Float     @default(0)
+  valorTotalICMSST      Float     @default(0)
+  valorTotalIPI         Float     @default(0)
+  valorTotalPIS         Float     @default(0)
+  valorTotalCOFINS      Float     @default(0)
+  valorTotalIBS         Float     @default(0)
+  valorTotalCBS         Float     @default(0)
+  valorTotalTributosAprox Float  @default(0)
+  valorTotalNota        Float
+  
+  formaPagamento        String    @default("17")
+  informacoesAdicionais String?
+  
+  protocoloAutorizacao  String?
+  dataHoraAutorizacao   DateTime?
+  motivoCancelamento    String?
+  dataHoraCancelamento  DateTime?
+  
+  xmlAssinado           String    @db.Text
+  
+  empresaId             String
+  empresa               Empresa   @relation(fields: [empresaId], references: [id])
+  
+  destinatarioId        String
+  destinatario          Cliente   @relation("NFeDestinatario", fields: [destinatarioId], references: [id])
+  
+  itens                 ItemNFe[]
+  duplicatas            Duplicata[]
+  transporte            TransporteNFe?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("nfes")
+}
+
+model ItemNFe {
+  id                    String    @id @default(cuid())
+  codigoProduto         String
+  descricao             String
+  ncm                   String    @db.Char(8)
+  cest                  String?   @db.Char(7)
+  cfop                  String    @db.Char(4)
+  unidadeMedida         String    @default("UN")
+  quantidade            Float
+  valorUnitario         Float
+  valorTotalBruto       Float
+  descontoItem          Float     @default(0)
+  
+  origemMercadoria      Int       @default(0)
+  cstICMS               String    @default("00")
+  aliquotaICMS          Float
+  baseCalculoICMS       Float
+  valorICMS             Float
+  
+  cstIPI                String?
+  aliquotaIPI           Float?
+  valorIPI              Float?
+  
+  cstPIS                String    @default("01")
+  aliquotaPIS           Float
+  valorPIS              Float
+  cstCOFINS             String    @default("01")
+  aliquotaCOFINS        Float
+  valorCOFINS           Float
+  
+  aliquotaIBSUF         Float?
+  valorIBSUF            Float?
+  aliquotaIBSMun        Float?
+  valorIBSMun           Float?
+  aliquotaCBS           Float?
+  valorCBS              Float?
+  
+  valorTributosAprox    Float     @default(0)
+  
+  nfeId                 String
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("itens_nfe")
+}
+
+model Duplicata {
+  id                    String    @id @default(cuid())
+  numero                String
+  dataVencimento        DateTime
+  valor                 Float
+  status                String    @default("PENDENTE")
+  
+  nfeId                 String
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("duplicatas")
+}
+
+model TransporteNFe {
+  id                    String    @id @default(cuid())
+  modalidadeFrete       Int       @default(0)
+  
+  transportadoraCnpj    String?
+  transportadoraNome    String?
+  transportadoraIE      String?
+  transportadoraEndereco String?
+  transportadoraMunicipio String?
+  transportadoraUf      String?   @db.Char(2)
+  
+  veiculoPlaca          String?
+  veiculoUf             String?   @db.Char(2)
+  veiculoRNTC           String?
+  
+  volumesQuantidade     Float?
+  volumesEspecie        String?
+  volumesMarca          String?
+  volumesPesoLiquido    Float?
+  volumesPesoBruto      Float?
+  
+  nfeId                 String    @unique
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("transportes_nfe")
+}
+
+// ============================================================
+// 🔥 NFC-e (Modelo 65) - CONSUMIDOR
+// ============================================================
+model NFCe {
+  id                    String    @id @default(cuid())
+  modelo                String    @default("65")
+  serie                 Int
+  numero                Int
+  chaveAcesso           String    @unique @db.Char(44)
+  dataHoraEmissao       DateTime
+  naturezaOperacao      String    @default("Venda a Consumidor Final")
+  ambiente              TipoAmbiente @default(PRODUCAO)
+  tipoEmissao           Int       @default(1)
+  status                StatusDocumento @default(PROCESSANDO)
+  
+  consumidorIdentificado Boolean  @default(false)
+  consumidorCpfCnpj     String?
+  consumidorNome        String?
+  consumidorEmail       String?
+  
+  valorTotalProdutos    Float
+  valorTotalDesconto    Float     @default(0)
+  valorTotalAcrescimo   Float     @default(0)
+  valorTotalTributosAprox Float  @default(0)
+  valorTotalNota        Float
+  
+  formaPagamento        String    @default("17")
+  valorPago             Float
+  valorTroco            Float     @default(0)
+  
+  urlQrCode             String?
+  tokenCscId            String?
+  
+  protocoloAutorizacao  String?
+  dataHoraAutorizacao   DateTime?
+  motivoCancelamento    String?
+  dataHoraCancelamento  DateTime?
+  
+  xmlAssinado           String    @db.Text
+  
+  empresaId             String
+  empresa               Empresa   @relation(fields: [empresaId], references: [id])
+  
+  consumidorId          String?
+  consumidor            Cliente?  @relation("NFCeConsumidor", fields: [consumidorId], references: [id])
+  
+  itens                 ItemNFCe[]
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("nfces")
+}
+
+// ============================================================
+// ITEM NFC-e
+// ============================================================
+model ItemNFCe {
+  id                    String    @id @default(cuid())
+  codigoProduto         String
+  descricao             String
+  ncm                   String    @db.Char(8)
+  cest                  String?   @db.Char(7)
+  cfop                  String    @db.Char(4)
+  unidadeMedida         String    @default("UN")
+  quantidade            Float
+  valorUnitario         Float
+  valorTotalBruto       Float
+  
+  cstICMS               String    @default("00")
+  aliquotaICMS          Float
+  baseCalculoICMS       Float
+  valorICMS             Float
+  
+  cstPIS                String    @default("01")
+  aliquotaPIS           Float
+  valorPIS              Float
+  cstCOFINS             String    @default("01")
+  aliquotaCOFINS        Float
+  valorCOFINS           Float
+  
+  valorTributosAprox    Float     @default(0)
+  
+  nfceId                String
+  nfce                  NFCe      @relation(fields: [nfceId], references: [id])
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("itens_nfce")
+}
+
+// ============================================================
+// 🔥 CT-e (Modelo 57) - TRANSPORTE
+// ============================================================
+model CTe {
+  id                    String    @id @default(cuid())
+  modelo                String    @default("57")
+  serie                 Int
+  numero                Int
+  chaveAcesso           String    @unique @db.Char(44)
+  dataHoraEmissao       DateTime
+  naturezaOperacao      String
+  cfop                  String    @db.Char(4)
+  ambiente              TipoAmbiente @default(PRODUCAO)
+  tipoEmissao           Int       @default(1)
+  status                StatusDocumento @default(PROCESSANDO)
+  
+  remetenteId           String
+  destinatarioId        String
+  tomadorServico        Int       @default(0)
+  
+  municipioInicioCod    String
+  municipioInicioNome   String
+  municipioInicioUf     String    @db.Char(2)
+  municipioFimCod       String
+  municipioFimNome      String
+  municipioFimUf        String    @db.Char(2)
+  
+  produtoPredominante   String
+  valorCargaAverbada    Float
+  pesoBrutoKg           Float
+  pesoLiquidoKg         Float
+  quantidadeVolumes     Int
+  especieVolumes        String
+  cubagemM3             Float?
+  chavesNFeTransportadas String?   @db.Text
+  
+  rntrc                 String
+  veiculoPlaca          String
+  veiculoUf             String    @db.Char(2)
+  motoristaNome         String
+  motoristaCpf          String
+  
+  valorTotalFrete       Float
+  fretePeso             Float
+  freteValor            Float
+  pedagio               Float     @default(0)
+  taxaGris              Float     @default(0)
+  outrasTaxas           Float     @default(0)
+  valorReceber          Float
+  
+  cstICMS               String    @default("00")
+  baseCalculoICMS       Float
+  aliquotaICMS          Float
+  valorICMS             Float
+  valorPIS              Float
+  valorCOFINS           Float
+  valorTributosAprox    Float     @default(0)
+  
+  protocoloAutorizacao  String?
+  dataHoraAutorizacao   DateTime?
+  motivoCancelamento    String?
+  dataHoraCancelamento  DateTime?
+  
+  xmlAssinado           String    @db.Text
+  
+  empresaId             String
+  empresa               Empresa   @relation(fields: [empresaId], references: [id])
+  
+  remetente             Cliente   @relation("CTeRemetente", fields: [remetenteId], references: [id])
+  destinatario          Cliente   @relation("CTeDestinatario", fields: [destinatarioId], references: [id])
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("ctes")
+}
+
+model NFAe {
+  id                    String    @id @default(cuid())
+  modelo                String    @default("01-AVULSA")
+  serie                 Int       @default(900)
+  numero                Int
+  chaveAcesso           String    @unique
+  dataHoraEmissao       DateTime
+  naturezaOperacao      String
+  motivoEmissao         String
+  descricaoMotivo       String
+  ambiente              Int       @default(1)
+  status                String    @default("PROCESSANDO")
+  
+  requerenteTipo        String    @default("PF")
+  requerenteCpfCnpj     String
+  requerenteNome        String
+  requerenteInscricao   String?
+  
+  requerenteLogradouro  String
+  requerenteNumero      String
+  requerenteBairro      String
+  requerenteMunicipio   String
+  requerenteUf          String
+  requerenteCep         String
+  requerenteTelefone    String?
+  requerenteEmail       String?
+  
+  destinatarioId        String
+  
+  valorTotalProdutos    Float
+  baseCalculoICMS       Float
+  aliquotaICMSMediana   Float
+  valorTotalICMS        Float
+  valorTotalNota        Float
+  
+  guiaDAENumero         String?
+  guiaDAECodigoBarras   String?
+  guiaDAEChavePix       String?
+  guiaDAEVencimento     DateTime?
+  guiaDAEValor          Float?
+  guiaDAEStatus         String?
+  
+  orgaoEmissorSefaz     String
+  protocoloAutorizacao  String?
+  dataHoraAutorizacao   DateTime?
+  motivoCancelamento    String?
+  dataHoraCancelamento  DateTime?
+  
+  xmlAssinado           String    @db.Text
+  
+  empresaId             String
+  empresa               Empresa   @relation(fields: [empresaId], references: [id])
+  
+  destinatario          Cliente   @relation("NFAeDestinatario", fields: [destinatarioId], references: [id])
+  
+  // 🔥 ADICIONE ESTA LINHA - RELACIONAMENTO INVALIDO COM ITENS
+  itens                 ItemNFAe[]
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("nfaes")
+}
+
+// ============================================================
+// ITEM NFA-e
+// ============================================================
+model ItemNFAe {
+  id                    String    @id @default(cuid())
+  codigo                String
+  descricao             String
+  ncm                   String    @db.Char(8)
+  unidade               String    @default("UN")
+  quantidade            Float
+  valorUnitario         Float
+  valorTotal            Float
+  aliquotaICMS          Float
+  valorICMS             Float
+  
+  nfaeId                String
+  nfae                  NFAe      @relation(fields: [nfaeId], references: [id])
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("itens_nfae")
+}
+
+model TituloFinanceiro {
+  id                    String    @id @default(cuid())
+  tipo                  TipoTitulo
+  numeroDocumento       String
+  descricao             String
+  categoria             CategoriaFinanceira
+  
+  pessoaId              String?
+  pessoaNome            String
+  pessoaDocumento       String
+  
+  dataEmissao           DateTime
+  dataVencimento        DateTime
+  dataPagamento         DateTime?
+  
+  valorOriginal         Float
+  valorJurosMulta       Float     @default(0)
+  valorDesconto         Float     @default(0)
+  valorPago             Float?
+  
+  status                StatusTitulo @default(PENDENTE)
+  formaPagamento        String
+  
+  documentoOrigemTipo   String?
+  documentoOrigemChave  String?
+  observacoes           String?
+  nossoNumeroBoleto     String?
+  codigoPixCopiaCola    String?
+  
+  empresaId             String
+  empresa               Empresa   @relation(fields: [empresaId], references: [id])
+  
+  clienteId             String?
+  cliente               Cliente?  @relation(fields: [clienteId], references: [id])
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("titulos_financeiros")
+}
+
+model MovimentacaoEstoque {
+  id                    String    @id @default(cuid())
+  tipo                  TipoMovimentacaoEstoque
+  quantidade            Float
+  quantidadeAnterior    Float
+  quantidadePosterior   Float
+  custoUnitario         Float
+  valorTotal            Float
+  documentoReferencia   String?
+  observacao            String?
+  dataHora              DateTime  @default(now())
+  usuario               String
+  
+  produtoId             String
+  produto               Produto   @relation(fields: [produtoId], references: [id])
+  
+  empresaId             String
+  empresa               Empresa   @relation(fields: [empresaId], references: [id])
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("movimentacoes_estoque")
+}

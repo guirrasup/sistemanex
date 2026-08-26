@@ -1,6 +1,6 @@
 {
-  "name": "Gestor Financeiro & Estoque",
-  "description": "Gestor financeiro simples com fluxo de caixa, cadastros de clientes/fornecedores, contas bancárias, estoque de produtos e leitor de comprovantes com IA.",
+  "name": "SUP TECNOLOGIA - Emissor Fiscal & Gestão",
+    "description": "Sistema completo e integrado de emissão de todos os modelos fiscais: NF-e (Produtos), NFS-e (Serviços), NFC-e (Consumidor), CT-e (Transporte) e NFA-e (Avulsa), com DANFE, DACTE, Cupom e gestão integrada.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
