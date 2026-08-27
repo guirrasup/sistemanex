@@ -64,6 +64,8 @@ const coresPorItem: Record<string, { cor: string; corAtiva: string; corHover: st
   servicos: { cor: 'text-pink-500', corAtiva: 'text-pink-600', corHover: 'hover:text-pink-600' },
   clientes: { cor: 'text-sky-500', corAtiva: 'text-sky-600', corHover: 'hover:text-sky-600' },
   fornecedores: { cor: 'text-violet-500', corAtiva: 'text-violet-600', corHover: 'hover:text-violet-600' },
+  // 🔥 ADICIONAR TRANSPORTADORAS - COR CIANO
+  transportadoras: { cor: 'text-cyan-500', corAtiva: 'text-cyan-600', corHover: 'hover:text-cyan-600' },
   financeiro: { cor: 'text-yellow-500', corAtiva: 'text-yellow-600', corHover: 'hover:text-yellow-600' },
   configuracoes: { cor: 'text-slate-500', corAtiva: 'text-slate-600', corHover: 'hover:text-slate-600' },
   'consulta-cnpj': { cor: 'text-rose-500', corAtiva: 'text-rose-600', corHover: 'hover:text-rose-600' },
@@ -141,7 +143,7 @@ export const Header: React.FC<HeaderProps> = ({
     minute: '2-digit'
   });
 
-  // 🔥 MESMA ORDEM DO SIDEBAR - COM FORNECEDORES
+  // 🔥 MESMA ORDEM DO SIDEBAR - COM FORNECEDORES E TRANSPORTADORAS
   const ferramentas = [
     // GERAL
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
@@ -159,6 +161,8 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'servicos', label: 'Serviços', icon: Briefcase },
     { id: 'clientes', label: 'Clientes', icon: UserPlus },
     { id: 'fornecedores', label: 'Fornecedores', icon: UserCheck },
+    // 🔥 ADICIONAR TRANSPORTADORAS NO ARRAY FERRAMENTAS
+    { id: 'transportadoras', label: 'Transportadoras', icon: Truck },
     
     // FINANCEIRO & CONFIG
     { id: 'financeiro', label: 'Financeiro', icon: DollarSign },

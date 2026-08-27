@@ -25,8 +25,10 @@ import { DacteViewer } from './components/fiscal/DacteViewer';
 import { DanfaeViewer } from './components/fiscal/DanfaeViewer';
 import { ProdutosView } from './components/cadastros/ProdutosView';
 import { ClientesView } from './components/cadastros/ClientesView';
-import { FornecedoresView } from './components/cadastros/FornecedoresView'; // ✅ IMPORTADO
+import { FornecedoresView } from './components/cadastros/FornecedoresView';
 import { ServicosView } from './components/cadastros/ServicosView';
+// 🔥 ADICIONAR: Import do TransportadorasView
+import { TransportadorasView } from './components/cadastros/TransportadorasView';
 import { FinanceiroView } from './components/financeiro/FinanceiroView';
 import { ConfiguracoesEmpresaView } from './components/config/ConfiguracoesEmpresaView';
 import { ConsultaCnpjView } from './components/tools/ConsultaCnpjView';
@@ -42,6 +44,8 @@ import { nfseService } from './services/nfse.service';
 import { nfceService } from './services/nfce.service';
 import { cteService } from './services/cte.service';
 import { nfaeService } from './services/nfae.service';
+// 🔥 ADICIONAR: Import do transportadoraService
+import { transportadoraService, Transportadora } from './services/transportadora.service';
 import { LoadingDinamico } from './components/ui/LoadingDinamico';
 import api from './services/api';
 
@@ -56,6 +60,7 @@ interface CacheData {
   nfces: NFCeDocumento[];
   ctes: CTeDocumento[];
   nfaes: NFAeDocumento[];
+  transportadoras: Transportadora[]; // 🔥 ADICIONAR
   timestamp: number;
 }
 
@@ -112,6 +117,7 @@ export default function App() {
   const [clientes, setClientes] = useState<ClienteFornecedor[]>([]);
   const [servicos, setServicos] = useState<ServicoCatalogo[]>([]);
   const [titulos, setTitulos] = useState<TituloFinanceiro[]>([]);
+  const [transportadoras, setTransportadoras] = useState<Transportadora[]>([]); // 🔥 ADICIONAR
 
   // Modal Viewers
   const [viewingDanfse, setViewingDanfse] = useState<NFSeDocumento | null>(null);
@@ -151,6 +157,7 @@ export default function App() {
         setNfces(cache.nfces || []);
         setCtes(cache.ctes || []);
         setNfaes(cache.nfaes || []);
+        setTransportadoras(cache.transportadoras || []); // 🔥 ADICIONAR
         console.log('✅ Cache aplicado com sucesso!');
         return;
       }
@@ -182,6 +189,7 @@ export default function App() {
         setNfces(StorageService.getNfces() || []);
         setCtes(StorageService.getCtes() || []);
         setNfaes(StorageService.getNfaes() || []);
+        setTransportadoras([]); // 🔥 ADICIONAR
         setCarregando(false);
         console.log('✅ Dados carregados do cache local');
         return;
@@ -189,7 +197,8 @@ export default function App() {
 
       console.log('🔄 Carregando dados do backend...');
 
-      const serviceNames = ['produtos', 'clientes', 'servicos', 'financeiro', 'nfse', 'nfe', 'nfce', 'cte', 'nfae'];
+      // 🔥 ADICIONAR transportadoras no array de serviços
+      const serviceNames = ['produtos', 'clientes', 'servicos', 'financeiro', 'nfse', 'nfe', 'nfce', 'cte', 'nfae', 'transportadoras'];
       const servicePromises = [
         produtosService.listar(1, 100),
         clientesService.listar(1, 100),
@@ -200,6 +209,7 @@ export default function App() {
         nfceService.listar(1, 100),
         cteService.listar(1, 100),
         nfaeService.listar(1, 100),
+        transportadoraService.listar(1, 100), // 🔥 ADICIONAR
       ];
 
       console.log('📡 Enviando', servicePromises.length, 'requisições...');
@@ -247,7 +257,8 @@ export default function App() {
         nfesResult,
         nfcesResult,
         ctesResult,
-        nfaesResult
+        nfaesResult,
+        transportadorasResult // 🔥 ADICIONAR
       ] = results.map((r, i) => getData(r, i));
 
       const empresaConfig = StorageService.getConfiguracao();
@@ -262,6 +273,7 @@ export default function App() {
         nfces: nfcesResult.data || [],
         ctes: ctesResult.data || [],
         nfaes: nfaesResult.data || [],
+        transportadoras: transportadorasResult.data || [], // 🔥 ADICIONAR
         timestamp: Date.now()
       };
 
@@ -276,6 +288,7 @@ export default function App() {
       setNfces(cacheData.nfces || []);
       setCtes(cacheData.ctes || []);
       setNfaes(cacheData.nfaes || []);
+      setTransportadoras(cacheData.transportadoras); // 🔥 ADICIONAR
       setEmpresa(empresaConfig);
 
       StorageService.saveProdutos(cacheData.produtos);
@@ -294,6 +307,7 @@ export default function App() {
       console.log(`   NFC-e: ${cacheData.nfces.length}`);
       console.log(`   CT-e: ${cacheData.ctes.length}`);
       console.log(`   NFA-e: ${cacheData.nfaes.length}`);
+      console.log(`   Transportadoras: ${cacheData.transportadoras.length}`); // 🔥 ADICIONAR
 
     } catch (error: any) {
       console.error('❌ ERRO GLOBAL no refreshData:');
@@ -314,6 +328,7 @@ export default function App() {
       setNfces(StorageService.getNfces() || []);
       setCtes(StorageService.getCtes() || []);
       setNfaes(StorageService.getNfaes() || []);
+      setTransportadoras([]); // 🔥 ADICIONAR
     } finally {
       setCarregando(false);
       isRefreshing.current = false;
@@ -356,6 +371,7 @@ export default function App() {
     setNfces([]);
     setCtes([]);
     setNfaes([]);
+    setTransportadoras([]); // 🔥 ADICIONAR
     cacheRef.current = null;
   };
 
@@ -469,6 +485,7 @@ export default function App() {
             fornecedoresCount: apenasFornecedores.length,
             servicosCount: servicos.length,
             titulosPendentesCount: titulos.filter(t => t.status === 'PENDENTE').length,
+            transportadorasCount: transportadoras.length, // 🔥 ADICIONAR
           }}
         />
 
@@ -593,6 +610,17 @@ export default function App() {
               <ServicosView
                 servicos={servicos}
                 onServicosChange={() => {
+                  cacheRef.current = null;
+                  refreshData(true);
+                }}
+              />
+            )}
+
+            {/* 🔥 TRANSPORTADORAS - NOVO COMPONENTE */}
+            {currentView === 'transportadoras' && (
+              <TransportadorasView
+                transportadoras={transportadoras}
+                onTransportadorasChange={() => {
                   cacheRef.current = null;
                   refreshData(true);
                 }}

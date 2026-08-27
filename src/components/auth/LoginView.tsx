@@ -50,8 +50,9 @@ function downloadLogs() {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackToLanding }) => {
+  // 🔥 CORRIGIDO: Senha padrão agora é 'admin123' (igual ao seed)
   const [email, setEmail] = useState('admin@suptecnologia.com.br');
-  const [senha, setSenha] = useState('123456');
+  const [senha, setSenha] = useState('admin123');
   const [lembrar, setLembrar] = useState(true);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -108,6 +109,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
         saveLog('👤 Usuário:', usuario.nome);
         saveLog('📧 Email do usuário:', usuario.email);
         saveLog('🔑 Perfil:', usuario.perfil);
+        saveLog('🏢 EmpresaId:', usuario.empresaId);
         saveLog('🔑 Token:', token.substring(0, 30) + '...');
         
         localStorage.setItem('@sup:token', token);
@@ -168,7 +170,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
       
       const response = await api.post('/auth/login', { 
         email: loginEmail, 
-        senha: '123456' 
+        senha: 'admin123'  // 🔥 CORRIGIDO
       });
       
       saveLog('📥 Resposta quick login:', response.data);

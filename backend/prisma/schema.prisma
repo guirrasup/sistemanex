@@ -134,6 +134,7 @@ model Empresa {
   nfaes                 NFAe[]
   titulos               TituloFinanceiro[]
   movimentacoes         MovimentacaoEstoque[]
+  transportadoras       Transportadora[]
   
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -158,6 +159,7 @@ model Endereco {
   
   empresa           Empresa?
   cliente           Cliente?
+  transportadora    Transportadora?
   
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -230,7 +232,7 @@ model Cliente {
   
   titulos               TituloFinanceiro[]
   
-  // 🔥 RELACIONAMENTOS INVERSOS
+  // RELACIONAMENTOS INVERSOS
   nfsesTomador          NFSe[]    @relation("NFSeTomador")
   nfesDestinatario      NFe[]     @relation("NFeDestinatario")
   nfcesConsumidor       NFCe[]    @relation("NFCeConsumidor")
@@ -521,6 +523,11 @@ model TransporteNFe {
   id                    String    @id @default(cuid())
   modalidadeFrete       Int       @default(0)
   
+  // NOVO: Relacionamento com Transportadora
+  transportadoraId      String?
+  transportadora        Transportadora? @relation(fields: [transportadoraId], references: [id])
+  
+  // Campos existentes (mantidos para compatibilidade)
   transportadoraCnpj    String?
   transportadoraNome    String?
   transportadoraIE      String?
@@ -545,10 +552,11 @@ model TransporteNFe {
   updatedAt             DateTime  @updatedAt
   
   @@map("transportes_nfe")
+  @@index([transportadoraId])
 }
 
 // ============================================================
-// 🔥 NFC-e (Modelo 65) - CONSUMIDOR
+// NFC-e (Modelo 65) - CONSUMIDOR
 // ============================================================
 model NFCe {
   id                    String    @id @default(cuid())
@@ -640,7 +648,7 @@ model ItemNFCe {
 }
 
 // ============================================================
-// 🔥 CT-e (Modelo 57) - TRANSPORTE
+// CT-e (Modelo 57) - TRANSPORTE
 // ============================================================
 model CTe {
   id                    String    @id @default(cuid())
@@ -674,6 +682,10 @@ model CTe {
   especieVolumes        String
   cubagemM3             Float?
   chavesNFeTransportadas String?   @db.Text
+  
+  // NOVO: Relacionamento com Transportadora
+  transportadoraId      String?
+  transportadora        Transportadora? @relation(fields: [transportadoraId], references: [id])
   
   rntrc                 String
   veiculoPlaca          String
@@ -714,8 +726,74 @@ model CTe {
   updatedAt             DateTime  @updatedAt
   
   @@map("ctes")
+  @@index([transportadoraId])
 }
 
+// ============================================================
+// TRANSPORTADORA - NOVO MODELO
+// ============================================================
+model Transportadora {
+  id                    String    @id @default(cuid())
+  
+  // Dados principais
+  tipoPessoa            TipoPessoa @default(PJ)
+  cnpj                  String    @unique
+  razaoSocial           String
+  nomeFantasia          String?
+  inscricaoEstadual     String?
+  inscricaoMunicipal    String?
+  cnae                  String?
+  
+  // Dados de contato
+  email                 String?
+  telefone              String?
+  celularWhatsApp       String?
+  contato               String?
+  site                  String?
+  
+  // Dados específicos de transportadora
+  rntrc                 String?   // Registro Nacional de Transportadores Rodoviários de Carga
+  antt                  String?   // Agência Nacional de Transportes Terrestres
+  inscricaoSuframa      String?
+  regimeTributario      RegimeTributario? @default(SIMPLES_NACIONAL)
+  tipoTransportador     String?   // Ex: "RODOVIARIO", "FERROVIARIO", "AQUAVIARIO", "AEREO"
+  
+  // Dados bancários
+  banco                 String?
+  agencia               String?
+  conta                 String?
+  operacao              String?
+  chavePix              String?
+  
+  // Status
+  ativo                 Boolean   @default(true)
+  observacoes           String?
+  
+  // Endereço
+  enderecoId            String    @unique
+  endereco              Endereco  @relation(fields: [enderecoId], references: [id])
+  
+  // Relacionamento com a empresa
+  empresaId             String
+  empresa               Empresa   @relation(fields: [empresaId], references: [id])
+  
+  // Relacionamentos com documentos
+  transportesNFe        TransporteNFe[]
+  transportesCTe        CTe[]     // Relação inversa com CTe
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("transportadoras")
+  @@index([empresaId])
+  @@index([cnpj])
+  @@index([rntrc])
+  @@index([razaoSocial])
+}
+
+// ============================================================
+// NFA-e (Modelo 01-AVULSA)
+// ============================================================
 model NFAe {
   id                    String    @id @default(cuid())
   modelo                String    @default("01-AVULSA")
@@ -771,7 +849,6 @@ model NFAe {
   
   destinatario          Cliente   @relation("NFAeDestinatario", fields: [destinatarioId], references: [id])
   
-  // 🔥 ADICIONE ESTA LINHA - RELACIONAMENTO INVALIDO COM ITENS
   itens                 ItemNFAe[]
   
   createdAt             DateTime  @default(now())
@@ -804,6 +881,9 @@ model ItemNFAe {
   @@map("itens_nfae")
 }
 
+// ============================================================
+// FINANCEIRO
+// ============================================================
 model TituloFinanceiro {
   id                    String    @id @default(cuid())
   tipo                  TipoTitulo
@@ -845,6 +925,9 @@ model TituloFinanceiro {
   @@map("titulos_financeiros")
 }
 
+// ============================================================
+// ESTOQUE
+// ============================================================
 model MovimentacaoEstoque {
   id                    String    @id @default(cuid())
   tipo                  TipoMovimentacaoEstoque

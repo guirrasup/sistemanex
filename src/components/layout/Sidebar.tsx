@@ -37,6 +37,7 @@ interface SidebarProps {
     fornecedoresCount?: number;
     servicosCount?: number;
     titulosPendentesCount?: number;
+    transportadorasCount?: number; // 🔥 ADICIONAR
   };
   onMenuToggle?: () => void;
 }
@@ -54,6 +55,8 @@ const coresMenu: Record<string, { ativo: string; icone: string; badge: string; h
   servicos: { ativo: 'bg-pink-50 text-pink-700', icone: 'text-pink-500', badge: 'bg-pink-100 text-pink-700', hover: 'hover:bg-pink-50' },
   clientes: { ativo: 'bg-sky-50 text-sky-700', icone: 'text-sky-500', badge: 'bg-sky-100 text-sky-700', hover: 'hover:bg-sky-50' },
   fornecedores: { ativo: 'bg-violet-50 text-violet-700', icone: 'text-violet-500', badge: 'bg-violet-100 text-violet-700', hover: 'hover:bg-violet-50' },
+  // 🔥 ADICIONAR TRANSPORTADORAS - COR CIANO (MESMA DO CT-e)
+  transportadoras: { ativo: 'bg-cyan-50 text-cyan-700', icone: 'text-cyan-500', badge: 'bg-cyan-100 text-cyan-700', hover: 'hover:bg-cyan-50' },
   financeiro: { ativo: 'bg-yellow-50 text-yellow-700', icone: 'text-yellow-500', badge: 'bg-yellow-100 text-yellow-700', hover: 'hover:bg-yellow-50' },
   configuracoes: { ativo: 'bg-slate-50 text-slate-700', icone: 'text-slate-500', badge: 'bg-slate-100 text-slate-700', hover: 'hover:bg-slate-50' },
   'consulta-cnpj': { ativo: 'bg-rose-50 text-rose-700', icone: 'text-rose-500', badge: 'bg-rose-100 text-rose-700', hover: 'hover:bg-rose-50' },
@@ -131,6 +134,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'servicos', label: 'Serviços', icon: Briefcase, badgeCount: contadores.servicosCount },
         { id: 'clientes', label: 'Clientes', icon: UserPlus, badgeCount: contadores.clientesCount },
         { id: 'fornecedores', label: 'Fornecedores', icon: UserCheck, badgeCount: contadores.fornecedoresCount },
+        // 🔥 ADICIONAR TRANSPORTADORAS NO GRUPO CADASTROS
+        { id: 'transportadoras', label: 'Transportadoras', icon: Truck, badgeCount: contadores.transportadorasCount },
       ],
     },
     {

@@ -16,8 +16,9 @@ import servicoRoutes from './routes/servico.routes';
 import nfceRoutes from './routes/nfce.routes';
 import cteRoutes from './routes/cte.routes';
 import nfaeRoutes from './routes/nfae.routes';
-import dashboardRoutes from './routes/dashboard.routes'; // ← adicionado
+import dashboardRoutes from './routes/dashboard.routes'; 
 import { errorMiddleware } from './middlewares/error.middleware';
+import transportadoraRoutes from './routes/transportadora.routes';
 
 dotenv.config();
 
@@ -73,6 +74,7 @@ app.use('/api/cnpj', cnpjRoutes);
 app.use('/api/produtos', dataLimiter, produtoRoutes);
 app.use('/api/clientes', dataLimiter, clienteRoutes);
 app.use('/api/servicos', dataLimiter, servicoRoutes);
+app.use('/api/transportadoras', dataLimiter, transportadoraRoutes);
 
 app.use('/api/nfce', dataLimiter, nfceRoutes);
 app.use('/api/cte', dataLimiter, cteRoutes);

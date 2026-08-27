@@ -9,9 +9,10 @@ import cnpjRoutes from './cnpj.routes';
 import produtoRoutes from './produto.routes';
 import clienteRoutes from './cliente.routes';
 import servicoRoutes from './servico.routes';
-import nfceRoutes from './nfce.routes';      // ✅ ADICIONADO
-import cteRoutes from './cte.routes';        // ✅ ADICIONADO
-import nfaeRoutes from './nfae.routes';      // ✅ ADICIONADO
+import nfceRoutes from './nfce.routes';      
+import cteRoutes from './cte.routes';        
+import nfaeRoutes from './nfae.routes';      
+import transportadoraRoutes from './transportadora.routes';
 
 const router = Router();
 
@@ -21,14 +22,15 @@ router.use('/auth', authRoutes);
 // 🔥 ROTAS FISCAIS
 router.use('/nfse', nfseRoutes);
 router.use('/nfe', nfeRoutes);
-router.use('/nfce', nfceRoutes);      // ✅ ADICIONADO
-router.use('/cte', cteRoutes);        // ✅ ADICIONADO
-router.use('/nfae', nfaeRoutes);      // ✅ ADICIONADO
+router.use('/nfce', nfceRoutes);      
+router.use('/cte', cteRoutes);        
+router.use('/nfae', nfaeRoutes);      
 
 // 🔥 ROTAS DE CADASTRO
 router.use('/produtos', produtoRoutes);
 router.use('/clientes', clienteRoutes);
 router.use('/servicos', servicoRoutes);
+router.use('/transportadoras', transportadoraRoutes); 
 
 // 🔥 ROTAS FINANCEIRAS E FERRAMENTAS
 router.use('/financeiro', financeiroRoutes);

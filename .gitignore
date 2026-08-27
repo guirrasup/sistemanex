@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+.codeboarding
+allcode.bat
+estrutura_src.txt
