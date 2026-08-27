@@ -1,4 +1,5 @@
 // src/components/cadastros/TransportadorasView.tsx
+// ✅ VERSÃO COMPLETA CORRIGIDA
 
 import React, { useState, useMemo } from 'react';
 import { 
@@ -31,6 +32,8 @@ import {
 import { Transportadora } from '../../services/transportadora.service';
 import { formatarCpfCnpj, validarCpfOuCnpj } from '../../utils/cpfCnpjValidator';
 import { transportadoraService } from '../../services/transportadora.service';
+import { useToast } from '../../hooks/useToast';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface TransportadorasViewProps {
   transportadoras: Transportadora[];
@@ -45,6 +48,8 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
   transportadoras, 
   onTransportadorasChange 
 }) => {
+  const toast = useToast();
+
   const [busca, setBusca] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState<Transportadora | null>(null);
@@ -52,11 +57,21 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
   const [erro, setErro] = useState<string | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<AbaAtiva>('dados');
 
-  // 🔥 ESTADO DE ORDENAÇÃO
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    id: string | null;
+    razaoSocial: string;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    id: null,
+    razaoSocial: '',
+    loading: false,
+  });
+
   const [ordenacaoCampo, setOrdenacaoCampo] = useState<OrdenacaoCampo>('razaoSocial');
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState<OrdenacaoDirecao>('asc');
 
-  // 🔥 COR DO MÓDULO (CIANO)
   const cor = 'cyan';
   const corBg = 'bg-cyan-50';
   const corBorder = 'border-cyan-200';
@@ -66,6 +81,23 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
   const corBgBadge = 'bg-cyan-100';
   const corFocus = 'focus:ring-cyan-500';
   const corIconBg = 'bg-cyan-600';
+
+  // 🔥 CORREÇÃO: Extrair dados corretamente
+  const transportadorasList = useMemo(() => {
+    if (Array.isArray(transportadoras)) {
+      return transportadoras;
+    }
+    if (transportadoras?.data && Array.isArray(transportadoras.data)) {
+      return transportadoras.data;
+    }
+    if (transportadoras?.dados?.data && Array.isArray(transportadoras.dados.data)) {
+      return transportadoras.dados.data;
+    }
+    if (transportadoras?.dados && Array.isArray(transportadoras.dados)) {
+      return transportadoras.dados;
+    }
+    return [];
+  }, [transportadoras]);
 
   // Form State
   const [tipoPessoa, setTipoPessoa] = useState<'PJ' | 'PF' | 'EXTERIOR'>('PJ');
@@ -92,7 +124,6 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
   const [chavePix, setChavePix] = useState('');
   const [observacoes, setObservacoes] = useState('');
 
-  // Endereço
   const [logradouro, setLogradouro] = useState('');
   const [numero, setNumero] = useState('');
   const [complemento, setComplemento] = useState('');
@@ -184,17 +215,17 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
 
     const val = validarCpfOuCnpj(cnpj);
     if (!val.valido || val.tipo !== 'CNPJ') {
-      setErro('CNPJ inválido. Digite um CNPJ válido com 14 dígitos.');
+      toast.showWarning('⚠️ CNPJ inválido. Digite um CNPJ válido com 14 dígitos.');
       return;
     }
 
     if (!razaoSocial.trim()) {
-      setErro('Razão Social é obrigatória.');
+      toast.showWarning('⚠️ Razão Social é obrigatória.');
       return;
     }
 
     if (!logradouro.trim() || !bairro.trim() || !nomeMunicipio.trim()) {
-      setErro('Endereço completo é obrigatório.');
+      toast.showWarning('⚠️ Endereço completo é obrigatório.');
       return;
     }
 
@@ -242,8 +273,10 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
 
       if (editando) {
         await transportadoraService.atualizar(editando.id, dadosTransportadora);
+        toast.showSuccess(`✅ Transportadora "${razaoSocial}" atualizada com sucesso!`);
       } else {
         await transportadoraService.criar(dadosTransportadora);
+        toast.showSuccess(`✅ Transportadora "${razaoSocial}" criada com sucesso!`);
       }
 
       setModalOpen(false);
@@ -251,28 +284,68 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
 
     } catch (error: any) {
       console.error('Erro ao salvar transportadora:', error);
-      setErro(error.response?.data?.erro || error.message || 'Erro ao salvar transportadora. Tente novamente.');
+      const mensagem = error.response?.data?.erro || error.message || 'Erro ao salvar transportadora';
+      setErro(mensagem);
+      toast.showError(`❌ ${mensagem}`);
     } finally {
       setCarregando(false);
     }
   };
 
-  const handleExcluir = async (id: string, razaoSocial: string) => {
-    if (!confirm(`Tem certeza que deseja excluir "${razaoSocial}"?`)) {
+  const openConfirmModal = (id: string, razaoSocial: string) => {
+    setConfirmModal({
+      isOpen: true,
+      id,
+      razaoSocial,
+      loading: false,
+    });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const handleConfirmExclusao = async () => {
+    const { id, razaoSocial } = confirmModal;
+    if (!id) {
+      toast.showError('❌ ID da transportadora não informado');
+      closeConfirmModal();
       return;
     }
 
-    setCarregando(true);
-    setErro(null);
+    setConfirmModal(prev => ({ ...prev, loading: true }));
 
     try {
-      await transportadoraService.excluir(id);
-      onTransportadorasChange();
+      console.log(`🗑️ Excluindo transportadora: ${id} - ${razaoSocial}`);
+      
+      const resultado = await transportadoraService.excluir(id);
+      
+      console.log('📥 Resultado da exclusão:', resultado);
+      
+      if (resultado.sucesso === true) {
+        closeConfirmModal();
+        await onTransportadorasChange();
+        setModalOpen(false);
+        toast.showSuccess(`✅ Transportadora "${razaoSocial}" excluída com sucesso!`);
+      } else {
+        const mensagemErro = resultado.erro || 'Erro desconhecido ao excluir';
+        console.error('❌ Erro na exclusão:', mensagemErro);
+        closeConfirmModal();
+        toast.showError(`❌ ${mensagemErro}`);
+        setErro(mensagemErro);
+      }
+      
     } catch (error: any) {
-      console.error('Erro ao excluir transportadora:', error);
-      setErro(error.response?.data?.erro || error.message || 'Erro ao excluir transportadora');
+      console.error('❌ Erro ao excluir transportadora:', error);
+      
+      const mensagemErro = error?.response?.data?.erro || error?.message || 'Erro ao excluir transportadora';
+      
+      closeConfirmModal();
+      toast.showError(`❌ ${mensagemErro}`);
+      setErro(mensagemErro);
+      
     } finally {
-      setCarregando(false);
+      setConfirmModal(prev => ({ ...prev, loading: false }));
     }
   };
 
@@ -285,11 +358,12 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
     }
   };
 
+  // 🔥 CORREÇÃO: Usar transportadorasList no useMemo
   const transportadorasOrdenadas = useMemo(() => {
-    const filtrados = transportadoras.filter(t =>
-      t.razaoSocial.toLowerCase().includes(busca.toLowerCase()) ||
+    const filtrados = transportadorasList.filter(t =>
+      t.razaoSocial?.toLowerCase().includes(busca.toLowerCase()) ||
       (t.nomeFantasia && t.nomeFantasia.toLowerCase().includes(busca.toLowerCase())) ||
-      t.cnpj.includes(busca) ||
+      t.cnpj?.includes(busca) ||
       (t.rntrc && t.rntrc.includes(busca))
     );
 
@@ -298,11 +372,11 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
       let valorB: any;
 
       if (ordenacaoCampo === 'endereco.nomeMunicipio') {
-        valorA = a.endereco.nomeMunicipio || '';
-        valorB = b.endereco.nomeMunicipio || '';
+        valorA = a.endereco?.nomeMunicipio || '';
+        valorB = b.endereco?.nomeMunicipio || '';
       } else if (ordenacaoCampo === 'endereco.uf') {
-        valorA = a.endereco.uf || '';
-        valorB = b.endereco.uf || '';
+        valorA = a.endereco?.uf || '';
+        valorB = b.endereco?.uf || '';
       } else {
         valorA = a[ordenacaoCampo] || '';
         valorB = b[ordenacaoCampo] || '';
@@ -316,7 +390,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
 
       return 0;
     });
-  }, [transportadoras, busca, ordenacaoCampo, ordenacaoDirecao]);
+  }, [transportadorasList, busca, ordenacaoCampo, ordenacaoDirecao]);
 
   const IconeOrdenacao = ({ campo }: { campo: OrdenacaoCampo }) => {
     if (ordenacaoCampo !== campo) {
@@ -329,7 +403,6 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
 
   const thClass = "py-3 px-4 text-left text-xs font-bold text-slate-700 cursor-pointer hover:text-cyan-600 transition-colors select-none";
 
-  // 🔥 RENDERIZA O CONTEÚDO DA ABA ATIVA
   const renderAbaContent = () => {
     switch (abaAtiva) {
       case 'dados':
@@ -703,7 +776,6 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       
-      {/* 🔥 HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -712,7 +784,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
             </span>
             <h1 className="text-base font-bold text-slate-900">Transportadoras</h1>
             <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
-              {transportadoras.length} cadastros
+              {transportadorasList.length} cadastros
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -723,12 +795,11 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
         <div className="text-right">
           <div className="text-xs font-semibold text-slate-700">Cadastro de Transportadoras</div>
           <div className={`text-[10px] font-medium ${corText}`}>
-            {transportadoras.filter(t => t.ativo).length} ativas
+            {transportadorasList.filter(t => t.ativo).length} ativas
           </div>
         </div>
       </div>
 
-      {/* Busca e Botão */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1 flex items-center bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm">
           <Search className="w-4 h-4 text-slate-400 ml-1.5" />
@@ -754,7 +825,6 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
         </button>
       </div>
 
-      {/* Tabela */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600">
@@ -833,7 +903,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleExcluir(t.id, t.razaoSocial)}
+                          onClick={() => openConfirmModal(t.id, t.razaoSocial)}
                           className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           title="Excluir"
                         >
@@ -849,12 +919,22 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
         </div>
       </div>
 
-      {/* 🔥 MODAL COM ABAS */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={handleConfirmExclusao}
+        type="danger"
+        title={`Excluir Transportadora`}
+        message={`Tem certeza que deseja excluir permanentemente a transportadora "${confirmModal.razaoSocial}"?\n\nEsta ação não pode ser desfeita.`}
+        confirmText="Excluir Permanentemente"
+        cancelText="Cancelar"
+        loading={confirmModal.loading}
+      />
+
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-xl max-w-3xl w-full shadow-xl flex flex-col max-h-[95vh]">
             
-            {/* 🔥 HEADER DO MODAL COM BOTÃO FECHAR */}
             <div className="flex items-center justify-between p-4 border-b border-slate-200 sticky top-0 bg-white z-10 rounded-t-xl">
               <div className="flex items-center gap-2">
                 <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
@@ -870,7 +950,6 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                 )}
               </div>
               
-              {/* 🔥 BOTÃO FECHAR VISÍVEL */}
               <button
                 onClick={() => setModalOpen(false)}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
@@ -880,7 +959,6 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
               </button>
             </div>
 
-            {/* 🔥 ABAS */}
             <div className="flex border-b border-slate-200 px-4 pt-2 gap-1 overflow-x-auto">
               <button
                 onClick={() => setAbaAtiva('dados')}
@@ -939,7 +1017,6 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
               </button>
             </div>
 
-            {/* 🔥 CORPO DO MODAL */}
             <div className="flex-1 overflow-y-auto p-6">
               {erro && (
                 <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs flex items-start gap-2 mb-4">
@@ -951,7 +1028,6 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
               <form onSubmit={handleSave} className="space-y-4">
                 {renderAbaContent()}
 
-                {/* 🔥 BOTÕES DO FORMULÁRIO */}
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 sticky bottom-0 bg-white py-3">
                   <button
                     type="button"

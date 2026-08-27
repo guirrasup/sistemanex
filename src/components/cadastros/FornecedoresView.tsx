@@ -1,11 +1,26 @@
 // C:\emissornfe\src\components\cadastros\FornecedoresView.tsx
+// ✅ VERSÃO COMPLETA - COM TOASTS E MODAL DE CONFIRMAÇÃO
 
 import React, { useState, useMemo } from 'react';
-import { UserCheck, Plus, Search, Edit2, Trash2, AlertCircle, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { 
+  UserCheck, 
+  Plus, 
+  Search, 
+  Edit2, 
+  Trash2, 
+  AlertCircle, 
+  Loader2, 
+  ArrowUpDown, 
+  ArrowUp, 
+  ArrowDown,
+  X,
+  Save
+} from 'lucide-react';
 import { ClienteFornecedor } from '../../types/erp';
 import { formatarCpfCnpj, validarCpfOuCnpj } from '../../utils/cpfCnpjValidator';
-import { StorageService } from '../../utils/storage';
 import { clientesService } from '../../services/clientes.service';
+import { useToast } from '../../hooks/useToast';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface FornecedoresViewProps {
   fornecedores: ClienteFornecedor[];
@@ -16,17 +31,32 @@ type OrdenacaoCampo = 'tipo' | 'razaoSocial' | 'nomeFantasia' | 'documento' | 'e
 type OrdenacaoDirecao = 'asc' | 'desc';
 
 export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores, onFornecedoresChange }) => {
+  const toast = useToast();
+
   const [busca, setBusca] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editandoFornecedor, setEditandoFornecedor] = useState<ClienteFornecedor | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  // 🔥 ESTADO DO MODAL DE CONFIRMAÇÃO
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    id: string | null;
+    razaoSocial: string;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    id: null,
+    razaoSocial: '',
+    loading: false,
+  });
+
   // 🔥 ESTADO DE ORDENAÇÃO
   const [ordenacaoCampo, setOrdenacaoCampo] = useState<OrdenacaoCampo>('razaoSocial');
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState<OrdenacaoDirecao>('asc');
 
-  // 🔥 COR DO MÓDULO (VIOLETA) - MESMA DO HEADER E SIDEBAR
+  // 🔥 COR DO MÓDULO (VIOLETA)
   const cor = 'violet';
   const corBg = 'bg-violet-50';
   const corBorder = 'border-violet-200';
@@ -93,18 +123,22 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
     setModalOpen(true);
   };
 
+  // ============================================================
+  // 🔥 SALVAR COM TOAST
+  // ============================================================
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
 
     const val = validarCpfOuCnpj(documento);
     if (!val.valido) {
-      setErro('CPF ou CNPJ inválido segundo validação Módulo 11 da Receita Federal.');
+      toast.showWarning('⚠️ CPF ou CNPJ inválido. Verifique os dígitos.');
       return;
     }
 
     if (!razaoSocial.trim()) {
-      setErro('Razão Social / Nome é obrigatório.');
+      toast.showWarning('⚠️ Razão Social / Nome é obrigatório.');
       return;
     }
 
@@ -134,10 +168,10 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
 
       if (editandoFornecedor) {
         await clientesService.atualizar(editandoFornecedor.id, dadosFornecedor);
-        StorageService.updateCliente(editandoFornecedor.id, dadosFornecedor);
+        toast.showSuccess(`✅ Fornecedor "${razaoSocial}" atualizado com sucesso!`);
       } else {
-        const novo = await clientesService.criar(dadosFornecedor);
-        StorageService.addCliente(novo);
+        await clientesService.criar(dadosFornecedor);
+        toast.showSuccess(`✅ Fornecedor "${razaoSocial}" criado com sucesso!`);
       }
 
       setModalOpen(false);
@@ -145,31 +179,62 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
 
     } catch (error: any) {
       console.error('Erro ao salvar fornecedor:', error);
-      setErro(error.response?.data?.erro || error.message || 'Erro ao salvar fornecedor. Tente novamente.');
+      const mensagem = error.response?.data?.erro || error.message || 'Erro ao salvar fornecedor';
+      setErro(mensagem);
+      toast.showError(`❌ ${mensagem}`);
     } finally {
       setCarregando(false);
     }
   };
 
-  const handleExcluir = async (id: string, razaoSocial: string) => {
-    if (!confirm(`Tem certeza que deseja excluir "${razaoSocial}"?`)) {
+  // ============================================================
+  // 🔥 EXCLUIR COM MODAL DE CONFIRMAÇÃO
+  // ============================================================
+
+  const openConfirmModal = (id: string, razaoSocial: string) => {
+    setConfirmModal({
+      isOpen: true,
+      id,
+      razaoSocial,
+      loading: false,
+    });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const handleConfirmExclusao = async () => {
+    const { id, razaoSocial } = confirmModal;
+    if (!id) {
+      toast.showError('❌ ID do fornecedor não informado');
+      closeConfirmModal();
       return;
     }
 
-    setCarregando(true);
-    setErro(null);
+    setConfirmModal(prev => ({ ...prev, loading: true }));
 
     try {
+      console.log(`🗑️ Excluindo fornecedor: ${id} - ${razaoSocial}`);
+      
       await clientesService.excluir(id);
-      const listaAtualizada = StorageService.getClientes().filter(c => c.id !== id);
-      StorageService.saveClientes(listaAtualizada);
+      
+      closeConfirmModal();
       onFornecedoresChange();
-      setModalOpen(false);
+      
+      toast.showSuccess(`✅ Fornecedor "${razaoSocial}" excluído com sucesso!`);
+      
     } catch (error: any) {
-      console.error('Erro ao excluir fornecedor:', error);
-      setErro(error.response?.data?.erro || error.message || 'Erro ao excluir fornecedor');
+      console.error('❌ Erro ao excluir fornecedor:', error);
+      
+      const mensagemErro = error.response?.data?.erro || error.message || 'Erro ao excluir fornecedor';
+      
+      closeConfirmModal();
+      toast.showError(`❌ ${mensagemErro}`);
+      setErro(mensagemErro);
+      
     } finally {
-      setCarregando(false);
+      setConfirmModal(prev => ({ ...prev, loading: false }));
     }
   };
 
@@ -228,16 +293,14 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       
-      {/* 🔥 HEADER - COR VIOLETA */}
+      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
             <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
               <UserCheck className="w-4 h-4" />
             </span>
-            <h1 className="text-base font-bold text-slate-900">
-              Fornecedores
-            </h1>
+            <h1 className="text-base font-bold text-slate-900">Fornecedores</h1>
             <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
               {fornecedores.length} cadastros
             </span>
@@ -253,7 +316,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
         </div>
       </div>
 
-      {/* Busca e Botão Novo Cadastro */}
+      {/* Busca e Botão */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1 flex items-center bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm">
           <Search className="w-4 h-4 text-slate-400 ml-1.5" />
@@ -265,12 +328,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
             className="w-full text-xs px-2 py-1 focus:outline-none"
           />
           {busca && (
-            <button
-              onClick={() => setBusca('')}
-              className="text-xs text-slate-400 hover:text-slate-600 px-2"
-            >
-              ✕
-            </button>
+            <button onClick={() => setBusca('')} className="text-xs text-slate-400 hover:text-slate-600 px-2">✕</button>
           )}
         </div>
 
@@ -284,41 +342,26 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
         </button>
       </div>
 
-      {/* Tabela de Fornecedores */}
+      {/* Tabela */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600">
             <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
               <tr>
                 <th className={thClass} onClick={() => handleOrdenar('tipo')}>
-                  <div className="flex items-center">
-                    Tipo
-                    <IconeOrdenacao campo="tipo" />
-                  </div>
+                  <div className="flex items-center">Tipo <IconeOrdenacao campo="tipo" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('razaoSocial')}>
-                  <div className="flex items-center">
-                    Razão Social / Nome
-                    <IconeOrdenacao campo="razaoSocial" />
-                  </div>
+                  <div className="flex items-center">Razão Social / Nome <IconeOrdenacao campo="razaoSocial" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('documento')}>
-                  <div className="flex items-center">
-                    CPF / CNPJ
-                    <IconeOrdenacao campo="documento" />
-                  </div>
+                  <div className="flex items-center">CPF / CNPJ <IconeOrdenacao campo="documento" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('email')}>
-                  <div className="flex items-center">
-                    E-mail / Telefone
-                    <IconeOrdenacao campo="email" />
-                  </div>
+                  <div className="flex items-center">E-mail / Telefone <IconeOrdenacao campo="email" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('endereco.nomeMunicipio')}>
-                  <div className="flex items-center">
-                    Cidade / UF
-                    <IconeOrdenacao campo="endereco.nomeMunicipio" />
-                  </div>
+                  <div className="flex items-center">Cidade / UF <IconeOrdenacao campo="endereco.nomeMunicipio" /></div>
                 </th>
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
@@ -340,8 +383,8 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
                     <td className="py-3 px-4 font-semibold">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                         c.tipo === 'FORNECEDOR' ? 'bg-violet-100 text-violet-800' :
-                        c.tipo === 'AMBOS' ? 'bg-sky-100 text-sky-800' : // AMBOS = SKY
-                        'bg-violet-100 text-violet-800' // CLIENTE = VIOLETA
+                        c.tipo === 'AMBOS' ? 'bg-sky-100 text-sky-800' :
+                        'bg-violet-100 text-violet-800'
                       }`}>
                         {c.tipo}
                       </span>
@@ -355,9 +398,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
                       <div>{c.email || '-'}</div>
                       <div className="text-[10px] text-slate-400">{c.telefone || '-'}</div>
                     </td>
-                    <td className="py-3 px-4">
-                      {c.endereco.nomeMunicipio} - {c.endereco.uf}
-                    </td>
+                    <td className="py-3 px-4">{c.endereco.nomeMunicipio} - {c.endereco.uf}</td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
@@ -368,7 +409,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleExcluir(c.id, c.razaoSocial)}
+                          onClick={() => openConfirmModal(c.id, c.razaoSocial)}
                           className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           title="Excluir"
                         >
@@ -384,17 +425,39 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
         </div>
       </div>
 
-      {/* Modal de Cadastro / Edição */}
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={handleConfirmExclusao}
+        type="danger"
+        title="Excluir Fornecedor"
+        message={`Tem certeza que deseja excluir permanentemente o fornecedor "${confirmModal.razaoSocial}"?\n\nEsta ação não pode ser desfeita.`}
+        confirmText="Excluir Permanentemente"
+        cancelText="Cancelar"
+        loading={confirmModal.loading}
+      />
+
+      {/* MODAL DE CADASTRO/EDIÇÃO */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-xl w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <span className={`w-7 h-7 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
-                <UserCheck className="w-3.5 h-3.5" />
-              </span>
-              <h2 className="text-sm font-bold text-slate-900">
-                {editandoFornecedor ? 'Editar Fornecedor' : 'Novo Fornecedor'}
-              </h2>
+            
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className={`w-7 h-7 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
+                  <UserCheck className="w-3.5 h-3.5" />
+                </span>
+                <h2 className="text-sm font-bold text-slate-900">
+                  {editandoFornecedor ? 'Editar Fornecedor' : 'Novo Fornecedor'}
+                </h2>
+              </div>
+              <button
+                onClick={() => setModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             {erro && (
@@ -545,7 +608,10 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
                       <span>Salvando...</span>
                     </>
                   ) : (
-                    <span>Salvar Cadastro</span>
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Salvar Cadastro</span>
+                    </>
                   )}
                 </button>
               </div>

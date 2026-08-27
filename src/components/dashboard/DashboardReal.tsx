@@ -1,4 +1,5 @@
 // C:\emissornfe\src\components\dashboard\DashboardReal.tsx
+// ✅ VERSÃO COMPLETA - GRÁFICOS CORRIGIDOS COM RECHARTS
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -42,6 +43,24 @@ import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import api from '../../services/api';
 
 // ============================================================
+// RECHARTS - BIBLIOTECA DE GRÁFICOS
+// ============================================================
+
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+  PieChart as RePieChart,
+  Pie,
+} from 'recharts';
+
+// ============================================================
 // TIPOS
 // ============================================================
 
@@ -79,7 +98,7 @@ interface DashboardData {
     tomador?: { razaoSocial: string; documento: string };
     tipo: 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE';
   }>;
-  faturamentoPorMes: Array<{ mes: string; valor: number }>;
+  faturamentoPorMes: Array<{ mes: string; ano: number; valor: number; color: string }>;
   documentosPorStatus: { autorizadas: number; canceladas: number; pendentes: number };
 }
 
@@ -103,19 +122,15 @@ export const DashboardReal: React.FC = () => {
   const corIconBg = 'bg-blue-600';
 
   // ============================================================
-  // FUNÇÃO DE NAVEGAÇÃO - USANDO O onNavigate DO APP
+  // FUNÇÃO DE NAVEGAÇÃO
   // ============================================================
 
-  // 🔥 ESTA FUNÇÃO SERÁ SUBSTITUÍDA PELO onNavigate DO APP
-  // Mas por enquanto, usamos window.location
   const navegarPara = (rota: string) => {
-    // Tenta encontrar o elemento com o id da rota e clicar
     const menuItem = document.getElementById(`menu-item-${rota}`);
     if (menuItem) {
       menuItem.click();
       return;
     }
-    // Fallback: navegação tradicional
     window.location.href = rota;
   };
 
@@ -231,22 +246,37 @@ export const DashboardReal: React.FC = () => {
         .filter((t: any) => t.tipo === 'PAGAR' && (t.status === 'PENDENTE' || t.status === 'VENCIDO'))
         .reduce((acc: number, t: any) => acc + (t.valorOriginal || 0), 0);
 
-      // 7. Faturamento por mês (últimos 6 meses)
-      const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      // 7. Faturamento por mês (últimos 3 meses) - CORRIGIDO
+      const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
       const faturamentoPorMes = [];
-      for (let i = 5; i >= 0; i--) {
-        const mes = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+
+      for (let i = 2; i >= 0; i--) {
+        const mesAtual = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
         const mesFim = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 0);
+        
         const notasMesPeriodo = todasNotas.filter(n => {
+          if (!n.data) return false;
           const data = new Date(n.data);
-          return data >= mes && data <= mesFim;
+          return data >= mesAtual && data <= mesFim;
         });
-        const valor = notasMesPeriodo.reduce((acc: number, n: any) => acc + (n.valor || 0), 0);
+        
+        const valor = notasMesPeriodo.reduce((acc: number, n: any) => {
+          const v = n.valor || n.valorTotalNota || n.valorTotalServicos || 0;
+          return acc + (typeof v === 'number' ? v : 0);
+        }, 0);
+        
         faturamentoPorMes.push({
-          mes: meses[mes.getMonth()],
-          valor: valor
+          mes: mesesNomes[mesAtual.getMonth()],
+          ano: mesAtual.getFullYear(),
+          valor: Math.round(valor * 100) / 100,
+          color: ['#3b82f6', '#60a5fa', '#93c5fd'][i] || '#3b82f6'
         });
       }
+
+      // 🔥 Inverter para mostrar na ordem correta
+      faturamentoPorMes.reverse();
+
+      console.log('📊 Faturamento por mês (corrigido):', faturamentoPorMes);
 
       // 8. Crescimento
       const mesAtual = faturamentoPorMes[faturamentoPorMes.length - 1]?.valor || 0;
@@ -297,7 +327,8 @@ export const DashboardReal: React.FC = () => {
         faturamentoTotal,
         totalNfes,
         notasPorTipo,
-        documentosPorStatus
+        documentosPorStatus,
+        faturamentoPorMes
       });
 
     } catch (err: any) {
@@ -362,8 +393,32 @@ export const DashboardReal: React.FC = () => {
 
   const temCrescimento = crescimento > 0;
 
-  // 🔥 CORRIGIDO: Calcular o valor máximo para o gráfico
-  const maxValor = faturamentoPorMes.length > 0 ? Math.max(...faturamentoPorMes.map((i: any) => i.valor), 1) : 1;
+  // 🔥 Dados para o gráfico de pizza
+  const pieData = Object.entries(notasPorTipo)
+    .filter(([_, qtd]) => qtd > 0)
+    .map(([tipo, qtd]) => {
+      const cores: Record<string, string> = {
+        'NFE': '#10b981',
+        'NFSE': '#3b82f6',
+        'NFCE': '#8b5cf6',
+        'CTE': '#06b6d4',
+        'NFAE': '#f59e0b',
+      };
+      const labels: Record<string, string> = {
+        'NFE': 'NF-e',
+        'NFSE': 'NFS-e',
+        'NFCE': 'NFC-e',
+        'CTE': 'CT-e',
+        'NFAE': 'NFA-e',
+      };
+      return {
+        name: labels[tipo] || tipo,
+        value: qtd,
+        color: cores[tipo] || '#94a3b8'
+      };
+    });
+
+  const totalDocs = pieData.reduce((acc, item) => acc + item.value, 0);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -523,7 +578,7 @@ export const DashboardReal: React.FC = () => {
 
       </div>
 
-      {/* GRÁFICO DE BARRAS + DISTRIBUIÇÃO */}
+      {/* GRÁFICO DE BARRAS COM RECHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -531,40 +586,81 @@ export const DashboardReal: React.FC = () => {
               <BarChart3 className="w-4 h-4 text-blue-600" />
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Faturamento por Mês</h3>
             </div>
-            <span className="text-[10px] text-slate-400">Últimos 6 meses</span>
+            <span className="text-[10px] text-slate-400">Últimos 3 meses</span>
           </div>
 
-          <div className="h-48 flex items-end justify-between gap-2 pt-2">
-            {faturamentoPorMes.length > 0 && faturamentoPorMes.some((i: any) => i.valor > 0) ? (
-              faturamentoPorMes.map((item: any, index: number) => {
-                // 🔥 CORRIGIDO: Altura proporcional ao valor máximo
-                const altura = maxValor > 0 ? (item.valor / maxValor) * 100 : 0;
-                return (
-                  <div key={index} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="text-[9px] font-bold text-slate-600">{formatarMoeda(item.valor)}</div>
-                    <div 
-                      className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t transition-all hover:opacity-80 cursor-pointer"
-                      style={{ height: `${Math.max(altura, 4)}%`, minHeight: '8px' }}
-                      title={`${item.mes}: ${formatarMoeda(item.valor)}`}
-                    />
-                    <div className="text-[9px] text-slate-400 font-medium">{item.mes}</div>
-                  </div>
-                );
-              })
+          <div className="h-56 w-full">
+            {faturamentoPorMes.some((item: any) => item.valor > 0) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={faturamentoPorMes}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                  <XAxis 
+                    dataKey="mes" 
+                    tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={50}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [`R$ ${value.toFixed(2).replace('.', ',')}`, 'Faturamento']}
+                    labelStyle={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ fontSize: 10, paddingTop: 8 }}
+                    iconType="circle"
+                  />
+                  <Bar 
+                    dataKey="valor" 
+                    name="Faturamento"
+                    radius={[6, 6, 0, 0]}
+                    animationDuration={800}
+                    animationEasing="ease-in-out"
+                  >
+                    {faturamentoPorMes.map((entry: any, index: number) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.color || '#3b82f6'}
+                        className="hover:opacity-80 transition-opacity cursor-pointer"
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="w-full text-center text-slate-400 text-xs py-8">
-                Nenhum dado de faturamento disponível
+              <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+                <div className="text-center">
+                  <BarChart3 className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                  Nenhum dado de faturamento disponível
+                </div>
               </div>
             )}
           </div>
 
           <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between text-[10px] text-slate-400">
-            <span>Total: {formatarMoeda(faturamentoTotal)}</span>
-            <span>Média mensal: {formatarMoeda(faturamentoPorMes.length > 0 ? faturamentoTotal / faturamentoPorMes.length : 0)}</span>
+            <span>Total: <strong className="text-slate-700">{formatarMoeda(faturamentoTotal)}</strong></span>
+            <span>Média mensal: <strong className="text-slate-700">
+              {formatarMoeda(faturamentoPorMes.length > 0 ? faturamentoTotal / faturamentoPorMes.length : 0)}
+            </strong></span>
           </div>
         </div>
 
-        {/* DISTRIBUIÇÃO */}
+        {/* GRÁFICO DE PIZZA COM RECHARTS */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div className="flex items-center gap-2">
@@ -574,50 +670,55 @@ export const DashboardReal: React.FC = () => {
             <span className="text-[10px] text-slate-400">Por Tipo</span>
           </div>
 
-          <div className="space-y-2">
-            {Object.entries(notasPorTipo).map(([tipo, qtd]) => {
-              const total = Object.values(notasPorTipo).reduce((a, b) => a + b, 0) || 1;
-              const percent = (qtd / total) * 100;
-              const cores: Record<string, string> = {
-                'NFE': 'bg-emerald-500',
-                'NFSE': 'bg-blue-500',
-                'NFCE': 'bg-purple-500',
-                'CTE': 'bg-cyan-500',
-                'NFAE': 'bg-amber-500',
-              };
-              const labels: Record<string, string> = {
-                'NFE': 'NF-e',
-                'NFSE': 'NFS-e',
-                'NFCE': 'NFC-e',
-                'CTE': 'CT-e',
-                'NFAE': 'NFA-e',
-              };
-              return (
-                <div key={tipo}>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-700">{labels[tipo] || tipo}</span>
-                    <span className="text-slate-500">{qtd} ({percent.toFixed(1)}%)</span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-1">
-                    <div 
-                      className={`h-full ${cores[tipo] || 'bg-slate-400'} rounded-full transition-all`}
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
+          <div className="h-48 w-full">
+            {pieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RePieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={70}
+                    paddingAngle={2}
+                    dataKey="value"
+                    animationDuration={800}
+                    animationEasing="ease-in-out"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                  >
+                    {pieData.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, name: string) => [`${value} documentos`, name]}
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      fontSize: 12
+                    }}
+                  />
+                </RePieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+                <div className="text-center">
+                  <PieChart className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                  Nenhum documento emitido
                 </div>
-              );
-            })}
-            {Object.values(notasPorTipo).every(v => v === 0) && (
-              <div className="text-center text-slate-400 text-xs py-4">Nenhum documento emitido</div>
+              </div>
             )}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100">
+          <div className="mt-2 pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-500">Total de Documentos:</span>
-              <span className="font-bold text-slate-900">{Object.values(notasPorTipo).reduce((a, b) => a + b, 0)}</span>
+              <span className="font-bold text-slate-900">{totalDocs}</span>
             </div>
-            <div className="flex items-center justify-between text-xs mt-1">
+            <div className="flex items-center justify-between text-xs mt-0.5">
               <span className="text-slate-500">Faturamento Total:</span>
               <span className="font-bold text-slate-900">{formatarMoeda(faturamentoTotal)}</span>
             </div>

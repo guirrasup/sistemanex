@@ -1,4 +1,5 @@
 // backend/src/controllers/transportadora.controller.ts
+// ✅ VERSÃO COMPLETA CORRIGIDA
 
 import { Request, Response } from 'express';
 import { TransportadoraService } from '../services/transportadora.service';
@@ -44,7 +45,16 @@ export class TransportadoraController {
   async buscarPorId(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const dados = await this.transportadoraService.buscarPorId(id);
+      const empresaId = req.user?.empresaId;
+
+      if (!empresaId) {
+        return res.status(401).json({
+          sucesso: false,
+          erro: 'Empresa não autenticada'
+        });
+      }
+
+      const dados = await this.transportadoraService.buscarPorId(id, empresaId);
 
       if (!dados) {
         return res.status(404).json({
@@ -87,7 +97,7 @@ export class TransportadoraController {
     } catch (error: any) {
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar transportadora'
+        erro: error.message || 'Erro ao buscar transportadora por CNPJ'
       });
     }
   }
@@ -204,16 +214,41 @@ export class TransportadoraController {
         });
       }
 
+      if (!id) {
+        return res.status(400).json({
+          sucesso: false,
+          erro: 'ID da transportadora não informado'
+        });
+      }
+
+      // 🔥 DELEGA PARA O SERVICE (NÃO USA REPO DIRETAMENTE)
       await this.transportadoraService.excluir(id, empresaId);
 
       return res.json({
         sucesso: true,
         mensagem: 'Transportadora excluída com sucesso'
       });
+
     } catch (error: any) {
-      return res.status(400).json({
+      console.error('❌ Erro ao excluir transportadora:', error);
+
+      if (error.message.includes('não encontrada')) {
+        return res.status(404).json({
+          sucesso: false,
+          erro: error.message
+        });
+      }
+
+      if (error.message.includes('vínculo') || error.message.includes('CT-e')) {
+        return res.status(409).json({
+          sucesso: false,
+          erro: error.message
+        });
+      }
+
+      return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao excluir transportadora'
+        erro: error.message || 'Erro interno ao excluir transportadora'
       });
     }
   }

@@ -1,4 +1,5 @@
 // C:\emissornfe\backend\src\repositories\cliente.repository.ts
+// ✅ CORREÇÃO - MÉTODO UPDATE
 
 import { Prisma } from '@prisma/client'
 import { BaseRepository } from './base.repository'
@@ -71,10 +72,29 @@ export class ClienteRepository extends BaseRepository {
     })
   }
 
-  async update(id: string, data: Prisma.ClienteUpdateInput) {
+  // 🔥 CORREÇÃO: UPDATE COM ENDERECO
+  async update(id: string, data: any) {
+    // 🔥 SEPARA ENDERECO DO RESTO
+    const { endereco, ...clienteData } = data;
+
+    // 🔥 PREPARA OS DADOS DO CLIENTE
+    const updateData: Prisma.ClienteUpdateInput = {
+      ...clienteData,
+    };
+
+    // 🔥 SE TIVER ENDERECO, ATUALIZA OU CRIA
+    if (endereco) {
+      updateData.endereco = {
+        upsert: {
+          create: endereco,
+          update: endereco
+        }
+      };
+    }
+
     return this.prisma.cliente.update({
       where: { id },
-      data,
+      data: updateData,
       include: { endereco: true }
     })
   }

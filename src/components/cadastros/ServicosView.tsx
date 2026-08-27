@@ -1,11 +1,26 @@
 // C:\emissornfe\src\components\cadastros\ServicosView.tsx
+// ✅ VERSÃO COMPLETA - COM TOASTS E MODAL DE CONFIRMAÇÃO
 
 import React, { useState, useMemo } from 'react';
-import { FileText, Plus, Search, Edit2, Trash2, AlertCircle, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { 
+  FileText, 
+  Plus, 
+  Search, 
+  Edit2, 
+  Trash2, 
+  AlertCircle, 
+  Loader2, 
+  ArrowUpDown, 
+  ArrowUp, 
+  ArrowDown,
+  X,
+  Save
+} from 'lucide-react';
 import { ServicoCatalogo } from '../../types/erp';
 import { formatarMoeda } from '../../utils/cpfCnpjValidator';
-import { StorageService } from '../../utils/storage';
 import { servicosService } from '../../services/servicos.service';
+import { useToast } from '../../hooks/useToast';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface ServicosViewProps {
   servicos: ServicoCatalogo[];
@@ -16,17 +31,32 @@ type OrdenacaoCampo = 'codigoInterno' | 'descricao' | 'codigoTributacaoNacional'
 type OrdenacaoDirecao = 'asc' | 'desc';
 
 export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicosChange }) => {
+  const toast = useToast();
+
   const [busca, setBusca] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState<ServicoCatalogo | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  // 🔥 ESTADO DO MODAL DE CONFIRMAÇÃO
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    id: string | null;
+    descricao: string;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    id: null,
+    descricao: '',
+    loading: false,
+  });
+
   // 🔥 ESTADO DE ORDENAÇÃO
   const [ordenacaoCampo, setOrdenacaoCampo] = useState<OrdenacaoCampo>('descricao');
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState<OrdenacaoDirecao>('asc');
 
-  // 🔥 COR DO MÓDULO (ROSA) - MESMA DO HEADER E SIDEBAR
+  // 🔥 COR DO MÓDULO (ROSA)
   const cor = 'pink';
   const corBg = 'bg-pink-50';
   const corBorder = 'border-pink-200';
@@ -36,7 +66,6 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
   const corBgBadge = 'bg-pink-100';
   const corFocus = 'focus:ring-pink-500';
   const corIconBg = 'bg-pink-600';
-  const corGradient = 'from-pink-600 to-pink-700';
 
   // Form State
   const [codigoInterno, setCodigoInterno] = useState('');
@@ -76,16 +105,20 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
     setModalOpen(true);
   };
 
+  // ============================================================
+  // 🔥 SALVAR COM TOAST
+  // ============================================================
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
 
     if (!descricao.trim()) {
-      setErro('A descrição do serviço é obrigatória.');
+      toast.showWarning('⚠️ A descrição do serviço é obrigatória.');
       return;
     }
     if (valorUnitario <= 0) {
-      setErro('O valor unitário deve ser maior que zero.');
+      toast.showWarning('⚠️ O valor unitário deve ser maior que zero.');
       return;
     }
 
@@ -112,11 +145,11 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
       };
 
       if (editando) {
-        const atualizado = await servicosService.atualizar(editando.id, dadosServico);
-        StorageService.updateServico(editando.id, dadosServico);
+        await servicosService.atualizar(editando.id, dadosServico);
+        toast.showSuccess(`✅ Serviço "${descricao}" atualizado com sucesso!`);
       } else {
-        const novo = await servicosService.criar(dadosServico);
-        StorageService.addServico(novo);
+        await servicosService.criar(dadosServico);
+        toast.showSuccess(`✅ Serviço "${descricao}" criado com sucesso!`);
       }
 
       setModalOpen(false);
@@ -124,27 +157,62 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
 
     } catch (error: any) {
       console.error('Erro ao salvar serviço:', error);
-      setErro(error.response?.data?.erro || error.message || 'Erro ao salvar serviço. Tente novamente.');
+      const mensagem = error.response?.data?.erro || error.message || 'Erro ao salvar serviço';
+      setErro(mensagem);
+      toast.showError(`❌ ${mensagem}`);
     } finally {
       setCarregando(false);
     }
   };
 
-  const handleExcluir = async (id: string, descricao: string) => {
-    if (!confirm(`Tem certeza que deseja excluir o serviço "${descricao}"?`)) {
+  // ============================================================
+  // 🔥 EXCLUIR COM MODAL DE CONFIRMAÇÃO
+  // ============================================================
+
+  const openConfirmModal = (id: string, descricao: string) => {
+    setConfirmModal({
+      isOpen: true,
+      id,
+      descricao,
+      loading: false,
+    });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const handleConfirmExclusao = async () => {
+    const { id, descricao } = confirmModal;
+    if (!id) {
+      toast.showError('❌ ID do serviço não informado');
+      closeConfirmModal();
       return;
     }
 
-    setCarregando(true);
+    setConfirmModal(prev => ({ ...prev, loading: true }));
+
     try {
+      console.log(`🗑️ Excluindo serviço: ${id} - ${descricao}`);
+      
       await servicosService.excluir(id);
-      const lista = StorageService.getServicos().filter(s => s.id !== id);
-      StorageService.saveServicos(lista);
+      
+      closeConfirmModal();
       onServicosChange();
+      
+      toast.showSuccess(`✅ Serviço "${descricao}" excluído com sucesso!`);
+      
     } catch (error: any) {
-      alert(error.response?.data?.erro || 'Erro ao excluir serviço');
+      console.error('❌ Erro ao excluir serviço:', error);
+      
+      const mensagemErro = error.response?.data?.erro || error.message || 'Erro ao excluir serviço';
+      
+      closeConfirmModal();
+      toast.showError(`❌ ${mensagemErro}`);
+      setErro(mensagemErro);
+      
     } finally {
-      setCarregando(false);
+      setConfirmModal(prev => ({ ...prev, loading: false }));
     }
   };
 
@@ -196,16 +264,14 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       
-      {/* 🔥 HEADER - COR ROSA (MESMA DO HEADER E SIDEBAR) */}
+      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
             <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
               <FileText className="w-4 h-4" />
             </span>
-            <h1 className="text-base font-bold text-slate-900">
-              Serviços
-            </h1>
+            <h1 className="text-base font-bold text-slate-900">Serviços</h1>
             <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
               {servicos.length} serviços
             </span>
@@ -221,7 +287,7 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
         </div>
       </div>
 
-      {/* Busca e Botão Novo Serviço */}
+      {/* Busca e Botão */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1 flex items-center bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm">
           <Search className="w-4 h-4 text-slate-400 ml-1.5" />
@@ -233,12 +299,7 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
             className="w-full text-xs px-2 py-1 focus:outline-none"
           />
           {busca && (
-            <button
-              onClick={() => setBusca('')}
-              className="text-xs text-slate-400 hover:text-slate-600 px-2"
-            >
-              ✕
-            </button>
+            <button onClick={() => setBusca('')} className="text-xs text-slate-400 hover:text-slate-600 px-2">✕</button>
           )}
         </div>
 
@@ -252,47 +313,29 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
         </button>
       </div>
 
-      {/* Tabela de Serviços */}
+      {/* Tabela */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600">
             <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
               <tr>
                 <th className={thClass} onClick={() => handleOrdenar('codigoInterno')}>
-                  <div className="flex items-center">
-                    Código
-                    <IconeOrdenacao campo="codigoInterno" />
-                  </div>
+                  <div className="flex items-center">Código <IconeOrdenacao campo="codigoInterno" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('descricao')}>
-                  <div className="flex items-center">
-                    Descrição
-                    <IconeOrdenacao campo="descricao" />
-                  </div>
+                  <div className="flex items-center">Descrição <IconeOrdenacao campo="descricao" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('codigoTributacaoNacional')}>
-                  <div className="flex items-center">
-                    LC 116
-                    <IconeOrdenacao campo="codigoTributacaoNacional" />
-                  </div>
+                  <div className="flex items-center">LC 116 <IconeOrdenacao campo="codigoTributacaoNacional" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('codigoNBS')}>
-                  <div className="flex items-center">
-                    NBS
-                    <IconeOrdenacao campo="codigoNBS" />
-                  </div>
+                  <div className="flex items-center">NBS <IconeOrdenacao campo="codigoNBS" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('aliquotaISS')}>
-                  <div className="flex items-center">
-                    ISS
-                    <IconeOrdenacao campo="aliquotaISS" />
-                  </div>
+                  <div className="flex items-center">ISS <IconeOrdenacao campo="aliquotaISS" /></div>
                 </th>
                 <th className={`${thClass} text-right`} onClick={() => handleOrdenar('valorUnitario')}>
-                  <div className="flex items-center justify-end">
-                    Valor
-                    <IconeOrdenacao campo="valorUnitario" />
-                  </div>
+                  <div className="flex items-center justify-end">Valor <IconeOrdenacao campo="valorUnitario" /></div>
                 </th>
                 <th className="py-2.5 px-3 text-right">Ações</th>
               </tr>
@@ -313,18 +356,10 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
                   <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-2.5 px-3 font-mono font-semibold text-slate-900">{s.codigoInterno}</td>
                     <td className="py-2.5 px-3 font-medium text-slate-800">{s.descricao}</td>
-                    <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">
-                      {s.codigoTributacaoNacional}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">
-                      {s.codigoNBS}
-                    </td>
-                    <td className="py-2.5 px-3 font-semibold text-pink-700">
-                      {s.aliquotaISS.toFixed(2)}%
-                    </td>
-                    <td className="py-2.5 px-3 font-bold text-slate-900 text-right">
-                      {formatarMoeda(s.valorUnitario)}
-                    </td>
+                    <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">{s.codigoTributacaoNacional}</td>
+                    <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">{s.codigoNBS}</td>
+                    <td className="py-2.5 px-3 font-semibold text-pink-700">{s.aliquotaISS.toFixed(2)}%</td>
+                    <td className="py-2.5 px-3 font-bold text-slate-900 text-right">{formatarMoeda(s.valorUnitario)}</td>
                     <td className="py-2.5 px-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
@@ -335,7 +370,7 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleExcluir(s.id, s.descricao)}
+                          onClick={() => openConfirmModal(s.id, s.descricao)}
                           className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           title="Excluir"
                         >
@@ -351,17 +386,39 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
         </div>
       </div>
 
-      {/* Modal de Cadastro / Edição */}
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={handleConfirmExclusao}
+        type="danger"
+        title="Excluir Serviço"
+        message={`Tem certeza que deseja excluir permanentemente o serviço "${confirmModal.descricao}"?\n\nEsta ação não pode ser desfeita.`}
+        confirmText="Excluir Permanentemente"
+        cancelText="Cancelar"
+        loading={confirmModal.loading}
+      />
+
+      {/* MODAL DE CADASTRO/EDIÇÃO */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <span className={`w-7 h-7 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
-                <FileText className="w-3.5 h-3.5" />
-              </span>
-              <h2 className="text-sm font-bold text-slate-900">
-                {editando ? 'Editar Serviço' : 'Cadastrar Novo Serviço'}
-              </h2>
+            
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className={`w-7 h-7 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
+                  <FileText className="w-3.5 h-3.5" />
+                </span>
+                <h2 className="text-sm font-bold text-slate-900">
+                  {editando ? 'Editar Serviço' : 'Cadastrar Novo Serviço'}
+                </h2>
+              </div>
+              <button
+                onClick={() => setModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             {erro && (
@@ -486,7 +543,10 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
                       <span>Salvando...</span>
                     </>
                   ) : (
-                    <span>Salvar</span>
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Salvar</span>
+                    </>
                   )}
                 </button>
               </div>

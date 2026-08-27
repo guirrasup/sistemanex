@@ -1,7 +1,9 @@
 // src/services/transportadora.service.ts
+// ✅ VERSÃO COMPLETA - COM LISTAR CORRETO
 
 import api from './api';
 
+// 🔥 TIPO Transportadora
 export interface Transportadora {
   id: string;
   tipoPessoa: 'PJ' | 'PF' | 'EXTERIOR';
@@ -19,7 +21,7 @@ export interface Transportadora {
   rntrc?: string;
   antt?: string;
   inscricaoSuframa?: string;
-  regimeTributario?: 'SIMPLES_NACIONAL' | 'SIMPLES_EXCESSO' | 'NORMAL';
+  regimeTributario: 'SIMPLES_NACIONAL' | 'SIMPLES_EXCESSO' | 'NORMAL';
   tipoTransportador?: string;
   banco?: string;
   agencia?: string;
@@ -28,7 +30,10 @@ export interface Transportadora {
   chavePix?: string;
   ativo: boolean;
   observacoes?: string;
+  empresaId: string;
+  enderecoId: string;
   endereco: {
+    id: string;
     logradouro: string;
     numero: string;
     complemento?: string;
@@ -40,67 +45,148 @@ export interface Transportadora {
     telefone?: string;
     email?: string;
   };
-  empresaId: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ListaTransportadoraResponse {
-  data: Transportadora[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
 export const transportadoraService = {
-  async listar(page: number = 1, limit: number = 50, busca: string = ''): Promise<ListaTransportadoraResponse> {
+  /**
+   * 🔥 LISTAR TRANSPORTADORAS
+   */
+  async listar(page: number = 1, limit: number = 50): Promise<any> {
     try {
-      const response = await api.get('/transportadoras', {
-        params: { page, limit, busca }
-      });
+      console.log(`📡 Buscando transportadoras: page=${page}, limit=${limit}`);
+      const response = await api.get(`/transportadoras?page=${page}&limit=${limit}`);
+      console.log('📦 Resposta bruta:', response.data);
       
-      if (response.data && response.data.sucesso && response.data.dados) {
-        return response.data.dados;
-      }
-      return { data: [], total: 0, page, limit, totalPages: 0 };
-    } catch (error) {
-      console.error('❌ transportadora.listar erro:', error);
-      return { data: [], total: 0, page, limit, totalPages: 0 };
+      // 🔥 EXTRAI OS DADOS CORRETAMENTE
+      // O backend retorna: { sucesso: true, dados: { data: [...], total: X, ... } }
+      const dados = response.data?.dados?.data || response.data?.data || [];
+      
+      console.log(`✅ Transportadoras encontradas: ${dados.length}`);
+      return { data: dados };
+    } catch (error: any) {
+      console.error('❌ Erro ao listar transportadoras:', error);
+      return { data: [] };
     }
   },
 
-  async buscarPorId(id: string): Promise<Transportadora> {
-    const response = await api.get(`/transportadoras/${id}`);
-    return response.data.dados || response.data;
+  /**
+   * 🔥 BUSCAR POR ID
+   */
+  async buscarPorId(id: string): Promise<any> {
+    try {
+      const response = await api.get(`/transportadoras/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar transportadora:', error);
+      throw error;
+    }
   },
 
-  async buscarPorCnpj(cnpj: string): Promise<Transportadora> {
-    const response = await api.get(`/transportadoras/cnpj/${cnpj}`);
-    return response.data.dados || response.data;
+  /**
+   * 🔥 CRIAR TRANSPORTADORA
+   */
+  async criar(data: any): Promise<any> {
+    try {
+      const response = await api.post('/transportadoras', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Erro ao criar transportadora:', error);
+      throw error;
+    }
   },
 
-  async buscarAtivos(): Promise<Transportadora[]> {
-    const response = await api.get('/transportadoras/ativos');
-    return response.data.dados || response.data || [];
+  /**
+   * 🔥 ATUALIZAR TRANSPORTADORA
+   */
+  async atualizar(id: string, data: any): Promise<any> {
+    try {
+      const response = await api.put(`/transportadoras/${id}`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Erro ao atualizar transportadora:', error);
+      throw error;
+    }
   },
 
-  async buscarPorTipo(tipo: string): Promise<Transportadora[]> {
-    const response = await api.get(`/transportadoras/tipo/${tipo}`);
-    return response.data.dados || response.data || [];
-  },
+  /**
+   * 🔥 EXCLUIR TRANSPORTADORA
+   */
+  async excluir(id: string): Promise<{ sucesso: boolean; mensagem?: string; erro?: string }> {
+    try {
+      if (!id) {
+        return { sucesso: false, erro: 'ID da transportadora não informado' };
+      }
 
-  async criar(transportadora: Omit<Transportadora, 'id' | 'createdAt' | 'updatedAt'>): Promise<Transportadora> {
-    const response = await api.post('/transportadoras', transportadora);
-    return response.data.dados || response.data;
-  },
+      console.log(`🗑️ Excluindo transportadora: ${id}`);
 
-  async atualizar(id: string, transportadora: Partial<Transportadora>): Promise<Transportadora> {
-    const response = await api.put(`/transportadoras/${id}`, transportadora);
-    return response.data.dados || response.data;
-  },
+      const response = await api.delete(`/transportadoras/${id}`);
+      
+      console.log('📥 Resposta da exclusão:', response.data);
 
-  async excluir(id: string): Promise<void> {
-    await api.delete(`/transportadoras/${id}`);
+      if (response.data && response.data.sucesso === true) {
+        return { 
+          sucesso: true, 
+          mensagem: response.data.mensagem || 'Transportadora excluída com sucesso' 
+        };
+      }
+
+      if (response.status === 200 || response.status === 204) {
+        return { 
+          sucesso: true, 
+          mensagem: 'Transportadora excluída com sucesso' 
+        };
+      }
+
+      if (response.data && response.data.erro) {
+        return { 
+          sucesso: false, 
+          erro: response.data.erro 
+        };
+      }
+
+      return { 
+        sucesso: false, 
+        erro: 'Erro desconhecido ao excluir transportadora' 
+      };
+
+    } catch (error: any) {
+      console.error('❌ Erro no serviço de exclusão:', error);
+
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+
+        if (status === 404) {
+          return { sucesso: false, erro: 'Transportadora não encontrada' };
+        }
+
+        if (status === 409) {
+          return { 
+            sucesso: false, 
+            erro: data?.erro || 'Não é possível excluir: transportadora possui vínculos com CT-e ou NFS-e' 
+          };
+        }
+
+        if (status === 403) {
+          return { sucesso: false, erro: 'Você não tem permissão para excluir esta transportadora' };
+        }
+
+        return { 
+          sucesso: false, 
+          erro: data?.erro || data?.message || `Erro ${status} ao excluir transportadora` 
+        };
+      }
+
+      if (error.request) {
+        return { sucesso: false, erro: 'Servidor não respondeu. Verifique sua conexão.' };
+      }
+
+      return { 
+        sucesso: false, 
+        erro: error.message || 'Erro inesperado ao excluir transportadora' 
+      };
+    }
   }
 };

@@ -1,4 +1,5 @@
 // C:\emissornfe\src\App.tsx
+// ✅ VERSÃO COMPLETA E ATUALIZADA
 
 /**
  * @license
@@ -27,11 +28,11 @@ import { ProdutosView } from './components/cadastros/ProdutosView';
 import { ClientesView } from './components/cadastros/ClientesView';
 import { FornecedoresView } from './components/cadastros/FornecedoresView';
 import { ServicosView } from './components/cadastros/ServicosView';
-// 🔥 ADICIONAR: Import do TransportadorasView
 import { TransportadorasView } from './components/cadastros/TransportadorasView';
 import { FinanceiroView } from './components/financeiro/FinanceiroView';
 import { ConfiguracoesEmpresaView } from './components/config/ConfiguracoesEmpresaView';
 import { ConsultaCnpjView } from './components/tools/ConsultaCnpjView';
+import { ToastProvider } from './components/ui/ToastProvider';
 import { StorageService } from './utils/storage';
 import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento } from './types/fiscal';
 import { Produto, ClienteFornecedor, ServicoCatalogo, TituloFinanceiro, ConfiguracaoEmpresa, UsuarioAuth } from './types/erp';
@@ -44,7 +45,6 @@ import { nfseService } from './services/nfse.service';
 import { nfceService } from './services/nfce.service';
 import { cteService } from './services/cte.service';
 import { nfaeService } from './services/nfae.service';
-// 🔥 ADICIONAR: Import do transportadoraService
 import { transportadoraService, Transportadora } from './services/transportadora.service';
 import { LoadingDinamico } from './components/ui/LoadingDinamico';
 import api from './services/api';
@@ -60,28 +60,15 @@ interface CacheData {
   nfces: NFCeDocumento[];
   ctes: CTeDocumento[];
   nfaes: NFAeDocumento[];
-  transportadoras: Transportadora[]; // 🔥 ADICIONAR
+  transportadoras: Transportadora[];
   timestamp: number;
 }
 
 const CACHE_TTL = 30000; // 30 segundos
 
 export default function App() {
-  // 🔥 Autenticação e Sessão - APENAS UMA DECLARAÇÃO
+  // 🔥 Autenticação e Sessão
   const [usuarioLogado, setUsuarioLogado] = useState<UsuarioAuth | null>(() => {
-    // 🔥 FORÇA USUÁRIO LOGADO PARA TESTE (DESCOMENTE PARA TESTAR)
-    // console.log('🔓 FORÇANDO LOGIN PARA TESTE');
-    // return {
-    //   id: 'cmt99uftn0004khgu2emypwk0',
-    //   nome: 'Administrador',
-    //   email: 'admin@suptecnologia.com.br',
-    //   cargo: 'Administrador Fiscal',
-    //   perfil: 'ADMIN' as const,
-    //   empresaCnpj: '29.535.022/0001-38',
-    //   dataLogin: new Date().toISOString(),
-    // };
-
-    // 🔥 LOGIN REAL (PADRÃO)
     const token = localStorage.getItem('@sup:token');
     const user = localStorage.getItem('@sup:user');
     console.log('🔍 Verificando sessão:');
@@ -117,7 +104,7 @@ export default function App() {
   const [clientes, setClientes] = useState<ClienteFornecedor[]>([]);
   const [servicos, setServicos] = useState<ServicoCatalogo[]>([]);
   const [titulos, setTitulos] = useState<TituloFinanceiro[]>([]);
-  const [transportadoras, setTransportadoras] = useState<Transportadora[]>([]); // 🔥 ADICIONAR
+  const [transportadoras, setTransportadoras] = useState<Transportadora[]>([]);
 
   // Modal Viewers
   const [viewingDanfse, setViewingDanfse] = useState<NFSeDocumento | null>(null);
@@ -131,12 +118,14 @@ export default function App() {
   const lastRefreshTime = useRef(0);
   const cacheRef = useRef<CacheData | null>(null);
 
-  // 🔥 FUNÇÃO DE REFRESH COM CACHE E CONTROLE DE CONCORRÊNCIA
+  // ============================================================
+  // FUNÇÃO DE REFRESH COM CACHE E CONTROLE DE CONCORRÊNCIA
+  // ============================================================
+
   const refreshData = useCallback(async (forceRefresh: boolean = false) => {
     console.log('🔄 ===== REFRESH DATA INICIADO =====');
     console.log('📌 forceRefresh:', forceRefresh);
     console.log('📌 isRefreshing:', isRefreshing.current);
-    console.log('📌 cacheRef:', cacheRef.current ? 'EXISTE' : 'VAZIO');
 
     if (isRefreshing.current) {
       console.log('⏳ Refresh em andamento, ignorando chamada...');
@@ -157,7 +146,7 @@ export default function App() {
         setNfces(cache.nfces || []);
         setCtes(cache.ctes || []);
         setNfaes(cache.nfaes || []);
-        setTransportadoras(cache.transportadoras || []); // 🔥 ADICIONAR
+        setTransportadoras(cache.transportadoras || []);
         console.log('✅ Cache aplicado com sucesso!');
         return;
       }
@@ -176,7 +165,7 @@ export default function App() {
       setCarregando(true);
       
       const token = localStorage.getItem('@sup:token');
-      console.log('🔑 Token:', token ? `✅ Presente (${token.substring(0, 20)}...)` : '❌ Ausente');
+      console.log('🔑 Token:', token ? `✅ Presente` : '❌ Ausente');
       
       if (!token) {
         console.warn('⚠️ Sem token, carregando dados do cache local');
@@ -189,7 +178,7 @@ export default function App() {
         setNfces(StorageService.getNfces() || []);
         setCtes(StorageService.getCtes() || []);
         setNfaes(StorageService.getNfaes() || []);
-        setTransportadoras([]); // 🔥 ADICIONAR
+        setTransportadoras([]);
         setCarregando(false);
         console.log('✅ Dados carregados do cache local');
         return;
@@ -197,8 +186,6 @@ export default function App() {
 
       console.log('🔄 Carregando dados do backend...');
 
-      // 🔥 ADICIONAR transportadoras no array de serviços
-      const serviceNames = ['produtos', 'clientes', 'servicos', 'financeiro', 'nfse', 'nfe', 'nfce', 'cte', 'nfae', 'transportadoras'];
       const servicePromises = [
         produtosService.listar(1, 100),
         clientesService.listar(1, 100),
@@ -209,7 +196,7 @@ export default function App() {
         nfceService.listar(1, 100),
         cteService.listar(1, 100),
         nfaeService.listar(1, 100),
-        transportadoraService.listar(1, 100), // 🔥 ADICIONAR
+        transportadoraService.listar(1, 100),
       ];
 
       console.log('📡 Enviando', servicePromises.length, 'requisições...');
@@ -218,6 +205,8 @@ export default function App() {
 
       console.log('📊 ===== RESULTADOS DAS REQUISIÇÕES =====');
       let hasError = false;
+      
+      const serviceNames = ['produtos', 'clientes', 'servicos', 'financeiro', 'nfse', 'nfe', 'nfce', 'cte', 'nfae', 'transportadoras'];
       
       results.forEach((result, index) => {
         const name = serviceNames[index];
@@ -229,10 +218,6 @@ export default function App() {
           hasError = true;
           console.error(`❌ ${name}: FALHOU`);
           console.error(`   Motivo:`, result.reason);
-          if (result.reason?.response) {
-            console.error(`   Status:`, result.reason.response.status);
-            console.error(`   Dados:`, result.reason.response.data);
-          }
         }
       });
 
@@ -258,7 +243,7 @@ export default function App() {
         nfcesResult,
         ctesResult,
         nfaesResult,
-        transportadorasResult // 🔥 ADICIONAR
+        transportadorasResult
       ] = results.map((r, i) => getData(r, i));
 
       const empresaConfig = StorageService.getConfiguracao();
@@ -273,7 +258,7 @@ export default function App() {
         nfces: nfcesResult.data || [],
         ctes: ctesResult.data || [],
         nfaes: nfaesResult.data || [],
-        transportadoras: transportadorasResult.data || [], // 🔥 ADICIONAR
+        transportadoras: transportadorasResult.data || [],
         timestamp: Date.now()
       };
 
@@ -288,7 +273,7 @@ export default function App() {
       setNfces(cacheData.nfces || []);
       setCtes(cacheData.ctes || []);
       setNfaes(cacheData.nfaes || []);
-      setTransportadoras(cacheData.transportadoras); // 🔥 ADICIONAR
+      setTransportadoras(cacheData.transportadoras);
       setEmpresa(empresaConfig);
 
       StorageService.saveProdutos(cacheData.produtos);
@@ -307,16 +292,11 @@ export default function App() {
       console.log(`   NFC-e: ${cacheData.nfces.length}`);
       console.log(`   CT-e: ${cacheData.ctes.length}`);
       console.log(`   NFA-e: ${cacheData.nfaes.length}`);
-      console.log(`   Transportadoras: ${cacheData.transportadoras.length}`); // 🔥 ADICIONAR
+      console.log(`   Transportadoras: ${cacheData.transportadoras.length}`);
 
     } catch (error: any) {
       console.error('❌ ERRO GLOBAL no refreshData:');
       console.error('   Mensagem:', error.message);
-      console.error('   Stack:', error.stack);
-      if (error.response) {
-        console.error('   Status:', error.response.status);
-        console.error('   Dados:', error.response.data);
-      }
       
       console.warn('⚠️ Usando fallback para cache local');
       setProdutos(StorageService.getProdutos());
@@ -328,7 +308,7 @@ export default function App() {
       setNfces(StorageService.getNfces() || []);
       setCtes(StorageService.getCtes() || []);
       setNfaes(StorageService.getNfaes() || []);
-      setTransportadoras([]); // 🔥 ADICIONAR
+      setTransportadoras([]);
     } finally {
       setCarregando(false);
       isRefreshing.current = false;
@@ -336,10 +316,13 @@ export default function App() {
     }
   }, []);
 
+  // ============================================================
+  // HANDLERS
+  // ============================================================
+
   const handleLogin = async (user: UsuarioAuth) => {
     console.log('🔑 ===== HANDLE LOGIN =====');
     console.log('👤 Usuário:', user.email);
-    console.log('📌 Salvando no storage...');
     
     StorageService.saveUsuarioLogado(user);
     setUsuarioLogado(user);
@@ -371,7 +354,7 @@ export default function App() {
     setNfces([]);
     setCtes([]);
     setNfaes([]);
-    setTransportadoras([]); // 🔥 ADICIONAR
+    setTransportadoras([]);
     cacheRef.current = null;
   };
 
@@ -406,7 +389,10 @@ export default function App() {
     refreshData(true);
   };
 
-  // 🔥 APENAS UM useEffect
+  // ============================================================
+  // EFFECT
+  // ============================================================
+
   useEffect(() => {
     console.log('📌 ===== USEEFFECT =====');
     console.log('📌 usuarioLogado:', usuarioLogado ? usuarioLogado.email : 'NULL');
@@ -420,11 +406,17 @@ export default function App() {
     }
   }, [usuarioLogado, refreshData]);
 
-  // 🔥 SEPARA CLIENTES E FORNECEDORES
+  // ============================================================
+  // SEPARA CLIENTES E FORNECEDORES
+  // ============================================================
+
   const apenasClientes = clientes.filter(c => c.tipo === 'CLIENTE' || c.tipo === 'AMBOS');
   const apenasFornecedores = clientes.filter(c => c.tipo === 'FORNECEDOR' || c.tipo === 'AMBOS');
 
-  // Tela de Loading
+  // ============================================================
+  // TELA DE LOADING
+  // ============================================================
+
   if (carregando) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-50">
@@ -436,7 +428,10 @@ export default function App() {
     );
   }
 
-  // Tela de Login
+  // ============================================================
+  // TELA DE LOGIN
+  // ============================================================
+
   if (!usuarioLogado) {
     if (telaNaoLogado === 'landing') {
       return (
@@ -455,258 +450,263 @@ export default function App() {
     );
   }
 
-  return (
-    <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
-      
-      <Header
-        empresa={empresa}
-        usuario={usuarioLogado}
-        currentView={currentView}
-        onNavigate={(view) => setCurrentView(view)}
-        onExportarBackup={handleExportBackup}
-        onLogout={handleLogout}
-      />
+  // ============================================================
+  // APP PRINCIPAL COM TOAST PROVIDER
+  // ============================================================
 
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+  return (
+    <ToastProvider>
+      <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
         
-        <Sidebar
+        <Header
+          empresa={empresa}
+          usuario={usuarioLogado}
           currentView={currentView}
           onNavigate={(view) => setCurrentView(view)}
-          isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen(!sidebarOpen)}
-          contadores={{
-            nfseCount: nfses.length,
-            nfeCount: nfes.length,
-            nfceCount: nfces.length,
-            cteCount: ctes.length,
-            nfaeCount: nfaes.length,
-            produtosCount: produtos.length,
-            clientesCount: apenasClientes.length,
-            fornecedoresCount: apenasFornecedores.length,
-            servicosCount: servicos.length,
-            titulosPendentesCount: titulos.filter(t => t.status === 'PENDENTE').length,
-            transportadorasCount: transportadoras.length, // 🔥 ADICIONAR
-          }}
+          onExportarBackup={handleExportBackup}
+          onLogout={handleLogout}
         />
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50">
-          <div className="max-w-7xl mx-auto">
-            
-            {currentView === 'dashboard' && (
-              <DashboardReal 
-                nfses={nfses}
-                nfes={nfes}
-                nfces={nfces}
-                ctes={ctes}
-                nfaes={nfaes}
-                produtos={produtos}
-                clientes={clientes}
-                servicos={servicos} 
-                titulos={titulos}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          
+          <Sidebar
+            currentView={currentView}
+            onNavigate={(view) => setCurrentView(view)}
+            isOpen={sidebarOpen}
+            onToggle={() => setSidebarOpen(!sidebarOpen)}
+            contadores={{
+              nfseCount: nfses.length,
+              nfeCount: nfes.length,
+              nfceCount: nfces.length,
+              cteCount: ctes.length,
+              nfaeCount: nfaes.length,
+              produtosCount: produtos.length,
+              clientesCount: apenasClientes.length,
+              fornecedoresCount: apenasFornecedores.length,
+              servicosCount: servicos.length,
+              titulosPendentesCount: titulos.filter(t => t.status === 'PENDENTE').length,
+              transportadorasCount: transportadoras.length,
+            }}
+          />
+
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50">
+            <div className="max-w-7xl mx-auto">
+              
+              {currentView === 'dashboard' && (
+                <DashboardReal 
+                  nfses={nfses}
+                  nfes={nfes}
+                  nfces={nfces}
+                  ctes={ctes}
+                  nfaes={nfaes}
+                  produtos={produtos}
+                  clientes={clientes}
+                  servicos={servicos} 
+                  titulos={titulos}
+                />
+              )}
+
+              {currentView === 'nfe-emissor' && (
+                <NfeEmissor
+                  empresa={empresa}
+                  clientes={clientes}
+                  produtos={produtos}
+                  onNfeEmitida={handleNfeEmitida}
+                  onViewDanfe={(doc) => setViewingDanfe(doc)}
+                />
+              )}
+
+              {currentView === 'nfse-emissor' && (
+                <NfseEmissor
+                  empresa={empresa}
+                  clientes={clientes}
+                  servicosCatalogo={servicos}
+                  onNfseEmitida={handleNfseEmitida}
+                  onViewDanfse={(doc) => setViewingDanfse(doc)}
+                />
+              )}
+
+              {currentView === 'nfce-emissor' && (
+                <NfceEmissor
+                  empresa={empresa}
+                  clientes={clientes}
+                  produtos={produtos}
+                  onNfceEmitida={handleNfceEmitida}
+                  onViewDanfce={(doc) => setViewingDanfce(doc)}
+                />
+              )}
+
+              {currentView === 'cte-emissor' && (
+                <CteEmissor
+                  empresa={empresa}
+                  clientes={clientes}
+                  transportadoras={transportadoras}
+                  onCteEmitido={handleCteEmitido}
+                  onViewDacte={(doc) => setViewingDacte(doc)}
+                />
+              )}
+
+              {currentView === 'nfae-emissor' && (
+                <NfaeEmissor
+                  empresa={empresa}
+                  clientes={clientes}
+                  produtos={produtos}
+                  onNfaeEmitida={handleNfaeEmitida}
+                  onViewDanfae={(doc) => setViewingDanfae(doc)}
+                />
+              )}
+
+              {currentView === 'documentos-fiscais' && (
+                <DocumentosFiscaisList
+                  nfses={nfses}
+                  nfes={nfes}
+                  nfces={nfces}
+                  ctes={ctes}
+                  nfaes={nfaes}
+                  onViewDanfse={(doc) => setViewingDanfse(doc)}
+                  onViewDanfe={(doc) => setViewingDanfe(doc)}
+                  onViewDanfce={(doc) => setViewingDanfce(doc)}
+                  onViewDacte={(doc) => setViewingDacte(doc)}
+                  onViewDanfae={(doc) => setViewingDanfae(doc)}
+                  onEmitirNovaNfse={() => setCurrentView('nfse-emissor')}
+                  onEmitirNovaNfe={() => setCurrentView('nfe-emissor')}
+                  onEmitirNovaNfce={() => setCurrentView('nfce-emissor')}
+                  onEmitirNovoCte={() => setCurrentView('cte-emissor')}
+                  onEmitirNovaNfae={() => setCurrentView('nfae-emissor')}
+                />
+              )}
+
+              {currentView === 'produtos' && (
+                <ProdutosView
+                  produtos={produtos}
+                  onProdutosChange={() => {
+                    cacheRef.current = null;
+                    refreshData(true);
+                  }}
+                />
+              )}
+
+              {currentView === 'clientes' && (
+                <ClientesView
+                  clientes={apenasClientes}
+                  onClientesChange={() => {
+                    cacheRef.current = null;
+                    refreshData(true);
+                  }}
+                />
+              )}
+
+              {currentView === 'fornecedores' && (
+                <FornecedoresView
+                  fornecedores={apenasFornecedores}
+                  onFornecedoresChange={() => {
+                    cacheRef.current = null;
+                    refreshData(true);
+                  }}
+                />
+              )}
+
+              {currentView === 'servicos' && (
+                <ServicosView
+                  servicos={servicos}
+                  onServicosChange={() => {
+                    cacheRef.current = null;
+                    refreshData(true);
+                  }}
+                />
+              )}
+
+              {currentView === 'transportadoras' && (
+                <TransportadorasView
+                  transportadoras={transportadoras}
+                  onTransportadorasChange={() => {
+                    cacheRef.current = null;
+                    refreshData(true);
+                  }}
+                />
+              )}
+
+              {(currentView === 'financeiro' || currentView === 'contas-receber' || currentView === 'contas-pagar') && (
+                <FinanceiroView
+                  empresa={empresa}
+                  titulos={titulos}
+                  onTitulosChange={() => {
+                    cacheRef.current = null;
+                    refreshData(true);
+                  }}
+                />
+              )}
+
+              {currentView === 'configuracoes' && (
+                <ConfiguracoesEmpresaView
+                  empresa={empresa}
+                  onEmpresaChange={() => {
+                    cacheRef.current = null;
+                    refreshData(true);
+                  }}
+                />
+              )}
+
+              {currentView === 'consulta-cnpj' && (
+                <ConsultaCnpjView onNavigate={(view) => setCurrentView(view)} />
+              )}
+
+            </div>
+          </main>
+        </div>
+
+        {/* Alertas do Sistema */}
+        <AlertasSistema />
+
+        {/* Visualizadores de Documentos */}
+        {viewingDanfse && (
+          <DanfseViewer
+            nfse={viewingDanfse}
+            onClose={() => setViewingDanfse(null)}
+          />
+        )}
+
+        {viewingDanfe && (
+          <DanfeViewer
+            nfe={viewingDanfe}
+            onClose={() => setViewingDanfe(null)}
+          />
+        )}
+
+        {viewingDanfce && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 relative">
+              <DanfceViewer
+                nfce={viewingDanfce}
+                onBack={() => setViewingDanfce(null)}
               />
-            )}
-
-            {currentView === 'nfe-emissor' && (
-              <NfeEmissor
-                empresa={empresa}
-                clientes={clientes}
-                produtos={produtos}
-                onNfeEmitida={handleNfeEmitida}
-                onViewDanfe={(doc) => setViewingDanfe(doc)}
-              />
-            )}
-
-            {currentView === 'nfse-emissor' && (
-              <NfseEmissor
-                empresa={empresa}
-                clientes={clientes}
-                servicosCatalogo={servicos}
-                onNfseEmitida={handleNfseEmitida}
-                onViewDanfse={(doc) => setViewingDanfse(doc)}
-              />
-            )}
-
-            {currentView === 'nfce-emissor' && (
-              <NfceEmissor
-                empresa={empresa}
-                clientes={clientes}
-                produtos={produtos}
-                onNfceEmitida={handleNfceEmitida}
-                onViewDanfce={(doc) => setViewingDanfce(doc)}
-              />
-            )}
-
-            {currentView === 'cte-emissor' && (
-              <CteEmissor
-                empresa={empresa}
-                clientes={clientes}
-                onCteEmitido={handleCteEmitido}
-                onViewDacte={(doc) => setViewingDacte(doc)}
-              />
-            )}
-
-            {currentView === 'nfae-emissor' && (
-              <NfaeEmissor
-                empresa={empresa}
-                clientes={clientes}
-                produtos={produtos}
-                onNfaeEmitida={handleNfaeEmitida}
-                onViewDanfae={(doc) => setViewingDanfae(doc)}
-              />
-            )}
-
-            {currentView === 'documentos-fiscais' && (
-              <DocumentosFiscaisList
-                nfses={nfses}
-                nfes={nfes}
-                nfces={nfces}
-                ctes={ctes}
-                nfaes={nfaes}
-                onViewDanfse={(doc) => setViewingDanfse(doc)}
-                onViewDanfe={(doc) => setViewingDanfe(doc)}
-                onViewDanfce={(doc) => setViewingDanfce(doc)}
-                onViewDacte={(doc) => setViewingDacte(doc)}
-                onViewDanfae={(doc) => setViewingDanfae(doc)}
-                onEmitirNovaNfse={() => setCurrentView('nfse-emissor')}
-                onEmitirNovaNfe={() => setCurrentView('nfe-emissor')}
-                onEmitirNovaNfce={() => setCurrentView('nfce-emissor')}
-                onEmitirNovoCte={() => setCurrentView('cte-emissor')}
-                onEmitirNovaNfae={() => setCurrentView('nfae-emissor')}
-              />
-            )}
-
-            {currentView === 'produtos' && (
-              <ProdutosView
-                produtos={produtos}
-                onProdutosChange={() => {
-                  cacheRef.current = null;
-                  refreshData(true);
-                }}
-              />
-            )}
-
-            {currentView === 'clientes' && (
-              <ClientesView
-                clientes={apenasClientes}
-                onClientesChange={() => {
-                  cacheRef.current = null;
-                  refreshData(true);
-                }}
-              />
-            )}
-
-            {/* 🔥 FORNECEDORES - AGORA COM COMPONENTE SEPARADO */}
-            {currentView === 'fornecedores' && (
-              <FornecedoresView
-                fornecedores={apenasFornecedores}
-                onFornecedoresChange={() => {
-                  cacheRef.current = null;
-                  refreshData(true);
-                }}
-              />
-            )}
-
-            {currentView === 'servicos' && (
-              <ServicosView
-                servicos={servicos}
-                onServicosChange={() => {
-                  cacheRef.current = null;
-                  refreshData(true);
-                }}
-              />
-            )}
-
-            {/* 🔥 TRANSPORTADORAS - NOVO COMPONENTE */}
-            {currentView === 'transportadoras' && (
-              <TransportadorasView
-                transportadoras={transportadoras}
-                onTransportadorasChange={() => {
-                  cacheRef.current = null;
-                  refreshData(true);
-                }}
-              />
-            )}
-
-            {(currentView === 'financeiro' || currentView === 'contas-receber' || currentView === 'contas-pagar') && (
-              <FinanceiroView
-                empresa={empresa}
-                titulos={titulos}
-                onTitulosChange={() => {
-                  cacheRef.current = null;
-                  refreshData(true);
-                }}
-              />
-            )}
-
-            {currentView === 'configuracoes' && (
-              <ConfiguracoesEmpresaView
-                empresa={empresa}
-                onEmpresaChange={() => {
-                  cacheRef.current = null;
-                  refreshData(true);
-                }}
-              />
-            )}
-
-            {currentView === 'consulta-cnpj' && (
-              <ConsultaCnpjView onNavigate={(view) => setCurrentView(view)} />
-            )}
-
+            </div>
           </div>
-        </main>
+        )}
+
+        {viewingDacte && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 relative">
+              <DacteViewer
+                cte={viewingDacte}
+                onBack={() => setViewingDacte(null)}
+              />
+            </div>
+          </div>
+        )}
+
+        {viewingDanfae && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 relative">
+              <DanfaeViewer
+                nfae={viewingDanfae}
+                onBack={() => setViewingDanfae(null)}
+              />
+            </div>
+          </div>
+        )}
+
       </div>
-
-      {/* Alertas do Sistema */}
-      <AlertasSistema />
-
-      {/* Visualizadores de Documentos */}
-      {viewingDanfse && (
-        <DanfseViewer
-          nfse={viewingDanfse}
-          onClose={() => setViewingDanfse(null)}
-        />
-      )}
-
-      {viewingDanfe && (
-        <DanfeViewer
-          nfe={viewingDanfe}
-          onClose={() => setViewingDanfe(null)}
-        />
-      )}
-
-      {viewingDanfce && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 relative">
-            <DanfceViewer
-              nfce={viewingDanfce}
-              onBack={() => setViewingDanfce(null)}
-            />
-          </div>
-        </div>
-      )}
-
-      {viewingDacte && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 relative">
-            <DacteViewer
-              cte={viewingDacte}
-              onBack={() => setViewingDacte(null)}
-            />
-          </div>
-        </div>
-      )}
-
-      {viewingDanfae && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 relative">
-            <DanfaeViewer
-              nfae={viewingDanfae}
-              onBack={() => setViewingDanfae(null)}
-            />
-          </div>
-        </div>
-      )}
-
-    </div>
+    </ToastProvider>
   );
 }

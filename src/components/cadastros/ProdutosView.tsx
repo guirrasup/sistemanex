@@ -1,11 +1,26 @@
 // C:\emissornfe\src\components\cadastros\ProdutosView.tsx
+// ✅ VERSÃO COMPLETA - COM TOASTS E MODAL DE CONFIRMAÇÃO
 
 import React, { useState, useMemo } from 'react';
-import { Package, Plus, Search, Edit2, Trash2, AlertCircle, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { 
+  Package, 
+  Plus, 
+  Search, 
+  Edit2, 
+  Trash2, 
+  AlertCircle, 
+  Loader2, 
+  ArrowUpDown, 
+  ArrowUp, 
+  ArrowDown,
+  X,
+  Save
+} from 'lucide-react';
 import { Produto } from '../../types/erp';
 import { formatarMoeda } from '../../utils/cpfCnpjValidator';
-import { StorageService } from '../../utils/storage';
 import { produtosService } from '../../services/produtos.service';
+import { useToast } from '../../hooks/useToast';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface ProdutosViewProps {
   produtos: Produto[];
@@ -16,17 +31,32 @@ type OrdenacaoCampo = 'codigo' | 'descricao' | 'ncm' | 'unidade' | 'precoVenda' 
 type OrdenacaoDirecao = 'asc' | 'desc';
 
 export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutosChange }) => {
+  const toast = useToast();
+
   const [busca, setBusca] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editandoProduto, setEditandoProduto] = useState<Produto | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  // 🔥 ESTADO DO MODAL DE CONFIRMAÇÃO
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    id: string | null;
+    descricao: string;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    id: null,
+    descricao: '',
+    loading: false,
+  });
+
   // 🔥 ESTADO DE ORDENAÇÃO
   const [ordenacaoCampo, setOrdenacaoCampo] = useState<OrdenacaoCampo>('descricao');
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState<OrdenacaoDirecao>('asc');
 
-  // 🔥 COR DO MÓDULO (VERDE) - MESMA DO HEADER E SIDEBAR
+  // 🔥 COR DO MÓDULO (VERDE)
   const cor = 'green';
   const corBg = 'bg-green-50';
   const corBorder = 'border-green-200';
@@ -36,7 +66,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
   const corBgBadge = 'bg-green-100';
   const corFocus = 'focus:ring-green-500';
   const corIconBg = 'bg-green-600';
-  const corGradient = 'from-green-600 to-green-700';
 
   // Form State
   const [codigo, setCodigo] = useState('');
@@ -82,21 +111,25 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
     setModalOpen(true);
   };
 
+  // ============================================================
+  // 🔥 SALVAR COM TOAST
+  // ============================================================
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
 
     if (!descricao.trim()) {
-      setErro('A descrição do produto é obrigatória.');
+      toast.showWarning('⚠️ A descrição do produto é obrigatória.');
       return;
     }
     if (precoVenda <= 0) {
-      setErro('O preço de venda deve ser maior que zero.');
+      toast.showWarning('⚠️ O preço de venda deve ser maior que zero.');
       return;
     }
     const ncmLimpo = ncm.replace(/\D/g, '');
     if (ncmLimpo.length !== 8) {
-      setErro('O NCM deve ter 8 dígitos.');
+      toast.showWarning('⚠️ O NCM deve ter 8 dígitos.');
       return;
     }
 
@@ -120,14 +153,12 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         ativo: true,
       };
 
-      let produtoSalvo: Produto;
-
       if (editandoProduto) {
-        produtoSalvo = await produtosService.atualizar(editandoProduto.id, dadosProduto);
-        StorageService.updateProduto(editandoProduto.id, dadosProduto);
+        await produtosService.atualizar(editandoProduto.id, dadosProduto);
+        toast.showSuccess(`✅ Produto "${descricao}" atualizado com sucesso!`);
       } else {
-        produtoSalvo = await produtosService.criar(dadosProduto);
-        StorageService.addProduto(produtoSalvo);
+        await produtosService.criar(dadosProduto);
+        toast.showSuccess(`✅ Produto "${descricao}" criado com sucesso!`);
       }
 
       setModalOpen(false);
@@ -135,27 +166,62 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
 
     } catch (error: any) {
       console.error('Erro ao salvar produto:', error);
-      setErro(error.response?.data?.erro || error.message || 'Erro ao salvar produto. Tente novamente.');
+      const mensagem = error.response?.data?.erro || error.message || 'Erro ao salvar produto';
+      setErro(mensagem);
+      toast.showError(`❌ ${mensagem}`);
     } finally {
       setCarregando(false);
     }
   };
 
-  const handleExcluir = async (id: string, descricao: string) => {
-    if (!confirm(`Tem certeza que deseja excluir o produto "${descricao}"?`)) {
+  // ============================================================
+  // 🔥 EXCLUIR COM MODAL DE CONFIRMAÇÃO
+  // ============================================================
+
+  const openConfirmModal = (id: string, descricao: string) => {
+    setConfirmModal({
+      isOpen: true,
+      id,
+      descricao,
+      loading: false,
+    });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const handleConfirmExclusao = async () => {
+    const { id, descricao } = confirmModal;
+    if (!id) {
+      toast.showError('❌ ID do produto não informado');
+      closeConfirmModal();
       return;
     }
 
-    setCarregando(true);
+    setConfirmModal(prev => ({ ...prev, loading: true }));
+
     try {
+      console.log(`🗑️ Excluindo produto: ${id} - ${descricao}`);
+      
       await produtosService.excluir(id);
-      const lista = StorageService.getProdutos().filter(p => p.id !== id);
-      StorageService.saveProdutos(lista);
+      
+      closeConfirmModal();
       onProdutosChange();
+      
+      toast.showSuccess(`✅ Produto "${descricao}" excluído com sucesso!`);
+      
     } catch (error: any) {
-      alert(error.response?.data?.erro || 'Erro ao excluir produto');
+      console.error('❌ Erro ao excluir produto:', error);
+      
+      const mensagemErro = error.response?.data?.erro || error.message || 'Erro ao excluir produto';
+      
+      closeConfirmModal();
+      toast.showError(`❌ ${mensagemErro}`);
+      setErro(mensagemErro);
+      
     } finally {
-      setCarregando(false);
+      setConfirmModal(prev => ({ ...prev, loading: false }));
     }
   };
 
@@ -207,16 +273,14 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       
-      {/* 🔥 HEADER - COR VERDE (MESMA DO HEADER E SIDEBAR) */}
+      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
             <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
               <Package className="w-4 h-4" />
             </span>
-            <h1 className="text-base font-bold text-slate-900">
-              Produtos e Estoque
-            </h1>
+            <h1 className="text-base font-bold text-slate-900">Produtos e Estoque</h1>
             <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
               {produtos.length} produtos
             </span>
@@ -232,7 +296,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         </div>
       </div>
 
-      {/* Busca e Botão Novo Produto */}
+      {/* Busca e Botão */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1 flex items-center bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm">
           <Search className="w-4 h-4 text-slate-400 ml-1.5" />
@@ -241,15 +305,10 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
             placeholder="Buscar por descrição, código ou NCM..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            className={`w-full text-xs px-2 py-1 focus:outline-none`}
+            className="w-full text-xs px-2 py-1 focus:outline-none"
           />
           {busca && (
-            <button
-              onClick={() => setBusca('')}
-              className="text-xs text-slate-400 hover:text-slate-600 px-2"
-            >
-              ✕
-            </button>
+            <button onClick={() => setBusca('')} className="text-xs text-slate-400 hover:text-slate-600 px-2">✕</button>
           )}
         </div>
 
@@ -263,53 +322,32 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         </button>
       </div>
 
-      {/* Tabela de Produtos */}
+      {/* Tabela */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600">
             <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
               <tr>
                 <th className={thClass} onClick={() => handleOrdenar('codigo')}>
-                  <div className="flex items-center">
-                    Código
-                    <IconeOrdenacao campo="codigo" />
-                  </div>
+                  <div className="flex items-center">Código <IconeOrdenacao campo="codigo" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('descricao')}>
-                  <div className="flex items-center">
-                    Descrição
-                    <IconeOrdenacao campo="descricao" />
-                  </div>
+                  <div className="flex items-center">Descrição <IconeOrdenacao campo="descricao" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('categoria')}>
-                  <div className="flex items-center">
-                    Categoria
-                    <IconeOrdenacao campo="categoria" />
-                  </div>
+                  <div className="flex items-center">Categoria <IconeOrdenacao campo="categoria" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('ncm')}>
-                  <div className="flex items-center">
-                    NCM / CFOP
-                    <IconeOrdenacao campo="ncm" />
-                  </div>
+                  <div className="flex items-center">NCM / CFOP <IconeOrdenacao campo="ncm" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('unidade')}>
-                  <div className="flex items-center">
-                    UN
-                    <IconeOrdenacao campo="unidade" />
-                  </div>
+                  <div className="flex items-center">UN <IconeOrdenacao campo="unidade" /></div>
                 </th>
                 <th className={`${thClass} text-right`} onClick={() => handleOrdenar('precoVenda')}>
-                  <div className="flex items-center justify-end">
-                    Preço Venda
-                    <IconeOrdenacao campo="precoVenda" />
-                  </div>
+                  <div className="flex items-center justify-end">Preço Venda <IconeOrdenacao campo="precoVenda" /></div>
                 </th>
                 <th className={`${thClass} text-right`} onClick={() => handleOrdenar('estoqueAtual')}>
-                  <div className="flex items-center justify-end">
-                    Estoque
-                    <IconeOrdenacao campo="estoqueAtual" />
-                  </div>
+                  <div className="flex items-center justify-end">Estoque <IconeOrdenacao campo="estoqueAtual" /></div>
                 </th>
                 <th className="py-2.5 px-3 text-right">Ações</th>
               </tr>
@@ -331,9 +369,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-2.5 px-3 font-mono font-semibold text-slate-900">{p.codigo}</td>
-                      <td className="py-2.5 px-3">
-                        <div className="font-medium text-slate-800">{p.descricao}</div>
-                      </td>
+                      <td className="py-2.5 px-3 font-medium text-slate-800">{p.descricao}</td>
                       <td className="py-2.5 px-3">
                         <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-medium">
                           {p.categoria || 'GERAL'}
@@ -343,9 +379,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                         NCM: {p.ncm} | CFOP: {p.cfopPadrao}
                       </td>
                       <td className="py-2.5 px-3">{p.unidade}</td>
-                      <td className="py-2.5 px-3 font-bold text-slate-900 text-right">
-                        {formatarMoeda(p.precoVenda)}
-                      </td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900 text-right">{formatarMoeda(p.precoVenda)}</td>
                       <td className="py-2.5 px-3 text-right">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                           isCritico ? 'bg-rose-100 text-rose-800' : 'bg-green-100 text-green-800'
@@ -358,14 +392,14 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                           <button
                             onClick={() => handleOpenEdit(p)}
                             className="p-1.5 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors cursor-pointer"
-                            title="Editar Produto"
+                            title="Editar"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleExcluir(p.id, p.descricao)}
+                            onClick={() => openConfirmModal(p.id, p.descricao)}
                             className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                            title="Excluir Produto"
+                            title="Excluir"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -380,17 +414,39 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         </div>
       </div>
 
-      {/* Modal de Cadastro / Edição */}
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={handleConfirmExclusao}
+        type="danger"
+        title="Excluir Produto"
+        message={`Tem certeza que deseja excluir permanentemente o produto "${confirmModal.descricao}"?\n\nEsta ação não pode ser desfeita.`}
+        confirmText="Excluir Permanentemente"
+        cancelText="Cancelar"
+        loading={confirmModal.loading}
+      />
+
+      {/* MODAL DE CADASTRO/EDIÇÃO */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <span className={`w-7 h-7 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
-                <Package className="w-3.5 h-3.5" />
-              </span>
-              <h2 className="text-sm font-bold text-slate-900">
-                {editandoProduto ? 'Editar Produto' : 'Cadastrar Novo Produto'}
-              </h2>
+            
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className={`w-7 h-7 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
+                  <Package className="w-3.5 h-3.5" />
+                </span>
+                <h2 className="text-sm font-bold text-slate-900">
+                  {editandoProduto ? 'Editar Produto' : 'Cadastrar Novo Produto'}
+                </h2>
+              </div>
+              <button
+                onClick={() => setModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             {erro && (
@@ -547,7 +603,10 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                       <span>Salvando...</span>
                     </>
                   ) : (
-                    <span>Salvar</span>
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Salvar</span>
+                    </>
                   )}
                 </button>
               </div>
