@@ -225,61 +225,66 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
     alert('✅ Formulário limpo!');
   };
 
-  const handleCarregarCertificadoEPreencher = async () => {
-    if (!arquivoCertificado) {
+// 🔥 CORREÇÃO: handleCarregarCertificadoEPreencher
+const handleCarregarCertificadoEPreencher = async () => {
+  if (!arquivoCertificado) {
+    setFeedbackCert({
+      tipo: 'erro',
+      mensagem: 'Por favor, selecione ou arraste um arquivo de Certificado A1 (.pfx ou .p12).',
+    });
+    return;
+  }
+
+  if (!senhaCertificado) {
+    setFeedbackCert({
+      tipo: 'erro',
+      mensagem: 'Por favor, digite a senha do seu Certificado Digital A1.',
+    });
+    return;
+  }
+
+  setIsProcessandoCert(true);
+  setFeedbackCert(null);
+
+  try {
+    const resultado = await processarCertificadoA1(arquivoCertificado, senhaCertificado);
+
+    if (resultado.sucesso && resultado.dadosEmpresa) {
+      // 🔥 MANTÉM TODOS OS DADOS EXISTENTES E SOBRESCREVE APENAS OS DO CERTIFICADO
+      const novosDados: ConfiguracaoEmpresa = {
+        ...formData, // ✅ Mantém todos os dados existentes
+        ...resultado.dadosEmpresa, // ✅ Sobrescreve com os dados do certificado
+        endereco: {
+          ...formData.endereco, // ✅ Mantém endereço existente
+          ...(resultado.dadosEmpresa.endereco || {}), // ✅ Sobrescreve com dados do certificado
+        },
+        certificado: {
+          ...formData.certificado, // ✅ Mantém certificado existente
+          ...resultado.certificadoInfo, // ✅ Sobrescreve com novas informações
+        },
+      };
+
+      setFormData(novosDados);
+
+      setFeedbackCert({
+        tipo: 'sucesso',
+        mensagem: `✅ Certificado ${arquivoCertificado.name} validado! Todos os dados foram preenchidos. Clique em "Salvar Configurações" para persistir.`,
+      });
+    } else {
       setFeedbackCert({
         tipo: 'erro',
-        mensagem: 'Por favor, selecione ou arraste um arquivo de Certificado A1 (.pfx ou .p12).',
+        mensagem: resultado.mensagem || 'Falha ao processar o certificado.',
       });
-      return;
     }
-
-    if (!senhaCertificado) {
-      setFeedbackCert({
-        tipo: 'erro',
-        mensagem: 'Por favor, digite a senha do seu Certificado Digital A1.',
-      });
-      return;
-    }
-
-    setIsProcessandoCert(true);
-    setFeedbackCert(null);
-
-    try {
-      const resultado = await processarCertificadoA1(arquivoCertificado, senhaCertificado);
-
-      if (resultado.sucesso && resultado.dadosEmpresa) {
-        const novosDados: ConfiguracaoEmpresa = {
-          ...formData,
-          ...resultado.dadosEmpresa,
-          endereco: {
-            ...formData.endereco,
-            ...(resultado.dadosEmpresa.endereco || {}),
-          },
-          certificado: resultado.certificadoInfo || formData.certificado,
-        };
-
-        setFormData(novosDados);
-
-        setFeedbackCert({
-          tipo: 'sucesso',
-          mensagem: `Certificado ${arquivoCertificado.name} validado! Clique em "Salvar Configurações" para persistir os dados.`,
-        });
-      } else {
-        setFeedbackCert({
-          tipo: 'erro',
-          mensagem: resultado.mensagem || 'Falha ao processar o certificado.',
-        });
-      }
-    } catch (err: any) {
-      setFeedbackCert({
-        tipo: 'erro',
-        mensagem: `Erro ao processar certificado: ${err.message || 'Erro inesperado'}`,
-      });
-    } finally {
-      setIsProcessandoCert(false);
-    }
-  };
+  } catch (err: any) {
+    setFeedbackCert({
+      tipo: 'erro',
+      mensagem: `Erro ao processar certificado: ${err.message || 'Erro inesperado'}`,
+    });
+  } finally {
+    setIsProcessandoCert(false);
+  }
+};
 
   const handleSalvar = (e: React.FormEvent) => {
     e.preventDefault();

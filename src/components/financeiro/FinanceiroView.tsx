@@ -1,4 +1,5 @@
 // C:\emissornfe\src\components\financeiro\FinanceiroView.tsx
+// ✅ VERSÃO COMPLETA - COM TOASTS E CONFIRMAÇÃO
 
 import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
@@ -16,12 +17,15 @@ import {
   Layers,
   TrendingUp,
   TrendingDown,
-  Wallet
+  Wallet,
+  Loader2
 } from 'lucide-react';
 import { TituloFinanceiro, ConfiguracaoEmpresa } from '../../types/erp';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { gerarPayloadPix } from '../../utils/pixGenerator';
-import { StorageService } from '../../utils/storage';
+import { financeiroService } from '../../services/financeiro.service';
+import { useToast } from '../../hooks/useToast';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface FinanceiroViewProps {
   empresa: ConfiguracaoEmpresa;
@@ -34,16 +38,34 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
   titulos,
   onTitulosChange,
 }) => {
+  const toast = useToast();
+
   const [tipoFiltro, setTipoFiltro] = useState<'TODOS' | 'RECEBER' | 'PAGAR'>('TODOS');
   const [statusFiltro, setStatusFiltro] = useState<'TODOS' | 'PENDENTE' | 'PAGO'>('TODOS');
   const [busca, setBusca] = useState('');
+  const [carregando, setCarregando] = useState(false);
+
+  // 🔥 ESTADO DO MODAL DE CONFIRMAÇÃO
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    id: string | null;
+    titulo: string;
+    valor: number;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    id: null,
+    titulo: '',
+    valor: 0,
+    loading: false,
+  });
 
   // Modal Pix QR Code
   const [pixModalTitulo, setPixModalTitulo] = useState<TituloFinanceiro | null>(null);
   const [pixBrCode, setPixBrCode] = useState<string>('');
   const pixCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // 🔥 COR DO MÓDULO (AMARELO) - MESMA DO HEADER E SIDEBAR
+  // 🔥 COR DO MÓDULO (AMARELO)
   const cor = 'yellow';
   const corBg = 'bg-yellow-50';
   const corBorder = 'border-yellow-200';
@@ -67,9 +89,55 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
     .filter(t => t.tipo === 'PAGAR' && t.status === 'PENDENTE')
     .reduce((acc, curr) => acc + curr.valorOriginal, 0);
 
-  const handleBaixarTitulo = (id: string) => {
-    StorageService.baixarTitulo(id);
-    onTitulosChange();
+  // ============================================================
+  // 🔥 LIQUIDAR COM CONFIRMAÇÃO
+  // ============================================================
+
+  const openConfirmModal = (id: string, titulo: string, valor: number) => {
+    setConfirmModal({
+      isOpen: true,
+      id,
+      titulo,
+      valor,
+      loading: false,
+    });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const handleConfirmLiquidacao = async () => {
+    const { id, titulo, valor } = confirmModal;
+    if (!id) {
+      toast.showError('❌ ID do título não informado');
+      closeConfirmModal();
+      return;
+    }
+
+    setConfirmModal(prev => ({ ...prev, loading: true }));
+
+    try {
+      console.log(`💰 Liquidando título: ${id} - ${titulo}`);
+      
+      await financeiroService.baixarTitulo(id);
+      
+      closeConfirmModal();
+      onTitulosChange();
+      
+      toast.showSuccess(`✅ Título "${titulo}" liquidado com sucesso! Valor: ${formatarMoeda(valor)}`);
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao liquidar título:', error);
+      
+      const mensagemErro = error.response?.data?.erro || error.message || 'Erro ao liquidar título';
+      
+      closeConfirmModal();
+      toast.showError(`❌ ${mensagemErro}`);
+      
+    } finally {
+      setConfirmModal(prev => ({ ...prev, loading: false }));
+    }
   };
 
   const handleGerarPix = (t: TituloFinanceiro) => {
@@ -115,16 +183,14 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       
-      {/* 🔥 HEADER - COR AMARELA */}
+      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
             <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
               <DollarSign className="w-4 h-4" />
             </span>
-            <h1 className="text-base font-bold text-slate-900">
-              Financeiro
-            </h1>
+            <h1 className="text-base font-bold text-slate-900">Financeiro</h1>
             <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
               {titulos.length} títulos
             </span>
@@ -178,11 +244,10 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
         </div>
       </div>
 
-      {/* Barra de Controles, Busca e Filtros */}
+      {/* Barra de Controles */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           
-          {/* Campo de Busca */}
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -194,7 +259,6 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
             />
           </div>
 
-          {/* Filtros em Abas */}
           <div className="flex flex-wrap items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 text-xs">
             <button
               onClick={() => setTipoFiltro('TODOS')}
@@ -228,7 +292,6 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
             </button>
           </div>
 
-          {/* Filtro de Status */}
           <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 text-xs">
             <button
               onClick={() => setStatusFiltro('TODOS')}
@@ -265,7 +328,7 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
         </div>
       </div>
 
-      {/* Tabela de Títulos */}
+      {/* Tabela */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600">
@@ -349,7 +412,7 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
 
                         {t.status === 'PENDENTE' && (
                           <button
-                            onClick={() => handleBaixarTitulo(t.id)}
+                            onClick={() => openConfirmModal(t.id, t.numeroDocumento, t.valorOriginal)}
                             className={`inline-flex items-center gap-1 px-2.5 py-1.5 ${corBgButton} text-white rounded-lg text-xs font-medium transition-colors cursor-pointer shadow-sm`}
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -366,7 +429,20 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
         </div>
       </div>
 
-      {/* Modal PIX Copia e Cola & QR Code */}
+      {/* MODAL DE CONFIRMAÇÃO DE LIQUIDAÇÃO */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={handleConfirmLiquidacao}
+        type="success"
+        title="Liquidar Título"
+        message={`Confirmar a liquidação do título "${confirmModal.titulo}" no valor de ${formatarMoeda(confirmModal.valor)}?`}
+        confirmText="Confirmar Liquidação"
+        cancelText="Cancelar"
+        loading={confirmModal.loading}
+      />
+
+      {/* Modal PIX */}
       {pixModalTitulo && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-xl space-y-4 text-center">
@@ -393,12 +469,10 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
               <div className="text-[10px] text-slate-400">Documento: {pixModalTitulo.numeroDocumento}</div>
             </div>
 
-            {/* QR Code Canvas */}
             <div className="flex justify-center p-3 bg-slate-50 rounded-lg border border-slate-200">
               <canvas ref={pixCanvasRef} className="rounded"></canvas>
             </div>
 
-            {/* Chave Pix e Copia e Cola */}
             <div className="space-y-2 text-left text-xs">
               <label className="font-medium text-slate-600 text-[11px] block">Pix Copia e Cola:</label>
               <div className="relative">
@@ -413,6 +487,7 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(pixBrCode);
+                  toast.showSuccess('✅ Código Pix copiado para a área de transferência!');
                 }}
                 className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-medium text-xs shadow-sm cursor-pointer transition-colors"
               >
