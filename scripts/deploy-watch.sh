@@ -14,6 +14,18 @@
 
 set -euo pipefail
 
+# O "git reset --hard" lá embaixo reescreve os arquivos do repo, inclusive este
+# próprio script — o que corrompe a execução em andamento (linhas puladas ou
+# lidas erradas). Por isso, na primeira chamada, copia a si mesmo pra fora do
+# repo e reexecuta a partir de lá antes de tocar em git.
+if [ "${DEPLOY_WATCH_RELOCATED:-}" != "1" ]; then
+  TMP_SELF="$(mktemp /tmp/deploy-watch-XXXXXX.sh)"
+  cp "$0" "$TMP_SELF"
+  chmod +x "$TMP_SELF"
+  export DEPLOY_WATCH_RELOCATED=1
+  exec "$TMP_SELF" "$@"
+fi
+
 DIR="$1"
 BRANCH="$2"
 LOCK="/tmp/nex-deploy-$(basename "$DIR").lock"
