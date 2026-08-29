@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${CONTAINER_PREFIX:-nex}_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nex_erp}
+      POSTGRES_USER: ${POSTGRES_USER:-nex_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no arquivo .env}
+    # Porta não publicada no host: só o container do backend precisa acessar o Postgres.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend-runner
+    container_name: ${CONTAINER_PREFIX:-nex}_backend
+    restart: always
+    # Não publica a porta no host: o nginx alcança o backend pela rede interna do Compose.
+    environment:
+      NODE_ENV: production
+      PORT: 3333
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nex_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nex_erp}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      CONECTAGOV_CLIENT_ID: ${CONECTAGOV_CLIENT_ID:-}
+      CONECTAGOV_CLIENT_SECRET: ${CONECTAGOV_CLIENT_SECRET:-}
+      CONECTAGOV_CPF_USUARIO: ${CONECTAGOV_CPF_USUARIO:-}
+      CONECTAGOV_PRIVATE_KEY: ${CONECTAGOV_PRIVATE_KEY:-}
+    depends_on:
+      - postgres
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-runner
+    container_name: ${CONTAINER_PREFIX:-nex}_nginx
+    restart: always
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
