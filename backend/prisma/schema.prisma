@@ -90,54 +90,15 @@ enum PerfilUsuario {
 
 // ============================================
 // ENUMS ADICIONAIS DA NF-e
+//
+// TpImp, TpEmis, TpNF, IdDest, IndPresenca e TpAutor (tipos oficiais do
+// layout técnico da NF-e) foram removidos daqui: a sintaxe usada
+// ("NOME = 1") não é válida em enum do Prisma (que não aceita valores
+// numéricos explícitos) e o schema não compilava. Nenhum campo do
+// modelo usava esses enums como tipo — os campos reais são Int/String
+// e os comentários abaixo em cada campo já documentam a correspondência
+// com o código oficial.
 // ============================================
-
-enum TpImp {
-  SEM_DANFE = 1
-  DANFE_NORMAL = 2
-  DANFE_SIMPLIFICADO = 3
-}
-
-enum TpEmis {
-  NORMAL = 1
-  CONTINGENCIA = 2
-  REGIME_ESPECIAL = 3
-  SCAN = 4
-  SVC = 5
-  SVC_RS = 6
-  SVC_PR = 7
-  OFF_LINE = 9
-}
-
-enum TpNF {
-  ENTRADA = 0
-  SAIDA = 1
-}
-
-enum IdDest {
-  OPERACAO_INTERNA = 1
-  OPERACAO_INTERESTADUAL = 2
-  OPERACAO_EXTERIOR = 3
-}
-
-enum IndPresenca {
-  NAO_APLICA = 0
-  PRESENCIAL = 1
-  NAO_PRESENCIAL = 2
-  NAO_APLICA_INTERNET = 3
-  TELEATENDIMENTO = 4
-  NFC_ENTREGA = 5
-  PRESENCIAL_FORA = 9
-}
-
-enum TpAutor {
-  EMITENTE = 1
-  DESTINATARIO = 2
-  EMPRESA = 3
-  FISCO = 5
-  RFB = 6
-  OUTROS = 9
-}
 
 // ============================================
 // TABELAS PRINCIPAIS COM TIPOS CORRIGIDOS
@@ -158,7 +119,7 @@ model Empresa {
   regimeTributario      RegimeTributario @default(SIMPLES_NACIONAL)
   
   // === TDec_0302 (3 inteiros, 2 decimais) ===
-  aliquotaSimples       Decimal?  @db.Decimal(3, 2) @default(6.00)
+  aliquotaSimples       Decimal?  @db.Decimal(5, 2) @default(6.00)
   
   // === TAmb (1=Produção, 2=Homologação) ===
   ambienteEmissao       TipoAmbiente @default(PRODUCAO)
@@ -198,6 +159,8 @@ model Empresa {
   titulos               TituloFinanceiro[]
   movimentacoes         MovimentacaoEstoque[]
   transportadoras       Transportadora[]
+  eventosNFe            EventoNFe[]
+  eventosCreditoPresumido EventoCreditoPresumido[]
   
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -355,7 +318,7 @@ model Produto {
   
   // === TDec_1104 (15 dígitos, 4 decimais) ===
   precoCusto            Decimal   @db.Decimal(15, 4) @default(0)
-  margemLucro           Decimal   @db.Decimal(3, 2) @default(0) // TDec_0302
+  margemLucro           Decimal   @db.Decimal(5, 2) @default(0) // TDec_0302
   precoVenda            Decimal   @db.Decimal(15, 4) @default(0)
   
   // === TDec_0803 (11 dígitos, 3 decimais) ===
@@ -363,12 +326,12 @@ model Produto {
   estoqueMinimo         Decimal   @db.Decimal(11, 3) @default(0)
   
   // === TDec_0302_04 (3 inteiros, 2-4 decimais) ===
-  aliquotaICMS          Decimal   @db.Decimal(3, 2) @default(18.00)
-  aliquotaPIS           Decimal   @db.Decimal(3, 4) @default(1.65)
-  aliquotaCOFINS        Decimal   @db.Decimal(3, 4) @default(7.60)
-  aliquotaIPI           Decimal   @db.Decimal(3, 2) @default(0)
-  aliquotaIBS           Decimal   @db.Decimal(3, 4) @default(0.10)
-  aliquotaCBS           Decimal   @db.Decimal(3, 4) @default(0.90)
+  aliquotaICMS          Decimal   @db.Decimal(5, 2) @default(18.00)
+  aliquotaPIS           Decimal   @db.Decimal(7, 4) @default(1.65)
+  aliquotaCOFINS        Decimal   @db.Decimal(7, 4) @default(7.60)
+  aliquotaIPI           Decimal   @db.Decimal(5, 2) @default(0)
+  aliquotaIBS           Decimal   @db.Decimal(7, 4) @default(0.10)
+  aliquotaCBS           Decimal   @db.Decimal(7, 4) @default(0.90)
   
   ativo                 Boolean   @default(true)
   
@@ -395,15 +358,15 @@ model Servico {
   valorUnitario               Decimal   @db.Decimal(15, 4) @default(0)
   
   // === TDec_0302_04 ===
-  aliquotaISS                 Decimal   @db.Decimal(3, 2) @default(5.00)
+  aliquotaISS                 Decimal   @db.Decimal(5, 2) @default(5.00)
   retencaoISSPadrao           Boolean   @default(false)
-  aliquotaPIS                 Decimal   @db.Decimal(3, 4) @default(0.65)
-  aliquotaCOFINS              Decimal   @db.Decimal(3, 4) @default(3.00)
-  aliquotaIRRF                Decimal   @db.Decimal(3, 2) @default(0)
-  aliquotaCSLL                Decimal   @db.Decimal(3, 2) @default(0)
-  aliquotaINSS                Decimal   @db.Decimal(3, 2) @default(0)
-  aliquotaIBS                 Decimal   @db.Decimal(3, 4) @default(0.10)
-  aliquotaCBS                 Decimal   @db.Decimal(3, 4) @default(0.90)
+  aliquotaPIS                 Decimal   @db.Decimal(7, 4) @default(0.65)
+  aliquotaCOFINS              Decimal   @db.Decimal(7, 4) @default(3.00)
+  aliquotaIRRF                Decimal   @db.Decimal(5, 2) @default(0)
+  aliquotaCSLL                Decimal   @db.Decimal(5, 2) @default(0)
+  aliquotaINSS                Decimal   @db.Decimal(5, 2) @default(0)
+  aliquotaIBS                 Decimal   @db.Decimal(7, 4) @default(0.10)
+  aliquotaCBS                 Decimal   @db.Decimal(7, 4) @default(0.90)
   
   ativo                       Boolean   @default(true)
   
@@ -471,27 +434,27 @@ model NFSe {
   tipoRetencaoISS       Int       @default(1)
   
   // === TDec_0302_04 ===
-  aliquotaISS           Decimal   @db.Decimal(3, 2)
+  aliquotaISS           Decimal   @db.Decimal(5, 2)
   valorISS              Decimal   @db.Decimal(15, 4)
   
-  aliquotaPIS           Decimal?  @db.Decimal(3, 4)
+  aliquotaPIS           Decimal?  @db.Decimal(7, 4)
   valorPIS              Decimal?  @db.Decimal(15, 4)
   retidoPIS             Boolean   @default(false)
-  aliquotaCOFINS        Decimal?  @db.Decimal(3, 4)
+  aliquotaCOFINS        Decimal?  @db.Decimal(7, 4)
   valorCOFINS           Decimal?  @db.Decimal(15, 4)
   retidoCOFINS          Boolean   @default(false)
-  aliquotaIRRF          Decimal?  @db.Decimal(3, 2)
+  aliquotaIRRF          Decimal?  @db.Decimal(5, 2)
   valorIRRF             Decimal?  @db.Decimal(15, 4)
-  aliquotaCSLL          Decimal?  @db.Decimal(3, 2)
+  aliquotaCSLL          Decimal?  @db.Decimal(5, 2)
   valorCSLL             Decimal?  @db.Decimal(15, 4)
-  aliquotaINSS          Decimal?  @db.Decimal(3, 2)
+  aliquotaINSS          Decimal?  @db.Decimal(5, 2)
   valorINSS             Decimal?  @db.Decimal(15, 4)
   
-  aliquotaIBSUF         Decimal   @db.Decimal(3, 4) @default(0.05)
+  aliquotaIBSUF         Decimal   @db.Decimal(7, 4) @default(0.05)
   valorIBSUF            Decimal   @db.Decimal(15, 4) @default(0)
-  aliquotaIBSMun        Decimal   @db.Decimal(3, 4) @default(0.05)
+  aliquotaIBSMun        Decimal   @db.Decimal(7, 4) @default(0.05)
   valorIBSMun           Decimal   @db.Decimal(15, 4) @default(0)
-  aliquotaCBS           Decimal   @db.Decimal(3, 4) @default(0.90)
+  aliquotaCBS           Decimal   @db.Decimal(7, 4) @default(0.90)
   valorCBS              Decimal   @db.Decimal(15, 4) @default(0)
   
   createdAt             DateTime  @default(now())
@@ -627,27 +590,27 @@ model ItemNFe {
   cstICMS               String    @default("00") @db.Char(2)
   
   // === TDec_0302_04 ===
-  aliquotaICMS          Decimal   @db.Decimal(3, 2)
+  aliquotaICMS          Decimal   @db.Decimal(5, 2)
   baseCalculoICMS       Decimal   @db.Decimal(15, 4)
   valorICMS             Decimal   @db.Decimal(15, 4)
   
   cstIPI                String?   @db.Char(2)
-  aliquotaIPI           Decimal?  @db.Decimal(3, 2)
+  aliquotaIPI           Decimal?  @db.Decimal(5, 2)
   valorIPI              Decimal?  @db.Decimal(15, 4)
   
   cstPIS                String    @default("01") @db.Char(2)
-  aliquotaPIS           Decimal   @db.Decimal(3, 4)
+  aliquotaPIS           Decimal   @db.Decimal(7, 4)
   valorPIS              Decimal   @db.Decimal(15, 4)
   
   cstCOFINS             String    @default("01") @db.Char(2)
-  aliquotaCOFINS        Decimal   @db.Decimal(3, 4)
+  aliquotaCOFINS        Decimal   @db.Decimal(7, 4)
   valorCOFINS           Decimal   @db.Decimal(15, 4)
   
-  aliquotaIBSUF         Decimal?  @db.Decimal(3, 4)
+  aliquotaIBSUF         Decimal?  @db.Decimal(7, 4)
   valorIBSUF            Decimal?  @db.Decimal(15, 4)
-  aliquotaIBSMun        Decimal?  @db.Decimal(3, 4)
+  aliquotaIBSMun        Decimal?  @db.Decimal(7, 4)
   valorIBSMun           Decimal?  @db.Decimal(15, 4)
-  aliquotaCBS           Decimal?  @db.Decimal(3, 4)
+  aliquotaCBS           Decimal?  @db.Decimal(7, 4)
   valorCBS              Decimal?  @db.Decimal(15, 4)
   
   valorTributosAprox    Decimal   @db.Decimal(15, 4) @default(0)
@@ -802,16 +765,16 @@ model ItemNFCe {
   valorTotalBruto       Decimal   @db.Decimal(15, 4)
   
   cstICMS               String    @default("00") @db.Char(2)
-  aliquotaICMS          Decimal   @db.Decimal(3, 2)
+  aliquotaICMS          Decimal   @db.Decimal(5, 2)
   baseCalculoICMS       Decimal   @db.Decimal(15, 4)
   valorICMS             Decimal   @db.Decimal(15, 4)
   
   cstPIS                String    @default("01") @db.Char(2)
-  aliquotaPIS           Decimal   @db.Decimal(3, 4)
+  aliquotaPIS           Decimal   @db.Decimal(7, 4)
   valorPIS              Decimal   @db.Decimal(15, 4)
   
   cstCOFINS             String    @default("01") @db.Char(2)
-  aliquotaCOFINS        Decimal   @db.Decimal(3, 4)
+  aliquotaCOFINS        Decimal   @db.Decimal(7, 4)
   valorCOFINS           Decimal   @db.Decimal(15, 4)
   
   valorTributosAprox    Decimal   @db.Decimal(15, 4) @default(0)
@@ -893,7 +856,7 @@ model CTe {
   
   cstICMS               String    @default("00") @db.Char(2)
   baseCalculoICMS       Decimal   @db.Decimal(15, 4)
-  aliquotaICMS          Decimal   @db.Decimal(3, 2)
+  aliquotaICMS          Decimal   @db.Decimal(5, 2)
   valorICMS             Decimal   @db.Decimal(15, 4)
   valorPIS              Decimal   @db.Decimal(15, 4)
   valorCOFINS           Decimal   @db.Decimal(15, 4)
@@ -1003,7 +966,7 @@ model NFAe {
   // === TDec_1104v ===
   valorTotalProdutos    Decimal   @db.Decimal(15, 4)
   baseCalculoICMS       Decimal   @db.Decimal(15, 4)
-  aliquotaICMSMediana   Decimal   @db.Decimal(3, 2)
+  aliquotaICMSMediana   Decimal   @db.Decimal(5, 2)
   valorTotalICMS        Decimal   @db.Decimal(15, 4)
   valorTotalNota        Decimal   @db.Decimal(15, 4)
   
@@ -1048,7 +1011,7 @@ model ItemNFAe {
   valorTotal            Decimal   @db.Decimal(15, 4)
   
   // === TDec_0302 ===
-  aliquotaICMS          Decimal   @db.Decimal(3, 2)
+  aliquotaICMS          Decimal   @db.Decimal(5, 2)
   valorICMS             Decimal   @db.Decimal(15, 4)
   
   nfaeId                String
@@ -1248,10 +1211,10 @@ model EventoCreditoPresumidoItem {
   cCredPres             String    @db.Char(2)
   
   // === TDec_0302_04 (3 inteiros, 2-4 decimais) ===
-  pCredPresIBS          Decimal?  @db.Decimal(3, 4)
+  pCredPresIBS          Decimal?  @db.Decimal(7, 4)
   vCredPresIBS          Decimal?  @db.Decimal(15, 2) // TDec1302
   
-  pCredPresCBS          Decimal?  @db.Decimal(3, 4)
+  pCredPresCBS          Decimal?  @db.Decimal(7, 4)
   vCredPresCBS          Decimal?  @db.Decimal(15, 2) // TDec1302
   
   eventoId              String
