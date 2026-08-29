@@ -45,12 +45,14 @@ export interface OpenCnpjResponse {
     data_inclusao?: string;
     data_entrada?: string;
   }>;
-  rntrc?: {
-    numero: string;
-    situacao: string;
-    data_validade: string;
-    descricao?: string;
-  };
+rntrc?: {
+  numero: string;
+  situacao: string;
+  dataSituacao: string;  
+  categoria?: string;
+  dataPrimeiroCadastro?: string;
+  equiparado?: boolean;
+};
   cno?: {
     numero: string;
     situacao: string;
@@ -108,12 +110,14 @@ export interface OpenCnpjConsultaResultado {
       qualificacao: string;
       dataInclusao?: string;
     }>;
-    rntrc?: {
-      numero: string;
-      situacao: string;
-      dataValidade: string;
-      descricao?: string;
-    };
+rntrc?: {
+  numero: string;
+  situacao: string;
+  dataSituacao: string;  
+  categoria?: string;
+  dataPrimeiroCadastro?: string;
+  equiparado?: boolean;
+};
     cno?: {
       numero: string;
       situacao: string;

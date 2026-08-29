@@ -1,5 +1,5 @@
 // C:\emissornfe\src\components\cadastros\ProdutosView.tsx
-// ✅ VERSÃO COMPLETA - COM TOASTS E MODAL DE CONFIRMAÇÃO
+// ✅ VERSÃO COMPLETA - COM TODOS OS CAMPOS DO PL_006h
 
 import React, { useState, useMemo } from 'react';
 import { 
@@ -14,7 +14,13 @@ import {
   ArrowUp, 
   ArrowDown,
   X,
-  Save
+  Save,
+  Barcode,
+  Hash,
+  Percent,
+  DollarSign,
+  Box,
+  Layers
 } from 'lucide-react';
 import { Produto } from '../../types/erp';
 import { formatarMoeda } from '../../utils/cpfCnpjValidator';
@@ -38,8 +44,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
   const [editandoProduto, setEditandoProduto] = useState<Produto | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-
-  // 🔥 ESTADO DO MODAL DE CONFIRMAÇÃO
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     id: string | null;
@@ -52,11 +56,12 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
     loading: false,
   });
 
-  // 🔥 ESTADO DE ORDENAÇÃO
   const [ordenacaoCampo, setOrdenacaoCampo] = useState<OrdenacaoCampo>('descricao');
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState<OrdenacaoDirecao>('asc');
 
-  // 🔥 COR DO MÓDULO (VERDE)
+  // ============================================================
+  // CORES
+  // ============================================================
   const cor = 'green';
   const corBg = 'bg-green-50';
   const corBorder = 'border-green-200';
@@ -67,31 +72,57 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
   const corFocus = 'focus:ring-green-500';
   const corIconBg = 'bg-green-600';
 
-  // Form State
+  // ============================================================
+  // FORM STATE (TODOS OS CAMPOS DO PL_006h)
+  // ============================================================
   const [codigo, setCodigo] = useState('');
+  const [codigoBarrasEAN, setCodigoBarrasEAN] = useState('');
   const [descricao, setDescricao] = useState('');
   const [categoria, setCategoria] = useState('GERAL');
   const [unidade, setUnidade] = useState('UN');
   const [ncm, setNcm] = useState('84714100');
+  const [cest, setCest] = useState('');
   const [cfop, setCfop] = useState('5102');
+  const [origem, setOrigem] = useState(0);
   const [precoCusto, setPrecoCusto] = useState<number>(0);
   const [precoVenda, setPrecoVenda] = useState<number>(0);
   const [estoqueAtual, setEstoqueAtual] = useState<number>(10);
   const [estoqueMinimo, setEstoqueMinimo] = useState<number>(2);
 
+  // ✅ NOVOS CAMPOS: ALÍQUOTAS
+  const [aliquotaICMS, setAliquotaICMS] = useState<number>(18.0);
+  const [aliquotaPIS, setAliquotaPIS] = useState<number>(1.65);
+  const [aliquotaCOFINS, setAliquotaCOFINS] = useState<number>(7.60);
+  const [aliquotaIPI, setAliquotaIPI] = useState<number>(0);
+  const [aliquotaIBS, setAliquotaIBS] = useState<number>(0.10);
+  const [aliquotaCBS, setAliquotaCBS] = useState<number>(0.90);
+
+  // ============================================================
+  // HANDLERS
+  // ============================================================
+
   const handleOpenNovo = () => {
     setEditandoProduto(null);
     setErro(null);
-    setCodigo(`SUP-PROD-${produtos.length + 1}`);
+    setCodigo(`SUP-PROD-${String(produtos.length + 1).padStart(4, '0')}`);
+    setCodigoBarrasEAN('');
     setDescricao('');
     setCategoria('GERAL');
     setUnidade('UN');
     setNcm('84714100');
+    setCest('');
     setCfop('5102');
+    setOrigem(0);
     setPrecoCusto(0);
     setPrecoVenda(0);
     setEstoqueAtual(10);
     setEstoqueMinimo(2);
+    setAliquotaICMS(18.0);
+    setAliquotaPIS(1.65);
+    setAliquotaCOFINS(7.60);
+    setAliquotaIPI(0);
+    setAliquotaIBS(0.10);
+    setAliquotaCBS(0.90);
     setModalOpen(true);
   };
 
@@ -99,26 +130,32 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
     setEditandoProduto(p);
     setErro(null);
     setCodigo(p.codigo);
+    setCodigoBarrasEAN(p.codigoBarrasEAN || '');
     setDescricao(p.descricao);
     setCategoria(p.categoria || 'GERAL');
     setUnidade(p.unidade);
     setNcm(p.ncm);
+    setCest(p.cest || '');
     setCfop(p.cfopPadrao);
+    setOrigem(p.origem || 0);
     setPrecoCusto(p.precoCusto);
     setPrecoVenda(p.precoVenda);
     setEstoqueAtual(p.estoqueAtual);
     setEstoqueMinimo(p.estoqueMinimo);
+    setAliquotaICMS(p.aliquotaICMS || 18.0);
+    setAliquotaPIS(p.aliquotaPIS || 1.65);
+    setAliquotaCOFINS(p.aliquotaCOFINS || 7.60);
+    setAliquotaIPI(p.aliquotaIPI || 0);
+    setAliquotaIBS(p.aliquotaIBS || 0.10);
+    setAliquotaCBS(p.aliquotaCBS || 0.90);
     setModalOpen(true);
   };
-
-  // ============================================================
-  // 🔥 SALVAR COM TOAST
-  // ============================================================
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
 
+    // ✅ VALIDAÇÕES PL_006h
     if (!descricao.trim()) {
       toast.showWarning('⚠️ A descrição do produto é obrigatória.');
       return;
@@ -127,9 +164,31 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
       toast.showWarning('⚠️ O preço de venda deve ser maior que zero.');
       return;
     }
+
+    // ✅ VALIDA NCM (8 dígitos)
     const ncmLimpo = ncm.replace(/\D/g, '');
     if (ncmLimpo.length !== 8) {
       toast.showWarning('⚠️ O NCM deve ter 8 dígitos.');
+      return;
+    }
+
+    // ✅ VALIDA CEST (7 dígitos - opcional)
+    const cestLimpo = cest.replace(/\D/g, '');
+    if (cest && cestLimpo.length !== 7) {
+      toast.showWarning('⚠️ O CEST deve ter 7 dígitos.');
+      return;
+    }
+
+    // ✅ VALIDA CFOP (4 dígitos)
+    if (!/^[0-9]{4}$/.test(cfop)) {
+      toast.showWarning('⚠️ O CFOP deve ter 4 dígitos.');
+      return;
+    }
+
+    // ✅ VALIDA GTIN (8, 12, 13 ou 14 dígitos)
+    const eanLimpo = codigoBarrasEAN.replace(/\D/g, '');
+    if (eanLimpo && ![8, 12, 13, 14].includes(eanLimpo.length)) {
+      toast.showWarning('⚠️ O código de barras (EAN/GTIN) deve ter 8, 12, 13 ou 14 dígitos.');
       return;
     }
 
@@ -138,18 +197,24 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
     try {
       const dadosProduto = {
         codigo,
+        codigoBarrasEAN: eanLimpo || undefined,
         descricao,
         categoria: categoria || 'GERAL',
         unidade,
         ncm: ncmLimpo,
+        cest: cestLimpo || undefined,
         cfopPadrao: cfop,
+        origem,
         precoCusto,
         precoVenda,
         estoqueAtual,
         estoqueMinimo,
-        aliquotaICMS: 18.0,
-        aliquotaPIS: 1.65,
-        aliquotaCOFINS: 7.60,
+        aliquotaICMS,
+        aliquotaPIS,
+        aliquotaCOFINS,
+        aliquotaIPI,
+        aliquotaIBS,
+        aliquotaCBS,
         ativo: true,
       };
 
@@ -173,10 +238,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
       setCarregando(false);
     }
   };
-
-  // ============================================================
-  // 🔥 EXCLUIR COM MODAL DE CONFIRMAÇÃO
-  // ============================================================
 
   const openConfirmModal = (id: string, descricao: string) => {
     setConfirmModal({
@@ -202,24 +263,16 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
     setConfirmModal(prev => ({ ...prev, loading: true }));
 
     try {
-      console.log(`🗑️ Excluindo produto: ${id} - ${descricao}`);
-      
       await produtosService.excluir(id);
-      
       closeConfirmModal();
       onProdutosChange();
-      
       toast.showSuccess(`✅ Produto "${descricao}" excluído com sucesso!`);
-      
     } catch (error: any) {
       console.error('❌ Erro ao excluir produto:', error);
-      
       const mensagemErro = error.response?.data?.erro || error.message || 'Erro ao excluir produto';
-      
       closeConfirmModal();
       toast.showError(`❌ ${mensagemErro}`);
       setErro(mensagemErro);
-      
     } finally {
       setConfirmModal(prev => ({ ...prev, loading: false }));
     }
@@ -286,10 +339,9 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Catálogo com dados tributários (NCM, CFOP, alíquotas) e saldos em estoque.
+            Catálogo com dados tributários (NCM, CFOP, CEST, alíquotas) e saldos em estoque.
           </p>
         </div>
-
         <div className="text-right">
           <div className="text-xs font-semibold text-slate-700">Cadastro de Produtos</div>
           <div className={`text-[10px] font-medium ${corText}`}>{produtos.length} produtos cadastrados</div>
@@ -302,7 +354,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
           <Search className="w-4 h-4 text-slate-400 ml-1.5" />
           <input
             type="text"
-            placeholder="Buscar por descrição, código ou NCM..."
+            placeholder="Buscar por descrição, código, NCM ou CEST..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             className="w-full text-xs px-2 py-1 focus:outline-none"
@@ -311,7 +363,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
             <button onClick={() => setBusca('')} className="text-xs text-slate-400 hover:text-slate-600 px-2">✕</button>
           )}
         </div>
-
         <button
           onClick={handleOpenNovo}
           disabled={carregando}
@@ -369,14 +420,23 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-2.5 px-3 font-mono font-semibold text-slate-900">{p.codigo}</td>
-                      <td className="py-2.5 px-3 font-medium text-slate-800">{p.descricao}</td>
+                      <td className="py-2.5 px-3 font-medium text-slate-800">
+                        {p.descricao}
+                        {p.codigoBarrasEAN && (
+                          <span className="ml-1 text-[10px] text-slate-400 font-mono">
+                            (EAN: {p.codigoBarrasEAN})
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2.5 px-3">
                         <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-medium">
                           {p.categoria || 'GERAL'}
                         </span>
                       </td>
                       <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">
-                        NCM: {p.ncm} | CFOP: {p.cfopPadrao}
+                        NCM: {p.ncm} {p.cest ? `| CEST: ${p.cest}` : ''}
+                        <br />
+                        CFOP: {p.cfopPadrao}
                       </td>
                       <td className="py-2.5 px-3">{p.unidade}</td>
                       <td className="py-2.5 px-3 font-bold text-slate-900 text-right">{formatarMoeda(p.precoVenda)}</td>
@@ -414,7 +474,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         </div>
       </div>
 
-      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      {/* MODAL DE CONFIRMAÇÃO */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         onClose={closeConfirmModal}
@@ -427,12 +487,14 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         loading={confirmModal.loading}
       />
 
-      {/* MODAL DE CADASTRO/EDIÇÃO */}
+      {/* ============================================================
+          MODAL DE CADASTRO/EDIÇÃO (COMPLETO)
+      ============================================================ */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-2xl w-full p-6 shadow-xl space-y-4 max-h-[95vh] overflow-y-auto">
             
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 sticky top-0 bg-white z-10">
               <div className="flex items-center gap-2">
                 <span className={`w-7 h-7 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
                   <Package className="w-3.5 h-3.5" />
@@ -457,9 +519,12 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
             )}
 
             <form onSubmit={handleSave} className="space-y-3 text-xs">
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block font-medium text-slate-600 mb-1">Código</label>
+              {/* ============================================================
+                  SEÇÃO 1: DADOS BÁSICOS
+              ============================================================ */}
+              <div className="grid grid-cols-4 gap-2">
+                <div className="col-span-2">
+                  <label className="block font-medium text-slate-600 mb-1">Código *</label>
                   <input
                     type="text"
                     value={codigo}
@@ -469,19 +534,34 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block font-medium text-slate-600 mb-1">Descrição *</label>
+                  <label className="block font-medium text-slate-600 mb-1 flex items-center gap-1">
+                    <Barcode className="w-3 h-3" />
+                    EAN / GTIN
+                  </label>
                   <input
                     type="text"
-                    value={descricao}
-                    onChange={(e) => setDescricao(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                    required
+                    value={codigoBarrasEAN}
+                    onChange={(e) => setCodigoBarrasEAN(e.target.value.replace(/\D/g, ''))}
+                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+                    placeholder="8,12,13 ou 14 dígitos"
+                    maxLength={14}
                   />
                 </div>
               </div>
 
+              <div>
+                <label className="block font-medium text-slate-600 mb-1">Descrição *</label>
+                <input
+                  type="text"
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  required
+                />
+              </div>
+
               <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-3">
+                <div>
                   <label className="block font-medium text-slate-600 mb-1">Categoria *</label>
                   <select
                     value={categoria}
@@ -498,30 +578,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                     <option value="OUTROS">OUTROS</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block font-medium text-slate-600 mb-1">NCM (8 dígitos) *</label>
-                  <input
-                    type="text"
-                    value={ncm}
-                    onChange={(e) => setNcm(e.target.value.replace(/\D/g, ''))}
-                    maxLength={8}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-600 mb-1">CFOP Padrão *</label>
-                  <input
-                    type="text"
-                    value={cfop}
-                    onChange={(e) => setCfop(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
-                    required
-                  />
-                </div>
                 <div>
                   <label className="block font-medium text-slate-600 mb-1">Unidade *</label>
                   <input
@@ -529,61 +585,214 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                     value={unidade}
                     onChange={(e) => setUnidade(e.target.value)}
                     className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    placeholder="UN, KG, CX..."
                     required
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">Preço Custo (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={precoCusto || ''}
-                    onChange={(e) => setPrecoCusto(parseFloat(e.target.value) || 0)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-600 mb-1">Preço Venda (R$) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={precoVenda || ''}
-                    onChange={(e) => setPrecoVenda(parseFloat(e.target.value) || 0)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-bold text-slate-900`}
-                    required
-                  />
+                  <label className="block font-medium text-slate-600 mb-1">Origem</label>
+                  <select
+                    value={origem}
+                    onChange={(e) => setOrigem(parseInt(e.target.value))}
+                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+                  >
+                    <option value={0}>0 - Nacional</option>
+                    <option value={1}>1 - Estrangeira</option>
+                    <option value={2}>2 - Estrangeira (mercado interno)</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block font-medium text-slate-600 mb-1">Estoque Atual</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={estoqueAtual || ''}
-                    onChange={(e) => setEstoqueAtual(parseInt(e.target.value) || 0)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                  />
+              {/* ============================================================
+                  SEÇÃO 2: TRIBUTAÇÃO (NCM, CEST, CFOP)
+              ============================================================ */}
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Hash className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">Tributação</span>
                 </div>
-                <div>
-                  <label className="block font-medium text-slate-600 mb-1">Estoque Mínimo</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={estoqueMinimo || ''}
-                    onChange={(e) => setEstoqueMinimo(parseInt(e.target.value) || 0)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                  />
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">NCM *</label>
+                    <input
+                      type="text"
+                      value={ncm}
+                      onChange={(e) => setNcm(e.target.value.replace(/\D/g, ''))}
+                      maxLength={8}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">CEST</label>
+                    <input
+                      type="text"
+                      value={cest}
+                      onChange={(e) => setCest(e.target.value.replace(/\D/g, ''))}
+                      maxLength={7}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+                      placeholder="7 dígitos"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">CFOP *</label>
+                    <input
+                      type="text"
+                      value={cfop}
+                      onChange={(e) => setCfop(e.target.value.replace(/\D/g, ''))}
+                      maxLength={4}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              {/* ============================================================
+                  SEÇÃO 3: ALÍQUOTAS (PL_006h)
+              ============================================================ */}
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Percent className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">Alíquotas (PL_006h)</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">ICMS (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={aliquotaICMS}
+                      onChange={(e) => setAliquotaICMS(parseFloat(e.target.value) || 0)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">PIS (%)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      max="100"
+                      value={aliquotaPIS}
+                      onChange={(e) => setAliquotaPIS(parseFloat(e.target.value) || 0)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">COFINS (%)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      max="100"
+                      value={aliquotaCOFINS}
+                      onChange={(e) => setAliquotaCOFINS(parseFloat(e.target.value) || 0)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">IPI (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={aliquotaIPI}
+                      onChange={(e) => setAliquotaIPI(parseFloat(e.target.value) || 0)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">IBS (%) <span className="text-[10px] text-slate-400">(Reforma 2026)</span></label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      max="100"
+                      value={aliquotaIBS}
+                      onChange={(e) => setAliquotaIBS(parseFloat(e.target.value) || 0)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">CBS (%) <span className="text-[10px] text-slate-400">(Reforma 2026)</span></label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      max="100"
+                      value={aliquotaCBS}
+                      onChange={(e) => setAliquotaCBS(parseFloat(e.target.value) || 0)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ============================================================
+                  SEÇÃO 4: FINANCEIRO E ESTOQUE
+              ============================================================ */}
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">Financeiro e Estoque</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">Preço Custo (R$)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      value={precoCusto || ''}
+                      onChange={(e) => setPrecoCusto(parseFloat(e.target.value) || 0)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">Preço Venda (R$) *</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0.0001"
+                      value={precoVenda || ''}
+                      onChange={(e) => setPrecoVenda(parseFloat(e.target.value) || 0)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-bold text-slate-900`}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">Estoque Atual</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={estoqueAtual || ''}
+                      onChange={(e) => setEstoqueAtual(parseFloat(e.target.value) || 0)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">Estoque Mínimo</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={estoqueMinimo || ''}
+                      onChange={(e) => setEstoqueMinimo(parseFloat(e.target.value) || 0)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ============================================================
+                  BOTÕES
+              ============================================================ */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 sticky bottom-0 bg-white">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}

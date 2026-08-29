@@ -27,7 +27,11 @@ import {
   ChevronDown,
   Check,
   X,
-  Filter
+  Filter,
+  Building,
+  UserCheck,
+  Info,
+  FileCheck
 } from 'lucide-react';
 import { consultarCnpjConectaGov } from '../../utils/consultaCnpjApi';
 import { formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
@@ -95,16 +99,38 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
     alert('✅ Copiado para a área de transferência!');
   };
 
-  const formatarData = (data: string) => {
-    if (!data) return '-';
-    try {
-      const d = new Date(data);
-      if (isNaN(d.getTime())) return data;
-      return d.toLocaleDateString('pt-BR');
-    } catch {
-      return data;
+// C:\emissornfe\src\components\tools\ConsultaCnpjView.tsx
+
+// 🔥 FUNÇÃO formatarData CORRIGIDA - SUPORTA DD/MM/YYYY E YYYY-MM-DD
+const formatarData = (data: string) => {
+  if (!data) return '-';
+  
+  try {
+    // 🔥 SE FOR DD/MM/YYYY (ex: 06/01/2022 ou 01/06/2026)
+    if (data.includes('/')) {
+      const partes = data.split('/');
+      if (partes.length === 3) {
+        const dia = parseInt(partes[0]);
+        const mes = parseInt(partes[1]) - 1;
+        const ano = parseInt(partes[2]);
+        const d = new Date(ano, mes, dia);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString('pt-BR');
+        }
+      }
     }
-  };
+    
+    // 🔥 SE FOR ISO (YYYY-MM-DD)
+    const d = new Date(data);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('pt-BR');
+    }
+    
+    return data; // Retorna o original se não conseguir parsear
+  } catch {
+    return data;
+  }
+};
 
   const formatarMoeda = (valor: number) => {
     if (!valor || valor === 0) return '-';
@@ -123,13 +149,13 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
         endereco: {
           logradouro: resultado.endereco.logradouro,
           numero: resultado.endereco.numero,
-          complemento: resultado.endereco.complemento,
+          complemento: resultado.endereco.complemento || '',
           bairro: resultado.endereco.bairro,
           codigoMunicipio: resultado.endereco.codigoMunicipio || '',
           nomeMunicipio: resultado.endereco.municipio,
           uf: resultado.endereco.uf,
           cep: resultado.endereco.cep,
-          telefone: resultado.telefone,
+          telefone: resultado.telefone.length > 0 ? `(${resultado.telefone[0].ddd}) ${resultado.telefone[0].numero}` : '',
           email: resultado.email,
         }
       };
@@ -246,6 +272,9 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
                 {resultado.nomeFantasia && (
                   <div className="text-xs text-slate-600">{resultado.nomeFantasia}</div>
                 )}
+                {resultado.matrizFilial && (
+                  <div className="text-[10px] text-slate-500">{resultado.matrizFilial}</div>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -267,34 +296,66 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
           <div className="p-6 space-y-4">
             
             {/* Status e Situação */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                 <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3" />
-                  Situação Cadastral
+                  Situação
                 </span>
                 <span className={`font-bold text-sm ${getStatusColor(resultado.situacaoCadastral)}`}>
                   {resultado.situacaoCadastral || '-'}
                 </span>
+                {resultado.motivoSituacaoCadastral?.descricao && (
+                  <span className="text-[10px] text-slate-500 block">
+                    {resultado.motivoSituacaoCadastral.descricao}
+                  </span>
+                )}
                 {resultado.dataSituacaoCadastral && (
-                  <span className="text-xs text-slate-500 block">
+                  <span className="text-[10px] text-slate-400 block">
                     desde {formatarData(resultado.dataSituacaoCadastral)}
                   </span>
                 )}
               </div>
+
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                 <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
-                  Data de Abertura
+                  Abertura
                 </span>
                 <span className="font-medium text-slate-900">{formatarData(resultado.dataAbertura)}</span>
+                {resultado.porte && (
+                  <span className="text-[10px] text-slate-500 block">{resultado.porte}</span>
+                )}
               </div>
+
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                 <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
                   <Award className="w-3 h-3" />
                   Natureza Jurídica
                 </span>
                 <span className="font-medium text-slate-900 text-xs">{resultado.naturezaJuridica || '-'}</span>
+              </div>
+
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
+                  <FileCheck className="w-3 h-3" />
+                  Opções
+                </span>
+                <div className="space-y-0.5">
+                  {resultado.optanteSimples && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+                      Simples Nacional
+                    </span>
+                  )}
+                  {resultado.optanteMEI && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                      MEI
+                    </span>
+                  )}
+                  {!resultado.optanteSimples && !resultado.optanteMEI && (
+                    <span className="text-[10px] text-slate-400">Nenhuma opção especial</span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -309,34 +370,65 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
                 {resultado.cnaePrincipalDescricao && ` - ${resultado.cnaePrincipalDescricao}`}
               </span>
               {resultado.cnaeSecundarios && resultado.cnaeSecundarios.length > 0 && (
-                <div className="mt-1 text-xs text-slate-500">
-                  Secundários: {resultado.cnaeSecundarios.join(', ')}
+                <div className="mt-1">
+                  <span className="text-[10px] text-slate-500 block">Secundários:</span>
+                  {resultado.cnaeSecundarios.map((c: any, idx: number) => (
+                    <span key={idx} className="text-[10px] text-slate-600 block ml-2">
+                      {c.codigo} - {c.descricao}
+                    </span>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* 🔥 RNTRC - se disponível */}
+            {/* 🔥 REMOVIDO: Card Responsável / Administrador */}
+
+            {/* RNTRC - Registro Nacional de Transportadores */}
             {resultado.rntrc && (
-              <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-200">
-                <div className="flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-cyan-600" />
-                  <span className="text-xs font-bold text-cyan-700 uppercase">RNTRC - Registro Nacional de Transportadores</span>
+              <div className="bg-cyan-50 rounded-lg p-4 border border-cyan-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <Truck className="w-5 h-5 text-cyan-600" />
+                  <span className="text-sm font-bold text-cyan-700 uppercase">RNTRC - Registro Nacional de Transportadores</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
                   <div>
-                    <span className="text-slate-500 block">Número</span>
-                    <span className="font-bold text-slate-900">{resultado.rntrc.numero}</span>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Número</span>
+                    <span className="font-bold text-slate-900">{resultado.rntrc.numero || '-'}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Situação</span>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Situação</span>
                     <span className={`font-bold ${resultado.rntrc.situacao === 'ATIVO' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {resultado.rntrc.situacao}
+                      {resultado.rntrc.situacao || '-'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Validade</span>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Validade</span>
                     <span className="font-bold text-slate-900">{formatarData(resultado.rntrc.dataValidade)}</span>
                   </div>
+                  {resultado.rntrc.categoria && (
+                    <div>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Categoria</span>
+                      <span className="font-medium text-slate-900">{resultado.rntrc.categoria}</span>
+                    </div>
+                  )}
+                  {resultado.rntrc.dataPrimeiroCadastro && (
+                    <div>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Primeiro Cadastro</span>
+                      <span className="font-medium text-slate-900">{formatarData(resultado.rntrc.dataPrimeiroCadastro)}</span>
+                    </div>
+                  )}
+                  {resultado.rntrc.dataSituacao && (
+                    <div>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Data da Situação</span>
+                      <span className="font-medium text-slate-900">{formatarData(resultado.rntrc.dataSituacao)}</span>
+                    </div>
+                  )}
+                  {resultado.rntrc.equiparado !== undefined && (
+                    <div>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Equiparado</span>
+                      <span className="font-medium text-slate-900">{resultado.rntrc.equiparado ? 'Sim' : 'Não'}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -353,16 +445,16 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
                     <div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">Logradouro</span>
                       <span className="font-medium text-slate-900">
-                        {resultado.endereco.logradouro || '-'}
+                        {resultado.endereco.tipoLogradouro} {resultado.endereco.logradouro || '-'}
                         {resultado.endereco.numero && `, ${resultado.endereco.numero}`}
                       </span>
+                      {resultado.endereco.complemento && (
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block mt-1">Complemento</span>
+                          <span className="font-medium text-slate-900">{resultado.endereco.complemento}</span>
+                        </div>
+                      )}
                     </div>
-                    {resultado.endereco.complemento && (
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Complemento</span>
-                        <span className="font-medium text-slate-900">{resultado.endereco.complemento}</span>
-                      </div>
-                    )}
                     <div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">Bairro</span>
                       <span className="font-medium text-slate-900">{resultado.endereco.bairro || '-'}</span>
@@ -370,8 +462,7 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
                     <div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">Município / UF</span>
                       <span className="font-medium text-slate-900">
-                        {resultado.endereco.municipio || '-'}
-                        {resultado.endereco.uf && ` / ${resultado.endereco.uf}`}
+                        {resultado.endereco.municipio || '-'} / {resultado.endereco.uf || '-'}
                       </span>
                     </div>
                     <div>
@@ -388,44 +479,48 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
             )}
 
             {/* Contato e Financeiro */}
-            {(resultado.telefone || resultado.email || resultado.capitalSocial > 0) && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {resultado.telefone && (
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
-                      <Phone className="w-3 h-3" />
-                      Telefone
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {resultado.telefone && resultado.telefone.length > 0 && (
+                <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
+                    <Phone className="w-3 h-3" />
+                    Telefone
+                  </span>
+                  {resultado.telefone.map((t: any, idx: number) => (
+                    <span key={idx} className="font-medium text-slate-900 block text-sm">
+                      ({t.ddd}) {t.numero}
                     </span>
-                    <span className="font-medium text-slate-900">{resultado.telefone}</span>
-                  </div>
-                )}
-                {resultado.email && (
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
-                      <Mail className="w-3 h-3" />
-                      E-mail
-                    </span>
-                    <span className="font-medium text-slate-900">{resultado.email}</span>
-                  </div>
-                )}
-                {resultado.capitalSocial > 0 && (
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
-                      <DollarSign className="w-3 h-3" />
-                      Capital Social
-                    </span>
-                    <span className="font-medium text-slate-900">{formatarMoeda(resultado.capitalSocial)}</span>
-                  </div>
-                )}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+
+              {resultado.email && (
+                <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
+                    <Mail className="w-3 h-3" />
+                    E-mail
+                  </span>
+                  <span className="font-medium text-slate-900 text-sm break-all">{resultado.email}</span>
+                </div>
+              )}
+
+              {resultado.capitalSocial > 0 && (
+                <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
+                    <DollarSign className="w-3 h-3" />
+                    Capital Social
+                  </span>
+                  <span className="font-medium text-slate-900">{formatarMoeda(resultado.capitalSocial)}</span>
+                </div>
+              )}
+            </div>
 
             {/* QSA - Quadro Societário */}
-            {resultado.qsa && resultado.qsa.length > 0 && (
+            {resultado.socios && resultado.socios.length > 0 ? (
               <div>
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Users className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Quadro Societário ({resultado.qsa.length})</span>
+                  <span>Quadro Societário ({resultado.socios.length})</span>
                 </h3>
                 <div className="bg-slate-50 rounded-lg border border-slate-100 overflow-hidden">
                   <table className="w-full text-sm">
@@ -434,24 +529,25 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
                         <th className="text-left p-2 text-[10px] font-bold text-slate-500 uppercase">Nome</th>
                         <th className="text-left p-2 text-[10px] font-bold text-slate-500 uppercase">CPF</th>
                         <th className="text-left p-2 text-[10px] font-bold text-slate-500 uppercase">Qualificação</th>
+                        <th className="text-left p-2 text-[10px] font-bold text-slate-500 uppercase">Entrada</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {resultado.qsa.slice(0, 10).map((socio: any, index: number) => (
+                      {resultado.socios.map((socio: any, index: number) => (
                         <tr key={index} className="hover:bg-white/50">
                           <td className="p-2 font-medium text-slate-900">{socio.nome || '-'}</td>
                           <td className="p-2 font-mono text-slate-700">{socio.cpf ? formatarCpfCnpj(socio.cpf) : '-'}</td>
                           <td className="p-2 text-slate-700">{socio.qualificacao || '-'}</td>
+                          <td className="p-2 text-slate-500 text-xs">{formatarData(socio.dataInclusao)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  {resultado.qsa.length > 10 && (
-                    <div className="p-2 text-center text-xs text-slate-500 bg-slate-50">
-                      + {resultado.qsa.length - 10} sócios não listados
-                    </div>
-                  )}
                 </div>
+              </div>
+            ) : (
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 text-center text-sm text-slate-500">
+                Nenhum sócio cadastrado ou não disponível
               </div>
             )}
 

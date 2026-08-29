@@ -45,18 +45,29 @@ export interface ConsultaCnpjResponse {
     optanteSimples: boolean;
     optanteMEI: boolean;
     socios: Array<{
-      tipo: string;
-      cpf: string;
       nome: string;
+      cpf?: string;
       qualificacao: string;
       dataInclusao: string;
     }>;
-    // 🔥 NOVO: RNTRC
     rntrc?: {
       numero: string;
       situacao: string;
       dataValidade: string;
+      categoria?: string;
+      dataPrimeiroCadastro?: string;
+      dataSituacao?: string;
+      equiparado?: boolean;
     };
+    qualificacaoResponsavel?: {
+      codigo: string;
+      descricao: string;
+    };
+    motivoSituacaoCadastral?: {
+      codigo: string;
+      descricao: string;
+    };
+    matrizFilial?: string;
   };
   erro?: string;
 }
@@ -75,7 +86,6 @@ export async function consultarCnpjConectaGov(cnpj: string): Promise<ConsultaCnp
   }
 
   try {
-    // 🔥 CHAMA OPENCNPJ COM RNTRC
     const url = `https://api.opencnpj.org/${cnpjLimpo}?datasets=receita,rntrc`;
     
     console.log(`🔍 Consultando OpenCNPJ: ${url}`);
@@ -102,20 +112,54 @@ export async function consultarCnpjConectaGov(cnpj: string): Promise<ConsultaCnp
 
     const data = await response.json();
     
-    // 🔥 MAPEIA OS DADOS
+    console.log('📊 Dados recebidos da OpenCNPJ:', data);
+    console.log('📋 RNTRC recebido:', data.rntrc);
+
+    // 🔥 MAPEIA OS SÓCIOS
+    let sociosMapeados: Array<{ nome: string; cpf?: string; qualificacao: string; dataInclusao: string }> = [];
+
+    if (data.QSA && Array.isArray(data.QSA)) {
+      sociosMapeados = data.QSA.map((s: any) => ({
+        nome: s.nome_socio || s.nome || '',
+        cpf: s.cnpj_cpf_socio || s.cpf || '',
+        qualificacao: s.qualificacao_socio || s.qualificacao || '',
+        dataInclusao: s.data_entrada_sociedade || s.data_inclusao || '',
+      }));
+    }
+
+    // 🔥 MAPEIA RNTRC APENAS COM CAMPOS ESPECÍFICOS (SEM REDUNDÂNCIA)
+    let rntrcMapeado = undefined;
+    if (data.rntrc) {
+rntrcMapeado = {
+  numero: data.rntrc.numero_rntrc || data.rntrc.numero || '',
+  situacao: data.rntrc.situacao || '',
+  dataSituacao: data.rntrc.data_situacao || '',
+  categoria: data.rntrc.categoria || '',
+  dataPrimeiroCadastro: data.rntrc.data_primeiro_cadastro || '',
+  equiparado: data.rntrc.equiparado || false,
+};
+      console.log('✅ RNTRC mapeado:', rntrcMapeado);
+    }
+
+    // 🔥 MAPEIA O RESTANTE DOS DADOS
     const resultado = {
       cnpj: data.cnpj || '',
       razaoSocial: data.razao_social || '',
       nomeFantasia: data.nome_fantasia || '',
       situacaoCadastral: data.situacao_cadastral || '',
-      situacaoCadastralDescricao: '',
+      situacaoCadastralDescricao: data.motivo_situacao_cadastral?.descricao || '',
       dataSituacaoCadastral: data.data_situacao_cadastral || '',
       naturezaJuridica: data.natureza_juridica || '',
-      naturezaJuridicaCodigo: data.natureza_juridica_codigo || '',
+      naturezaJuridicaCodigo: '',
       dataAbertura: data.data_inicio_atividade || '',
       cnaePrincipal: data.cnae_principal || '',
-      cnaePrincipalDescricao: data.cnae_principal_descricao || '',
-      cnaeSecundarios: [],
+      cnaePrincipalDescricao: data.cnaes?.find((c: any) => c.is_principal)?.descricao || '',
+      cnaeSecundarios: (data.cnaes || [])
+        .filter((c: any) => !c.is_principal)
+        .map((c: any) => ({
+          codigo: c.codigo || '',
+          descricao: c.descricao || ''
+        })),
       endereco: {
         tipoLogradouro: data.tipo_logradouro || '',
         logradouro: data.logradouro || '',
@@ -126,31 +170,34 @@ export async function consultarCnpjConectaGov(cnpj: string): Promise<ConsultaCnp
         municipio: data.municipio || '',
         codigoMunicipio: data.codigo_municipio || '',
         uf: data.uf || '',
-        pais: data.pais || 'BRASIL',
-        codigoPais: data.codigo_pais || '1058',
+        pais: data.pais?.descricao || 'BRASIL',
+        codigoPais: data.pais?.codigo || '1058',
       },
-      telefone: [],
-      email: data.email || '',
-      capitalSocial: data.capital_social || 0,
-      porte: data.porte_empresa || '',
-      situacaoEspecial: '',
-      dataSituacaoEspecial: '',
-      optanteSimples: data.opcao_pelo_simples === 'S' || data.optante_simples === true,
-      optanteMEI: data.opcao_pelo_mei === 'S' || data.optante_mei === true,
-      socios: (data.socios || []).map((s: any) => ({
-        tipo: '',
-        cpf: s.cpf || '',
-        nome: s.nome || '',
-        qualificacao: s.qualificacao || '',
-        dataInclusao: s.data_inclusao || '',
+      telefone: (data.telefones || []).map((t: any) => ({
+        ddd: t.ddd || '',
+        numero: t.numero || ''
       })),
-      // 🔥 RNTRC
-      rntrc: data.rntrc ? {
-        numero: data.rntrc.numero || '',
-        situacao: data.rntrc.situacao || '',
-        dataValidade: data.rntrc.data_validade || '',
-      } : undefined
+      email: data.email || '',
+      capitalSocial: parseFloat((data.capital_social || '0').replace(',', '.')) || 0,
+      porte: data.porte_empresa || '',
+      situacaoEspecial: data.situacao_especial || '',
+      dataSituacaoEspecial: data.data_situacao_especial || '',
+      optanteSimples: data.opcao_simples === 'S',
+      optanteMEI: data.opcao_mei === 'S',
+      socios: sociosMapeados,
+      rntrc: rntrcMapeado,
+      qualificacaoResponsavel: data.qualificacao_responsavel ? {
+        codigo: data.qualificacao_responsavel.codigo || '',
+        descricao: data.qualificacao_responsavel.descricao || ''
+      } : undefined,
+      motivoSituacaoCadastral: data.motivo_situacao_cadastral ? {
+        codigo: data.motivo_situacao_cadastral.codigo || '',
+        descricao: data.motivo_situacao_cadastral.descricao || ''
+      } : undefined,
+      matrizFilial: data.matriz_filial || '',
     };
+
+    console.log('✅ Resultado final:', resultado);
 
     return {
       sucesso: true,
