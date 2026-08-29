@@ -1,144 +1,51 @@
 // C:\emissornfe\src\utils\consultaCnpjApi.ts
 
-import { limparDocumento } from './cpfCnpjValidator'; 
-import api from '../services/api';
+import { limparDocumento } from './cpfCnpjValidator';
+import { consultarCnpjOpen, OpenCnpjConsultaResultado } from '../services/openCnpj.service';
 
-export interface ConsultaCnpjResponse {
-  sucesso: boolean;
-  dados?: {
-    cnpj: string;
-    razaoSocial: string;
-    nomeFantasia?: string;
-    situacaoCadastral: string;
-    situacaoCadastralDescricao?: string;
-    dataSituacaoCadastral: string;
-    naturezaJuridica: string;
-    naturezaJuridicaCodigo?: string;
-    dataAbertura: string;
-    cnaePrincipal: string;
-    cnaePrincipalDescricao?: string;
-    cnaeSecundarios: Array<{
-      codigo: string;
-      descricao: string;
-    }>;
-    endereco: {
-      tipoLogradouro: string;
-      logradouro: string;
-      numero: string;
-      complemento?: string;
-      bairro: string;
-      cep: string;
-      municipio: string;
-      codigoMunicipio: string;
-      uf: string;
-      pais: string;
-      codigoPais: string;
-    };
-    telefone: Array<{
-      ddd: string;
-      numero: string;
-    }>;
-    email: string;
-    capitalSocial: number;
-    porte: string;
-    situacaoEspecial: string;
-    dataSituacaoEspecial: string;
-    optanteSimples: boolean;
-    optanteMEI: boolean;
-    socios: Array<{
-      tipo: string;
-      cpf: string;
-      nome: string;
-      qualificacao: string;
-      dataInclusao: string;
-    }>;
-  };
-  erro?: string;
+// 🔥 RE-EXPORTA O TIPO PARA COMPATIBILIDADE
+export type { OpenCnpjConsultaResultado as ConsultaCnpjResponse };
+
+/**
+ * 🔥 CONSULTA CNPJ VIA OPENCNPJ (API PÚBLICA)
+ * 
+ * Vantagens da OpenCNPJ:
+ * - Não requer autenticação (sem tokens)
+ * - Suporte a CNPJs alfanuméricos
+ * - Múltiplos datasets (Receita, RNTRC, CNO, CEIS, CNEP)
+ * - Mais rápida e confiável
+ * 
+ * @param cnpj - CNPJ com ou sem máscara
+ * @param datasets - Arrays de datasets opcionais (ex: ['receita', 'rntrc'])
+ * @returns Dados da consulta
+ */
+export async function consultarCnpjConectaGov(
+  cnpj: string, 
+  datasets: string[] = ['receita']
+): Promise<OpenCnpjConsultaResultado> {
+  return consultarCnpjOpen(cnpj, datasets);
 }
 
 /**
- * 🔥 CONSULTA CNPJ VIA BACKEND (QUE CHAMA CONECTAGOV)
- * O backend lida com autenticação OAuth2, token e headers necessários
+ * 🔥 CONSULTA CNPJ APENAS RECEITA FEDERAL (MAIS RÁPIDO)
  */
-export async function consultarCnpjConectaGov(cnpj: string): Promise<ConsultaCnpjResponse> {
-  const cnpjLimpo = limparDocumento(cnpj);
-  
-  if (cnpjLimpo.length !== 14) {
-    return {
-      sucesso: false,
-      erro: 'CNPJ inválido. Digite 14 dígitos.'
-    };
-  }
-
-  try {
-    console.log(`🔍 Consultando backend para CNPJ: ${cnpjLimpo}`);
-    
-    // 🔥 CHAMA O BACKEND (QUE CHAMA CONECTAGOV COM AUTENTICAÇÃO)
-    const response = await api.get(`/cnpj/consultar/${cnpjLimpo}`);
-    
-    if (response.data.sucesso) {
-      console.log('✅ Dados obtidos via backend');
-      return response.data;
-    } else {
-      return {
-        sucesso: false,
-        erro: response.data.erro || 'Erro na consulta'
-      };
-    }
-  } catch (error: any) {
-    console.error('Erro ao consultar CNPJ:', error);
-    
-    if (error.response) {
-      const status = error.response.status;
-      const mensagem = error.response.data?.erro || error.response.data?.message || `Erro ${status}`;
-      
-      if (status === 401) {
-        return {
-          sucesso: false,
-          erro: 'Credenciais do ConectaGov inválidas. Verifique as configurações no backend.'
-        };
-      }
-      if (status === 403) {
-        return {
-          sucesso: false,
-          erro: 'Acesso negado. Verifique as permissões do ConectaGov.'
-        };
-      }
-      if (status === 404) {
-        return {
-          sucesso: false,
-          erro: 'CNPJ não encontrado na base da Receita Federal'
-        };
-      }
-      if (status === 429) {
-        return {
-          sucesso: false,
-          erro: 'Muitas requisições. Aguarde alguns segundos e tente novamente.'
-        };
-      }
-      if (status === 504) {
-        return {
-          sucesso: false,
-          erro: 'Tempo limite excedido. O serviço da Receita Federal está lento.'
-        };
-      }
-      
-      return {
-        sucesso: false,
-        erro: mensagem
-      };
-    }
-    
-    if (error.request) {
-      return {
-        sucesso: false,
-        erro: 'Servidor indisponível. Verifique se o backend está rodando.'
-      };
-    }
-    
-    return {
-      sucesso: false,
-      erro: error.message || 'Erro desconhecido'
-    };
-  }
+export async function consultarCnpjReceita(cnpj: string): Promise<OpenCnpjConsultaResultado> {
+  return consultarCnpjOpen(cnpj, ['receita']);
 }
+
+/**
+ * 🔥 CONSULTA CNPJ COM RNTRC (PARA TRANSPORTADORAS)
+ */
+export async function consultarCnpjComRntrc(cnpj: string): Promise<OpenCnpjConsultaResultado> {
+  return consultarCnpjOpen(cnpj, ['receita', 'rntrc']);
+}
+
+/**
+ * 🔥 CONSULTA CNPJ COMPLETA (TODOS OS DATASETS DISPONÍVEIS)
+ */
+export async function consultarCnpjCompleto(cnpj: string): Promise<OpenCnpjConsultaResultado> {
+  return consultarCnpjOpen(cnpj, ['receita', 'rntrc', 'cno', 'ceis', 'cnep']);
+}
+
+// 🔥 MANTÉM COMPATIBILIDADE COM O CÓDIGO EXISTENTE
+export type { OpenCnpjConsultaResultado };

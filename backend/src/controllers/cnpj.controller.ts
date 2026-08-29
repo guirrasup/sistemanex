@@ -10,9 +10,14 @@ export class CnpjController {
     this.conectaGovService = ConectaGovService.getInstance();
   }
 
+  /**
+   * 🔥 CONSULTA CNPJ - SUPORTE A DATASETS
+   * GET /api/cnpj/consultar/:cnpj?datasets=receita,rntrc
+   */
   async consultar(req: Request, res: Response) {
     try {
       const { cnpj } = req.params;
+      const datasets = (req.query.datasets as string)?.split(',') || ['receita'];
       const cpfUsuario = req.headers['x-cpf-usuario'] as string || req.user?.cpf;
 
       // 🔥 VALIDA CNPJ
@@ -77,6 +82,14 @@ export class CnpjController {
             qualificacao: s.qualificacao || '',
             dataInclusao: s.dataInclusao || '',
           })) || [],
+          // 🔥 ADICIONA DATASETS SOLICITADOS
+          datasets: {
+            receita: datasets.includes('receita'),
+            rntrc: datasets.includes('rntrc'),
+            cno: datasets.includes('cno'),
+            ceis: datasets.includes('ceis'),
+            cnep: datasets.includes('cnep'),
+          }
         }
       });
 
@@ -102,6 +115,40 @@ export class CnpjController {
       return res.status(status).json({
         sucesso: false,
         erro: mensagem
+      });
+    }
+  }
+
+  /**
+   * 🔥 CONSULTA CNPJ COM DATASETS PERSONALIZADOS
+   * GET /api/cnpj/consultar-completo/:cnpj
+   */
+  async consultarCompleto(req: Request, res: Response) {
+    try {
+      const { cnpj } = req.params;
+      const cpfUsuario = req.headers['x-cpf-usuario'] as string || req.user?.cpf;
+
+      const cnpjLimpo = cnpj.replace(/\D/g, '');
+      if (cnpjLimpo.length !== 14) {
+        return res.status(400).json({
+          sucesso: false,
+          erro: 'CNPJ inválido. Digite 14 dígitos.'
+        });
+      }
+
+      // Busca dados com todos os datasets
+      const data = await this.conectaGovService.consultarCnpjCompleto(cnpjLimpo, cpfUsuario);
+
+      return res.json({
+        sucesso: true,
+        dados: data
+      });
+
+    } catch (error: any) {
+      console.error('Erro na consulta completa:', error);
+      return res.status(500).json({
+        sucesso: false,
+        erro: error.message || 'Erro na consulta'
       });
     }
   }

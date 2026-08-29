@@ -25,7 +25,9 @@ import {
   FolderOpen,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Calendar,
+  X
 } from 'lucide-react';
 import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento } from '../../types/fiscal';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
@@ -54,6 +56,9 @@ interface DocumentosFiscaisListProps {
 // 🔥 TIPO PARA ORDENAÇÃO
 type OrdenacaoCampo = 'tipo' | 'numero' | 'serie' | 'destinatario' | 'data' | 'valor' | 'status';
 type OrdenacaoDirecao = 'asc' | 'desc';
+
+// 🔥 TIPO PARA PERÍODO
+type PeriodoFiltro = 'TODOS' | 'HOJE' | 'SEMANA' | 'MES' | 'TRIMESTRE' | 'SEMESTRE' | 'ANO' | 'PERSONALIZADO';
 
 // 🔥 TIPO PARA DOCUMENTO UNIFICADO
 interface DocumentoUnificado {
@@ -94,9 +99,13 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
 }) => {
   const [tipoFiltro, setTipoFiltro] = useState<'TODOS' | 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE'>('TODOS');
   const [statusFiltro, setStatusFiltro] = useState<'TODOS' | 'AUTORIZADA' | 'CANCELADA'>('TODOS');
+  const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>('TODOS');
+  const [dataInicio, setDataInicio] = useState<string>('');
+  const [dataFim, setDataFim] = useState<string>('');
   const [busca, setBusca] = useState('');
   const [chaveCopiada, setChaveCopiada] = useState<string | null>(null);
   const [menuNovaNotaAberto, setMenuNovaNotaAberto] = useState(false);
+  const [menuPeriodoAberto, setMenuPeriodoAberto] = useState(false);
 
   // 🔥 ESTADO DE ORDENAÇÃO
   const [ordenacaoCampo, setOrdenacaoCampo] = useState<OrdenacaoCampo>('data');
@@ -121,6 +130,68 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
     NFCE: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-300', hover: 'hover:bg-purple-100' },
     CTE: { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-300', hover: 'hover:bg-cyan-100' },
     NFAE: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-300', hover: 'hover:bg-amber-100' },
+  };
+
+  // 🔥 LABELS DOS PERÍODOS
+  const periodosLabels: Record<PeriodoFiltro, string> = {
+    TODOS: 'Todos os períodos',
+    HOJE: 'Hoje',
+    SEMANA: 'Última semana',
+    MES: 'Último mês',
+    TRIMESTRE: 'Último trimestre',
+    SEMESTRE: 'Último semestre',
+    ANO: 'Último ano',
+    PERSONALIZADO: 'Personalizado'
+  };
+
+  // 🔥 FUNÇÃO PARA CALCULAR DATAS POR PERÍODO
+  const getDatasPorPeriodo = (periodo: PeriodoFiltro): { inicio: Date | null; fim: Date | null } => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const fim = new Date(hoje);
+    fim.setHours(23, 59, 59, 999);
+    let inicio: Date | null = null;
+
+    switch (periodo) {
+      case 'HOJE':
+        inicio = new Date(hoje);
+        break;
+      case 'SEMANA':
+        inicio = new Date(hoje);
+        inicio.setDate(hoje.getDate() - 7);
+        break;
+      case 'MES':
+        inicio = new Date(hoje);
+        inicio.setMonth(hoje.getMonth() - 1);
+        break;
+      case 'TRIMESTRE':
+        inicio = new Date(hoje);
+        inicio.setMonth(hoje.getMonth() - 3);
+        break;
+      case 'SEMESTRE':
+        inicio = new Date(hoje);
+        inicio.setMonth(hoje.getMonth() - 6);
+        break;
+      case 'ANO':
+        inicio = new Date(hoje);
+        inicio.setFullYear(hoje.getFullYear() - 1);
+        break;
+      case 'PERSONALIZADO':
+        if (dataInicio && dataFim) {
+          inicio = new Date(dataInicio + 'T00:00:00');
+          const fimPersonalizado = new Date(dataFim + 'T23:59:59');
+          return { inicio, fim: fimPersonalizado };
+        }
+        return { inicio: null, fim: null };
+      case 'TODOS':
+      default:
+        return { inicio: null, fim: null };
+    }
+
+    if (inicio) {
+      inicio.setHours(0, 0, 0, 0);
+    }
+    return { inicio, fim };
   };
 
   // 🔥 FUNÇÃO PARA CRIAR DOCUMENTO UNIFICADO COM FALLBACKS
@@ -237,11 +308,25 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
     ...nfaes.map(d => criarDocumento(d, 'NFAE')).filter(Boolean),
   ] as DocumentoUnificado[];
 
-  // 🔥 ORDENAÇÃO COM useMemo (PADRÃO DO SISTEMA)
+  // 🔥 ORDENAÇÃO E FILTRO COM useMemo
   const todosDocs = useMemo(() => {
+    // 🔥 FILTRO POR PERÍODO
+    const { inicio, fim } = getDatasPorPeriodo(periodoFiltro);
+    
     const filtrados = todosDocsRaw.filter(d => {
+      // Filtro por tipo
       if (tipoFiltro !== 'TODOS' && d.tipo !== tipoFiltro) return false;
+      
+      // Filtro por status
       if (statusFiltro !== 'TODOS' && d.status !== statusFiltro) return false;
+      
+      // Filtro por período
+      if (inicio && fim) {
+        const dataDoc = new Date(d.data);
+        if (dataDoc < inicio || dataDoc > fim) return false;
+      }
+      
+      // Filtro por busca
       if (busca.trim()) {
         const q = busca.toLowerCase();
         return (
@@ -256,6 +341,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
       return true;
     });
 
+    // 🔥 ORDENAÇÃO
     return [...filtrados].sort((a, b) => {
       let valorA: any;
       let valorB: any;
@@ -306,9 +392,9 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
 
       return 0;
     });
-  }, [todosDocsRaw, busca, tipoFiltro, statusFiltro, ordenacaoCampo, ordenacaoDirecao]);
+  }, [todosDocsRaw, busca, tipoFiltro, statusFiltro, periodoFiltro, dataInicio, dataFim, ordenacaoCampo, ordenacaoDirecao]);
 
-  // 🔥 FUNÇÃO PARA ORDENAR (PADRÃO DO SISTEMA)
+  // 🔥 FUNÇÃO PARA ORDENAR
   const handleOrdenar = (campo: OrdenacaoCampo) => {
     if (ordenacaoCampo === campo) {
       setOrdenacaoDirecao(ordenacaoDirecao === 'asc' ? 'desc' : 'asc');
@@ -318,7 +404,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
     }
   };
 
-  // 🔥 COMPONENTE ÍCONE DE ORDENAÇÃO (PADRÃO DO SISTEMA)
+  // 🔥 COMPONENTE ÍCONE DE ORDENAÇÃO
   const IconeOrdenacao = ({ campo }: { campo: OrdenacaoCampo }) => {
     if (ordenacaoCampo !== campo) {
       return <ArrowUpDown className="w-3 h-3 text-slate-400 ml-1" />;
@@ -328,16 +414,16 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
       : <ArrowDown className="w-3 h-3 text-indigo-600 ml-1" />;
   };
 
-  // 🔥 CLASSE DO CABEÇALHO (PADRÃO DO SISTEMA)
+  // 🔥 CLASSE DO CABEÇALHO
   const thClass = "py-3 px-4 text-left text-xs font-bold text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors select-none";
 
   // Métricas Consolidadas
   const totalFaturado = todosDocs.reduce((acc, d) => acc + (d.valor || 0), 0);
-  const totalNfe = nfes.reduce((acc, d) => acc + (d.valorTotalNota || 0), 0);
-  const totalNfse = nfses.reduce((acc, d) => acc + (d.valorTotalServicos || 0), 0);
-  const totalNfce = nfces.reduce((acc, d) => acc + (d.valorTotalNota || 0), 0);
-  const totalCte = ctes.reduce((acc, d) => acc + (d.valorTotalFrete || 0), 0);
-  const totalNfae = nfaes.reduce((acc, d) => acc + (d.valorTotalNota || 0), 0);
+  const totalNfe = todosDocs.filter(d => d.tipo === 'NFE').reduce((acc, d) => acc + d.valor, 0);
+  const totalNfse = todosDocs.filter(d => d.tipo === 'NFSE').reduce((acc, d) => acc + d.valor, 0);
+  const totalNfce = todosDocs.filter(d => d.tipo === 'NFCE').reduce((acc, d) => acc + d.valor, 0);
+  const totalCte = todosDocs.filter(d => d.tipo === 'CTE').reduce((acc, d) => acc + d.valor, 0);
+  const totalNfae = todosDocs.filter(d => d.tipo === 'NFAE').reduce((acc, d) => acc + d.valor, 0);
 
   const handleCopiarChave = (chave: string) => {
     navigator.clipboard.writeText(chave);
@@ -364,7 +450,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `notas_fiscais_todas_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `notas_fiscais_${periodoFiltro}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -387,6 +473,113 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
       >
         {label} ({count})
       </button>
+    );
+  };
+
+  // 🔥 Renderizar o seletor de período - CORRIGIDO
+  const renderPeriodoSelector = () => {
+    return (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setMenuPeriodoAberto(!menuPeriodoAberto)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+            periodoFiltro !== 'TODOS' 
+              ? 'bg-indigo-50 border-indigo-300 text-indigo-700' 
+              : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5" />
+          <span>{periodosLabels[periodoFiltro]}</span>
+          <ChevronDown className={`w-3 h-3 transition-transform ${menuPeriodoAberto ? 'rotate-180' : ''}`} />
+        </button>
+
+        {menuPeriodoAberto && (
+          <>
+            <div className="fixed inset-0 z-20" onClick={() => setMenuPeriodoAberto(false)} />
+            <div className="absolute right-0 mt-1 w-64 rounded-xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 z-30 border border-slate-200 p-1.5 max-h-96 overflow-y-auto">
+              {(['TODOS', 'HOJE', 'SEMANA', 'MES', 'TRIMESTRE', 'SEMESTRE', 'ANO'] as PeriodoFiltro[]).map((periodo) => (
+                <button
+                  key={periodo}
+                  onClick={() => {
+                    setPeriodoFiltro(periodo);
+                    setDataInicio('');
+                    setDataFim('');
+                    setMenuPeriodoAberto(false);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                    periodoFiltro === periodo
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {periodosLabels[periodo]}
+                </button>
+              ))}
+
+              {/* 🔥 OPÇÃO PERSONALIZADO - NÃO FECHA O MENU */}
+              <button
+                onClick={() => {
+                  setPeriodoFiltro('PERSONALIZADO');
+                  // 🔥 NÃO FECHA O MENU - mantém aberto para mostrar os inputs
+                }}
+                className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                  periodoFiltro === 'PERSONALIZADO'
+                    ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                    : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {periodosLabels.PERSONALIZADO}
+              </button>
+
+              {/* 🔥 INPUTS DE DATA - SEMPRE VISÍVEIS QUANDO PERSONALIZADO ESTÁ SELECIONADO */}
+              {periodoFiltro === 'PERSONALIZADO' && (
+                <div className="mt-2 pt-2 border-t border-slate-200 space-y-2 px-1">
+                  <div>
+                    <label className="text-[10px] font-medium text-slate-500">Data Início</label>
+                    <input
+                      type="date"
+                      value={dataInicio}
+                      onChange={(e) => setDataInicio(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium text-slate-500">Data Fim</label>
+                    <input
+                      type="date"
+                      value={dataFim}
+                      onChange={(e) => setDataFim(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setMenuPeriodoAberto(false);
+                      }}
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium py-1.5 rounded-lg transition-colors"
+                    >
+                      Aplicar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPeriodoFiltro('TODOS');
+                        setDataInicio('');
+                        setDataFim('');
+                        setMenuPeriodoAberto(false);
+                      }}
+                      className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium py-1.5 rounded-lg transition-colors"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     );
   };
 
@@ -437,7 +630,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfe)}</div>
-          <div className="text-[10px] text-slate-400">{nfes.length} notas modelo 55</div>
+          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFE').length} notas modelo 55</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -448,7 +641,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfse)}</div>
-          <div className="text-[10px] text-slate-400">{nfses.length} notas padrão DPS</div>
+          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFSE').length} notas padrão DPS</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -459,7 +652,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfce)}</div>
-          <div className="text-[10px] text-slate-400">{nfces.length} cupons PDV</div>
+          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFCE').length} cupons PDV</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -470,7 +663,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalCte)}</div>
-          <div className="text-[10px] text-slate-400">{ctes.length} conhecimentos</div>
+          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'CTE').length} conhecimentos</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -481,11 +674,11 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfae)}</div>
-          <div className="text-[10px] text-slate-400">{nfaes.length} notas série 900</div>
+          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFAE').length} notas série 900</div>
         </div>
       </div>
 
-      {/* 3. Barra de Controles */}
+      {/* 3. Barra de Controles com SELETOR DE PERÍODO */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative flex-1">
@@ -499,103 +692,133 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 text-xs">
-            {renderFiltroBotao('TODOS', 'Todos', todosDocs.length)}
-            {renderFiltroBotao('NFE', 'NF-e', nfes.length)}
-            {renderFiltroBotao('NFSE', 'NFS-e', nfses.length)}
-            {renderFiltroBotao('NFCE', 'NFC-e', nfces.length)}
-            {renderFiltroBotao('CTE', 'CT-e', ctes.length)}
-            {renderFiltroBotao('NFAE', 'NFA-e', nfaes.length)}
-          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 🔥 SELETOR DE PERÍODO */}
+            {renderPeriodoSelector()}
 
-          <div className="relative flex items-center gap-2">
-            <div className="relative inline-block text-left">
-              <div className="flex rounded-lg shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => setMenuNovaNotaAberto(!menuNovaNotaAberto)}
-                  id="btn-emitir-nova-nota"
-                  className={`${corBgButton} text-white text-xs font-bold px-4 py-2 rounded-l-lg transition-colors flex items-center gap-2 cursor-pointer`}
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Emitir Nova Nota</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMenuNovaNotaAberto(!menuNovaNotaAberto)}
-                  className="bg-indigo-700 hover:bg-indigo-800 text-white px-2.5 py-2 rounded-r-lg border-l border-indigo-500 transition-colors cursor-pointer flex items-center justify-center"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-              </div>
-
-              {menuNovaNotaAberto && (
-                <>
-                  <div className="fixed inset-0 z-20" onClick={() => setMenuNovaNotaAberto(false)} />
-                  <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 z-30 border border-slate-200 p-2 space-y-1">
-                    <div className="px-3 py-2 border-b border-slate-100">
-                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Selecione o Tipo de Documento Fiscal</span>
-                    </div>
-
-                    <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfe) onEmitirNovaNfe(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
-                      <div className="w-7 h-7 rounded bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors mt-0.5">
-                        <Receipt className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-700">NF-e (Produto Eletrônica)</div>
-                        <div className="text-[10px] text-slate-500">Modelo 55 • Venda de Produtos e Mercadorias</div>
-                      </div>
-                    </button>
-
-                    <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfse) onEmitirNovaNfse(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
-                      <div className="w-7 h-7 rounded bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors mt-0.5">
-                        <FileText className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900 group-hover:text-blue-700">NFS-e (Serviço Eletrônica)</div>
-                        <div className="text-[10px] text-slate-500">Padrão Nacional • Prestação de Serviços DPS</div>
-                      </div>
-                    </button>
-
-                    <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfce) onEmitirNovaNfce(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
-                      <div className="w-7 h-7 rounded bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-colors mt-0.5">
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900 group-hover:text-purple-700">NFC-e (Consumidor Eletrônica)</div>
-                        <div className="text-[10px] text-slate-500">Modelo 65 • Cupom Fiscal Varejo / PDV</div>
-                      </div>
-                    </button>
-
-                    <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovoCte) onEmitirNovoCte(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
-                      <div className="w-7 h-7 rounded bg-cyan-100 text-cyan-700 flex items-center justify-center shrink-0 group-hover:bg-cyan-600 group-hover:text-white transition-colors mt-0.5">
-                        <Truck className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900 group-hover:text-cyan-700">CT-e (Conhecimento de Transporte)</div>
-                        <div className="text-[10px] text-slate-500">Modelo 57 • Prestação de Frete Rodoviário</div>
-                      </div>
-                    </button>
-
-                    <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfae) onEmitirNovaNfae(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
-                      <div className="w-7 h-7 rounded bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors mt-0.5">
-                        <FileBadge2 className="w-3.5 h-3.5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900 group-hover:text-amber-700">NFA-e (Nota Avulsa Eletrônica)</div>
-                        <div className="text-[10px] text-slate-500">Série 900 • Produtor Rural / MEI / Avulsa SEFAZ</div>
-                      </div>
-                    </button>
-                  </div>
-                </>
-              )}
+            {/* Filtros de tipo */}
+            <div className="flex flex-wrap items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 text-xs">
+              {renderFiltroBotao('TODOS', 'Todos', todosDocs.length)}
+              {renderFiltroBotao('NFE', 'NF-e', todosDocs.filter(d => d.tipo === 'NFE').length)}
+              {renderFiltroBotao('NFSE', 'NFS-e', todosDocs.filter(d => d.tipo === 'NFSE').length)}
+              {renderFiltroBotao('NFCE', 'NFC-e', todosDocs.filter(d => d.tipo === 'NFCE').length)}
+              {renderFiltroBotao('CTE', 'CT-e', todosDocs.filter(d => d.tipo === 'CTE').length)}
+              {renderFiltroBotao('NFAE', 'NFA-e', todosDocs.filter(d => d.tipo === 'NFAE').length)}
             </div>
 
-            <button onClick={handleExportarCsv} className="p-2 text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer" title="Exportar dados da grid para CSV">
-              <FileSpreadsheet className="w-4 h-4" />
-            </button>
+            {/* Botão Emitir Nova Nota */}
+            <div className="relative flex items-center gap-2">
+              <div className="relative inline-block text-left">
+                <div className="flex rounded-lg shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setMenuNovaNotaAberto(!menuNovaNotaAberto)}
+                    id="btn-emitir-nova-nota"
+                    className={`${corBgButton} text-white text-xs font-bold px-4 py-2 rounded-l-lg transition-colors flex items-center gap-2 cursor-pointer`}
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Emitir Nova Nota</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMenuNovaNotaAberto(!menuNovaNotaAberto)}
+                    className="bg-indigo-700 hover:bg-indigo-800 text-white px-2.5 py-2 rounded-r-lg border-l border-indigo-500 transition-colors cursor-pointer flex items-center justify-center"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {menuNovaNotaAberto && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setMenuNovaNotaAberto(false)} />
+                    <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 z-30 border border-slate-200 p-2 space-y-1">
+                      <div className="px-3 py-2 border-b border-slate-100">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Selecione o Tipo de Documento Fiscal</span>
+                      </div>
+
+                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfe) onEmitirNovaNfe(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
+                        <div className="w-7 h-7 rounded bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors mt-0.5">
+                          <Receipt className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-700">NF-e (Produto Eletrônica)</div>
+                          <div className="text-[10px] text-slate-500">Modelo 55 • Venda de Produtos e Mercadorias</div>
+                        </div>
+                      </button>
+
+                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfse) onEmitirNovaNfse(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
+                        <div className="w-7 h-7 rounded bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors mt-0.5">
+                          <FileText className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 group-hover:text-blue-700">NFS-e (Serviço Eletrônica)</div>
+                          <div className="text-[10px] text-slate-500">Padrão Nacional • Prestação de Serviços DPS</div>
+                        </div>
+                      </button>
+
+                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfce) onEmitirNovaNfce(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
+                        <div className="w-7 h-7 rounded bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-colors mt-0.5">
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 group-hover:text-purple-700">NFC-e (Consumidor Eletrônica)</div>
+                          <div className="text-[10px] text-slate-500">Modelo 65 • Cupom Fiscal Varejo / PDV</div>
+                        </div>
+                      </button>
+
+                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovoCte) onEmitirNovoCte(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
+                        <div className="w-7 h-7 rounded bg-cyan-100 text-cyan-700 flex items-center justify-center shrink-0 group-hover:bg-cyan-600 group-hover:text-white transition-colors mt-0.5">
+                          <Truck className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 group-hover:text-cyan-700">CT-e (Conhecimento de Transporte)</div>
+                          <div className="text-[10px] text-slate-500">Modelo 57 • Prestação de Frete Rodoviário</div>
+                        </div>
+                      </button>
+
+                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfae) onEmitirNovaNfae(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
+                        <div className="w-7 h-7 rounded bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors mt-0.5">
+                          <FileBadge2 className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 group-hover:text-amber-700">NFA-e (Nota Avulsa Eletrônica)</div>
+                          <div className="text-[10px] text-slate-500">Série 900 • Produtor Rural / MEI / Avulsa SEFAZ</div>
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <button onClick={handleExportarCsv} className="p-2 text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer" title="Exportar dados da grid para CSV">
+                <FileSpreadsheet className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* 🔥 INDICADOR DO PERÍODO SELECIONADO */}
+        {periodoFiltro !== 'TODOS' && (
+          <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+            <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Filtrado por: <strong>{periodosLabels[periodoFiltro]}</strong></span>
+            {periodoFiltro === 'PERSONALIZADO' && dataInicio && dataFim && (
+              <span>
+                ({new Date(dataInicio).toLocaleDateString('pt-BR')} - {new Date(dataFim).toLocaleDateString('pt-BR')})
+              </span>
+            )}
+            <button
+              onClick={() => {
+                setPeriodoFiltro('TODOS');
+                setDataInicio('');
+                setDataFim('');
+              }}
+              className="text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 4. Tabela Grid de Documentos Fiscais com ORDENAÇÃO */}
@@ -631,7 +854,9 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                   <td colSpan={7} className="py-12 text-center text-slate-500">
                     <Layers className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="font-semibold text-slate-700">Nenhum documento fiscal encontrado</p>
-                    <p className="text-slate-400 text-xs mt-0.5">Tente ajustar os termos da busca ou filtros acima.</p>
+                    <p className="text-slate-400 text-xs mt-0.5">
+                      {periodoFiltro !== 'TODOS' ? 'Tente ajustar o período ou os filtros' : 'Tente ajustar os termos da busca ou filtros acima.'}
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -698,6 +923,19 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           </table>
         </div>
       </div>
+
+      {/* 🔥 RODAPÉ COM INFORMAÇÕES DO PERÍODO */}
+      <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
+        <span>Total de documentos: <strong>{todosDocs.length}</strong></span>
+        <span>Faturamento total: <strong>{formatarMoeda(totalFaturado)}</strong></span>
+        <span className="hidden sm:block">
+          Período: <strong>{periodosLabels[periodoFiltro]}</strong>
+          {periodoFiltro === 'PERSONALIZADO' && dataInicio && dataFim && (
+            ` (${new Date(dataInicio).toLocaleDateString('pt-BR')} - ${new Date(dataFim).toLocaleDateString('pt-BR')})`
+          )}
+        </span>
+      </div>
+
     </div>
   );
 };
