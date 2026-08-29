@@ -1,6 +1,6 @@
 // src/services/openCnpj.service.ts
 
-import { formatarCpfCnpj, limparDocumento } from '../utils/cpfCnpjValidator';
+import { limparDocumento } from '../utils/cpfCnpjValidator';
 
 const API_BASE = 'https://api.opencnpj.org';
 
@@ -9,19 +9,47 @@ export interface OpenCnpjResponse {
   razao_social?: string;
   nome_fantasia?: string;
   situacao_cadastral?: string;
+  data_situacao_cadastral?: string;
   data_inicio_atividade?: string;
   cnae_principal?: string;
-  cnae_secundario?: string;
-  uf?: string;
-  municipio?: string;
-  porte_empresa?: string;
+  cnae_principal_descricao?: string;
+  cnae_secundario?: string | string[];
   natureza_juridica?: string;
+  natureza_juridica_codigo?: string;
+  logradouro?: string;
+  tipo_logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cep?: string;
+  municipio?: string;
+  codigo_municipio?: string;
+  uf?: string;
+  pais?: string;
+  codigo_pais?: string;
+  telefone?: string | Array<{ ddd: string; numero: string }> | { numero: string };
+  email?: string;
   capital_social?: number;
-  // Campos adicionais por dataset
+  porte_empresa?: string;
+  opcao_pelo_simples?: string;
+  optante_simples?: boolean;
+  opcao_pelo_mei?: string;
+  optante_mei?: boolean;
+  socios?: Array<{
+    nome: string;
+    nome_socio?: string;
+    cpf: string;
+    cpf_socio?: string;
+    qualificacao: string;
+    qualificacao_socio?: string;
+    data_inclusao?: string;
+    data_entrada?: string;
+  }>;
   rntrc?: {
     numero: string;
     situacao: string;
     data_validade: string;
+    descricao?: string;
   };
   cno?: {
     numero: string;
@@ -80,11 +108,11 @@ export interface OpenCnpjConsultaResultado {
       qualificacao: string;
       dataInclusao?: string;
     }>;
-    // Campos específicos
     rntrc?: {
       numero: string;
       situacao: string;
       dataValidade: string;
+      descricao?: string;
     };
     cno?: {
       numero: string;
@@ -110,7 +138,10 @@ export interface OpenCnpjConsultaResultado {
 /**
  * 🔥 CONSULTA CNPJ VIA OPENCNPJ (API PÚBLICA SEM AUTENTICAÇÃO)
  */
-export async function consultarCnpjOpen(cnpj: string, datasets: string[] = ['receita']): Promise<OpenCnpjConsultaResultado> {
+export async function consultarCnpjOpen(
+  cnpj: string, 
+  datasets: string[] = ['receita']
+): Promise<OpenCnpjConsultaResultado> {
   const cnpjLimpo = limparDocumento(cnpj);
   
   if (cnpjLimpo.length !== 14) {
@@ -121,11 +152,11 @@ export async function consultarCnpjOpen(cnpj: string, datasets: string[] = ['rec
   }
 
   try {
-    // Construir URL com datasets
     const datasetsParam = datasets.length > 0 ? `?datasets=${datasets.join(',')}` : '';
     const url = `${API_BASE}/${cnpjLimpo}${datasetsParam}`;
     
     console.log(`🔍 Consultando OpenCNPJ: ${url}`);
+    console.log(`📊 Datasets solicitados: ${datasets.join(', ')}`);
     
     const response = await fetch(url, {
       headers: {
@@ -170,7 +201,12 @@ export async function consultarCnpjOpen(cnpj: string, datasets: string[] = ['rec
       };
     }
 
-    // Mapear dados para o formato do sistema
+    if (data.rntrc) {
+      console.log('✅ RNTRC encontrado:', data.rntrc);
+    } else {
+      console.log('ℹ️ RNTRC não encontrado para este CNPJ');
+    }
+
     const resultado = mapearDadosOpenCnpj(data);
 
     return {
@@ -200,7 +236,6 @@ export async function consultarCnpjOpen(cnpj: string, datasets: string[] = ['rec
  * Mapeia os dados da OpenCNPJ para o formato do sistema
  */
 function mapearDadosOpenCnpj(data: OpenCnpjResponse) {
-  // Extrair telefone do objeto ou array
   let telefone = '';
   if (data.telefone) {
     if (typeof data.telefone === 'string') {
@@ -213,7 +248,6 @@ function mapearDadosOpenCnpj(data: OpenCnpjResponse) {
     }
   }
 
-  // Extrair CNAEs secundários
   const cnaeSecundarios: string[] = [];
   if (data.cnae_secundario) {
     if (typeof data.cnae_secundario === 'string') {
@@ -223,15 +257,14 @@ function mapearDadosOpenCnpj(data: OpenCnpjResponse) {
     }
   }
 
-  // Mapear QSA
-  const qsa = data.socios?.map((socio: any) => ({
+  const qsa = (data.socios || []).map((socio: any) => ({
     nome: socio.nome || socio.nome_socio || '',
     cpf: socio.cpf || socio.cpf_socio || '',
     qualificacao: socio.qualificacao || socio.qualificacao_socio || '',
     dataInclusao: socio.data_inclusao || socio.data_entrada || ''
-  })) || [];
+  }));
 
-  return {
+  const resultado = {
     cnpj: data.cnpj || '',
     razaoSocial: data.razao_social || '',
     nomeFantasia: data.nome_fantasia || '',
@@ -263,11 +296,11 @@ function mapearDadosOpenCnpj(data: OpenCnpjResponse) {
     optanteSimples: data.opcao_pelo_simples === 'S' || data.optante_simples === true,
     optanteMEI: data.opcao_pelo_mei === 'S' || data.optante_mei === true,
     qsa,
-    // Campos específicos por dataset
     rntrc: data.rntrc ? {
       numero: data.rntrc.numero || '',
       situacao: data.rntrc.situacao || '',
-      dataValidade: data.rntrc.data_validade || ''
+      dataValidade: data.rntrc.data_validade || '',
+      descricao: data.rntrc.descricao || ''
     } : undefined,
     cno: data.cno ? {
       numero: data.cno.numero || '',
@@ -286,6 +319,30 @@ function mapearDadosOpenCnpj(data: OpenCnpjResponse) {
       tipo: item.tipo || ''
     })) : undefined
   };
+
+  if (resultado.rntrc) {
+    console.log('✅ RNTRC mapeado com sucesso:', resultado.rntrc);
+  }
+
+  return resultado;
+}
+
+/**
+ * 🔥 BUSCA DADOS DA RECEITA + RNTRC (PARA TRANSPORTADORAS)
+ */
+export async function consultarCnpjComRntrc(cnpj: string): Promise<OpenCnpjConsultaResultado> {
+  console.log('🚚 Consultando CNPJ com RNTRC...');
+  const resultado = await consultarCnpjOpen(cnpj, ['receita', 'rntrc']);
+  
+  if (resultado.sucesso && resultado.dados) {
+    if (resultado.dados.rntrc) {
+      console.log('✅ RNTRC encontrado:', resultado.dados.rntrc);
+    } else {
+      console.log('ℹ️ Nenhum RNTRC encontrado para este CNPJ');
+    }
+  }
+  
+  return resultado;
 }
 
 /**
@@ -296,21 +353,8 @@ export async function consultarCnpjReceita(cnpj: string): Promise<OpenCnpjConsul
 }
 
 /**
- * Busca dados da Receita + RNTRC (para transportadoras)
- */
-export async function consultarCnpjComRntrc(cnpj: string): Promise<OpenCnpjConsultaResultado> {
-  return consultarCnpjOpen(cnpj, ['receita', 'rntrc']);
-}
-
-/**
  * Busca dados completos com todos os datasets disponíveis
  */
 export async function consultarCnpjCompleto(cnpj: string): Promise<OpenCnpjConsultaResultado> {
-  return consultarCnpjOpen(cnpj, [
-    'receita', 
-    'rntrc', 
-    'cno', 
-    'ceis', 
-    'cnep'
-  ]);
+  return consultarCnpjOpen(cnpj, ['receita', 'rntrc', 'cno', 'ceis', 'cnep']);
 }

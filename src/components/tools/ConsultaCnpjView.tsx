@@ -29,33 +29,20 @@ import {
   X,
   Filter
 } from 'lucide-react';
-import { consultarCnpjOpen, OpenCnpjConsultaResultado } from '../../services/openCnpj.service';
-import { formatarCpfCnpj, limparDocumento } from '../../utils/cpfCnpjValidator';
+import { consultarCnpjConectaGov } from '../../utils/consultaCnpjApi';
+import { formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 
 interface ConsultaCnpjViewProps {
   onNavigate?: (view: string) => void;
 }
 
-// 🔥 DATASETS DISPONÍVEIS
-const DATASETS_OPCOES = [
-  { id: 'receita', label: 'Receita Federal', icon: <Building2 className="w-3.5 h-3.5" /> },
-  { id: 'rntrc', label: 'RNTRC (Transporte)', icon: <Truck className="w-3.5 h-3.5" /> },
-  { id: 'cno', label: 'CNO (Obras)', icon: <Briefcase className="w-3.5 h-3.5" /> },
-  { id: 'ceis', label: 'CEIS (Sanções)', icon: <AlertCircle className="w-3.5 h-3.5" /> },
-  { id: 'cnep', label: 'CNEP (Sanções)', icon: <AlertCircle className="w-3.5 h-3.5" /> },
-];
-
 export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }) => {
   const [cnpj, setCnpj] = useState('');
-  const [cnpjRaw, setCnpjRaw] = useState(''); // 🔥 ARMAZENA O VALOR SEM MÁSCARA PARA CONSULTA
   const [loading, setLoading] = useState(false);
-  const [resultado, setResultado] = useState<OpenCnpjConsultaResultado['dados'] | null>(null);
+  const [resultado, setResultado] = useState<any>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [historico, setHistorico] = useState<string[]>([]);
-  const [datasetsSelecionados, setDatasetsSelecionados] = useState<string[]>(['receita']);
-  const [menuDatasetsAberto, setMenuDatasetsAberto] = useState(false);
 
-  // 🔥 COR DO MÓDULO (ROSA)
   const cor = 'rose';
   const corBg = 'bg-rose-50';
   const corBorder = 'border-rose-200';
@@ -66,67 +53,11 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
   const corFocus = 'focus:ring-rose-500';
   const corIconBg = 'bg-rose-600';
 
-  // 🔥 FUNÇÃO PARA FORMATAR CNPJ COM MÁSCARA
-  const formatarCnpjDisplay = (valor: string): string => {
-    // Remove tudo que não é número ou letra (permite alfanumérico)
-    const limpo = valor.replace(/[^A-Za-z0-9]/g, '');
-    
-    // Se tiver apenas números, aplica máscara de CNPJ
-    if (/^\d+$/.test(limpo) && limpo.length <= 14) {
-      if (limpo.length <= 2) return limpo;
-      if (limpo.length <= 5) return limpo.replace(/(\d{2})(\d{0,3})/, '$1.$2');
-      if (limpo.length <= 8) return limpo.replace(/(\d{2})(\d{3})(\d{0,3})/, '$1.$2.$3');
-      if (limpo.length <= 12) return limpo.replace(/(\d{2})(\d{3})(\d{3})(\d{0,4})/, '$1.$2.$3/$4');
-      return limpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5');
-    }
-    
-    // Se for alfanumérico, retorna sem máscara (mas pode ter formato 12.ABC.345/01DE-35)
-    if (limpo.length > 0) {
-      // Tenta aplicar máscara alfanumérica se tiver o padrão
-      if (limpo.length >= 12) {
-        const partes = limpo.match(/^(.{2})(.{3})(.{3})(.{0,4})(.{0,2})/);
-        if (partes) {
-          let resultado = partes[1];
-          if (partes[2]) resultado += '.' + partes[2];
-          if (partes[3]) resultado += '.' + partes[3];
-          if (partes[4]) resultado += '/' + partes[4];
-          if (partes[5]) resultado += '-' + partes[5];
-          return resultado;
-        }
-      }
-      return limpo;
-    }
-    
-    return '';
-  };
-
-  // 🔥 FUNÇÃO PARA EXTRAIR O CNPJ LIMPO (APENAS NÚMEROS E LETRAS)
-  const extrairCnpjRaw = (valor: string): string => {
-    return valor.replace(/[^A-Za-z0-9]/g, '');
-  };
-
-  // 🔥 HANDLE CHANGE DO INPUT - ACEITA MÁSCARA E ALFANUMÉRICO
-  const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const valor = e.target.value;
-    const raw = extrairCnpjRaw(valor);
-    setCnpjRaw(raw);
-    
-    // Formata para exibição
-    const formatado = formatarCnpjDisplay(valor);
-    setCnpj(formatado);
-    
-    // Limpa erro se começar a digitar
-    if (erro) setErro(null);
-  };
-
   const handleConsultar = async () => {
-    // 🔥 USA O CNPJ RAW (SEM MÁSCARA) PARA CONSULTA
-    const cnpjLimpo = cnpjRaw || extrairCnpjRaw(cnpj);
+    const cnpjLimpo = cnpj.replace(/\D/g, '');
     
-    // 🔥 VALIDAÇÃO: ACEITA 14 CARACTERES (NÚMEROS OU ALFANUMÉRICO)
-    // A OpenCNPJ aceita CNPJs alfanuméricos com 14 caracteres
     if (cnpjLimpo.length !== 14) {
-      setErro('Digite um CNPJ válido (14 caracteres, podendo ser números ou letras)');
+      setErro('Digite um CNPJ válido com 14 dígitos');
       return;
     }
 
@@ -135,7 +66,7 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
     setResultado(null);
 
     try {
-      const response = await consultarCnpjOpen(cnpjLimpo, datasetsSelecionados);
+      const response = await consultarCnpjConectaGov(cnpjLimpo);
       
       if (response.sucesso && response.dados) {
         setResultado(response.dados);
@@ -157,19 +88,6 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
     if (e.key === 'Enter') {
       handleConsultar();
     }
-  };
-
-  const toggleDataset = (datasetId: string) => {
-    setDatasetsSelecionados(prev => {
-      if (datasetId === 'receita') {
-        return prev;
-      }
-      if (prev.includes(datasetId)) {
-        return prev.filter(id => id !== datasetId);
-      } else {
-        return [...prev, datasetId];
-      }
-    });
   };
 
   const copiarParaClipboard = (texto: string) => {
@@ -260,8 +178,8 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
         </div>
       </div>
 
-      {/* Busca com Seletores de Dataset */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4">
+      {/* Busca */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
             <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -274,7 +192,7 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
               <input
                 type="text"
                 value={cnpj}
-                onChange={handleCnpjChange}
+                onChange={(e) => setCnpj(e.target.value.replace(/\D/g, ''))}
                 onKeyPress={handleKeyPress}
                 placeholder="Ex: 18.236.447/0001-90 ou 12.ABC.345/01DE-35"
                 className={`w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none ${corFocus} focus:border-rose-600 focus:ring-2 focus:ring-rose-600/20 transition-all font-mono`}
@@ -305,45 +223,6 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
           </button>
         </div>
 
-        {/* Seletores de Dataset */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
-          <span className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
-            <Database className="w-3.5 h-3.5" />
-            Datasets:
-          </span>
-          
-          {DATASETS_OPCOES.map((ds) => {
-            const isSelected = datasetsSelecionados.includes(ds.id);
-            const isReceita = ds.id === 'receita';
-            return (
-              <button
-                key={ds.id}
-                onClick={() => toggleDataset(ds.id)}
-                disabled={isReceita}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
-                  isSelected 
-                    ? 'bg-rose-100 text-rose-700 border border-rose-300' 
-                    : 'bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200'
-                } ${isReceita ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
-              >
-                {ds.icon}
-                {ds.label}
-                {isSelected && <Check className="w-3 h-3" />}
-                {isReceita && <span className="text-[8px] text-slate-400">(fixo)</span>}
-              </button>
-            );
-          })}
-          
-          {datasetsSelecionados.length > 1 && (
-            <button
-              onClick={() => setDatasetsSelecionados(['receita'])}
-              className="text-[10px] text-slate-400 hover:text-rose-600 transition-colors"
-            >
-              <X className="w-3 h-3 inline" /> Limpar extras
-            </button>
-          )}
-        </div>
-
         {erro && (
           <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -352,7 +231,7 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
         )}
       </div>
 
-      {/* Resultado da Consulta - MESMO CÓDIGO ANTERIOR */}
+      {/* Resultado */}
       {resultado && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-fadeIn">
           
@@ -384,7 +263,7 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
             </div>
           </div>
 
-          {/* Grid de Dados - MESMO CÓDIGO */}
+          {/* Grid de Dados */}
           <div className="p-6 space-y-4">
             
             {/* Status e Situação */}
@@ -436,7 +315,7 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
               )}
             </div>
 
-            {/* RNTRC - se disponível */}
+            {/* 🔥 RNTRC - se disponível */}
             {resultado.rntrc && (
               <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-200">
                 <div className="flex items-center gap-2">
@@ -541,7 +420,7 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
               </div>
             )}
 
-            {/* QSA */}
+            {/* QSA - Quadro Societário */}
             {resultado.qsa && resultado.qsa.length > 0 && (
               <div>
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -576,30 +455,6 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
               </div>
             )}
 
-            {/* CEIS / CNEP */}
-            {(resultado.ceis && resultado.ceis.length > 0) && (
-              <div className="bg-rose-50 rounded-lg p-3 border border-rose-200">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600" />
-                  <span className="text-xs font-bold text-rose-700 uppercase">CEIS - Cadastro de Empresas Inidôneas</span>
-                </div>
-                <div className="mt-2 space-y-1">
-                  {resultado.ceis.slice(0, 3).map((item: any, idx: number) => (
-                    <div key={idx} className="text-xs bg-white p-2 rounded border border-rose-100">
-                      <span className="font-medium">{item.orgao}</span>
-                      <span className="text-slate-500 ml-2">
-                        {formatarData(item.dataInicio)} - {formatarData(item.dataFim)}
-                      </span>
-                      <span className="text-rose-600 ml-2">{item.tipo}</span>
-                    </div>
-                  ))}
-                  {resultado.ceis.length > 3 && (
-                    <div className="text-xs text-slate-500">+ {resultado.ceis.length - 3} registros</div>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Ações */}
             <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-200">
               <button
@@ -610,6 +465,7 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
                 <Building2 className="w-3.5 h-3.5" />
                 <span>Preencher Configurações</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -626,11 +482,12 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
                 <FileText className="w-3.5 h-3.5" />
                 <span>Exportar JSON</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => {
                   const cnpjLimpo = resultado.cnpj?.replace(/\D/g, '') || '';
-                  window.open(`https://api.opencnpj.org/${cnpjLimpo}`, '_blank');
+                  window.open(`https://api.opencnpj.org/${cnpjLimpo}?datasets=receita,rntrc`, '_blank');
                 }}
                 className="bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium px-4 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-2 cursor-pointer"
               >
@@ -655,13 +512,12 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
                 key={index}
                 type="button"
                 onClick={() => {
-                  setCnpj(formatarCpfCnpj(item) || item);
-                  setCnpjRaw(item);
+                  setCnpj(item);
                   handleConsultar();
                 }}
                 className="text-xs bg-slate-50 hover:bg-rose-50 text-slate-700 hover:text-rose-700 px-3 py-1.5 rounded border border-slate-200 hover:border-rose-300 transition-colors font-mono cursor-pointer"
               >
-                {formatarCpfCnpj(item) || item}
+                {formatarCpfCnpj(item)}
               </button>
             ))}
           </div>
