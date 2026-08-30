@@ -1,4 +1,4 @@
-// C:\emissornfe\backend\src\services\produto.service.ts
+// C:\sistemanex\backend\src\services\produto.service.ts
 
 import { ProdutoRepository } from '../repositories/produto.repository.js';
 
@@ -18,7 +18,6 @@ export class ProdutoService {
   }
 
   async criar(data: any) {
-    // Validações
     if (!data.descricao || data.descricao.trim().length < 3) {
       throw new Error('Descrição do produto é obrigatória (mínimo 3 caracteres)');
     }
@@ -33,7 +32,6 @@ export class ProdutoService {
   }
 
   async atualizar(id: string, data: any, empresaId: string) {
-    // Verifica se o produto existe e pertence à empresa
     const produto = await this.produtoRepo.findById(id);
     if (!produto) {
       throw new Error('Produto não encontrado');
@@ -57,6 +55,7 @@ export class ProdutoService {
     return this.produtoRepo.delete(id);
   }
 
+  // 🔥 CORRIGIDO: MÉTODO QUE RETORNA APENAS PRODUTOS CRÍTICOS
   async buscarEstoqueCritico(empresaId: string) {
     return this.produtoRepo.findEstoqueCritico(empresaId);
   }

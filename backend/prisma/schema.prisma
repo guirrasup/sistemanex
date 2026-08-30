@@ -1,5 +1,5 @@
 // ============================================
-// GENERATOR E DATASOURCE
+// FILE: prisma/schema.prisma
 // ============================================
 
 generator client {
@@ -13,7 +13,7 @@ datasource db {
 }
 
 // ============================================
-// ENUMS (mantidos existentes)
+// ENUMS
 // ============================================
 
 enum TipoPessoa {
@@ -88,6 +88,353 @@ enum PerfilUsuario {
   OPERADOR
 }
 
+<<<<<<< HEAD
+enum CRT {
+  SIMPLES_NACIONAL
+  SIMPLES_EXCESSO
+  NORMAL
+  MEI
+}
+
+enum TpImp {
+  SEM_DANFE
+  DANFE_RETRATO
+  DANFE_PAISAGEM
+  DANFE_SIMPLIFICADO
+  DANFE_NFCE
+  DANFE_NFCE_MSG
+}
+
+enum TpEmis {
+  NORMAL
+  CONTINGENCIA_FS
+  REGIME_ESPECIAL_NFF
+  CONTINGENCIA_DPEC
+  CONTINGENCIA_FSDA
+  CONTINGENCIA_SVC_AN
+  CONTINGENCIA_SVC_RS
+  OFF_LINE_NFCE
+}
+
+enum TpNF {
+  ENTRADA
+  SAIDA
+}
+
+enum IdDest {
+  OPERACAO_INTERNA
+  OPERACAO_INTERESTADUAL
+  OPERACAO_EXTERIOR
+}
+
+enum IndPresenca {
+  NAO_APLICA
+  PRESENCIAL
+  NAO_PRESENCIAL_INTERNET
+  NAO_PRESENCIAL_TELE
+  NFC_ENTREGA_DOMICILIO
+  PRESENCIAL_FORA
+  NAO_PRESENCIAL_OUTROS
+}
+
+enum FinNFe {
+  NORMAL
+  COMPLEMENTAR
+  AJUSTE
+  DEVOLUCAO_RETORNO
+}
+
+enum ProcEmi {
+  APP_CONTRIBUINTE
+  AVULSA_FISCO
+  AVULSA_CONTRIBUINTE_SITE
+  APP_FISCO
+}
+
+enum IndFinal {
+  NAO
+  SIM
+}
+
+enum IndIntermed {
+  SEM_INTERMEDIADOR
+  COM_INTERMEDIADOR
+}
+
+enum ModFrete {
+  CIF
+  FOB
+  TERCEIROS
+  PROPRIO_REMETENTE
+  PROPRIO_DESTINATARIO
+  SEM_TRANSPORTE
+}
+
+enum IndIEDest {
+  CONTRIBUINTE
+  ISENTO
+  NAO_CONTRIBUINTE
+}
+
+enum IndPag {
+  VISTA
+  PRAZO
+}
+
+enum TpIntegra {
+  INTEGRADO
+  NAO_INTEGRADO
+}
+
+enum OrigemMercadoria {
+  NACIONAL
+  ESTRANGEIRA_IMPORTACAO_DIRETA
+  ESTRANGEIRA_MERCADO_INTERNO
+  NACIONAL_CONTEUDO_40_70
+  NACIONAL_PROCESSOS_BASICOS
+  NACIONAL_CONTEUDO_INFERIOR_40
+  ESTRANGEIRA_IMPORTACAO_DIRETA_CAMEX
+  ESTRANGEIRA_MERCADO_INTERNO_CAMEX
+  NACIONAL_CONTEUDO_IMPORTACAO_70
+}
+
+enum ModBC {
+  MVA
+  PAUTA
+  PRECO_TABELADO
+  VALOR_OPERACAO
+}
+
+enum ModBCST {
+  PRECO_TABELADO
+  LISTA_NEGATIVA
+  LISTA_POSITIVA
+  LISTA_NEUTRA
+  MVA
+  PAUTA
+  VALOR_OPERACAO
+}
+
+enum MotDesICMS {
+  TAXI
+  PRODUTOR_AGROPECUARIO
+  FROTISTA_LOCADORA
+  DIPLOMATICO_CONSULAR
+  AMAZONIA_OCCIDENTAL
+  SUFRAMA
+  ORGAO_PUBLICO
+  OUTROS
+  DEFICIENTE_CONDUTOR
+  DEFICIENTE_NAO_CONDUTOR
+  OLIMPIADAS_2016
+  SOLICITADO_FISCO
+}
+
+enum MotDesICMSST {
+  USO_AGROPECUARIA
+  OUTROS
+  FOMENTO_AGROPECUARIO
+}
+
+enum IndDeduzDeson {
+  NAO_DEDUZ
+  DEDUZ
+}
+
+enum TpViaTransp {
+  MARITIMA
+  FLUVIAL
+  LACUSTRE
+  AEREA
+  POSTAL
+  FERROVIARIA
+  RODOVIARIA
+  CONDUTO
+  MEIOS_PROPRIOS
+  ENTRADA_SAIDA_FICTA
+  COURIER
+  EM_MAOS
+  POR_REBOQUE
+}
+
+enum TpIntermedio {
+  CONTA_PROPRIA
+  CONTA_E_ORDEM
+  ENCOMENDA
+}
+
+enum IndISS {
+  EXIGIVEL
+  NAO_INCIDENTE
+  ISENCAO
+  EXPORTACAO
+  IMUNIDADE
+  SUSPENSAO_JUDICIAL
+  SUSPENSAO_ADMINISTRATIVA
+}
+
+enum IndIncentivo {
+  SIM
+  NAO
+}
+
+enum TpAutor {
+  EMITENTE
+  DESTINATARIO
+  EMPRESA
+  FISCO
+  RFB
+  OUTROS
+}
+
+enum IndProc {
+  SEFAZ
+  JUSTICA_FEDERAL
+  JUSTICA_ESTADUAL
+  SECEX_RFB
+  CONFAZ
+  OUTROS
+}
+
+enum TpAto {
+  TERMO_ACORDO
+  REGIME_ESPECIAL
+  AUTORIZACAO_ESPECIFICA
+  AJUSTE_SINIEF
+  CONVENIO_ICMS
+}
+
+enum IndImport {
+  NACIONAL
+  IMPORTADO
+}
+
+enum TpArma {
+  USO_PERMITIDO
+  USO_RESTRITO
+}
+
+enum CSTICMS {
+  CST_00
+  CST_02
+  CST_10
+  CST_15
+  CST_20
+  CST_30
+  CST_40
+  CST_41
+  CST_50
+  CST_51
+  CST_53
+  CST_60
+  CST_61
+  CST_70
+  CST_90
+}
+
+enum CSOSN {
+  CSOSN_101
+  CSOSN_102
+  CSOSN_103
+  CSOSN_201
+  CSOSN_202
+  CSOSN_203
+  CSOSN_300
+  CSOSN_400
+  CSOSN_500
+  CSOSN_900
+}
+
+enum CSTPIS {
+  CST_01
+  CST_02
+  CST_03
+  CST_04
+  CST_05
+  CST_06
+  CST_07
+  CST_08
+  CST_09
+  CST_49
+  CST_50
+  CST_51
+  CST_52
+  CST_53
+  CST_54
+  CST_55
+  CST_56
+  CST_60
+  CST_61
+  CST_62
+  CST_63
+  CST_64
+  CST_65
+  CST_66
+  CST_67
+  CST_70
+  CST_71
+  CST_72
+  CST_73
+  CST_74
+  CST_75
+  CST_98
+  CST_99
+}
+
+enum CSTCOFINS {
+  CST_01
+  CST_02
+  CST_03
+  CST_04
+  CST_05
+  CST_06
+  CST_07
+  CST_08
+  CST_09
+  CST_49
+  CST_50
+  CST_51
+  CST_52
+  CST_53
+  CST_54
+  CST_55
+  CST_56
+  CST_60
+  CST_61
+  CST_62
+  CST_63
+  CST_64
+  CST_65
+  CST_66
+  CST_67
+  CST_70
+  CST_71
+  CST_72
+  CST_73
+  CST_74
+  CST_75
+  CST_98
+  CST_99
+}
+
+enum CSTIPI {
+  CST_00
+  CST_01
+  CST_02
+  CST_03
+  CST_04
+  CST_05
+  CST_49
+  CST_50
+  CST_51
+  CST_52
+  CST_53
+  CST_54
+  CST_55
+  CST_99
+}
+
+=======
 // ============================================
 // ENUMS ADICIONAIS DA NF-e
 //
@@ -100,31 +447,33 @@ enum PerfilUsuario {
 // com o código oficial.
 // ============================================
 
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
 // ============================================
-// TABELAS PRINCIPAIS COM TIPOS CORRIGIDOS
+// TABELAS PRINCIPAIS
 // ============================================
 
 model Empresa {
   id                    String    @id @default(cuid())
   razaoSocial           String
   nomeFantasia          String?
-  
-  // === TCnpj (14 dígitos) ===
   cnpj                  String    @unique @db.Char(14)
-  
-  // === TIe (2-14 dígitos ou ISENTO) ===
   inscricaoEstadual     String?
+  inscricaoEstadualST   String?
   inscricaoMunicipal    String?
   cnae                  String?
+<<<<<<< HEAD
+  regimeTributario      CRT      @default(NORMAL)
+  aliquotaSimples       Decimal?  @db.Decimal(5, 2) @default(6.00)
+=======
   regimeTributario      RegimeTributario @default(SIMPLES_NACIONAL)
   
   // === TDec_0302 (3 inteiros, 2 decimais) ===
   aliquotaSimples       Decimal?  @db.Decimal(5, 2) @default(6.00)
   
   // === TAmb (1=Produção, 2=Homologação) ===
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   ambienteEmissao       TipoAmbiente @default(PRODUCAO)
-  
-  // === TSerie (0 ou 1-999) ===
+  codigoUF              String    @db.Char(2)
   serieNfe              Int       @default(1)
   proximoNumeroNfe      Int       @default(1)
   serieNfse             Int       @default(1)
@@ -135,18 +484,14 @@ model Empresa {
   proximoNumeroCte      Int       @default(1)
   serieNfae             Int       @default(900)
   proximoNumeroNfae     Int       @default(1)
-  
   chavePixPadrao        String?
   bancoPadrao           String?
   optanteSimples        Boolean   @default(true)
   optanteMEI            Boolean   @default(false)
-  
   enderecoId            String    @unique
   endereco              Endereco  @relation(fields: [enderecoId], references: [id])
-  
   certificadoId         String?   @unique
   certificado           CertificadoDigital? @relation(fields: [certificadoId], references: [id])
-  
   usuarios              Usuario[]
   clientes              Cliente[]
   produtos              Produto[]
@@ -159,9 +504,14 @@ model Empresa {
   titulos               TituloFinanceiro[]
   movimentacoes         MovimentacaoEstoque[]
   transportadoras       Transportadora[]
+<<<<<<< HEAD
+  eventos               EventoNFe[]
+  eventosCredito        EventoCreditoPresumido[]
+=======
   eventosNFe            EventoNFe[]
   eventosCreditoPresumido EventoCreditoPresumido[]
   
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -174,27 +524,18 @@ model Endereco {
   numero            String
   complemento       String?
   bairro            String
-  
-  // === TCodMunIBGE (7 dígitos) ===
   codigoMunicipio   String    @db.Char(7)
   nomeMunicipio     String
-  
-  // === TCodUfIBGE (2 dígitos) ===
   uf                String    @db.Char(2)
-  
-  // === TString com validação de CEP ===
+  codigoUF          String    @db.Char(2)
   cep               String    @db.Char(9)
   telefone          String?
   email             String?
-  
-  // === Tpais (código BACEN) ===
   codigoPais        String?   @default("1058") @db.Char(4)
   nomePais          String?   @default("BRASIL")
-  
   empresa           Empresa?
   cliente           Cliente?
   transportadora    Transportadora?
-  
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   
@@ -213,9 +554,7 @@ model CertificadoDigital {
   arquivoCarregadoNome  String?
   status                String    @default("VALIDO")
   arquivoBase64         String?   @db.Text
-  
   empresa               Empresa?
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -231,10 +570,8 @@ model Usuario {
   perfil            PerfilUsuario @default(OPERADOR)
   ativo             Boolean   @default(true)
   ultimoLogin       DateTime?
-  
   empresaId         String
   empresa           Empresa   @relation(fields: [empresaId], references: [id])
-  
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   
@@ -244,50 +581,32 @@ model Usuario {
 model Cliente {
   id                    String    @id @default(cuid())
   tipo                  TipoCliente @default(CLIENTE)
-  
-  // === TipoPessoa ===
   tipoPessoa            TipoPessoa @default(PJ)
-  
-  // === TCnpj ou TCpf (14 ou 11 dígitos) ===
   documento             String    @unique
-  
-  // === TString ===
   razaoSocial           String
   nomeFantasia          String?
-  
-  // === TIeDest (ISENTO ou 0-14 dígitos) ===
   inscricaoEstadual     String?
-  
-  // === TIeST (2-14 dígitos) - NOVO! ===
   inscricaoEstadualST   String?
-  
   inscricaoMunicipal    String?
-  
-  // === Indicador IE (1=Contribuinte, 9=Não Contribuinte) ===
-  indicadorIE           String    @default("9") @db.Char(1)
-  
+  inscricaoSuframa      String?   @db.Char(9)
+  indicadorIE           IndIEDest @default(NAO_CONTRIBUINTE)
   email                 String?
   telefone              String?
   celularWhatsApp       String?
   contato               String?
   observacoes           String?
   ativo                 Boolean   @default(true)
-  
   enderecoId            String    @unique
   endereco              Endereco  @relation(fields: [enderecoId], references: [id])
-  
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
   titulos               TituloFinanceiro[]
-  
   nfsesTomador          NFSe[]    @relation("NFSeTomador")
   nfesDestinatario      NFe[]     @relation("NFeDestinatario")
   nfcesConsumidor       NFCe[]    @relation("NFCeConsumidor")
   cteRemetente          CTe[]     @relation("CTeRemetente")
   cteDestinatario       CTe[]     @relation("CTeDestinatario")
   nfaesDestinatario     NFAe[]    @relation("NFAeDestinatario")
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -300,18 +619,36 @@ model Produto {
   codigoBarrasEAN       String?
   descricao             String
   categoria             String
-  
-  // === Unidade (UN, KG, etc) ===
   unidade               String    @default("UN")
-  
-  // === NCM (8 dígitos) ===
   ncm                   String    @db.Char(8)
-  
-  // === CEST (7 dígitos) ===
   cest                  String?   @db.Char(7)
-  
-  // === CFOP (4 dígitos) ===
   cfopPadrao            String    @default("5102") @db.Char(4)
+<<<<<<< HEAD
+  origem                OrigemMercadoria @default(NACIONAL)
+  extipi                String?   @db.Char(3)
+  precoCusto            Decimal   @db.Decimal(15, 10) @default(0)
+  margemLucro           Decimal   @db.Decimal(5, 2) @default(0)
+  precoVenda            Decimal   @db.Decimal(15, 10) @default(0)
+  estoqueAtual          Decimal   @db.Decimal(11, 3) @default(0)
+  estoqueMinimo         Decimal   @db.Decimal(11, 3) @default(0)
+  aliquotaICMS          Decimal   @db.Decimal(5, 2) @default(18.00)
+  aliquotaICMSST        Decimal?  @db.Decimal(5, 2)
+  aliquotaPIS           Decimal   @db.Decimal(7, 4) @default(1.6500)
+  aliquotaCOFINS        Decimal   @db.Decimal(7, 4) @default(7.6000)
+  aliquotaIPI           Decimal   @db.Decimal(5, 2) @default(0)
+  aliquotaIBS           Decimal   @db.Decimal(7, 4) @default(0.1000)
+  aliquotaCBS           Decimal   @db.Decimal(7, 4) @default(0.9000)
+  cstICMS               CSTICMS  @default(CST_00)
+  csosnICMS             CSOSN?
+  cstPIS                CSTPIS   @default(CST_01)
+  cstCOFINS             CSTCOFINS @default(CST_01)
+  cstIPI                CSTIPI?  @default(CST_50)
+  modBC                 ModBC    @default(VALOR_OPERACAO)
+  modBCST               ModBCST  @default(MVA)
+  pRedBC                Decimal? @db.Decimal(5, 2)
+  pMVAST                Decimal? @db.Decimal(5, 2)
+  pRedBCST              Decimal? @db.Decimal(5, 2)
+=======
   
   // === Origem (0=Nacional, 1=Estrangeira, etc) ===
   origem                Int       @default(0)
@@ -333,13 +670,11 @@ model Produto {
   aliquotaIBS           Decimal   @db.Decimal(7, 4) @default(0.10)
   aliquotaCBS           Decimal   @db.Decimal(7, 4) @default(0.90)
   
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   ativo                 Boolean   @default(true)
-  
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
   movimentacoes         MovimentacaoEstoque[]
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -353,6 +688,20 @@ model Servico {
   codigoTributacaoNacional    String    @db.Char(6)
   codigoTributacaoMunicipal   String?   @db.Char(4)
   codigoNBS                   String?
+<<<<<<< HEAD
+  cListServ                   String    @db.Char(5)
+  valorUnitario               Decimal   @db.Decimal(15, 10) @default(0)
+  aliquotaISS                 Decimal   @db.Decimal(5, 2) @default(5.00)
+  retencaoISSPadrao           Boolean   @default(false)
+  aliquotaPIS                 Decimal   @db.Decimal(7, 4) @default(0.6500)
+  aliquotaCOFINS              Decimal   @db.Decimal(7, 4) @default(3.0000)
+  aliquotaIRRF                Decimal   @db.Decimal(5, 2) @default(0)
+  aliquotaCSLL                Decimal   @db.Decimal(5, 2) @default(0)
+  aliquotaINSS                Decimal   @db.Decimal(5, 2) @default(0)
+  aliquotaIBS                 Decimal   @db.Decimal(7, 4) @default(0.1000)
+  aliquotaCBS                 Decimal   @db.Decimal(7, 4) @default(0.9000)
+  cServico                    String?   @db.VarChar(20)
+=======
   
   // === TDec_1104 (15 dígitos, 4 decimais) ===
   valorUnitario               Decimal   @db.Decimal(15, 4) @default(0)
@@ -368,13 +717,11 @@ model Servico {
   aliquotaIBS                 Decimal   @db.Decimal(7, 4) @default(0.10)
   aliquotaCBS                 Decimal   @db.Decimal(7, 4) @default(0.90)
   
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   ativo                       Boolean   @default(true)
-  
   empresaId                   String
   empresa                     Empresa   @relation(fields: [empresaId], references: [id])
-  
   nfses                       NFSe[]
-  
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
   
@@ -382,7 +729,7 @@ model Servico {
 }
 
 // ============================================
-// NFSe (mantido igual)
+// NFSe
 // ============================================
 
 model NFSe {
@@ -398,40 +745,56 @@ model NFSe {
   ambiente              TipoAmbiente @default(PRODUCAO)
   tipoEmissao           Int       @default(1)
   status                StatusDocumento @default(PROCESSANDO)
-  
-  // === TDec_1104 (15 dígitos, 4 decimais) ===
-  valorTotalServicos    Decimal   @db.Decimal(15, 4)
-  valorTotalDescontos   Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalDeducoes    Decimal   @db.Decimal(15, 4) @default(0)
-  baseCalculoISS        Decimal   @db.Decimal(15, 4)
-  valorTotalISS         Decimal   @db.Decimal(15, 4)
-  valorTotalISSRetido   Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalRetencoesFed Decimal  @db.Decimal(15, 4) @default(0)
-  valorTotalIBS         Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalCBS         Decimal   @db.Decimal(15, 4) @default(0)
-  valorLiquidoNfse      Decimal   @db.Decimal(15, 4)
-  valorTotalNotaFinal   Decimal   @db.Decimal(15, 4)
-  
+  valorTotalServicos    Decimal   @db.Decimal(15, 10)
+  valorTotalDescontos   Decimal   @db.Decimal(15, 10) @default(0)
+  valorTotalDeducoes    Decimal   @db.Decimal(15, 10) @default(0)
+  baseCalculoISS        Decimal   @db.Decimal(15, 10)
+  valorTotalISS         Decimal   @db.Decimal(15, 10)
+  valorTotalISSRetido   Decimal   @db.Decimal(15, 10) @default(0)
+  valorTotalRetencoesFed Decimal  @db.Decimal(15, 10) @default(0)
+  valorTotalIBS         Decimal   @db.Decimal(15, 10) @default(0)
+  valorTotalCBS         Decimal   @db.Decimal(15, 10) @default(0)
+  valorLiquidoNfse      Decimal   @db.Decimal(15, 10)
+  valorTotalNotaFinal   Decimal   @db.Decimal(15, 10)
+  indISS                IndISS   @default(EXIGIVEL)
+  indIncentivo          IndIncentivo @default(NAO)
   informacoesComplementares String?
   numeroPedido           String?
   motivoCancelamento     String?
   dataHoraCancelamento   DateTime?
   chaveNfseSubstituta    String?
-  
   xmlAssinado            String    @db.Text
   urlVisualizacao        String?
-  
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
   tomadorId             String
   tomador               Cliente   @relation("NFSeTomador", fields: [tomadorId], references: [id])
-  
   servicoId             String
   servico               Servico   @relation(fields: [servicoId], references: [id])
-  
   tributacaoISSQN       Int       @default(1)
   tipoRetencaoISS       Int       @default(1)
+<<<<<<< HEAD
+  aliquotaISS           Decimal   @db.Decimal(5, 2)
+  valorISS              Decimal   @db.Decimal(15, 10)
+  aliquotaPIS           Decimal?  @db.Decimal(7, 4)
+  valorPIS              Decimal?  @db.Decimal(15, 10)
+  retidoPIS             Boolean   @default(false)
+  aliquotaCOFINS        Decimal?  @db.Decimal(7, 4)
+  valorCOFINS           Decimal?  @db.Decimal(15, 10)
+  retidoCOFINS          Boolean   @default(false)
+  aliquotaIRRF          Decimal?  @db.Decimal(5, 2)
+  valorIRRF             Decimal?  @db.Decimal(15, 10)
+  aliquotaCSLL          Decimal?  @db.Decimal(5, 2)
+  valorCSLL             Decimal?  @db.Decimal(15, 10)
+  aliquotaINSS          Decimal?  @db.Decimal(5, 2)
+  valorINSS             Decimal?  @db.Decimal(15, 10)
+  aliquotaIBSUF         Decimal   @db.Decimal(7, 4) @default(0.0500)
+  valorIBSUF            Decimal   @db.Decimal(15, 10) @default(0)
+  aliquotaIBSMun        Decimal   @db.Decimal(7, 4) @default(0.0500)
+  valorIBSMun           Decimal   @db.Decimal(15, 10) @default(0)
+  aliquotaCBS           Decimal   @db.Decimal(7, 4) @default(0.9000)
+  valorCBS              Decimal   @db.Decimal(15, 10) @default(0)
+=======
   
   // === TDec_0302_04 ===
   aliquotaISS           Decimal   @db.Decimal(5, 2)
@@ -457,6 +820,7 @@ model NFSe {
   aliquotaCBS           Decimal   @db.Decimal(7, 4) @default(0.90)
   valorCBS              Decimal   @db.Decimal(15, 4) @default(0)
   
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -464,101 +828,93 @@ model NFSe {
 }
 
 // ============================================
-// NFe - CORRIGIDA COM TIPOS DECIMAIS
+// NFe
 // ============================================
 
 model NFe {
   id                    String    @id @default(cuid())
-  
-  // === TMod (55) ===
   modelo                String    @default("55") @db.Char(2)
-  
-  // === TSerie ===
   serie                 Int
-  
-  // === TNF (1-999999999) ===
   numero                Int
-  
-  // === TChNFe (44 dígitos) ===
   chaveAcesso           String    @unique @db.Char(44)
-  
-  // === TData e TTime ===
   dataHoraEmissao       DateTime
   dataHoraSaida         DateTime?
-  
-  // === TString ===
   naturezaOperacao      String
-  
-  // === TAmb ===
   ambiente              TipoAmbiente @default(PRODUCAO)
-  
-  // === TpEmis (1-9) ===
-  tipoEmissao           Int       @default(1)
-  
-  // === TpNF (0=Entrada, 1=Saída) ===
-  tipoDocumento         Int       @default(1)
-  
-  // === Finalidade (1=Normal, 2=Complementar, 3=Ajuste) ===
-  finalidade            Int       @default(1)
-  
-  // === Consumidor Final (0=Não, 1=Sim) ===
-  consumidorFinal       Boolean   @default(false)
-  
-  // === IndPresenca (0-5, 9) ===
-  presencaComprador     Int       @default(2)
-  
+  tipoEmissao           TpEmis    @default(NORMAL)
+  tipoDocumento         TpNF      @default(SAIDA)
+  finalidade            FinNFe    @default(NORMAL)
+  consumidorFinal       IndFinal  @default(NAO)
+  presencaComprador     IndPresenca @default(NAO_PRESENCIAL_INTERNET)
+  indIntermed           IndIntermed? @default(SEM_INTERMEDIADOR)
+  idDest                IdDest    @default(OPERACAO_INTERNA)
+  tpImp                 TpImp     @default(DANFE_RETRATO)
+  procEmi               ProcEmi   @default(APP_CONTRIBUINTE)
+  verProc               String    @db.VarChar(20)
+  cUF                   String    @db.Char(2)
+  cNF                   String    @db.Char(8)
+  cMunFG                String    @db.Char(7)
+  cDV                   String    @db.Char(1)
+  dhCont                DateTime?
+  xJust                 String?   @db.VarChar(256)
   status                StatusDocumento @default(PROCESSANDO)
-  
-  // === IdDest (1-3) ===
-  idDest                Int       @default(1)
-  
-  // === TpImp (1-3) ===
-  tpImp                 Int       @default(1)
-  
-  // ===== TDec_1104v (15 dígitos, até 4 decimais) =====
-  valorTotalProdutos    Decimal   @db.Decimal(15, 4)
-  valorTotalFrete       Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalSeguro      Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalDesconto    Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalOutrasDesp  Decimal   @db.Decimal(15, 4) @default(0)
-  baseCalculoICMS       Decimal   @db.Decimal(15, 4)
-  valorTotalICMS        Decimal   @db.Decimal(15, 4)
-  baseCalculoICMSST     Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalICMSST      Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalIPI         Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalPIS         Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalCOFINS      Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalIBS         Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalCBS         Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalTributosAprox Decimal @db.Decimal(15, 4) @default(0)
-  valorTotalNota        Decimal   @db.Decimal(15, 4)
-  
-  // === Forma Pagamento (01-99) ===
-  formaPagamento        String    @default("17") @db.Char(2)
-  
-  // === TString ===
+  valorTotalProdutos    Decimal   @db.Decimal(15, 2)
+  valorTotalFrete       Decimal   @db.Decimal(15, 2) @default(0)
+  valorTotalSeguro      Decimal   @db.Decimal(15, 2) @default(0)
+  valorTotalDesconto    Decimal   @db.Decimal(15, 2) @default(0)
+  valorTotalOutrasDesp  Decimal   @db.Decimal(15, 2) @default(0)
+  baseCalculoICMS       Decimal   @db.Decimal(15, 2)
+  valorTotalICMS        Decimal   @db.Decimal(15, 2)
+  valorICMSDeson        Decimal   @db.Decimal(15, 2) @default(0)
+  baseCalculoICMSST     Decimal   @db.Decimal(15, 2) @default(0)
+  valorTotalICMSST      Decimal   @db.Decimal(15, 2) @default(0)
+  vFCP                  Decimal   @db.Decimal(15, 2) @default(0)
+  vFCPST                Decimal   @db.Decimal(15, 2) @default(0)
+  vFCPSTRet             Decimal   @db.Decimal(15, 2) @default(0)
+  vFCPUFDest            Decimal   @db.Decimal(15, 2) @default(0)
+  vICMSUFDest           Decimal   @db.Decimal(15, 2) @default(0)
+  vICMSUFRemet          Decimal   @db.Decimal(15, 2) @default(0)
+  qBCMono               Decimal?  @db.Decimal(15, 2)
+  vICMSMono             Decimal?  @db.Decimal(15, 2)
+  qBCMonoReten          Decimal?  @db.Decimal(15, 2)
+  vICMSMonoReten        Decimal?  @db.Decimal(15, 2)
+  qBCMonoRet            Decimal?  @db.Decimal(15, 2)
+  vICMSMonoRet          Decimal?  @db.Decimal(15, 2)
+  valorTotalIPI         Decimal   @db.Decimal(15, 2) @default(0)
+  valorIPIDevol         Decimal   @db.Decimal(15, 2) @default(0)
+  valorTotalPIS         Decimal   @db.Decimal(15, 2) @default(0)
+  valorTotalCOFINS      Decimal   @db.Decimal(15, 2) @default(0)
+  valorTotalIBS         Decimal   @db.Decimal(15, 2) @default(0)
+  valorTotalCBS         Decimal   @db.Decimal(15, 2) @default(0)
+  valorTotalTributosAprox Decimal @db.Decimal(15, 2) @default(0)
+  valorTotalNota        Decimal   @db.Decimal(15, 2)
+  valorPago             Decimal   @db.Decimal(15, 2)
+  valorTroco            Decimal   @db.Decimal(15, 2) @default(0)
   informacoesAdicionais String?
-  
-  // === TProt (15 ou 17 dígitos) ===
+  infAdFisco            String?   @db.VarChar(2000)
+  infCpl                String?   @db.VarChar(5000)
   protocoloAutorizacao  String?   @db.Char(17)
   dataHoraAutorizacao   DateTime?
-  
-  // === TJust (15-255 caracteres) ===
   motivoCancelamento    String?
   dataHoraCancelamento  DateTime?
-  
   xmlAssinado           String    @db.Text
-  
+  xmlRetorno            String?   @db.Text
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
   destinatarioId        String
   destinatario          Cliente   @relation("NFeDestinatario", fields: [destinatarioId], references: [id])
-  
   itens                 ItemNFe[]
   duplicatas            Duplicata[]
   transporte            TransporteNFe?
-  
+  pagamentos            PagamentoNFe[]
+  referencias           NFeReferencia[]
+  eventos               EventoNFe[]
+  intermediador         Intermediador?
+  exportacao            Exportacao?
+  compra                Compra?
+  cana                  Cana?
+  responsavelTecnico    ResponsavelTecnico?
+  processos             ProcessoReferenciado[]
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -566,7 +922,33 @@ model NFe {
 }
 
 // ============================================
-// ItemNFe - CORRIGIDO COM TIPOS DECIMAIS
+// NFe REFERENCIA
+// ============================================
+
+model NFeReferencia {
+  id                    String    @id @default(cuid())
+  nfeId                 String
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  tipoRef               String
+  chaveNFe              String?   @db.Char(44)
+  cUF                   String?   @db.Char(2)
+  AAMM                  String?   @db.Char(4)
+  CNPJ                  String?   @db.Char(14)
+  CPF                   String?   @db.Char(11)
+  IE                    String?
+  mod                   String?   @db.Char(2)
+  serie                 Int?
+  nNF                   Int?
+  nECF                  String?   @db.VarChar(3)
+  nCOO                  String?   @db.VarChar(6)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("nfes_referencias")
+}
+
+// ============================================
+// ITEM NFe
 // ============================================
 
 model ItemNFe {
@@ -577,9 +959,19 @@ model ItemNFe {
   cest                  String?   @db.Char(7)
   cfop                  String    @db.Char(4)
   unidadeMedida         String    @default("UN")
-  
-  // === TDec_1104v (15 dígitos, até 4 decimais) ===
   quantidade            Decimal   @db.Decimal(15, 4)
+<<<<<<< HEAD
+  valorUnitario         Decimal   @db.Decimal(15, 10)
+  valorTotalBruto       Decimal   @db.Decimal(15, 2)
+  descontoItem          Decimal   @db.Decimal(15, 2) @default(0)
+  vFreteItem            Decimal?  @db.Decimal(15, 2)
+  vSegItem              Decimal?  @db.Decimal(15, 2)
+  vOutroItem            Decimal?  @db.Decimal(15, 2)
+  indTot                Int       @default(1)
+  unidadeTributavel     String    @db.VarChar(6)
+  quantidadeTributavel  Decimal   @db.Decimal(15, 4)
+  valorUnitarioTributavel Decimal @db.Decimal(15, 10)
+=======
   valorUnitario         Decimal   @db.Decimal(15, 4)
   valorTotalBruto       Decimal   @db.Decimal(15, 4)
   descontoItem          Decimal   @db.Decimal(15, 4) @default(0)
@@ -619,63 +1011,332 @@ model ItemNFe {
   nfe                   NFe       @relation(fields: [nfeId], references: [id])
   
   // === GTIN (8, 12, 13, 14 dígitos) ===
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   codigoEAN             String?
   codigoEANTrib         String?
-  
+  cBarra                String?   @db.VarChar(30)
+  cBarraTrib            String?   @db.VarChar(30)
+  xPed                  String?   @db.VarChar(15)
+  nItemPed              String?   @db.VarChar(6)
+  nFCI                  String?   @db.VarChar(36)
+  origemMercadoria      OrigemMercadoria @default(NACIONAL)
+  cstICMS               CSTICMS  @default(CST_00)
+  csosnICMS             CSOSN?
+  aliquotaICMS          Decimal   @db.Decimal(5, 2)
+  baseCalculoICMS       Decimal   @db.Decimal(15, 2)
+  valorICMS             Decimal   @db.Decimal(15, 2)
+  pRedBC                Decimal?  @db.Decimal(5, 2)
+  modBC                 ModBC    @default(VALOR_OPERACAO)
+  vBCFCP                Decimal?  @db.Decimal(15, 2)
+  pFCP                  Decimal?  @db.Decimal(5, 2)
+  vFCP                  Decimal?  @db.Decimal(15, 2)
+  cstIPI                CSTIPI?
+  aliquotaIPI           Decimal?  @db.Decimal(5, 2)
+  valorIPI              Decimal?  @db.Decimal(15, 2)
+  cEnqIPI               String?   @db.VarChar(3)
+  cstPIS                CSTPIS   @default(CST_01)
+  aliquotaPIS           Decimal   @db.Decimal(7, 4)
+  valorPIS              Decimal   @db.Decimal(15, 2)
+  qBCProdPIS            Decimal?  @db.Decimal(15, 4)
+  vAliqProdPIS          Decimal?  @db.Decimal(15, 10)
+  cstCOFINS             CSTCOFINS @default(CST_01)
+  aliquotaCOFINS        Decimal   @db.Decimal(7, 4)
+  valorCOFINS           Decimal   @db.Decimal(15, 2)
+  qBCProdCOFINS         Decimal?  @db.Decimal(15, 4)
+  vAliqProdCOFINS       Decimal?  @db.Decimal(15, 10)
+  vBCSTPIS              Decimal?  @db.Decimal(15, 2)
+  pPISST                Decimal?  @db.Decimal(7, 4)
+  vPISST                Decimal?  @db.Decimal(15, 2)
+  vBCSTCOFINS           Decimal?  @db.Decimal(15, 2)
+  pCOFINSST             Decimal?  @db.Decimal(7, 4)
+  vCOFINSST             Decimal?  @db.Decimal(15, 2)
+  aliquotaIBSUF         Decimal?  @db.Decimal(7, 4)
+  valorIBSUF            Decimal?  @db.Decimal(15, 2)
+  aliquotaIBSMun        Decimal?  @db.Decimal(7, 4)
+  valorIBSMun           Decimal?  @db.Decimal(15, 2)
+  aliquotaCBS           Decimal?  @db.Decimal(7, 4)
+  valorCBS              Decimal?  @db.Decimal(15, 2)
+  valorTributosAprox    Decimal   @db.Decimal(15, 2) @default(0)
+  nfeId                 String
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  rastreabilidade       ItemRastreabilidade[]
+  declaracaoImportacao  DeclaracaoImportacao?
+  detalheExportacao     DetalheExportacao?
+  veiculo               VeiculoProduto?
+  medicamento           Medicamento?
+  armas                 Arma[]
+  combustivel           Combustivel?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
   @@map("itens_nfe")
 }
 
+// ============================================
+// ITEM RASTREABILIDADE
+// ============================================
+
+model ItemRastreabilidade {
+  id                    String    @id @default(cuid())
+  itemNFeId             String
+  itemNFe               ItemNFe   @relation(fields: [itemNFeId], references: [id])
+  nLote                 String    @db.VarChar(20)
+  qLote                 Decimal   @db.Decimal(11, 3)
+  dFab                  DateTime
+  dVal                  DateTime
+  cAgreg                String?   @db.VarChar(20)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("itens_rastreabilidade")
+}
+
+// ============================================
+// DECLARACAO IMPORTACAO
+// ============================================
+
+model DeclaracaoImportacao {
+  id                    String    @id @default(cuid())
+  itemNFeId             String    @unique
+  itemNFe               ItemNFe   @relation(fields: [itemNFeId], references: [id])
+  nDI                   String    @db.VarChar(15)
+  dDI                   DateTime
+  xLocDesemb            String    @db.VarChar(60)
+  UFDesemb              String    @db.Char(2)
+  dDesemb               DateTime
+  tpViaTransp           TpViaTransp @default(MARITIMA)
+  vAFRMM                Decimal?  @db.Decimal(15, 2)
+  tpIntermedio          TpIntermedio @default(CONTA_PROPRIA)
+  CNPJ                  String?   @db.Char(14)
+  CPF                   String?   @db.Char(11)
+  UFTerceiro            String?   @db.Char(2)
+  cExportador           String    @db.VarChar(60)
+  adicoes               AdicaoImportacao[]
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("declaracoes_importacao")
+}
+
+model AdicaoImportacao {
+  id                    String    @id @default(cuid())
+  diId                  String
+  di                    DeclaracaoImportacao @relation(fields: [diId], references: [id])
+  nAdicao               String
+  nSeqAdic              String
+  cFabricante           String    @db.VarChar(60)
+  vDescDI               Decimal?  @db.Decimal(15, 2)
+  nDraw                 String?   @db.VarChar(20)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("adicoes_importacao")
+}
+
+// ============================================
+// DETALHE EXPORTACAO
+// ============================================
+
+model DetalheExportacao {
+  id                    String    @id @default(cuid())
+  itemNFeId             String    @unique
+  itemNFe               ItemNFe   @relation(fields: [itemNFeId], references: [id])
+  nDraw                 String?   @db.VarChar(20)
+  nRE                   String?   @db.VarChar(12)
+  chNFe                 String?   @db.Char(44)
+  qExport               Decimal?  @db.Decimal(15, 4)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("detalhes_exportacao")
+}
+
+// ============================================
+// VEICULO PRODUTO
+// ============================================
+
+model VeiculoProduto {
+  id                    String    @id @default(cuid())
+  itemNFeId             String    @unique
+  itemNFe               ItemNFe   @relation(fields: [itemNFeId], references: [id])
+  tpOp                  String
+  chassi                String    @db.VarChar(17)
+  cCor                  String    @db.VarChar(4)
+  xCor                  String    @db.VarChar(40)
+  pot                   String    @db.VarChar(4)
+  cilin                 String    @db.VarChar(4)
+  pesoL                 String    @db.VarChar(9)
+  pesoB                 String    @db.VarChar(9)
+  nSerie                String    @db.VarChar(9)
+  tpComb                String    @db.VarChar(2)
+  nMotor                String    @db.VarChar(21)
+  CMT                   String    @db.VarChar(9)
+  dist                  String    @db.VarChar(4)
+  anoMod                String    @db.Char(4)
+  anoFab                String    @db.Char(4)
+  tpPint                String    @db.Char(1)
+  tpVeic                String    @db.VarChar(2)
+  espVeic               String    @db.Char(1)
+  VIN                   String    @db.Char(1)
+  condVeic              String    @db.Char(1)
+  cMod                  String    @db.VarChar(6)
+  cCorDENATRAN          String    @db.VarChar(2)
+  lota                  String    @db.VarChar(3)
+  tpRest                String    @db.Char(1)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("veiculos_produto")
+}
+
+// ============================================
+// MEDICAMENTO
+// ============================================
+
+model Medicamento {
+  id                    String    @id @default(cuid())
+  itemNFeId             String    @unique
+  itemNFe               ItemNFe   @relation(fields: [itemNFeId], references: [id])
+  cProdANVISA           String
+  xMotivoIsencao        String?   @db.VarChar(255)
+  vPMC                  Decimal   @db.Decimal(15, 2)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("medicamentos")
+}
+
+// ============================================
+// ARMA
+// ============================================
+
+model Arma {
+  id                    String    @id @default(cuid())
+  itemNFeId             String
+  itemNFe               ItemNFe   @relation(fields: [itemNFeId], references: [id])
+  tpArma                TpArma    @default(USO_PERMITIDO)
+  nSerie                String    @db.VarChar(15)
+  nCano                 String    @db.VarChar(15)
+  descr                 String    @db.VarChar(256)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("armas")
+}
+
+// ============================================
+// COMBUSTIVEL
+// ============================================
+
+model Combustivel {
+  id                    String    @id @default(cuid())
+  itemNFeId             String    @unique
+  itemNFe               ItemNFe   @relation(fields: [itemNFeId], references: [id])
+  cProdANP              String    @db.Char(9)
+  descANP               String    @db.VarChar(95)
+  pGLP                  Decimal?  @db.Decimal(5, 2)
+  pGNn                  Decimal?  @db.Decimal(5, 2)
+  pGNi                  Decimal?  @db.Decimal(5, 2)
+  vPart                 Decimal?  @db.Decimal(15, 2)
+  CODIF                 String?   @db.VarChar(21)
+  qTemp                 Decimal?  @db.Decimal(12, 4)
+  UFCons                String    @db.Char(2)
+  pBio                  Decimal?  @db.Decimal(5, 2)
+  qBCProdCIDE           Decimal   @db.Decimal(15, 4)
+  vAliqProdCIDE         Decimal   @db.Decimal(15, 10)
+  vCIDE                 Decimal   @db.Decimal(15, 2)
+  encerrante            Encerrante?
+  origens               OrigemCombustivel[]
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("combustiveis")
+}
+
+model Encerrante {
+  id                    String    @id @default(cuid())
+  combustivelId         String    @unique
+  combustivel           Combustivel @relation(fields: [combustivelId], references: [id])
+  nBico                 String    @db.VarChar(3)
+  nBomba                String?   @db.VarChar(3)
+  nTanque               String    @db.VarChar(3)
+  vEncIni               Decimal   @db.Decimal(12, 3)
+  vEncFin               Decimal   @db.Decimal(12, 3)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("encerrantes")
+}
+
+model OrigemCombustivel {
+  id                    String    @id @default(cuid())
+  combustivelId         String
+  combustivel           Combustivel @relation(fields: [combustivelId], references: [id])
+  indImport             IndImport @default(NACIONAL)
+  cUFOrig               String    @db.Char(2)
+  pOrig                 Decimal   @db.Decimal(5, 2)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("origens_combustivel")
+}
+
+// ============================================
+// DUPLICATA
+// ============================================
+
 model Duplicata {
   id                    String    @id @default(cuid())
   numero                String
   dataVencimento        DateTime
-  valor                 Decimal   @db.Decimal(15, 4)
+  valor                 Decimal   @db.Decimal(15, 2)
   status                String    @default("PENDENTE")
-  
   nfeId                 String
   nfe                   NFe       @relation(fields: [nfeId], references: [id])
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
   @@map("duplicatas")
 }
 
+// ============================================
+// TRANSPORTE NFe
+// ============================================
+
 model TransporteNFe {
   id                    String    @id @default(cuid())
-  
-  // === Modalidade Frete (0-9) ===
-  modalidadeFrete       Int       @default(0)
-  
+  modalidadeFrete       ModFrete  @default(CIF)
   transportadoraId      String?
   transportadora        Transportadora? @relation(fields: [transportadoraId], references: [id])
-  
-  // === TCnpjOpc (vazio ou 14 dígitos) ===
   transportadoraCnpj    String?   @db.Char(14)
   transportadoraNome    String?
   transportadoraIE      String?
   transportadoraEndereco String?
   transportadoraMunicipio String?
   transportadoraUf      String?   @db.Char(2)
-  
-  // === Placa (7 caracteres) ===
   veiculoPlaca          String?   @db.Char(7)
   veiculoUf             String?   @db.Char(2)
   veiculoRNTC           String?
-  
-  // === TDec_1104v ===
-  volumesQuantidade     Decimal?  @db.Decimal(15, 4)
+  reboquePlaca          String?   @db.Char(7)
+  reboqueUf             String?   @db.Char(2)
+  reboqueRNTC           String?
+  vagao                 String?   @db.VarChar(20)
+  balsa                 String?   @db.VarChar(20)
+  vServ                 Decimal?  @db.Decimal(15, 2)
+  vBCRet                Decimal?  @db.Decimal(15, 2)
+  pICMSRet              Decimal?  @db.Decimal(5, 2)
+  vICMSRet              Decimal?  @db.Decimal(15, 2)
+  cfopRet               String?   @db.Char(4)
+  cMunFGRet             String?   @db.Char(7)
+  volumesQuantidade     Int?
   volumesEspecie        String?
   volumesMarca          String?
-  volumesPesoLiquido    Decimal?  @db.Decimal(15, 4)
-  volumesPesoBruto      Decimal?  @db.Decimal(15, 4)
-  
+  volumesNumeracao      String?
+  volumesPesoLiquido    Decimal?  @db.Decimal(12, 3)
+  volumesPesoBruto      Decimal?  @db.Decimal(12, 3)
   nfeId                 String    @unique
   nfe                   NFe       @relation(fields: [nfeId], references: [id])
-  
+  lacres                Lacre[]
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -683,67 +1344,99 @@ model TransporteNFe {
   @@index([transportadoraId])
 }
 
+model Lacre {
+  id                    String    @id @default(cuid())
+  transporteNFeId       String
+  transporteNFe         TransporteNFe @relation(fields: [transporteNFeId], references: [id])
+  nLacre                String    @db.VarChar(60)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("lacres")
+}
+
 // ============================================
-// NFCe - CORRIGIDA
+// PAGAMENTO NFe
+// ============================================
+
+model PagamentoNFe {
+  id                    String    @id @default(cuid())
+  nfeId                 String
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  indPag                IndPag    @default(VISTA)
+  tPag                  String    @db.Char(2)
+  xPag                  String?   @db.VarChar(60)
+  vPag                  Decimal   @db.Decimal(15, 2)
+  dPag                  DateTime?
+  CNPJPag               String?   @db.Char(14)
+  UFPag                 String?   @db.Char(2)
+  tpIntegra             TpIntegra? @default(INTEGRADO)
+  CNPJInstPag           String?   @db.Char(14)
+  tBand                 String?   @db.Char(2)
+  cAut                  String?   @db.VarChar(128)
+  CNPJReceb             String?   @db.Char(14)
+  idTermPag             String?   @db.VarChar(40)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("pagamentos_nfe")
+}
+
+// ============================================
+// INTERMEDIADOR
+// ============================================
+
+model Intermediador {
+  id                    String    @id @default(cuid())
+  nfeId                 String    @unique
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  CNPJ                  String    @db.Char(14)
+  idCadIntTran          String    @db.VarChar(60)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("intermediadores")
+}
+
+// ============================================
+// NFCe
 // ============================================
 
 model NFCe {
   id                    String    @id @default(cuid())
-  
-  // === TMod (65) ===
   modelo                String    @default("65") @db.Char(2)
-  
-  // === TSerie ===
   serie                 Int
-  
-  // === TNF ===
   numero                Int
-  
-  // === TChNFe (44 dígitos) ===
   chaveAcesso           String    @unique @db.Char(44)
-  
   dataHoraEmissao       DateTime
   naturezaOperacao      String    @default("Venda a Consumidor Final")
   ambiente              TipoAmbiente @default(PRODUCAO)
-  tipoEmissao           Int       @default(1)
+  tipoEmissao           TpEmis    @default(NORMAL)
   status                StatusDocumento @default(PROCESSANDO)
-  
   consumidorIdentificado Boolean  @default(false)
-  
-  // === TCnpjOpc (vazio ou 14 dígitos) ou TCpf (11 dígitos) ===
   consumidorCpfCnpj     String?
   consumidorNome        String?
   consumidorEmail       String?
-  
-  // === TDec_1104v ===
-  valorTotalProdutos    Decimal   @db.Decimal(15, 4)
-  valorTotalDesconto    Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalAcrescimo   Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalTributosAprox Decimal @db.Decimal(15, 4) @default(0)
-  valorTotalNota        Decimal   @db.Decimal(15, 4)
-  
-  formaPagamento        String    @default("17") @db.Char(2)
-  valorPago             Decimal   @db.Decimal(15, 4)
-  valorTroco            Decimal   @db.Decimal(15, 4) @default(0)
-  
+  valorTotalProdutos    Decimal   @db.Decimal(15, 2)
+  valorTotalDesconto    Decimal   @db.Decimal(15, 2) @default(0)
+  valorTotalAcrescimo   Decimal   @db.Decimal(15, 2) @default(0)
+  valorTotalTributosAprox Decimal @db.Decimal(15, 2) @default(0)
+  valorTotalNota        Decimal   @db.Decimal(15, 2)
+  valorPago             Decimal   @db.Decimal(15, 2)
+  valorTroco            Decimal   @db.Decimal(15, 2) @default(0)
   urlQrCode             String?
   tokenCscId            String?
-  
   protocoloAutorizacao  String?   @db.Char(17)
   dataHoraAutorizacao   DateTime?
   motivoCancelamento    String?
   dataHoraCancelamento  DateTime?
-  
   xmlAssinado           String    @db.Text
-  
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
   consumidorId          String?
   consumidor            Cliente?  @relation("NFCeConsumidor", fields: [consumidorId], references: [id])
-  
   itens                 ItemNFCe[]
-  
+  pagamentos            PagamentoNFCe[]
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -758,9 +1451,22 @@ model ItemNFCe {
   cest                  String?   @db.Char(7)
   cfop                  String    @db.Char(4)
   unidadeMedida         String    @default("UN")
-  
-  // === TDec_1104v ===
   quantidade            Decimal   @db.Decimal(15, 4)
+<<<<<<< HEAD
+  valorUnitario         Decimal   @db.Decimal(15, 10)
+  valorTotalBruto       Decimal   @db.Decimal(15, 2)
+  cstICMS               CSTICMS  @default(CST_00)
+  aliquotaICMS          Decimal   @db.Decimal(5, 2)
+  baseCalculoICMS       Decimal   @db.Decimal(15, 2)
+  valorICMS             Decimal   @db.Decimal(15, 2)
+  cstPIS                CSTPIS   @default(CST_01)
+  aliquotaPIS           Decimal   @db.Decimal(7, 4)
+  valorPIS              Decimal   @db.Decimal(15, 2)
+  cstCOFINS             CSTCOFINS @default(CST_01)
+  aliquotaCOFINS        Decimal   @db.Decimal(7, 4)
+  valorCOFINS           Decimal   @db.Decimal(15, 2)
+  valorTributosAprox    Decimal   @db.Decimal(15, 2) @default(0)
+=======
   valorUnitario         Decimal   @db.Decimal(15, 4)
   valorTotalBruto       Decimal   @db.Decimal(15, 4)
   
@@ -779,71 +1485,92 @@ model ItemNFCe {
   
   valorTributosAprox    Decimal   @db.Decimal(15, 4) @default(0)
   
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   nfceId                String
   nfce                  NFCe      @relation(fields: [nfceId], references: [id])
-
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
   @@map("itens_nfce")
 }
 
+model PagamentoNFCe {
+  id                    String    @id @default(cuid())
+  nfceId                String
+  nfce                  NFCe      @relation(fields: [nfceId], references: [id])
+  indPag                IndPag    @default(VISTA)
+  tPag                  String    @db.Char(2)
+  xPag                  String?   @db.VarChar(60)
+  vPag                  Decimal   @db.Decimal(15, 2)
+  dPag                  DateTime?
+  tpIntegra             TpIntegra? @default(INTEGRADO)
+  CNPJInstPag           String?   @db.Char(14)
+  tBand                 String?   @db.Char(2)
+  cAut                  String?   @db.VarChar(128)
+  CNPJReceb             String?   @db.Char(14)
+  idTermPag             String?   @db.VarChar(40)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("pagamentos_nfce")
+}
+
 // ============================================
-// CTe - CORRIGIDO
+// CTe
 // ============================================
 
 model CTe {
   id                    String    @id @default(cuid())
-  
-  // === TMod (57) ===
   modelo                String    @default("57") @db.Char(2)
-  
-  // === TSerie ===
   serie                 Int
-  
-  // === TNF ===
   numero                Int
-  
-  // === TChNFe (44 dígitos) ===
   chaveAcesso           String    @unique @db.Char(44)
-  
   dataHoraEmissao       DateTime
   naturezaOperacao      String
   cfop                  String    @db.Char(4)
   ambiente              TipoAmbiente @default(PRODUCAO)
-  tipoEmissao           Int       @default(1)
+  tipoEmissao           TpEmis    @default(NORMAL)
   status                StatusDocumento @default(PROCESSANDO)
-  
   remetenteId           String
   destinatarioId        String
   tomadorServico        Int       @default(0)
-  
   municipioInicioCod    String    @db.Char(7)
   municipioInicioNome   String
   municipioInicioUf     String    @db.Char(2)
   municipioFimCod       String    @db.Char(7)
   municipioFimNome      String
   municipioFimUf        String    @db.Char(2)
-  
   produtoPredominante   String
-  
-  // === TDec_1104v ===
-  valorCargaAverbada    Decimal   @db.Decimal(15, 4)
+  valorCargaAverbada    Decimal   @db.Decimal(15, 2)
   pesoBrutoKg           Decimal   @db.Decimal(15, 4)
   pesoLiquidoKg         Decimal   @db.Decimal(15, 4)
   quantidadeVolumes     Int
   especieVolumes        String
   cubagemM3             Decimal?  @db.Decimal(15, 4)
   chavesNFeTransportadas String?   @db.Text
-  
   transportadoraId      String?
   transportadora        Transportadora? @relation(fields: [transportadoraId], references: [id])
-  
   rntrc                 String
   veiculoPlaca          String    @db.Char(7)
   veiculoUf             String    @db.Char(2)
   motoristaNome         String
   motoristaCpf          String    @db.Char(11)
+<<<<<<< HEAD
+  valorTotalFrete       Decimal   @db.Decimal(15, 2)
+  fretePeso             Decimal   @db.Decimal(15, 2)
+  freteValor            Decimal   @db.Decimal(15, 2)
+  pedagio               Decimal   @db.Decimal(15, 2) @default(0)
+  taxaGris              Decimal   @db.Decimal(15, 2) @default(0)
+  outrasTaxas           Decimal   @db.Decimal(15, 2) @default(0)
+  valorReceber          Decimal   @db.Decimal(15, 2)
+  cstICMS               CSTICMS  @default(CST_00)
+  baseCalculoICMS       Decimal   @db.Decimal(15, 2)
+  aliquotaICMS          Decimal   @db.Decimal(5, 2)
+  valorICMS             Decimal   @db.Decimal(15, 2)
+  valorPIS              Decimal   @db.Decimal(15, 2)
+  valorCOFINS           Decimal   @db.Decimal(15, 2)
+  valorTributosAprox    Decimal   @db.Decimal(15, 2) @default(0)
+=======
   
   // === TDec_1104v ===
   valorTotalFrete       Decimal   @db.Decimal(15, 4)
@@ -862,19 +1589,16 @@ model CTe {
   valorCOFINS           Decimal   @db.Decimal(15, 4)
   valorTributosAprox    Decimal   @db.Decimal(15, 4) @default(0)
   
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   protocoloAutorizacao  String?   @db.Char(17)
   dataHoraAutorizacao   DateTime?
   motivoCancelamento    String?
   dataHoraCancelamento  DateTime?
-  
   xmlAssinado           String    @db.Text
-  
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
   remetente             Cliente   @relation("CTeRemetente", fields: [remetenteId], references: [id])
   destinatario          Cliente   @relation("CTeDestinatario", fields: [destinatarioId], references: [id])
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -883,7 +1607,7 @@ model CTe {
 }
 
 // ============================================
-// Transportadora (já está correto)
+// Transportadora
 // ============================================
 
 model Transportadora {
@@ -903,7 +1627,7 @@ model Transportadora {
   rntrc                 String?
   antt                  String?
   inscricaoSuframa      String?
-  regimeTributario      RegimeTributario? @default(SIMPLES_NACIONAL)
+  regimeTributario      CRT? @default(SIMPLES_NACIONAL)
   tipoTransportador     String?
   banco                 String?
   agencia               String?
@@ -912,16 +1636,12 @@ model Transportadora {
   chavePix              String?
   ativo                 Boolean   @default(true)
   observacoes           String?
-  
   enderecoId            String    @unique
   endereco              Endereco  @relation(fields: [enderecoId], references: [id])
-  
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
   transportesNFe        TransporteNFe[]
   transportesCTe        CTe[]
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -932,7 +1652,7 @@ model Transportadora {
 }
 
 // ============================================
-// NFAe - CORRIGIDO
+// NFAe
 // ============================================
 
 model NFAe {
@@ -947,7 +1667,6 @@ model NFAe {
   descricaoMotivo       String
   ambiente              Int       @default(1)
   status                String    @default("PROCESSANDO")
-  
   requerenteTipo        String    @default("PF")
   requerenteCpfCnpj     String
   requerenteNome        String
@@ -960,8 +1679,14 @@ model NFAe {
   requerenteCep         String    @db.Char(9)
   requerenteTelefone    String?
   requerenteEmail       String?
-  
   destinatarioId        String
+<<<<<<< HEAD
+  valorTotalProdutos    Decimal   @db.Decimal(15, 2)
+  baseCalculoICMS       Decimal   @db.Decimal(15, 2)
+  aliquotaICMSMediana   Decimal   @db.Decimal(5, 2)
+  valorTotalICMS        Decimal   @db.Decimal(15, 2)
+  valorTotalNota        Decimal   @db.Decimal(15, 2)
+=======
   
   // === TDec_1104v ===
   valorTotalProdutos    Decimal   @db.Decimal(15, 4)
@@ -970,28 +1695,23 @@ model NFAe {
   valorTotalICMS        Decimal   @db.Decimal(15, 4)
   valorTotalNota        Decimal   @db.Decimal(15, 4)
   
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   guiaDAENumero         String?
   guiaDAECodigoBarras   String?
   guiaDAEChavePix       String?
   guiaDAEVencimento     DateTime?
-  guiaDAEValor          Decimal?  @db.Decimal(15, 4)
+  guiaDAEValor          Decimal?  @db.Decimal(15, 2)
   guiaDAEStatus         String?
-  
   orgaoEmissorSefaz     String
   protocoloAutorizacao  String?   @db.Char(17)
   dataHoraAutorizacao   DateTime?
   motivoCancelamento    String?
   dataHoraCancelamento  DateTime?
-  
   xmlAssinado           String    @db.Text
-  
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
   destinatario          Cliente   @relation("NFAeDestinatario", fields: [destinatarioId], references: [id])
-  
   itens                 ItemNFAe[]
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -1004,9 +1724,13 @@ model ItemNFAe {
   descricao             String
   ncm                   String    @db.Char(8)
   unidade               String    @default("UN")
-  
-  // === TDec_1104v ===
   quantidade            Decimal   @db.Decimal(15, 4)
+<<<<<<< HEAD
+  valorUnitario         Decimal   @db.Decimal(15, 10)
+  valorTotal            Decimal   @db.Decimal(15, 2)
+  aliquotaICMS          Decimal   @db.Decimal(5, 2)
+  valorICMS             Decimal   @db.Decimal(15, 2)
+=======
   valorUnitario         Decimal   @db.Decimal(15, 4)
   valorTotal            Decimal   @db.Decimal(15, 4)
   
@@ -1014,9 +1738,9 @@ model ItemNFAe {
   aliquotaICMS          Decimal   @db.Decimal(5, 2)
   valorICMS             Decimal   @db.Decimal(15, 4)
   
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   nfaeId                String
   nfae                  NFAe      @relation(fields: [nfaeId], references: [id])
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -1024,7 +1748,7 @@ model ItemNFAe {
 }
 
 // ============================================
-// FINANCEIRO - CORRIGIDO
+// FINANCEIRO
 // ============================================
 
 model TituloFinanceiro {
@@ -1033,36 +1757,27 @@ model TituloFinanceiro {
   numeroDocumento       String
   descricao             String
   categoria             CategoriaFinanceira
-  
   pessoaId              String?
   pessoaNome            String
   pessoaDocumento       String
-  
   dataEmissao           DateTime
   dataVencimento        DateTime
   dataPagamento         DateTime?
-  
-  // === TDec_1104v ===
-  valorOriginal         Decimal   @db.Decimal(15, 4)
-  valorJurosMulta       Decimal   @db.Decimal(15, 4) @default(0)
-  valorDesconto         Decimal   @db.Decimal(15, 4) @default(0)
-  valorPago             Decimal?  @db.Decimal(15, 4)
-  
+  valorOriginal         Decimal   @db.Decimal(15, 2)
+  valorJurosMulta       Decimal   @db.Decimal(15, 2) @default(0)
+  valorDesconto         Decimal   @db.Decimal(15, 2) @default(0)
+  valorPago             Decimal?  @db.Decimal(15, 2)
   status                StatusTitulo @default(PENDENTE)
   formaPagamento        String
-  
   documentoOrigemTipo   String?
   documentoOrigemChave  String?
   observacoes           String?
   nossoNumeroBoleto     String?
   codigoPixCopiaCola    String?
-  
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
   clienteId             String?
   cliente               Cliente?  @relation(fields: [clienteId], references: [id])
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -1070,33 +1785,25 @@ model TituloFinanceiro {
 }
 
 // ============================================
-// ESTOQUE - CORRIGIDO
+// ESTOQUE
 // ============================================
 
 model MovimentacaoEstoque {
   id                    String    @id @default(cuid())
   tipo                  TipoMovimentacaoEstoque
-  
-  // === TDec_0803 ===
   quantidade            Decimal   @db.Decimal(11, 3)
   quantidadeAnterior    Decimal   @db.Decimal(11, 3)
   quantidadePosterior   Decimal   @db.Decimal(11, 3)
-  
-  // === TDec_1104v ===
-  custoUnitario         Decimal   @db.Decimal(15, 4)
-  valorTotal            Decimal   @db.Decimal(15, 4)
-  
+  custoUnitario         Decimal   @db.Decimal(15, 10)
+  valorTotal            Decimal   @db.Decimal(15, 2)
   documentoReferencia   String?
   observacao            String?
   dataHora              DateTime  @default(now())
   usuario               String
-  
   produtoId             String
   produto               Produto   @relation(fields: [produtoId], references: [id])
-  
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -1104,48 +1811,26 @@ model MovimentacaoEstoque {
 }
 
 // ============================================
-// EVENTOS (para completar a NF-e)
+// EVENTOS
 // ============================================
 
 model EventoNFe {
   id                    String    @id @default(cuid())
-  
-  // === TChNFe (44 dígitos) ===
   chaveNFe              String    @db.Char(44)
-  
-  // === TpAutor (1,2,3,5,6,9) ===
-  tpAutor               Int
-  
-  // === Tipo Evento (ex: 110111 = Cancelamento) ===
+  tpAutor               TpAutor   @default(EMITENTE)
   tpEvento              String    @db.Char(6)
-  
-  // === nSeqEvento (1-2) ===
   nSeqEvento            Int       @default(1)
-  
-  // === TDateTimeUTC ===
   dhEvento              DateTime
-  
-  // === TStat (3 dígitos) ===
   cStat                 String    @db.Char(3)
-  
-  // === TMotivo ===
   xMotivo               String
-  
-  // === TRec (15 dígitos) ===
   nRec                  String?   @db.Char(15)
-  
-  // === TProt (15 ou 17 dígitos) ===
   nProt                 String?   @db.Char(17)
-  
-  // === TString - XML do evento ===
   xmlEvento             String    @db.Text
-  
-  // === TString - XML do retorno ===
   xmlRetorno            String?   @db.Text
-  
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
+  nfeId                 String?
+  nfe                   NFe?      @relation(fields: [nfeId], references: [id])
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -1154,43 +1839,23 @@ model EventoNFe {
 }
 
 // ============================================
-// EVENTO DE CRÉDITO PRESUMIDO (detEvento)
+// EVENTO CREDITO PRESUMIDO
 // ============================================
 
 model EventoCreditoPresumido {
   id                    String    @id @default(cuid())
-  
-  // === TChNFe (44 dígitos) ===
   chaveNFe              String    @db.Char(44)
-  
-  // === TpAutor (1 ou 2) ===
   tpAutor               Int       @default(1)
-  
-  // === TVerAplic (1-20 caracteres) ===
   verAplic              String
-  
-  // === TCodUfIBGE (2 dígitos) ===
   cOrgaoAutor           String    @db.Char(2)
-  
-  // === TDateTimeUTC ===
   dhEvento              DateTime
-  
-  // === TRec (15 dígitos) ===
   nRec                  String?   @db.Char(15)
-  
-  // === TProt (15 ou 17 dígitos) ===
   nProt                 String?   @db.Char(17)
-  
-  // === TString - XML do evento ===
   xmlEvento             String    @db.Text
   xmlRetorno            String?   @db.Text
-  
-  // === Itens do crédito presumido ===
   itens                 EventoCreditoPresumidoItem[]
-  
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
@@ -1200,15 +1865,15 @@ model EventoCreditoPresumido {
 
 model EventoCreditoPresumidoItem {
   id                    String    @id @default(cuid())
-  
-  // === TnItem (1-999) ===
-  nItem                 String    // 1-999 com regras específicas
-  
-  // === TDec_1302 (15 dígitos, 13 inteiros, 2 decimais) ===
+  nItem                 String
   vBCCredPres           Decimal   @db.Decimal(15, 2)
-  
-  // === Código Crédito Presumido (2 dígitos) ===
   cCredPres             String    @db.Char(2)
+<<<<<<< HEAD
+  pCredPresIBS          Decimal?  @db.Decimal(7, 4)
+  vCredPresIBS          Decimal?  @db.Decimal(15, 2)
+  pCredPresCBS          Decimal?  @db.Decimal(7, 4)
+  vCredPresCBS          Decimal?  @db.Decimal(15, 2)
+=======
   
   // === TDec_0302_04 (3 inteiros, 2-4 decimais) ===
   pCredPresIBS          Decimal?  @db.Decimal(7, 4)
@@ -1217,12 +1882,132 @@ model EventoCreditoPresumidoItem {
   pCredPresCBS          Decimal?  @db.Decimal(7, 4)
   vCredPresCBS          Decimal?  @db.Decimal(15, 2) // TDec1302
   
+>>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   eventoId              String
   evento                EventoCreditoPresumido @relation(fields: [eventoId], references: [id])
-  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
   @@map("eventos_credito_presumido_itens")
   @@unique([eventoId, nItem])
+}
+
+// ============================================
+// EXPORTACAO
+// ============================================
+
+model Exportacao {
+  id                    String    @id @default(cuid())
+  nfeId                 String    @unique
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  UFSaidaPais           String    @db.Char(2)
+  xLocExporta           String    @db.VarChar(60)
+  xLocDespacho          String?   @db.VarChar(60)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("exportacoes")
+}
+
+// ============================================
+// COMPRA
+// ============================================
+
+model Compra {
+  id                    String    @id @default(cuid())
+  nfeId                 String    @unique
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  xNEmp                 String?   @db.VarChar(22)
+  xPed                  String?   @db.VarChar(60)
+  xCont                 String?   @db.VarChar(60)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("compras")
+}
+
+// ============================================
+// CANA (AQUISICAO)
+// ============================================
+
+model Cana {
+  id                    String    @id @default(cuid())
+  nfeId                 String    @unique
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  safra                 String    @db.VarChar(9)
+  ref                   String    @db.Char(7)
+  qTotMes               Decimal   @db.Decimal(15, 4)
+  qTotAnt               Decimal   @db.Decimal(15, 4)
+  qTotGer               Decimal   @db.Decimal(15, 4)
+  vFor                  Decimal   @db.Decimal(15, 2)
+  vTotDed               Decimal   @db.Decimal(15, 2)
+  vLiqFor               Decimal   @db.Decimal(15, 2)
+  forDias               FornecimentoDia[]
+  deducoes              DeducaoCana[]
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("cana")
+}
+
+model FornecimentoDia {
+  id                    String    @id @default(cuid())
+  canaId                String
+  cana                  Cana      @relation(fields: [canaId], references: [id])
+  dia                   String    @db.Char(2)
+  qtde                  Decimal   @db.Decimal(15, 4)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("fornecimentos_dia")
+  @@unique([canaId, dia])
+}
+
+model DeducaoCana {
+  id                    String    @id @default(cuid())
+  canaId                String
+  cana                  Cana      @relation(fields: [canaId], references: [id])
+  xDed                  String    @db.VarChar(60)
+  vDed                  Decimal   @db.Decimal(15, 2)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("deducoes_cana")
+}
+
+// ============================================
+// RESPONSAVEL TECNICO
+// ============================================
+
+model ResponsavelTecnico {
+  id                    String    @id @default(cuid())
+  nfeId                 String    @unique
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  CNPJ                  String    @db.Char(14)
+  xContato              String    @db.VarChar(60)
+  email                 String    @db.VarChar(60)
+  fone                  String    @db.VarChar(14)
+  idCSRT                String?   @db.Char(2)
+  hashCSRT              String?   @db.VarChar(28)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("responsaveis_tecnicos")
+}
+
+// ============================================
+// PROCESSO REFERENCIADO
+// ============================================
+
+model ProcessoReferenciado {
+  id                    String    @id @default(cuid())
+  nfeId                 String
+  nfe                   NFe       @relation(fields: [nfeId], references: [id])
+  nProc                 String    @db.VarChar(60)
+  indProc               IndProc   @default(SEFAZ)
+  tpAto                 TpAto?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@map("processos_referenciados")
 }

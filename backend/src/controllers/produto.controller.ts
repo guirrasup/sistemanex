@@ -1,64 +1,106 @@
-// C:\emissornfe\backend\src\controllers\produto.controller.ts
+// C:\sistemanex\backend\src\controllers\produto.controller.ts
 
 import { Request, Response } from 'express';
-import { ProdutoService } from '../services/produto.service';
+import { ProdutoService } from '../services/produto.service.js';
+
+const produtoService = new ProdutoService();
 
 export class ProdutoController {
-  private produtoService: ProdutoService;
-
-  constructor() {
-    this.produtoService = new ProdutoService();
-  }
-
   async listar(req: Request, res: Response) {
     try {
+      const { page = 1, limit = 20, busca = '' } = req.query;
       const empresaId = req.user?.empresaId;
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const busca = req.query.busca as string || '';
 
       if (!empresaId) {
-        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+        return res.status(401).json({
+          sucesso: false,
+          erro: 'Empresa não autenticada'
+        });
       }
 
-      const dados = await this.produtoService.listar(empresaId, page, limit, busca);
-      return res.json({ sucesso: true, dados });
+      // 🔥 CHAMA O SERVICE E PEGA O RESULTADO
+      const result = await produtoService.listar(
+        empresaId,
+        Number(page),
+        Number(limit),
+        busca as string
+      );
+
+      // 🔥 EXTRAI OS DADOS CORRETAMENTE
+      // O service já retorna { data, total, page, limit, totalPages }
+      const data = result?.data || [];
+      const total = result?.total || 0;
+
+      console.log(`✅ Produtos encontrados: ${data.length} de ${total}`);
+
+      // 🔥 RETORNA NO FORMATO QUE O FRONTEND ESPERA
+      return res.json({
+        sucesso: true,
+        dados: {
+          data: data,
+          total: total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit))
+        }
+      });
     } catch (error: any) {
-      return res.status(500).json({ sucesso: false, erro: error.message });
+      console.error('❌ Erro ao listar produtos:', error);
+      return res.status(500).json({
+        sucesso: false,
+        erro: error.message || 'Erro ao listar produtos'
+      });
     }
   }
 
   async buscarPorId(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const dados = await this.produtoService.buscarPorId(id);
-      
-      if (!dados) {
-        return res.status(404).json({ sucesso: false, erro: 'Produto não encontrado' });
+      const produto = await produtoService.buscarPorId(id);
+
+      if (!produto) {
+        return res.status(404).json({
+          sucesso: false,
+          erro: 'Produto não encontrado'
+        });
       }
-      
-      return res.json({ sucesso: true, dados });
+
+      return res.json({
+        sucesso: true,
+        dados: produto
+      });
     } catch (error: any) {
-      return res.status(500).json({ sucesso: false, erro: error.message });
+      return res.status(500).json({
+        sucesso: false,
+        erro: error.message || 'Erro ao buscar produto'
+      });
     }
   }
 
   async criar(req: Request, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
-      
+
       if (!empresaId) {
-        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+        return res.status(401).json({
+          sucesso: false,
+          erro: 'Empresa não autenticada'
+        });
       }
 
-      const dados = await this.produtoService.criar({
-        ...req.body,
-        empresaId,
+      const data = { ...req.body, empresaId };
+      const produto = await produtoService.criar(data);
+
+      return res.status(201).json({
+        sucesso: true,
+        dados: produto,
+        mensagem: 'Produto criado com sucesso'
       });
-      
-      return res.status(201).json({ sucesso: true, dados });
     } catch (error: any) {
-      return res.status(400).json({ sucesso: false, erro: error.message });
+      return res.status(400).json({
+        sucesso: false,
+        erro: error.message || 'Erro ao criar produto'
+      });
     }
   }
 
@@ -68,13 +110,24 @@ export class ProdutoController {
       const empresaId = req.user?.empresaId;
 
       if (!empresaId) {
-        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+        return res.status(401).json({
+          sucesso: false,
+          erro: 'Empresa não autenticada'
+        });
       }
 
-      const dados = await this.produtoService.atualizar(id, req.body, empresaId);
-      return res.json({ sucesso: true, dados });
+      const produto = await produtoService.atualizar(id, req.body, empresaId);
+
+      return res.json({
+        sucesso: true,
+        dados: produto,
+        mensagem: 'Produto atualizado com sucesso'
+      });
     } catch (error: any) {
-      return res.status(400).json({ sucesso: false, erro: error.message });
+      return res.status(400).json({
+        sucesso: false,
+        erro: error.message || 'Erro ao atualizar produto'
+      });
     }
   }
 
@@ -84,26 +137,48 @@ export class ProdutoController {
       const empresaId = req.user?.empresaId;
 
       if (!empresaId) {
-        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+        return res.status(401).json({
+          sucesso: false,
+          erro: 'Empresa não autenticada'
+        });
       }
 
-      await this.produtoService.excluir(id, empresaId);
-      return res.json({ sucesso: true, mensagem: 'Produto excluído com sucesso' });
+      await produtoService.excluir(id, empresaId);
+
+      return res.json({
+        sucesso: true,
+        mensagem: 'Produto excluído com sucesso'
+      });
     } catch (error: any) {
-      return res.status(400).json({ sucesso: false, erro: error.message });
+      return res.status(400).json({
+        sucesso: false,
+        erro: error.message || 'Erro ao excluir produto'
+      });
     }
   }
 
-async buscarEstoqueCritico(req: Request, res: Response) {
-  try {
-    const empresaId = req.user?.empresaId;
-    if (!empresaId) {
-      return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+  async buscarEstoqueCritico(req: Request, res: Response) {
+    try {
+      const empresaId = req.user?.empresaId;
+
+      if (!empresaId) {
+        return res.status(401).json({
+          sucesso: false,
+          erro: 'Empresa não autenticada'
+        });
+      }
+
+      const produtos = await produtoService.buscarEstoqueCritico(empresaId);
+
+      return res.json({
+        sucesso: true,
+        dados: produtos || []
+      });
+    } catch (error: any) {
+      return res.status(500).json({
+        sucesso: false,
+        erro: error.message || 'Erro ao buscar estoque crítico'
+      });
     }
-    const dados = await this.produtoService.buscarEstoqueCritico(empresaId);
-    return res.json({ sucesso: true, dados });
-  } catch (error: any) {
-    return res.status(500).json({ sucesso: false, erro: error.message });
   }
-}
 }

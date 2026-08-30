@@ -225,13 +225,19 @@ export default function App() {
         console.warn('⚠️ Algumas requisições falharam, mas continuando...');
       }
 
-      const getData = (result: PromiseSettledResult<any>, index: number) => {
-        if (result.status === 'fulfilled') {
-          return result.value;
-        }
-        console.warn(`⚠️ Rota ${serviceNames[index]} falhou, retornando array vazio`);
-        return { data: [] };
-      };
+const getData = (result: PromiseSettledResult<any>, index: number) => {
+  if (result.status === 'fulfilled') {
+    const value = result.value;
+    // 🔥 CORREÇÃO: Extrai os dados do envelope correto
+    // A API retorna { sucesso: true, dados: { data: [...], total: X, ... } }
+    // Ou diretamente { data: [...], total: X, ... }
+    const data = value?.dados?.data || value?.data || [];
+    console.log(`📦 getData ${serviceNames[index]}:`, Array.isArray(data) ? data.length : 0);
+    return { data: Array.isArray(data) ? data : [] };
+  }
+  console.warn(`⚠️ Rota ${serviceNames[index]} falhou, retornando array vazio`);
+  return { data: [] };
+};
 
       const [
         produtosResult,

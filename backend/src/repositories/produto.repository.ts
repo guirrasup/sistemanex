@@ -1,84 +1,84 @@
-// src/repositories/produto.repository.ts
-import { Prisma } from '@prisma/client';
+// C:\sistemanex\backend\src\repositories\produto.repository.ts
+
+import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 
+const prisma = new PrismaClient();
+
 export class ProdutoRepository extends BaseRepository {
-  async findById(id: string) {
-    return this.prisma.produto.findUnique({
-      where: { id },
-    });
-  }
-
-  async findAll(
-    empresaId: string,
-    page: number,
-    limit: number,
-    busca: string = ''
-  ) {
+  async findAll(empresaId: string, page: number, limit: number, busca: string = '') {
     const skip = (page - 1) * limit;
-
-    const where: Prisma.ProdutoWhereInput = { empresaId };
+    const where: any = {
+      empresaId,
+      ativo: true,
+    };
 
     if (busca) {
       where.OR = [
         { descricao: { contains: busca, mode: 'insensitive' } },
         { codigo: { contains: busca, mode: 'insensitive' } },
-        { ncm: { contains: busca } },
       ];
     }
 
-    const [data, total] = await Promise.all([
-      this.prisma.produto.findMany({
+    const [produtos, total] = await Promise.all([
+      prisma.produto.findMany({
         where,
         skip,
         take: limit,
         orderBy: { descricao: 'asc' },
       }),
-      this.prisma.produto.count({ where }),
+      prisma.produto.count({ where }),
     ]);
 
+    // 🔥 CORREÇÃO: Retorna no formato esperado pelo Service
     return {
-      data,
+      data: produtos,
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limit)
     };
   }
 
-  async create(data: Prisma.ProdutoCreateInput) {
-    return this.prisma.produto.create({ data });
+  async findById(id: string) {
+    return prisma.produto.findUnique({
+      where: { id },
+    });
   }
 
-  async update(id: string, data: Prisma.ProdutoUpdateInput) {
-    return this.prisma.produto.update({
+  async create(data: any) {
+    return prisma.produto.create({
+      data,
+    });
+  }
+
+  async update(id: string, data: any) {
+    return prisma.produto.update({
       where: { id },
       data,
     });
   }
 
   async delete(id: string) {
-    return this.prisma.produto.delete({
+    return prisma.produto.update({
       where: { id },
+      data: { ativo: false },
     });
   }
 
-  /**
-   * Produtos com estoque atual <= estoque mínimo
-   * (Prisma não permite comparação direta entre colunas de forma tipada,
-   * por isso filtramos em memória após buscar apenas os ativos da empresa)
-   */
+  // 🔥 CORRIGIDO: SÓ RETORNA PRODUTOS COM ESTOQUE CRÍTICO
   async findEstoqueCritico(empresaId: string) {
-    const produtos = await this.prisma.produto.findMany({
+    return prisma.produto.findMany({
       where: {
         empresaId,
         ativo: true,
+        estoqueAtual: {
+          lte: prisma.produto.fields.estoqueMinimo,
+        },
       },
-      orderBy: { estoqueAtual: 'asc' },
+      orderBy: {
+        estoqueAtual: 'asc',
+      },
     });
-
-    return produtos.filter(
-      (p) => (p.estoqueAtual ?? 0) <= (p.estoqueMinimo ?? 0)
-    );
   }
 }

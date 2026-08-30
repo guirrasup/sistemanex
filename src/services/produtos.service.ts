@@ -1,60 +1,81 @@
-// C:\emissornfe\src\services\produtos.service.ts
+// C:\sistemanex\src\services\produtos.service.ts
 
 import api from './api';
-import { Produto } from '../types/erp';
 
-export interface ListaProdutosResponse {
-  data: Produto[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+export interface Produto {
+  id: string;
+  codigo: string;
+  descricao: string;
+  categoria: string;
+  unidade: string;
+  ncm: string;
+  cest?: string;
+  cfopPadrao: string;
+  precoCusto: number;
+  precoVenda: number;
+  estoqueAtual: number;
+  estoqueMinimo: number;
+  ativo: boolean;
+  empresaId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const produtosService = {
-  async listar(page: number = 1, limit: number = 50, busca: string = ''): Promise<ListaProdutosResponse> {
+  async listar(page: number = 1, limit: number = 20, busca: string = '') {
     const response = await api.get('/produtos', {
-      params: { page, limit, busca }
+      params: { page, limit, busca },
     });
-    if (response.data && response.data.sucesso && response.data.dados) {
-      return response.data.dados;
-    }
-    if (response.data && response.data.data) {
-      return response.data;
-    }
-    return { data: [], total: 0, page, limit, totalPages: 0 };
+    return response.data;
   },
 
-  async buscarPorId(id: string): Promise<Produto> {
+  async buscarPorId(id: string) {
     const response = await api.get(`/produtos/${id}`);
-    return response.data.dados || response.data;
+    return response.data;
   },
 
-  async criar(produto: Omit<Produto, 'id' | 'dataCriacao' | 'createdAt' | 'updatedAt'>): Promise<Produto> {
-    const response = await api.post('/produtos', produto);
-    return response.data.dados || response.data;
+  async criar(data: any) {
+    const response = await api.post('/produtos', data);
+    return response.data;
   },
 
-  async atualizar(id: string, produto: Partial<Produto>): Promise<Produto> {
-    const response = await api.put(`/produtos/${id}`, produto);
-    return response.data.dados || response.data;
+  async atualizar(id: string, data: any) {
+    const response = await api.put(`/produtos/${id}`, data);
+    return response.data;
   },
 
-  async excluir(id: string): Promise<void> {
-    await api.delete(`/produtos/${id}`);
+  async excluir(id: string) {
+    const response = await api.delete(`/produtos/${id}`);
+    return response.data;
   },
 
-  // 🔥 ADICIONE ESTE MÉTODO - SÓ ISSO!
-  async buscarEstoqueCritico(): Promise<Produto[]> {
-    const response = await api.get('/produtos/estoque-critico');
-    return response.data.dados || response.data || [];
+  // 🔥 CORRIGIDO: SEMPRE RETORNA UM ARRAY
+  async buscarEstoqueCritico(): Promise<any[]> {
+    try {
+      const response = await api.get('/produtos/estoque-critico');
+      
+      // 🔥 EXTRAI OS DADOS CORRETAMENTE
+      // A API retorna { sucesso: true, dados: [...] }
+      const data = response.data?.dados || response.data?.data || response.data;
+      
+      // 🔥 GARANTE QUE É UM ARRAY
+      if (Array.isArray(data)) {
+        return data;
+      }
+      
+      // Se for um objeto, tenta encontrar uma propriedade que é array
+      if (data && typeof data === 'object') {
+        for (const key of Object.keys(data)) {
+          if (Array.isArray(data[key])) {
+            return data[key];
+          }
+        }
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar estoque crítico:', error);
+      return [];
+    }
   },
-
-  async atualizarEstoque(id: string, quantidade: number, tipo: 'ENTRADA' | 'SAIDA'): Promise<Produto> {
-    const response = await api.patch(`/produtos/${id}/estoque`, {
-      quantidade,
-      tipo
-    });
-    return response.data.dados || response.data;
-  }
 };

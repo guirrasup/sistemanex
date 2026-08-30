@@ -1,0 +1,3 @@
+https://www.nfe.fazenda.gov.br/portal/principal.aspx
+https://www.gov.br/sped/pt-br
+https://github.com/nfephp-org/sped-nfe/blob/master/schemes/PL_009_V4/leiauteNFe_v4.00.xsd

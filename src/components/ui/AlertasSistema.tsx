@@ -1,4 +1,4 @@
-// C:\emissornfe\src\components\ui\AlertasSistema.tsx
+// C:\sistemanex\src\components\ui\AlertasSistema.tsx
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -25,13 +25,12 @@ interface Alerta {
   acaoTexto?: string;
 }
 
-// 🔥 CACHE DE ALERTAS
 interface AlertCache {
   alertas: Alerta[];
   timestamp: number;
 }
 
-const CACHE_TTL = 60000; // 1 minuto
+const CACHE_TTL = 60000;
 const DEBOUNCE_DELAY = 500;
 
 interface AlertasSistemaProps {
@@ -48,19 +47,16 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
   const [notificacoes, setNotificacoes] = useState<Alerta[]>([]);
   const [totalAlertas, setTotalAlertas] = useState(0);
   
-  // 🔥 CONTROLE DE ESTADO
   const isLoading = useRef(false);
   const cacheRef = useRef<AlertCache | null>(null);
   const timeoutId = useRef<NodeJS.Timeout | null>(null);
 
   const carregarAlertas = async () => {
-    // Evita múltiplas chamadas simultâneas
     if (isLoading.current) {
       console.log('⏳ Carregamento de alertas em andamento...');
       return;
     }
 
-    // Verifica cache
     if (cacheRef.current) {
       const now = Date.now();
       if (now - cacheRef.current.timestamp < CACHE_TTL) {
@@ -77,27 +73,52 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
     try {
       const novosAlertas: Alerta[] = [];
 
-      // 🔥 1. Busca estoque crítico (apenas 1 chamada)
+      // 🔥 1. Busca APENAS produtos com estoque crítico (estoqueAtual <= estoqueMinimo)
       try {
-        const produtos = await produtosService.buscarEstoqueCritico();
-        produtos.forEach(p => {
-          novosAlertas.push({
-            id: `estoque-${p.id}`,
-            tipo: 'ESTOQUE',
-            nivel: p.estoqueAtual === 0 ? 'CRITICO' : 'ATENCAO',
-            mensagem: `${p.descricao}: estoque em ${p.estoqueAtual} ${p.unidade} (mínimo ${p.estoqueMinimo})`,
-            data: new Date().toISOString(),
-            destino: 'produtos',
-            acaoTexto: 'Ver Estoque',
+        const response = await produtosService.buscarEstoqueCritico();
+        
+        // 🔥 CORREÇÃO: Extrai os dados corretamente
+        // A API retorna { sucesso: true, dados: [...] }
+        // O service pode retornar diretamente o array ou o objeto com dados
+        let produtos: any[] = [];
+        
+        if (Array.isArray(response)) {
+          produtos = response;
+        } else if (response?.dados && Array.isArray(response.dados)) {
+          produtos = response.dados;
+        } else if (response?.data && Array.isArray(response.data)) {
+          produtos = response.data;
+        } else if (response && typeof response === 'object') {
+          // Tenta encontrar qualquer propriedade que seja um array
+          for (const key of Object.keys(response)) {
+            if (Array.isArray(response[key])) {
+              produtos = response[key];
+              break;
+            }
+          }
+        }
+
+        // 🔥 GARANTE QUE É UM ARRAY ANTES DE USAR forEach
+        if (Array.isArray(produtos) && produtos.length > 0) {
+          produtos.forEach(p => {
+            novosAlertas.push({
+              id: `estoque-${p.id}`,
+              tipo: 'ESTOQUE',
+              nivel: p.estoqueAtual === 0 ? 'CRITICO' : 'ATENCAO',
+              mensagem: `${p.descricao}: estoque em ${p.estoqueAtual} ${p.unidade} (mínimo ${p.estoqueMinimo})`,
+              data: new Date().toISOString(),
+              destino: 'produtos',
+              acaoTexto: 'Ver Estoque',
+            });
           });
-        });
+        }
       } catch (e) {
         console.warn('Erro ao buscar estoque crítico:', e);
       }
 
-      // 🔥 2. Verifica certificado (dados locais)
+      // 🔥 2. Verifica certificado
       const empresa = StorageService.getEmpresa();
-      if (empresa.certificado?.diasRestantes !== undefined) {
+      if (empresa?.certificado?.diasRestantes !== undefined) {
         if (empresa.certificado.diasRestantes < 15 && empresa.certificado.diasRestantes > 0) {
           novosAlertas.push({
             id: 'certificado-vencendo',
@@ -111,36 +132,40 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
         }
       }
 
-      // 🔥 3. Busca títulos pendentes (apenas 1 chamada)
+      // 🔥 3. Busca títulos vencidos
       try {
         const titulos = await financeiroService.listarPendentes();
         const hoje = new Date();
-        titulos.forEach(t => {
-          const venc = new Date(t.dataVencimento + 'T00:00:00');
-          if (venc < hoje) {
-            const dias = Math.ceil((hoje.getTime() - venc.getTime()) / (1000 * 60 * 60 * 24));
-            novosAlertas.push({
-              id: `titulo-${t.id}`,
-              tipo: 'TITULO',
-              nivel: dias > 30 ? 'CRITICO' : 'ATENCAO',
-              mensagem: `${t.descricao} - ${t.pessoaNome}: vencido há ${dias} dias (R$ ${t.valorOriginal.toFixed(2)})`,
-              data: t.dataVencimento,
-              destino: 'financeiro',
-              acaoTexto: 'Regularizar',
-            });
-          }
-        });
+        
+        // 🔥 GARANTE QUE É UM ARRAY
+        const listaTitulos = Array.isArray(titulos) ? titulos : (titulos?.dados?.data || titulos?.data || []);
+        
+        if (Array.isArray(listaTitulos) && listaTitulos.length > 0) {
+          listaTitulos.forEach(t => {
+            const venc = new Date(t.dataVencimento + 'T00:00:00');
+            if (venc < hoje) {
+              const dias = Math.ceil((hoje.getTime() - venc.getTime()) / (1000 * 60 * 60 * 24));
+              novosAlertas.push({
+                id: `titulo-${t.id}`,
+                tipo: 'TITULO',
+                nivel: dias > 30 ? 'CRITICO' : 'ATENCAO',
+                mensagem: `${t.descricao} - ${t.pessoaNome}: vencido há ${dias} dias (R$ ${t.valorOriginal.toFixed(2)})`,
+                data: t.dataVencimento,
+                destino: 'financeiro',
+                acaoTexto: 'Regularizar',
+              });
+            }
+          });
+        }
       } catch (e) {
-        console.warn('Erro ao buscar títulos pendentes:', e);
+        console.warn('Erro ao buscar títulos vencidos:', e);
       }
 
-      // Atualiza cache
       cacheRef.current = {
         alertas: novosAlertas,
         timestamp: Date.now()
       };
 
-      // Atualiza estado
       setAlertas(novosAlertas);
       setTotalAlertas(novosAlertas.length);
       setNotificacoes(novosAlertas.filter(a => a.nivel === 'CRITICO'));
@@ -152,7 +177,6 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
     }
   };
 
-  // 🔥 CARREGAMENTO COM DEBOUNCE
   useEffect(() => {
     const loadWithDebounce = () => {
       if (timeoutId.current) {
@@ -165,11 +189,10 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
 
     loadWithDebounce();
     
-    // Recarrega a cada 5 minutos
     const interval = setInterval(() => {
-      cacheRef.current = null; // Invalida cache
+      cacheRef.current = null;
       carregarAlertas();
-    }, 300000); // 5 minutos
+    }, 300000);
 
     return () => {
       if (timeoutId.current) {
@@ -179,11 +202,10 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
     };
   }, []);
 
-  // ✅ FUNÇÃO PARA MANIPULAR CLICK E FECHAR O DROPDOWN
   const handleAcaoClick = (destino?: string) => {
     if (destino && onNavigate) {
       onNavigate(destino);
-      setExpandido(false); // Fecha o dropdown
+      setExpandido(false);
     }
   };
 
@@ -192,7 +214,6 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
 
   return (
     <div className={className}>
-      {/* Botão de Notificações */}
       <div className="relative">
         <button
           onClick={() => setExpandido(!expandido)}
@@ -201,27 +222,23 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
           }`}
           title={totalAlertasCount > 0 ? `${totalAlertasCount} alerta(s) pendente(s)` : 'Nenhum alerta'}
         >
-          {/* Ícone do Sino com ou sem ponto de notificação */}
           {totalAlertasCount > 0 ? (
             <BellDot className="w-5 h-5 text-slate-600" />
           ) : (
             <Bell className="w-5 h-5 text-slate-400" />
           )}
           
-          {/* Badge com contador de alertas */}
           {totalAlertasCount > 0 && (
             <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 shadow-md ring-2 ring-white">
               {totalAlertasCount > 99 ? '99+' : totalAlertasCount}
             </span>
           )}
           
-          {/* Indicador de alertas críticos (pontinho vermelho pequeno) */}
           {totalCriticos > 0 && totalAlertasCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-rose-600 rounded-full animate-pulse ring-2 ring-white"></span>
           )}
         </button>
 
-        {/* Dropdown de Alertas */}
         {expandido && (
           <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden max-h-96 overflow-y-auto z-50">
             <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between sticky top-0 z-10">
