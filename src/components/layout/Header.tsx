@@ -22,7 +22,8 @@ import {
   UserCheck,
   ShieldCheck,
   Menu,
-  X
+  X,
+  FileArchive, // 🔥 NOVO - MDF-e
 } from 'lucide-react';
 import { ConfiguracaoEmpresa, UsuarioAuth } from '../../types/erp';
 import { AlertasSistema } from '../ui/AlertasSistema';
@@ -60,11 +61,12 @@ const coresPorItem: Record<string, { cor: string; corAtiva: string; corHover: st
   'nfce-emissor': { cor: 'text-purple-500', corAtiva: 'text-purple-600', corHover: 'hover:text-purple-600' },
   'cte-emissor': { cor: 'text-cyan-500', corAtiva: 'text-cyan-600', corHover: 'hover:text-cyan-600' },
   'nfae-emissor': { cor: 'text-amber-500', corAtiva: 'text-amber-600', corHover: 'hover:text-amber-600' },
+  // 🔥 NOVO - MDF-e (COR LARANJA)
+  'mdfe-emissor': { cor: 'text-orange-500', corAtiva: 'text-orange-600', corHover: 'hover:text-orange-600' },
   produtos: { cor: 'text-green-500', corAtiva: 'text-green-600', corHover: 'hover:text-green-600' },
   servicos: { cor: 'text-pink-500', corAtiva: 'text-pink-600', corHover: 'hover:text-pink-600' },
   clientes: { cor: 'text-sky-500', corAtiva: 'text-sky-600', corHover: 'hover:text-sky-600' },
   fornecedores: { cor: 'text-violet-500', corAtiva: 'text-violet-600', corHover: 'hover:text-violet-600' },
-  // 🔥 ADICIONAR TRANSPORTADORAS - COR CIANO
   transportadoras: { cor: 'text-cyan-500', corAtiva: 'text-cyan-600', corHover: 'hover:text-cyan-600' },
   financeiro: { cor: 'text-yellow-500', corAtiva: 'text-yellow-600', corHover: 'hover:text-yellow-600' },
   configuracoes: { cor: 'text-slate-500', corAtiva: 'text-slate-600', corHover: 'hover:text-slate-600' },
@@ -143,7 +145,7 @@ export const Header: React.FC<HeaderProps> = ({
     minute: '2-digit'
   });
 
-  // 🔥 MESMA ORDEM DO SIDEBAR - COM FORNECEDORES E TRANSPORTADORAS
+  // 🔥 MESMA ORDEM DO SIDEBAR - COM FORNECEDORES, TRANSPORTADORAS E MDF-e
   const ferramentas = [
     // GERAL
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
@@ -154,6 +156,8 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'nfce-emissor', label: 'NFC-e', icon: ShoppingBag },
     { id: 'cte-emissor', label: 'CT-e', icon: Truck },
     { id: 'nfae-emissor', label: 'NFA-e', icon: FileBadge2 },
+    // 🔥 NOVO - MDF-e (Após NFA-e, antes de Documentos)
+    { id: 'mdfe-emissor', label: 'MDF-e', icon: FileArchive },
     { id: 'documentos-fiscais', label: 'Docs', icon: FolderOpen },
     
     // CADASTROS
@@ -161,7 +165,6 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'servicos', label: 'Serviços', icon: Briefcase },
     { id: 'clientes', label: 'Clientes', icon: UserPlus },
     { id: 'fornecedores', label: 'Fornecedores', icon: UserCheck },
-    // 🔥 ADICIONAR TRANSPORTADORAS NO ARRAY FERRAMENTAS
     { id: 'transportadoras', label: 'Transportadoras', icon: Truck },
     
     // FINANCEIRO & CONFIG

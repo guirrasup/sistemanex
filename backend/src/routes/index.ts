@@ -13,6 +13,7 @@ import nfceRoutes from './nfce.routes';
 import cteRoutes from './cte.routes';        
 import nfaeRoutes from './nfae.routes';      
 import transportadoraRoutes from './transportadora.routes';
+import mdfeRoutes from './mdfe.routes';
 
 const router = Router();
 
@@ -24,7 +25,8 @@ router.use('/nfse', nfseRoutes);
 router.use('/nfe', nfeRoutes);
 router.use('/nfce', nfceRoutes);      
 router.use('/cte', cteRoutes);        
-router.use('/nfae', nfaeRoutes);      
+router.use('/nfae', nfaeRoutes);  
+router.use('/mdfe', mdfeRoutes);    
 
 // 🔥 ROTAS DE CADASTRO
 router.use('/produtos', produtoRoutes);

@@ -1,5 +1,5 @@
 // C:\emissornfe\src\App.tsx
-// ✅ VERSÃO COMPLETA E ATUALIZADA
+// ✅ VERSÃO COMPLETA E ATUALIZADA - COM MDF-e
 
 /**
  * @license
@@ -18,6 +18,9 @@ import { NfeEmissor } from './components/fiscal/NfeEmissor';
 import { NfceEmissor } from './components/fiscal/NfceEmissor';
 import { CteEmissor } from './components/fiscal/CteEmissor';
 import { NfaeEmissor } from './components/fiscal/NfaeEmissor';
+// 🔥 NOVO - MDF-e
+import { MdfeEmissor } from './components/fiscal/MdfeEmissor';
+import { DamdfeViewer } from './components/fiscal/DamdfeViewer';
 import { DocumentosFiscaisList } from './components/fiscal/DocumentosFiscaisList';
 import { DanfseViewer } from './components/fiscal/DanfseViewer';
 import { DanfeViewer } from './components/fiscal/DanfeViewer';
@@ -35,6 +38,8 @@ import { ConsultaCnpjView } from './components/tools/ConsultaCnpjView';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { StorageService } from './utils/storage';
 import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento } from './types/fiscal';
+// 🔥 NOVO - MDF-e types
+import { MDFeDocumento } from './types/mdfe';
 import { Produto, ClienteFornecedor, ServicoCatalogo, TituloFinanceiro, ConfiguracaoEmpresa, UsuarioAuth } from './types/erp';
 import { produtosService } from './services/produtos.service';
 import { clientesService } from './services/clientes.service';
@@ -45,6 +50,8 @@ import { nfseService } from './services/nfse.service';
 import { nfceService } from './services/nfce.service';
 import { cteService } from './services/cte.service';
 import { nfaeService } from './services/nfae.service';
+// 🔥 NOVO - MDF-e service
+import { mdfeService } from './services/mdfe.service';
 import { transportadoraService, Transportadora } from './services/transportadora.service';
 import { LoadingDinamico } from './components/ui/LoadingDinamico';
 import api from './services/api';
@@ -60,6 +67,8 @@ interface CacheData {
   nfces: NFCeDocumento[];
   ctes: CTeDocumento[];
   nfaes: NFAeDocumento[];
+  // 🔥 NOVO - MDF-e
+  mdfes: MDFeDocumento[];
   transportadoras: Transportadora[];
   timestamp: number;
 }
@@ -100,6 +109,8 @@ export default function App() {
   const [nfces, setNfces] = useState<NFCeDocumento[]>([]);
   const [ctes, setCtes] = useState<CTeDocumento[]>([]);
   const [nfaes, setNfaes] = useState<NFAeDocumento[]>([]);
+  // 🔥 NOVO - MDF-e
+  const [mdfes, setMdfes] = useState<MDFeDocumento[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [clientes, setClientes] = useState<ClienteFornecedor[]>([]);
   const [servicos, setServicos] = useState<ServicoCatalogo[]>([]);
@@ -112,6 +123,8 @@ export default function App() {
   const [viewingDanfce, setViewingDanfce] = useState<NFCeDocumento | null>(null);
   const [viewingDacte, setViewingDacte] = useState<CTeDocumento | null>(null);
   const [viewingDanfae, setViewingDanfae] = useState<NFAeDocumento | null>(null);
+  // 🔥 NOVO - MDF-e Viewer
+  const [viewingMdfe, setViewingMdfe] = useState<MDFeDocumento | null>(null);
 
   // 🔥 CONTROLE DE REQUISIÇÕES
   const isRefreshing = useRef(false);
@@ -146,6 +159,8 @@ export default function App() {
         setNfces(cache.nfces || []);
         setCtes(cache.ctes || []);
         setNfaes(cache.nfaes || []);
+        // 🔥 NOVO - MDF-e
+        setMdfes(cache.mdfes || []);
         setTransportadoras(cache.transportadoras || []);
         console.log('✅ Cache aplicado com sucesso!');
         return;
@@ -178,6 +193,7 @@ export default function App() {
         setNfces(StorageService.getNfces() || []);
         setCtes(StorageService.getCtes() || []);
         setNfaes(StorageService.getNfaes() || []);
+        setMdfes([]);
         setTransportadoras([]);
         setCarregando(false);
         console.log('✅ Dados carregados do cache local');
@@ -196,6 +212,8 @@ export default function App() {
         nfceService.listar(1, 100),
         cteService.listar(1, 100),
         nfaeService.listar(1, 100),
+        // 🔥 NOVO - MDF-e
+        mdfeService.listar(1, 100),
         transportadoraService.listar(1, 100),
       ];
 
@@ -206,7 +224,7 @@ export default function App() {
       console.log('📊 ===== RESULTADOS DAS REQUISIÇÕES =====');
       let hasError = false;
       
-      const serviceNames = ['produtos', 'clientes', 'servicos', 'financeiro', 'nfse', 'nfe', 'nfce', 'cte', 'nfae', 'transportadoras'];
+      const serviceNames = ['produtos', 'clientes', 'servicos', 'financeiro', 'nfse', 'nfe', 'nfce', 'cte', 'nfae', 'mdfe', 'transportadoras'];
       
       results.forEach((result, index) => {
         const name = serviceNames[index];
@@ -225,19 +243,16 @@ export default function App() {
         console.warn('⚠️ Algumas requisições falharam, mas continuando...');
       }
 
-const getData = (result: PromiseSettledResult<any>, index: number) => {
-  if (result.status === 'fulfilled') {
-    const value = result.value;
-    // 🔥 CORREÇÃO: Extrai os dados do envelope correto
-    // A API retorna { sucesso: true, dados: { data: [...], total: X, ... } }
-    // Ou diretamente { data: [...], total: X, ... }
-    const data = value?.dados?.data || value?.data || [];
-    console.log(`📦 getData ${serviceNames[index]}:`, Array.isArray(data) ? data.length : 0);
-    return { data: Array.isArray(data) ? data : [] };
-  }
-  console.warn(`⚠️ Rota ${serviceNames[index]} falhou, retornando array vazio`);
-  return { data: [] };
-};
+      const getData = (result: PromiseSettledResult<any>, index: number) => {
+        if (result.status === 'fulfilled') {
+          const value = result.value;
+          const data = value?.dados?.data || value?.data || [];
+          console.log(`📦 getData ${serviceNames[index]}:`, Array.isArray(data) ? data.length : 0);
+          return { data: Array.isArray(data) ? data : [] };
+        }
+        console.warn(`⚠️ Rota ${serviceNames[index]} falhou, retornando array vazio`);
+        return { data: [] };
+      };
 
       const [
         produtosResult,
@@ -249,6 +264,8 @@ const getData = (result: PromiseSettledResult<any>, index: number) => {
         nfcesResult,
         ctesResult,
         nfaesResult,
+        // 🔥 NOVO - MDF-e
+        mdfesResult,
         transportadorasResult
       ] = results.map((r, i) => getData(r, i));
 
@@ -264,6 +281,8 @@ const getData = (result: PromiseSettledResult<any>, index: number) => {
         nfces: nfcesResult.data || [],
         ctes: ctesResult.data || [],
         nfaes: nfaesResult.data || [],
+        // 🔥 NOVO - MDF-e
+        mdfes: mdfesResult.data || [],
         transportadoras: transportadorasResult.data || [],
         timestamp: Date.now()
       };
@@ -279,6 +298,8 @@ const getData = (result: PromiseSettledResult<any>, index: number) => {
       setNfces(cacheData.nfces || []);
       setCtes(cacheData.ctes || []);
       setNfaes(cacheData.nfaes || []);
+      // 🔥 NOVO - MDF-e
+      setMdfes(cacheData.mdfes || []);
       setTransportadoras(cacheData.transportadoras);
       setEmpresa(empresaConfig);
 
@@ -298,6 +319,7 @@ const getData = (result: PromiseSettledResult<any>, index: number) => {
       console.log(`   NFC-e: ${cacheData.nfces.length}`);
       console.log(`   CT-e: ${cacheData.ctes.length}`);
       console.log(`   NFA-e: ${cacheData.nfaes.length}`);
+      console.log(`   MDF-e: ${cacheData.mdfes.length}`); // 🔥 NOVO
       console.log(`   Transportadoras: ${cacheData.transportadoras.length}`);
 
     } catch (error: any) {
@@ -314,6 +336,7 @@ const getData = (result: PromiseSettledResult<any>, index: number) => {
       setNfces(StorageService.getNfces() || []);
       setCtes(StorageService.getCtes() || []);
       setNfaes(StorageService.getNfaes() || []);
+      setMdfes([]);
       setTransportadoras([]);
     } finally {
       setCarregando(false);
@@ -360,6 +383,7 @@ const getData = (result: PromiseSettledResult<any>, index: number) => {
     setNfces([]);
     setCtes([]);
     setNfaes([]);
+    setMdfes([]);
     setTransportadoras([]);
     cacheRef.current = null;
   };
@@ -391,6 +415,11 @@ const getData = (result: PromiseSettledResult<any>, index: number) => {
     refreshData(true);
   };
   const handleNfaeEmitida = () => {
+    cacheRef.current = null;
+    refreshData(true);
+  };
+  // 🔥 NOVO - MDF-e
+  const handleMdfeEmitido = () => {
     cacheRef.current = null;
     refreshData(true);
   };
@@ -486,6 +515,8 @@ const getData = (result: PromiseSettledResult<any>, index: number) => {
               nfceCount: nfces.length,
               cteCount: ctes.length,
               nfaeCount: nfaes.length,
+              // 🔥 NOVO - MDF-e
+              mdfeCount: mdfes.length,
               produtosCount: produtos.length,
               clientesCount: apenasClientes.length,
               fornecedoresCount: apenasFornecedores.length,
@@ -562,6 +593,16 @@ const getData = (result: PromiseSettledResult<any>, index: number) => {
                 />
               )}
 
+              {/* 🔥 NOVO - MDF-e */}
+              {currentView === 'mdfe-emissor' && (
+                <MdfeEmissor
+                  empresa={empresa}
+                  clientes={clientes}
+                  onMdfeEmitido={handleMdfeEmitido}
+                  onViewMdfe={(doc) => setViewingMdfe(doc)}
+                />
+              )}
+
               {currentView === 'documentos-fiscais' && (
                 <DocumentosFiscaisList
                   nfses={nfses}
@@ -579,6 +620,8 @@ const getData = (result: PromiseSettledResult<any>, index: number) => {
                   onEmitirNovaNfce={() => setCurrentView('nfce-emissor')}
                   onEmitirNovoCte={() => setCurrentView('cte-emissor')}
                   onEmitirNovaNfae={() => setCurrentView('nfae-emissor')}
+                  // 🔥 NOVO - MDF-e
+                  onEmitirNovoMdfe={() => setCurrentView('mdfe-emissor')}
                 />
               )}
 
@@ -707,6 +750,18 @@ const getData = (result: PromiseSettledResult<any>, index: number) => {
               <DanfaeViewer
                 nfae={viewingDanfae}
                 onBack={() => setViewingDanfae(null)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 🔥 NOVO - MDF-e Viewer */}
+        {viewingMdfe && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 relative">
+              <DamdfeViewer
+                mdfe={viewingMdfe}
+                onClose={() => setViewingMdfe(null)}
               />
             </div>
           </div>

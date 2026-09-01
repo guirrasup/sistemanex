@@ -14,6 +14,7 @@ import {
   ShoppingBag,
   Truck,
   FileBadge2,
+  FileArchive, // 🔥 NOVO - MDF-e
   Search,
   UserPlus,
   UserCheck,
@@ -32,12 +33,13 @@ interface SidebarProps {
     nfceCount?: number;
     cteCount?: number;
     nfaeCount?: number;
+    mdfeCount?: number; // 🔥 NOVO
     produtosCount?: number;
     clientesCount?: number;
     fornecedoresCount?: number;
     servicosCount?: number;
     titulosPendentesCount?: number;
-    transportadorasCount?: number; // 🔥 ADICIONAR
+    transportadorasCount?: number;
   };
   onMenuToggle?: () => void;
 }
@@ -51,11 +53,12 @@ const coresMenu: Record<string, { ativo: string; icone: string; badge: string; h
   'nfce-emissor': { ativo: 'bg-purple-50 text-purple-700', icone: 'text-purple-500', badge: 'bg-purple-100 text-purple-700', hover: 'hover:bg-purple-50' },
   'cte-emissor': { ativo: 'bg-cyan-50 text-cyan-700', icone: 'text-cyan-500', badge: 'bg-cyan-100 text-cyan-700', hover: 'hover:bg-cyan-50' },
   'nfae-emissor': { ativo: 'bg-amber-50 text-amber-700', icone: 'text-amber-500', badge: 'bg-amber-100 text-amber-700', hover: 'hover:bg-amber-50' },
+  // 🔥 NOVO - MDF-e (COR LARANJA)
+  'mdfe-emissor': { ativo: 'bg-orange-50 text-orange-700', icone: 'text-orange-500', badge: 'bg-orange-100 text-orange-700', hover: 'hover:bg-orange-50' },
   produtos: { ativo: 'bg-green-50 text-green-700', icone: 'text-green-500', badge: 'bg-green-100 text-green-700', hover: 'hover:bg-green-50' },
   servicos: { ativo: 'bg-pink-50 text-pink-700', icone: 'text-pink-500', badge: 'bg-pink-100 text-pink-700', hover: 'hover:bg-pink-50' },
   clientes: { ativo: 'bg-sky-50 text-sky-700', icone: 'text-sky-500', badge: 'bg-sky-100 text-sky-700', hover: 'hover:bg-sky-50' },
   fornecedores: { ativo: 'bg-violet-50 text-violet-700', icone: 'text-violet-500', badge: 'bg-violet-100 text-violet-700', hover: 'hover:bg-violet-50' },
-  // 🔥 ADICIONAR TRANSPORTADORAS - COR CIANO (MESMA DO CT-e)
   transportadoras: { ativo: 'bg-cyan-50 text-cyan-700', icone: 'text-cyan-500', badge: 'bg-cyan-100 text-cyan-700', hover: 'hover:bg-cyan-50' },
   financeiro: { ativo: 'bg-yellow-50 text-yellow-700', icone: 'text-yellow-500', badge: 'bg-yellow-100 text-yellow-700', hover: 'hover:bg-yellow-50' },
   configuracoes: { ativo: 'bg-slate-50 text-slate-700', icone: 'text-slate-500', badge: 'bg-slate-100 text-slate-700', hover: 'hover:bg-slate-50' },
@@ -107,7 +110,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     (contadores.nfeCount || 0) + 
     (contadores.nfceCount || 0) + 
     (contadores.cteCount || 0) + 
-    (contadores.nfaeCount || 0);
+    (contadores.nfaeCount || 0) + 
+    (contadores.mdfeCount || 0); // 🔥 ADICIONAR MDF-e
 
   const menuGrupos = [
     {
@@ -124,6 +128,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'nfce-emissor', label: 'NFC-e (Consumidor)', icon: ShoppingBag },
         { id: 'cte-emissor', label: 'CT-e (Transporte)', icon: Truck },
         { id: 'nfae-emissor', label: 'NFA-e (Avulsa)', icon: FileBadge2 },
+        // 🔥 NOVO - MDF-e (Após NFA-e, antes de Documentos)
+        { id: 'mdfe-emissor', label: 'MDF-e (Manifesto)', icon: FileArchive, badgeCount: contadores.mdfeCount || 0 },
         { id: 'documentos-fiscais', label: 'Documentos Emitidos', icon: Files, badgeCount: totalNotas },
       ],
     },
@@ -134,7 +140,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'servicos', label: 'Serviços', icon: Briefcase, badgeCount: contadores.servicosCount },
         { id: 'clientes', label: 'Clientes', icon: UserPlus, badgeCount: contadores.clientesCount },
         { id: 'fornecedores', label: 'Fornecedores', icon: UserCheck, badgeCount: contadores.fornecedoresCount },
-        // 🔥 ADICIONAR TRANSPORTADORAS NO GRUPO CADASTROS
         { id: 'transportadoras', label: 'Transportadoras', icon: Truck, badgeCount: contadores.transportadorasCount },
       ],
     },

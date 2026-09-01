@@ -16,6 +16,8 @@ import servicoRoutes from './routes/servico.routes';
 import nfceRoutes from './routes/nfce.routes';
 import cteRoutes from './routes/cte.routes';
 import nfaeRoutes from './routes/nfae.routes';
+import mdfeRoutes from './routes/mdfe.routes';
+
 import dashboardRoutes from './routes/dashboard.routes'; 
 import { errorMiddleware } from './middlewares/error.middleware';
 import transportadoraRoutes from './routes/transportadora.routes';
@@ -79,6 +81,7 @@ app.use('/api/transportadoras', dataLimiter, transportadoraRoutes);
 app.use('/api/nfce', dataLimiter, nfceRoutes);
 app.use('/api/cte', dataLimiter, cteRoutes);
 app.use('/api/nfae', dataLimiter, nfaeRoutes);
+app.use('/api/mdfe', dataLimiter, mdfeRoutes);
 
 // Dashboard
 app.use('/api/dashboard', dataLimiter, dashboardRoutes);
