@@ -421,74 +421,218 @@ model Servico {
 }
 
 // ============================================
-// NFSe
+// NFS-e - NOTA FISCAL DE SERVIÇOS ELETRÔNICA
+// PADRÃO NACIONAL v1.01 - COMPLETO
 // ============================================
 
 model NFSe {
   id                    String    @id @default(cuid())
+  
+  // === IDENTIFICAÇÃO DA NFS-e ===
   chaveAcesso           String    @unique @db.Char(53)
   numeroNfse            Int
   serieDPS              Int       @default(1)
   numeroDPS             Int
+  codigoVerificacao     String    @db.Char(9)
+  
+  // === DATAS ===
   dataCompetencia       DateTime
   dataHoraEmissao       DateTime
   dataHoraProcessamento DateTime
-  codigoVerificacao     String    @db.Char(9)
+  
+  // === AMBIENTE E EMISSÃO ===
   ambiente              TipoAmbiente @default(PRODUCAO)
   tipoEmissao           String    @default("1") @db.Char(1)
   status                StatusDocumento @default(PROCESSANDO)
-  valorTotalServicos    Decimal   @db.Decimal(15, 4)
-  valorTotalDescontos   Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalDeducoes    Decimal   @db.Decimal(15, 4) @default(0)
-  baseCalculoISS        Decimal   @db.Decimal(15, 4)
-  valorTotalISS         Decimal   @db.Decimal(15, 4)
-  valorTotalISSRetido   Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalRetencoesFed Decimal  @db.Decimal(15, 4) @default(0)
-  valorTotalIBS         Decimal   @db.Decimal(15, 4) @default(0)
-  valorTotalCBS         Decimal   @db.Decimal(15, 4) @default(0)
-  valorLiquidoNfse      Decimal   @db.Decimal(15, 4)
-  valorTotalNotaFinal   Decimal   @db.Decimal(15, 4)
-  indISS                String    @default("1") @db.Char(1)
-  indIncentivo          String    @default("2") @db.Char(1)
-  informacoesComplementares String?
-  numeroPedido          String?
-  motivoCancelamento    String?
+  
+  // === DADOS DO PRESTADOR (EMITENTE) ===
+  prestadorCnpj         String    @db.Char(14)
+  prestadorInscricaoMunicipal String
+  prestadorRazaoSocial  String
+  prestadorNomeFantasia String?
+  prestadorRegimeTributario Int    @default(1)        // 1=Simples, 2=Normal
+  prestadorOptanteSimples Boolean @default(true)
+  prestadorRegimeEspecial String? @db.Char(1)
+  
+  // === ENDEREÇO DO PRESTADOR ===
+  prestadorLogradouro   String
+  prestadorNumero       String
+  prestadorComplemento  String?
+  prestadorBairro       String
+  prestadorCodigoMunicipio String @db.Char(7)
+  prestadorNomeMunicipio String
+  prestadorUf           String   @db.Char(2)
+  prestadorCep          String   @db.Char(9)
+  prestadorTelefone     String?
+  prestadorEmail        String?
+  
+  // === DADOS DO TOMADOR ===
+  tomadorTipoPessoa     String   @db.Char(2)          // PF, PJ, EX
+  tomadorDocumento      String   @db.VarChar(14)
+  tomadorRazaoSocial    String
+  tomadorNomeFantasia   String?
+  tomadorInscricaoMunicipal String?
+  tomadorInscricaoEstadual String?
+  tomadorIndicadorIE    String   @default("9") @db.Char(1) // 1=Contribuinte, 2=Isento, 9=Não contribuinte
+  tomadorEmail          String?
+  tomadorTelefone       String?
+  
+  // === ENDEREÇO DO TOMADOR ===
+  tomadorLogradouro     String
+  tomadorNumero         String
+  tomadorComplemento    String?
+  tomadorBairro         String
+  tomadorCodigoMunicipio String @db.Char(7)
+  tomadorNomeMunicipio  String
+  tomadorUf             String   @db.Char(2)
+  tomadorCep            String   @db.Char(9)
+  tomadorCodigoPais     String?  @db.Char(4)
+  tomadorNomePais       String?
+  
+  // === DADOS DO SERVIÇO ===
+  codigoTributacaoNacional String @db.Char(6)
+  codigoTributacaoMunicipal String @db.Char(4)
+  descricaoServico      String   @db.VarChar(2000)
+  codigoNBS             String   @db.VarChar(15)
+  codigoInterno         String?
+  
+  // === LOCAL DA PRESTAÇÃO ===
+  localPrestacaoCodigoMunicipio String @db.Char(7)
+  localPrestacaoNomeMunicipio String
+  localPrestacaoUf     String   @db.Char(2)
+  
+  // === VALORES DO SERVIÇO ===
+  valorServico          Decimal  @db.Decimal(15, 4)
+  descontoIncondicionado Decimal  @db.Decimal(15, 4) @default(0)
+  descontoCondicionado  Decimal  @db.Decimal(15, 4) @default(0)
+  deducoesMateriais     Decimal  @db.Decimal(15, 4) @default(0)
+  
+  // === TRIBUTAÇÃO ISSQN ===
+  tributacaoISSQN       Int      @default(1)           // 1=Tributável, 2=Imune, 3=Exportação, 4=Não Incidência
+  aliquotaISS           Decimal  @db.Decimal(5, 2)
+  baseCalculoISS        Decimal  @db.Decimal(15, 4)
+  valorISS              Decimal  @db.Decimal(15, 4)
+  tipoRetencaoISS       Int      @default(1)           // 1=Não Retido, 2=Retido Tomador, 3=Retido Intermediário
+  valorISSRetido        Decimal  @db.Decimal(15, 4) @default(0)
+  
+  // === RETENÇÕES FEDERAIS ===
+  aliquotaPIS           Decimal  @db.Decimal(7, 4) @default(0)
+  valorPIS              Decimal  @db.Decimal(15, 4) @default(0)
+  retidoPIS             Boolean  @default(false)
+  
+  aliquotaCOFINS        Decimal  @db.Decimal(7, 4) @default(0)
+  valorCOFINS           Decimal  @db.Decimal(15, 4) @default(0)
+  retidoCOFINS          Boolean  @default(false)
+  
+  aliquotaIRRF          Decimal  @db.Decimal(5, 2) @default(0)
+  valorIRRF             Decimal  @db.Decimal(15, 4) @default(0)
+  
+  aliquotaCSLL          Decimal  @db.Decimal(5, 2) @default(0)
+  valorCSLL             Decimal  @db.Decimal(15, 4) @default(0)
+  
+  aliquotaINSS          Decimal  @db.Decimal(5, 2) @default(0)
+  valorINSS             Decimal  @db.Decimal(15, 4) @default(0)
+  
+  valorTotalRetencoesFederais Decimal @db.Decimal(15, 4) @default(0)
+  
+  // === IBS/CBS (Reforma 2026) ===
+  // IBS - UF
+  aliquotaIBSUF         Decimal  @db.Decimal(7, 4) @default(0.05)
+  valorIBSUF            Decimal  @db.Decimal(15, 4) @default(0)
+  
+  // IBS - Municipal
+  aliquotaIBSMun        Decimal  @db.Decimal(7, 4) @default(0.05)
+  valorIBSMun           Decimal  @db.Decimal(15, 4) @default(0)
+  valorTotalIBS         Decimal  @db.Decimal(15, 4) @default(0)
+  
+  // CBS
+  aliquotaCBS           Decimal  @db.Decimal(7, 4) @default(0.90)
+  valorCBS              Decimal  @db.Decimal(15, 4) @default(0)
+  
+  // === TOTAIS ===
+  valorTotalServicos    Decimal  @db.Decimal(15, 4)
+  valorTotalDescontos   Decimal  @db.Decimal(15, 4) @default(0)
+  valorTotalDeducoes    Decimal  @db.Decimal(15, 4) @default(0)
+  valorTotalISS         Decimal  @db.Decimal(15, 4)
+  valorTotalISSRetido   Decimal  @db.Decimal(15, 4) @default(0)
+  valorLiquidoNfse      Decimal  @db.Decimal(15, 4)
+  valorTotalNotaFinal   Decimal  @db.Decimal(15, 4)
+  
+  // === PAGAMENTO VINCULADO ===
+  pagamentoNumero       Int?
+  pagamentoIdTransacao  String?  @db.VarChar(50)
+  pagamentoTipoMeio     String?  @db.VarChar(10)
+  pagamentoCnpjRecebedor String? @db.Char(14)
+  pagamentoCnpjBasePSP  String?  @db.VarChar(8)
+  
+  // === INFORMAÇÕES ADICIONAIS ===
+  informacoesComplementares String? @db.VarChar(2000)
+  numeroPedido           String?  @db.VarChar(30)
+  urlVisualizacaoNacional String?
+  
+  // === INDICADORES ===
+  indISS                String   @default("1") @db.Char(1)
+  indIncentivo          String   @default("2") @db.Char(1)
+  
+  // === PROTOCOLOS E STATUS ===
+  protocoloAutorizacao  String?  @db.VarChar(15)
+  dataHoraAutorizacao   DateTime?
+  motivoCancelamento    String?  @db.VarChar(255)
   dataHoraCancelamento  DateTime?
-  chaveNfseSubstituta   String?
-  xmlAssinado           String    @db.Text
-  urlVisualizacao       String?
+  chaveNfseSubstituta   String?  @db.Char(53)
+  motivoRejeicao        String?  @db.VarChar(500)
+  dataHoraRejeicao      DateTime?
+  
+  // === XMLs ===
+  xmlAssinado           String   @db.Text
+  xmlRetorno            String?  @db.Text
+  xmlDPS                String?  @db.Text
+  xmlCNC                String?  @db.Text
+  
+  // === CONTROLE ===
+  enviadoEm             DateTime?
+  enviadoPor            String?
+  ipEnvio               String?  @db.VarChar(45)
+  
+  // === RELACIONAMENTOS ===
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
-  tomadorId             String
-  tomador               Cliente   @relation("NFSeTomador", fields: [tomadorId], references: [id])
-  servicoId             String
-  servico               Servico   @relation(fields: [servicoId], references: [id])
-  tributacaoISSQN       String    @default("1") @db.Char(1)
-  tipoRetencaoISS       String    @default("1") @db.Char(1)
-  aliquotaISS           Decimal   @db.Decimal(5, 2)
-  valorISS              Decimal   @db.Decimal(15, 4)
-  aliquotaPIS           Decimal?  @db.Decimal(7, 4)
-  valorPIS              Decimal?  @db.Decimal(15, 4)
-  retidoPIS             Boolean   @default(false)
-  aliquotaCOFINS        Decimal?  @db.Decimal(7, 4)
-  valorCOFINS           Decimal?  @db.Decimal(15, 4)
-  retidoCOFINS          Boolean   @default(false)
-  aliquotaIRRF          Decimal?  @db.Decimal(5, 2)
-  valorIRRF             Decimal?  @db.Decimal(15, 4)
-  aliquotaCSLL          Decimal?  @db.Decimal(5, 2)
-  valorCSLL             Decimal?  @db.Decimal(15, 4)
-  aliquotaINSS          Decimal?  @db.Decimal(5, 2)
-  valorINSS             Decimal?  @db.Decimal(15, 4)
-  aliquotaIBSUF         Decimal   @db.Decimal(7, 4) @default(0.05)
-  valorIBSUF            Decimal   @db.Decimal(15, 4) @default(0)
-  aliquotaIBSMun        Decimal   @db.Decimal(7, 4) @default(0.05)
-  valorIBSMun           Decimal   @db.Decimal(15, 4) @default(0)
-  aliquotaCBS           Decimal   @db.Decimal(7, 4) @default(0.90)
-  valorCBS              Decimal   @db.Decimal(15, 4) @default(0)
+  tomadorId             String?
+  tomador               Cliente?  @relation("NFSeTomador", fields: [tomadorId], references: [id])
+  servicoId             String?
+  servico               Servico?  @relation(fields: [servicoId], references: [id])
+  historicoStatus       HistoricoStatusNFSe[]
+  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
   @@map("nfses")
+  @@index([empresaId])
+  @@index([chaveAcesso])
+  @@index([status])
+  @@index([tomadorId])
+  @@index([dataHoraEmissao])
+  @@index([protocoloAutorizacao])
+  @@index([numeroNfse, serieDPS])
+}
+
+// ============================================
+// HISTÓRICO DE STATUS NFS-e
+// ============================================
+
+model HistoricoStatusNFSe {
+  id                    String    @id @default(cuid())
+  nfseId                String
+  nfse                  NFSe      @relation(fields: [nfseId], references: [id])
+  statusAnterior        StatusDocumento
+  statusNovo            StatusDocumento
+  dataHora              DateTime  @default(now())
+  usuario               String
+  motivo                String?   @db.VarChar(500)
+  createdAt             DateTime  @default(now())
+
+  @@map("historico_status_nfse")
+  @@index([nfseId])
 }
 
 // ============================================
@@ -1463,99 +1607,275 @@ model ProcessoReferenciado {
 }
 
 // ============================================
-// NFCe
+// NFCe - NOTA FISCAL DE CONSUMIDOR ELETRÔNICA
+// LEIAUTE 4.00 - COMPLETO
 // ============================================
 
 model NFCe {
   id                    String    @id @default(cuid())
+  
+  // === IDENTIFICAÇÃO (ide) ===
   modelo                String    @default("65") @db.Char(2)
   serie                 Int
   numero                Int
   chaveAcesso           String    @unique @db.Char(44)
   dataHoraEmissao       DateTime
-  naturezaOperacao      String    @default("Venda a Consumidor Final")
+  
+  // === DADOS DA OPERAÇÃO ===
+  naturezaOperacao      String    @default("Venda a Consumidor Final") @db.VarChar(60)
+  tpNF                  Int       @default(1)           // 0=Entrada, 1=Saída
+  idDest                Int       @default(1)           // 1=Interna, 2=Interestadual, 3=Exterior
+  finNFe                Int       @default(1)           // 1=Normal, 2=Complementar, 3=Ajuste, 4=Devolução
+  indFinal              Int       @default(1)           // 0=Não consumidor final, 1=Consumidor final
+  indPres               Int       @default(2)           // 0=Não se aplica, 1=Presencial, 2=Não presencial, 3=Internet, 4=Teleatendimento, 5=NFC-e entrega, 9=Presencial fora
+  
+  // === AMBIENTE E EMISSÃO ===
   ambiente              TipoAmbiente @default(PRODUCAO)
-  tipoEmissao           String    @default("1") @db.Char(1)
+  tipoEmissao           String    @default("1") @db.Char(1)  // 1=Normal, 2=Contingência, 3=Regime Especial, 4=SCAN, 5=SVC, 6=SVC_RS, 7=SVC_PR, 9=Off-line
+  procEmi               String    @default("0") @db.Char(1)  // 0=Aplicativo contribuinte, 1=Avulsa, 2=Avulsa Fisco, 4=PAA
+  verProc               String    @default("SUP-TECNOLOGIA-4.00") @db.VarChar(20)
+  
+  // === STATUS ===
   status                StatusDocumento @default(PROCESSANDO)
+  
+  // === CONSUMIDOR ===
   consumidorIdentificado Boolean  @default(false)
-  consumidorCpfCnpj     String?
-  consumidorNome        String?
-  consumidorEmail       String?
+  consumidorCpfCnpj     String?   @db.VarChar(14)
+  consumidorNome        String?   @db.VarChar(60)
+  consumidorEmail       String?   @db.VarChar(60)
+  consumidorTelefone    String?   @db.VarChar(14)
+  
+  // === ENDEREÇO DO CONSUMIDOR ===
+  consumidorLogradouro  String?   @db.VarChar(60)
+  consumidorNumero      String?   @db.VarChar(60)
+  consumidorComplemento String?   @db.VarChar(60)
+  consumidorBairro      String?   @db.VarChar(60)
+  consumidorCodigoMunicipio String? @db.Char(7)
+  consumidorNomeMunicipio String? @db.VarChar(60)
+  consumidorUf          String?   @db.Char(2)
+  consumidorCep         String?   @db.Char(9)
+  consumidorCodigoPais  String?   @db.Char(4)
+  consumidorNomePais    String?   @db.VarChar(60)
+  
+  // === VALORES TOTAIS ===
   valorTotalProdutos    Decimal   @db.Decimal(15, 4)
   valorTotalDesconto    Decimal   @db.Decimal(15, 4) @default(0)
   valorTotalAcrescimo   Decimal   @db.Decimal(15, 4) @default(0)
   valorTotalTributosAprox Decimal @db.Decimal(15, 4) @default(0)
   valorTotalNota        Decimal   @db.Decimal(15, 4)
+  
+  // === PAGAMENTO ===
+  formaPagamento        String    @default("17") @db.Char(2)
   valorPago             Decimal   @db.Decimal(15, 4)
   valorTroco            Decimal   @db.Decimal(15, 4) @default(0)
+  
+  // === QR CODE ===
   urlQrCode             String?
-  tokenCscId            String?
+  tokenCscId            String?   @db.VarChar(6)
+  
+  // === INFORMAÇÕES ADICIONAIS ===
+  infAdFisco            String?   @db.VarChar(2000)
+  infCpl                String?   @db.VarChar(5000)
+  
+  // === PROTOCOLOS ===
   protocoloAutorizacao  String?   @db.Char(17)
   dataHoraAutorizacao   DateTime?
-  motivoCancelamento    String?
+  motivoCancelamento    String?   @db.VarChar(255)
   dataHoraCancelamento  DateTime?
+  motivoRejeicao        String?   @db.VarChar(500)
+  dataHoraRejeicao      DateTime?
+  
+  // === XML ===
   xmlAssinado           String    @db.Text
+  xmlRetorno            String?   @db.Text
+  
+  // === CONTROLE ===
+  enviadoEm             DateTime?
+  enviadoPor            String?
+  ipEnvio               String?   @db.VarChar(45)
+  
+  // === RELACIONAMENTOS ===
   empresaId             String
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
   consumidorId          String?
   consumidor            Cliente?  @relation("NFCeConsumidor", fields: [consumidorId], references: [id])
   itens                 ItemNFCe[]
   pagamentos            PagamentoNFCe[]
+  historicoStatus       HistoricoStatusNFCe[]
+  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
   @@map("nfces")
+  @@index([empresaId])
+  @@index([chaveAcesso])
+  @@index([status])
+  @@index([consumidorId])
+  @@index([dataHoraEmissao])
+  @@index([protocoloAutorizacao])
+  @@index([numero, serie])
 }
+
+// ============================================
+// ITEM NFC-e
+// ============================================
 
 model ItemNFCe {
   id                    String    @id @default(cuid())
+  
+  // === IDENTIFICAÇÃO DO PRODUTO ===
   codigoProduto         String
-  descricao             String
+  descricao             String    @db.VarChar(120)
   ncm                   String    @db.Char(8)
   cest                  String?   @db.Char(7)
   cfop                  String    @db.Char(4)
-  unidadeMedida         String    @default("UN")
+  unidadeMedida         String    @default("UN") @db.VarChar(6)
   quantidade            Decimal   @db.Decimal(15, 4)
   valorUnitario         Decimal   @db.Decimal(15, 4)
   valorTotalBruto       Decimal   @db.Decimal(15, 4)
+  
+  // === GTIN ===
+  codigoEAN             String?   @db.VarChar(14)
+  codigoEANTrib         String?   @db.VarChar(14)
+  cBarra                String?   @db.VarChar(30)
+  cBarraTrib            String?   @db.VarChar(30)
+  
+  // === ORIGEM ===
+  origemMercadoria      Int       @default(0)             // 0=Nacional, 1=Estrangeira, 2=Estrangeira mercado interno
+  
+  // === ICMS ===
   cstICMS               String    @default("00") @db.Char(2)
+  csosnICMS             String?   @db.Char(3)
+  modBC                 String?   @default("3") @db.Char(1)
   aliquotaICMS          Decimal   @db.Decimal(5, 2)
   baseCalculoICMS       Decimal   @db.Decimal(15, 4)
   valorICMS             Decimal   @db.Decimal(15, 4)
+  pRedBC                Decimal?  @db.Decimal(5, 2)
+  vBCFCP                Decimal?  @db.Decimal(15, 4)
+  pFCP                  Decimal?  @db.Decimal(5, 2)
+  vFCP                  Decimal?  @db.Decimal(15, 4)
+  
+  // === ICMS ST ===
+  vBCST                 Decimal?  @db.Decimal(15, 4)
+  pICMSST               Decimal?  @db.Decimal(5, 2)
+  vICMSST               Decimal?  @db.Decimal(15, 4)
+  pMVAST                Decimal?  @db.Decimal(5, 2)
+  pRedBCST              Decimal?  @db.Decimal(5, 2)
+  vBCFCPST              Decimal?  @db.Decimal(15, 4)
+  pFCPST                Decimal?  @db.Decimal(5, 2)
+  vFCPST                Decimal?  @db.Decimal(15, 4)
+  
+  // === IPI ===
+  cstIPI                String?   @db.Char(2)
+  aliquotaIPI           Decimal?  @db.Decimal(5, 2)
+  valorIPI              Decimal?  @db.Decimal(15, 4)
+  cEnqIPI               String?   @db.VarChar(3)
+  
+  // === PIS ===
   cstPIS                String    @default("01") @db.Char(2)
   aliquotaPIS           Decimal   @db.Decimal(7, 4)
   valorPIS              Decimal   @db.Decimal(15, 4)
+  qBCProdPIS            Decimal?  @db.Decimal(15, 4)
+  vAliqProdPIS          Decimal?  @db.Decimal(15, 4)
+  vBCSTPIS              Decimal?  @db.Decimal(15, 4)
+  pPISST                Decimal?  @db.Decimal(7, 4)
+  vPISST                Decimal?  @db.Decimal(15, 4)
+  
+  // === COFINS ===
   cstCOFINS             String    @default("01") @db.Char(2)
   aliquotaCOFINS        Decimal   @db.Decimal(7, 4)
   valorCOFINS           Decimal   @db.Decimal(15, 4)
+  qBCProdCOFINS         Decimal?  @db.Decimal(15, 4)
+  vAliqProdCOFINS       Decimal?  @db.Decimal(15, 4)
+  vBCSTCOFINS           Decimal?  @db.Decimal(15, 4)
+  pCOFINSST             Decimal?  @db.Decimal(7, 4)
+  vCOFINSST             Decimal?  @db.Decimal(15, 4)
+  
+  // === IBS/CBS (Reforma 2026) ===
+  cstIBSCBS             String?   @db.Char(2)
+  aliquotaIBSUF         Decimal?  @db.Decimal(7, 4)
+  valorIBSUF            Decimal?  @db.Decimal(15, 4)
+  aliquotaIBSMun        Decimal?  @db.Decimal(7, 4)
+  valorIBSMun           Decimal?  @db.Decimal(15, 4)
+  aliquotaCBS           Decimal?  @db.Decimal(7, 4)
+  valorCBS              Decimal?  @db.Decimal(15, 4)
+  
+  // === TRIBUTOS ===
   valorTributosAprox    Decimal   @db.Decimal(15, 4) @default(0)
+  
+  // === INDICADOR ===
+  indTot                String    @default("1") @db.Char(1)   // 0=Não compõe total, 1=Compõe
+  
+  // === INFORMAÇÕES ===
+  infAdProd             String?   @db.VarChar(500)
+  
+  // === RELACIONAMENTOS ===
   nfceId                String
   nfce                  NFCe      @relation(fields: [nfceId], references: [id])
+  
   createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  updatedAt             DateTime  @updatedA
 
   @@map("itens_nfce")
+  @@index([nfceId])
 }
+
+// ============================================
+// PAGAMENTO NFC-e
+// ============================================
 
 model PagamentoNFCe {
   id                    String    @id @default(cuid())
   nfceId                String
   nfce                  NFCe      @relation(fields: [nfceId], references: [id])
-  indPag                String    @default("0") @db.Char(1)
-  tPag                  String    @db.Char(2)
-  xPag                  String?   @db.VarChar(60)
-  vPag                  Decimal   @db.Decimal(15, 4)
-  dPag                  DateTime?
-  tpIntegra             String?   @default("1") @db.Char(1)
-  CNPJInstPag           String?   @db.Char(14)
-  tBand                 String?   @db.Char(2)
-  cAut                  String?   @db.VarChar(128)
-  CNPJReceb             String?   @db.Char(14)
-  idTermPag             String?   @db.VarChar(40)
+  
+  // === DADOS DO PAGAMENTO ===
+  indPag                String    @default("0") @db.Char(1)   // 0=Sem pagamento, 1=Com pagamento
+  tPag                  String    @db.Char(2)                 // 01-99
+  xPag                  String?   @db.VarChar(60)             // Descrição da forma de pagamento
+  vPag                  Decimal   @db.Decimal(15, 4)          // Valor do pagamento
+  dPag                  DateTime?                             // Data do pagamento
+  
+  // === INTEGRAÇÃO ===
+  tpIntegra             String?   @default("1") @db.Char(1)   // 0=Não integrado, 1=Integrado
+  
+  // === INSTITUIÇÃO ===
+  CNPJPag               String?   @db.Char(14)                // CNPJ do pagador
+  UFPag                 String?   @db.Char(2)                 // UF do pagador
+  CNPJInstPag           String?   @db.Char(14)                // CNPJ da instituição de pagamento
+  
+  // === CARTÃO ===
+  tBand                 String?   @db.Char(2)                 // Bandeira do cartão (01=Visa, 02=Master, 03=Amex, 04=Elo, 05=Hipercard, 99=Outros)
+  cAut                  String?   @db.VarChar(128)            // Código de autorização
+  
+  // === RECEBEDOR ===
+  CNPJReceb             String?   @db.Char(14)                // CNPJ do recebedor
+  idTermPag             String?   @db.VarChar(40)             // ID do terminal de pagamento
+  
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
   @@map("pagamentos_nfce")
+  @@index([nfceId])
+}
+
+// ============================================
+// HISTÓRICO DE STATUS NFC-e
+// ============================================
+
+model HistoricoStatusNFCe {
+  id                    String    @id @default(cuid())
+  nfceId                String
+  nfce                  NFCe      @relation(fields: [nfceId], references: [id])
+  statusAnterior        StatusDocumento
+  statusNovo            StatusDocumento
+  dataHora              DateTime  @default(now())
+  usuario               String
+  motivo                String?   @db.VarChar(500)
+  createdAt             DateTime  @default(now())
+
+  @@map("historico_status_nfce")
+  @@index([nfceId])
 }
 
 // ============================================
