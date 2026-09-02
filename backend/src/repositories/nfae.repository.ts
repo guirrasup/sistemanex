@@ -1,6 +1,6 @@
 // backend/src/repositories/nfae.repository.ts
 
-import { prisma } from '../config/prisma';
+import { Prisma, StatusDocumento } from '@prisma/client';
 import { StatusNFAe } from '@prisma/client';
 
 export interface FiltroNFAe {

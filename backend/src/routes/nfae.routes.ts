@@ -1,4 +1,4 @@
-// backend/src/routes/nfae.routes.ts
+// src/routes/nfae.routes.ts
 
 import { Router } from 'express';
 import { NFAeController } from '../controllers/nfae.controller';
@@ -27,4 +27,5 @@ router.get('/xml/:id', nfaeController.baixarXml.bind(nfaeController));
 // 🔍 POR ID (DEVE SER A ÚLTIMA ROTA)
 router.get('/:id', nfaeController.buscarPorId.bind(nfaeController));
 
+// ✅ EXPORTAÇÃO DEFAULT
 export default router;

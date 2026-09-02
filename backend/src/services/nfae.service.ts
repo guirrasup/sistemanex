@@ -1,9 +1,11 @@
 // backend/src/services/nfae.service.ts
 
-import { prisma } from '../config/prisma';
+import { PrismaClient, StatusNFAe, Prisma } from '@prisma/client';
 import { NFAeDocumento, NFAeItem } from '../types/nfae.types';
 import { gerarChaveAcessoNFe } from '../utils/chaveAcesso';
-import { StatusNFAe } from '@prisma/client';
+
+// Instancia o Prisma Client
+const prisma = new PrismaClient();
 
 export class NFAeService {
   

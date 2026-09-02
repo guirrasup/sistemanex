@@ -1,6 +1,6 @@
 // src/repositories/cte.repository.ts
 
-import { prisma } from '../config/prisma';
+import { Prisma, StatusDocumento } from '@prisma/client';
 import { StatusDocumento } from '@prisma/client';
 
 export interface FiltroCte {
