@@ -1,29 +1,21 @@
-// C:\emissornfe\src\components\fiscal\NfaeEmissor.tsx
+// src/components/fiscal/NfaeEmissor.tsx
 
 import React, { useState } from 'react';
 import { 
-  FileBadge2, 
-  Plus, 
-  Trash2, 
-  Send, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Eye, 
-  Download, 
-  Zap, 
-  DollarSign, 
-  Package,
-  RefreshCw,
-  User,
-  FileText,
-  Gauge
+  FileBadge2, Send, CheckCircle2, AlertTriangle, Eye, Download,
+  User, Building, Package, Calculator, Shield, FileText,
+  Plus, Trash2, Hash, Calendar, Clock, DollarSign,
+  Zap, Gauge, Users, Home, MapPin, Phone, Mail,
+  CreditCard, Receipt, Layers, Info, QrCode, Barcode,
+  XCircle, RefreshCw, Edit2
 } from 'lucide-react';
-import { NFAeDocumento, ItemNfe } from '../../types/fiscal';
-import { Produto, ClienteFornecedor, ConfiguracaoEmpresa } from '../../types/erp';
+import { NFAeDocumento, ItemNfae } from '../../types/fiscal';
+import { ClienteFornecedor, ConfiguracaoEmpresa, Produto } from '../../types/erp';
 import { StorageService } from '../../utils/storage';
-import { formatarMoeda, validarCpfOuCnpj, limparDocumento } from '../../utils/cpfCnpjValidator';
+import { formatarMoeda, formatarCpfCnpj, validarCpfOuCnpj, limparDocumento } from '../../utils/cpfCnpjValidator';
 import { gerarChaveAcessoNFe } from '../../utils/chaveAcesso';
-import { calcularTotaisNfe } from '../../utils/tributosEngine';
+import { nfaeService } from '../../services/nfae.service';
+import { useToast } from '../../hooks/useToast';
 
 interface NfaeEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -33,6 +25,9 @@ interface NfaeEmissorProps {
   onViewDanfae: (nfae: NFAeDocumento) => void;
 }
 
+type MotivoEmissaoNFAe = 'PRODUTOR_RURAL' | 'MEI_SEM_IE' | 'PF_ATIVO_PESSOAL' | 'FEIRAS_EVENTOS' | 'DEVOLUCAO_AVULSA' | 'OUTROS';
+type TipoPessoa = 'PF' | 'PJ';
+
 export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
   empresa,
   clientes,
@@ -40,42 +35,336 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
   onNfaeEmitida,
   onViewDanfae,
 }) => {
-  // Consumidor
-  const [selectedClienteId, setSelectedClienteId] = useState<string>('');
-  const [consumidorDoc, setConsumidorDoc] = useState('');
-  const [consumidorNome, setConsumidorNome] = useState('');
-  const [consumidorIE, setConsumidorIE] = useState('');
-  const [consumidorEmail, setConsumidorEmail] = useState('');
-  const [consumidorLogradouro, setConsumidorLogradouro] = useState('');
-  const [consumidorNumero, setConsumidorNumero] = useState('');
-  const [consumidorBairro, setConsumidorBairro] = useState('');
-  const [consumidorMun, setConsumidorMun] = useState('');
-  const [consumidorMunIbge, setConsumidorMunIbge] = useState('');
-  const [consumidorUf, setConsumidorUf] = useState('SP');
-  const [consumidorCep, setConsumidorCep] = useState('');
+  const toast = useToast();
 
-  // Dados da NFA-e
-  const [naturezaOperacao, setNaturezaOperacao] = useState('Fornecimento de Energia Elétrica');
-  const [formaPagamento, setFormaPagamento] = useState<'01' | '02' | '03' | '04' | '15' | '17' | '90' | '99'>('17');
+  // ============================================================
+  // STATE - TODOS OS CAMPOS ZERADOS
+  // ============================================================
 
-  // Dados de Energia
-  const [leituraAnterior, setLeituraAnterior] = useState<number>(1250);
-  const [leituraAtual, setLeituraAtual] = useState<number>(1420);
-  const [valorKwh, setValorKwh] = useState<number>(0.95);
-  const [bandeiraTarifaria, setBandeiraTarifaria] = useState<'VERDE' | 'AMARELA' | 'VERMELHA_1' | 'VERMELHA_2'>('VERDE');
-  const [valorAdicionalBandeira, setValorAdicionalBandeira] = useState<number>(0);
-  const [numeroMedidor, setNumeroMedidor] = useState('MED-2024-001');
-  const [tipoConexao, setTipoConexao] = useState<'MONOFASICO' | 'BIFASICO' | 'TRIFASICO'>('TRIFASICO');
+  // 1. IDENTIFICAÇÃO
+  const [serie, setSerie] = useState<number>(900);
+  const [tpAmb, setTpAmb] = useState<string>('1');
+  const [tpEmis, setTpEmis] = useState<string>('1');
+  const [naturezaOperacao, setNaturezaOperacao] = useState<string>('');
+  const [motivoEmissao, setMotivoEmissao] = useState<MotivoEmissaoNFAe>('PRODUTOR_RURAL');
+  const [descricaoMotivo, setDescricaoMotivo] = useState<string>('');
 
-  // Grade de Itens (serviços/taxas)
-  const [itens, setItens] = useState<ItemNfe[]>([]);
+  // 2. REQUERENTE (EMITENTE AVULSO)
+  const [selectedRequerenteId, setSelectedRequerenteId] = useState<string>('');
+  const [requerenteTipoPessoa, setRequerenteTipoPessoa] = useState<TipoPessoa>('PF');
+  const [requerenteDoc, setRequerenteDoc] = useState<string>('');
+  const [requerenteNome, setRequerenteNome] = useState<string>('');
+  const [requerenteInscricaoProdutor, setRequerenteInscricaoProdutor] = useState<string>('');
+  const [requerenteLogradouro, setRequerenteLogradouro] = useState<string>('');
+  const [requerenteNumero, setRequerenteNumero] = useState<string>('');
+  const [requerenteComplemento, setRequerenteComplemento] = useState<string>('');
+  const [requerenteBairro, setRequerenteBairro] = useState<string>('');
+  const [requerenteMun, setRequerenteMun] = useState<string>('');
+  const [requerenteMunIbge, setRequerenteMunIbge] = useState<string>('');
+  const [requerenteUf, setRequerenteUf] = useState<string>('');
+  const [requerenteCep, setRequerenteCep] = useState<string>('');
+  const [requerenteTelefone, setRequerenteTelefone] = useState<string>('');
+  const [requerenteEmail, setRequerenteEmail] = useState<string>('');
 
-  // Estados
+  // 3. DESTINATÁRIO
+  const [selectedDestinatarioId, setSelectedDestinatarioId] = useState<string>('');
+  const [destinatarioTipoPessoa, setDestinatarioTipoPessoa] = useState<TipoPessoa>('PJ');
+  const [destinatarioDoc, setDestinatarioDoc] = useState<string>('');
+  const [destinatarioNome, setDestinatarioNome] = useState<string>('');
+  const [destinatarioIE, setDestinatarioIE] = useState<string>('');
+  const [destinatarioLogradouro, setDestinatarioLogradouro] = useState<string>('');
+  const [destinatarioNumero, setDestinatarioNumero] = useState<string>('');
+  const [destinatarioComplemento, setDestinatarioComplemento] = useState<string>('');
+  const [destinatarioBairro, setDestinatarioBairro] = useState<string>('');
+  const [destinatarioMun, setDestinatarioMun] = useState<string>('');
+  const [destinatarioMunIbge, setDestinatarioMunIbge] = useState<string>('');
+  const [destinatarioUf, setDestinatarioUf] = useState<string>('');
+  const [destinatarioCep, setDestinatarioCep] = useState<string>('');
+  const [destinatarioTelefone, setDestinatarioTelefone] = useState<string>('');
+  const [destinatarioEmail, setDestinatarioEmail] = useState<string>('');
+
+  // 4. PRODUTOS / INSUMOS
+  const [itens, setItens] = useState<ItemNfae[]>([]);
+  const [selectedProdutoId, setSelectedProdutoId] = useState<string>('');
+  const [quantidadeItem, setQuantidadeItem] = useState<number>(1);
+  const [valorUnitarioItem, setValorUnitarioItem] = useState<number>(0);
+
+  // 5. TRIBUTAÇÃO
+  const [aliquotaICMS, setAliquotaICMS] = useState<number>(0);
+  const [baseCalculoICMS, setBaseCalculoICMS] = useState<number>(0);
+  const [valorICMS, setValorICMS] = useState<number>(0);
+
+  // 6. DAE - GUIA DE ARRECADAÇÃO
+  const [numeroDAE, setNumeroDAE] = useState<string>('');
+  const [codigoBarrasDAE, setCodigoBarrasDAE] = useState<string>('');
+  const [chavePixDAE, setChavePixDAE] = useState<string>('');
+  const [dataVencimentoDAE, setDataVencimentoDAE] = useState<string>('');
+  const [valorDAE, setValorDAE] = useState<number>(0);
+  const [statusPagamentoDAE, setStatusPagamentoDAE] = useState<'PAGO' | 'AGUARDANDO_PAGAMENTO' | 'ISENTO'>('AGUARDANDO_PAGAMENTO');
+
+  // 7. ORGÃO EMISSOR
+  const [orgaoEmissor, setOrgaoEmissor] = useState<string>('');
+
+  // 8. OBSERVAÇÕES
+  const [observacoes, setObservacoes] = useState<string>('');
+
+  // UI
   const [isTransmitting, setIsTransmitting] = useState<boolean>(false);
   const [erros, setErros] = useState<string[]>([]);
-  const [nfaeEmitidaSucesso, setNfaeEmitidaSucesso] = useState<NFAeDocumento | null>(null);
+  const [sucessoNfae, setSucessoNfae] = useState<NFAeDocumento | null>(null);
 
-  // 🔥 COR DO MÓDULO (ÂMBAR/LARANJA)
+  // ============================================================
+  // CÁLCULOS
+  // ============================================================
+  const totalProdutos = itens.reduce((acc, item) => acc + item.valorTotal, 0);
+  const valorTotalNota = totalProdutos;
+
+  // ============================================================
+  // HANDLERS
+  // ============================================================
+
+  const handleSelectRequerente = (clienteId: string) => {
+    setSelectedRequerenteId(clienteId);
+    if (!clienteId) return;
+    const cli = clientes.find(c => c.id === clienteId);
+    if (cli) {
+      setRequerenteDoc(cli.documento);
+      setRequerenteNome(cli.razaoSocial);
+      setRequerenteTipoPessoa(cli.documento.replace(/\D/g, '').length === 11 ? 'PF' : 'PJ');
+      setRequerenteLogradouro(cli.endereco.logradouro);
+      setRequerenteNumero(cli.endereco.numero);
+      setRequerenteComplemento(cli.endereco.complemento || '');
+      setRequerenteBairro(cli.endereco.bairro);
+      setRequerenteMun(cli.endereco.nomeMunicipio);
+      setRequerenteMunIbge(cli.endereco.codigoMunicipio);
+      setRequerenteUf(cli.endereco.uf);
+      setRequerenteCep(cli.endereco.cep);
+      setRequerenteTelefone(cli.telefone || '');
+      setRequerenteEmail(cli.email || '');
+    }
+  };
+
+  const handleSelectDestinatario = (clienteId: string) => {
+    setSelectedDestinatarioId(clienteId);
+    if (!clienteId) return;
+    const cli = clientes.find(c => c.id === clienteId);
+    if (cli) {
+      setDestinatarioDoc(cli.documento);
+      setDestinatarioNome(cli.razaoSocial);
+      setDestinatarioTipoPessoa(cli.documento.replace(/\D/g, '').length === 11 ? 'PF' : 'PJ');
+      setDestinatarioIE(cli.inscricaoEstadual || '');
+      setDestinatarioLogradouro(cli.endereco.logradouro);
+      setDestinatarioNumero(cli.endereco.numero);
+      setDestinatarioComplemento(cli.endereco.complemento || '');
+      setDestinatarioBairro(cli.endereco.bairro);
+      setDestinatarioMun(cli.endereco.nomeMunicipio);
+      setDestinatarioMunIbge(cli.endereco.codigoMunicipio);
+      setDestinatarioUf(cli.endereco.uf);
+      setDestinatarioCep(cli.endereco.cep);
+      setDestinatarioTelefone(cli.telefone || '');
+      setDestinatarioEmail(cli.email || '');
+    }
+  };
+
+  const adicionarItem = () => {
+    if (!selectedProdutoId) {
+      toast.showWarning('Selecione um produto');
+      return;
+    }
+    if (quantidadeItem <= 0) {
+      toast.showWarning('Quantidade deve ser maior que zero');
+      return;
+    }
+
+    const prod = produtos.find(p => p.id === selectedProdutoId);
+    if (!prod) return;
+
+    const valorUnit = valorUnitarioItem > 0 ? valorUnitarioItem : prod.precoVenda;
+    const total = quantidadeItem * valorUnit;
+    const icms = (total * (aliquotaICMS || prod.aliquotaICMS || 0)) / 100;
+
+    const novoItem: ItemNfae = {
+      id: `item-${Date.now()}`,
+      codigo: prod.codigo,
+      descricao: prod.descricao,
+      ncm: prod.ncm,
+      unidade: prod.unidade,
+      quantidade: quantidadeItem,
+      valorUnitario: valorUnit,
+      valorTotal: total,
+      aliquotaICMS: aliquotaICMS || prod.aliquotaICMS || 0,
+      valorICMS: icms,
+    };
+
+    setItens(prev => [...prev, novoItem]);
+    setSelectedProdutoId('');
+    setQuantidadeItem(1);
+    setValorUnitarioItem(0);
+  };
+
+  const removerItem = (index: number) => {
+    setItens(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const atualizarItem = (index: number, campo: string, valor: any) => {
+    setItens(prev => prev.map((item, i) => {
+      if (i === index) {
+        const updated = { ...item, [campo]: valor };
+        if (campo === 'quantidade' || campo === 'valorUnitario') {
+          const qtd = campo === 'quantidade' ? valor : item.quantidade;
+          const vUnit = campo === 'valorUnitario' ? valor : item.valorUnitario;
+          updated.valorTotal = qtd * vUnit;
+          updated.valorICMS = (updated.valorTotal * updated.aliquotaICMS) / 100;
+        }
+        return updated;
+      }
+      return item;
+    }));
+  };
+
+  // ============================================================
+  // VALIDAÇÃO
+  // ============================================================
+  const validarNfae = (): boolean => {
+    const errs: string[] = [];
+
+    if (!requerenteDoc || !requerenteNome) {
+      errs.push('1. Informe os dados do Requerente (emitente avulso).');
+    }
+    if (!destinatarioDoc || !destinatarioNome) {
+      errs.push('2. Informe os dados do Destinatário.');
+    }
+    if (itens.length === 0) {
+      errs.push('3. Adicione pelo menos um produto/insumo.');
+    }
+    if (!naturezaOperacao.trim()) {
+      errs.push('4. Informe a Natureza da Operação.');
+    }
+    if (!motivoEmissao) {
+      errs.push('5. Selecione o Motivo da Emissão.');
+    }
+    if (totalProdutos <= 0) {
+      errs.push('6. O valor total dos produtos deve ser maior que zero.');
+    }
+
+    setErros(errs);
+    return errs.length === 0;
+  };
+
+  // ============================================================
+  // TRANSMISSÃO
+  // ============================================================
+  const handleTransmitirNfae = async () => {
+    if (!validarNfae()) return;
+
+    setIsTransmitting(true);
+    setErros([]);
+
+    try {
+      const numero = Math.floor(100 + Math.random() * 900);
+      const aamm = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
+
+      const chaveData = gerarChaveAcessoNFe({
+        codigoUf: requerenteMunIbge.slice(0, 2) || '35',
+        anoMes: aamm,
+        cnpjEmitente: empresa.cnpj,
+        modelo: '63',
+        serie: serie || 900,
+        numero,
+        tipoEmissao: 1,
+      });
+
+      const docDestLimpo = limparDocumento(destinatarioDoc);
+      const isCnpjDest = docDestLimpo.length === 14;
+
+      const novaNfae: any = {
+        modelo: '63',
+        serie: serie || 900,
+        numero,
+        chaveAcesso: chaveData.chaveCompleta,
+        dataHoraEmissao: new Date().toISOString(),
+        naturezaOperacao,
+        motivoEmissao,
+        descricaoMotivo: descricaoMotivo || motivoEmissao,
+        ambiente: parseInt(tpAmb) || 1,
+        tipoEmissao: parseInt(tpEmis) || 1,
+        status: 'AUTORIZADA',
+        requerente: {
+          tipoPessoa: requerenteTipoPessoa,
+          documento: requerenteDoc,
+          nome: requerenteNome,
+          inscricaoProdutor: requerenteInscricaoProdutor || undefined,
+          logradouro: requerenteLogradouro,
+          numero: requerenteNumero,
+          complemento: requerenteComplemento || '',
+          bairro: requerenteBairro,
+          municipio: requerenteMun,
+          municipioIbge: requerenteMunIbge,
+          uf: requerenteUf,
+          cep: requerenteCep,
+          telefone: requerenteTelefone || '',
+          email: requerenteEmail || '',
+        },
+        destinatario: {
+          tipoPessoa: isCnpjDest ? 'PJ' : 'PF',
+          documento: destinatarioDoc,
+          nome: destinatarioNome,
+          ie: destinatarioIE || 'ISENTO',
+          logradouro: destinatarioLogradouro,
+          numero: destinatarioNumero,
+          complemento: destinatarioComplemento || '',
+          bairro: destinatarioBairro,
+          municipio: destinatarioMun,
+          municipioIbge: destinatarioMunIbge,
+          uf: destinatarioUf,
+          cep: destinatarioCep,
+          telefone: destinatarioTelefone || '',
+          email: destinatarioEmail || '',
+        },
+        itens,
+        valorTotalProdutos: totalProdutos,
+        baseCalculoICMS: baseCalculoICMS || totalProdutos,
+        aliquotaICMSMediana: aliquotaICMS || 0,
+        valorTotalICMS: itens.reduce((acc, item) => acc + item.valorICMS, 0),
+        valorTotalNota: totalProdutos,
+        guiaDAE: {
+          numero: numeroDAE || `DAE-${Date.now()}`,
+          codigoBarras: codigoBarrasDAE || '00000000000000000000000000000000000',
+          chavePix: chavePixDAE || '00000000000000000000000000000000000',
+          vencimento: dataVencimentoDAE || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          valor: valorDAE || totalProdutos,
+          status: statusPagamentoDAE,
+        },
+        orgaoEmissorSefaz: orgaoEmissor || 'SEFAZ/SP',
+        protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
+        dataHoraAutorizacao: new Date().toISOString(),
+        informacoesComplementares: observacoes || '',
+        xmlAssinado: `<nfeProc versao="4.00"><NFe><infNFe Id="NFe${chaveData.chaveCompleta}" versao="4.00"><ide><cUF>${requerenteMunIbge.slice(0, 2) || '35'}</cUF><mod>63</mod><nNF>${numero}</nNF></ide></infNFe></NFe></nfeProc>`,
+        empresaId: empresa.id,
+        destinatarioId: selectedDestinatarioId,
+      };
+
+      const response = await nfaeService.emitir(novaNfae);
+
+      if (response) {
+        StorageService.addNfae(response);
+        onNfaeEmitida(response);
+        setSucessoNfae(response);
+        toast.showSuccess(`✅ NFA-e Nº ${numero} emitida com sucesso!`);
+      }
+
+    } catch (error: any) {
+      console.error('❌ Erro ao emitir NFA-e:', error);
+      setErros([error.message || 'Falha ao emitir NFA-e.']);
+      toast.showError(`❌ ${error.message || 'Falha ao emitir NFA-e'}`);
+    } finally {
+      setIsTransmitting(false);
+    }
+  };
+
+  // ============================================================
+  // CORES
+  // ============================================================
   const cor = 'amber';
   const corBg = 'bg-amber-50';
   const corBorder = 'border-amber-200';
@@ -85,249 +374,68 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
   const corBgBadge = 'bg-amber-100';
   const corFocus = 'focus:ring-amber-500';
   const corIconBg = 'bg-amber-600';
-  const corGradient = 'from-amber-600 to-amber-700';
 
-  // Cálculo do consumo
-  const consumoCalculado = leituraAtual - leituraAnterior;
-  const valorEnergia = consumoCalculado * valorKwh;
-  const totalServicos = itens.reduce((acc, item) => acc + item.valorTotalBruto, 0);
-  const valorTotalNota = valorEnergia + valorAdicionalBandeira + totalServicos;
-
-  const handleSelectCliente = (clienteId: string) => {
-    setSelectedClienteId(clienteId);
-    if (!clienteId) {
-      setConsumidorDoc('');
-      setConsumidorNome('');
-      setConsumidorIE('');
-      setConsumidorEmail('');
-      setConsumidorLogradouro('');
-      setConsumidorNumero('');
-      setConsumidorBairro('');
-      setConsumidorMun('');
-      setConsumidorMunIbge('');
-      setConsumidorUf('SP');
-      setConsumidorCep('');
-      return;
-    }
-    const cli = clientes.find(c => c.id === clienteId);
-    if (cli) {
-      setConsumidorDoc(cli.documento);
-      setConsumidorNome(cli.razaoSocial);
-      setConsumidorIE(cli.inscricaoEstadual || '');
-      setConsumidorEmail(cli.email || '');
-      setConsumidorLogradouro(cli.endereco.logradouro);
-      setConsumidorNumero(cli.endereco.numero);
-      setConsumidorBairro(cli.endereco.bairro);
-      setConsumidorMun(cli.endereco.nomeMunicipio);
-      setConsumidorMunIbge(cli.endereco.codigoMunicipio);
-      setConsumidorUf(cli.endereco.uf);
-      setConsumidorCep(cli.endereco.cep);
-    }
-  };
-
-  const handleAddItem = (prodId: string) => {
-    const prod = produtos.find(p => p.id === prodId) || produtos[0];
-    if (!prod) return;
-
-    const newItem: ItemNfe = {
-      id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      codigoProduto: prod.codigo,
-      descricao: prod.descricao,
-      ncm: prod.ncm,
-      cfop: '5405',
-      unidadeMedida: 'UN',
-      quantidade: 1,
-      valorUnitario: prod.precoVenda,
-      valorTotalBruto: prod.precoVenda,
-      origemMercadoria: 0,
-      cstICMS: '00',
-      aliquotaICMS: prod.aliquotaICMS,
-      baseCalculoICMS: prod.precoVenda,
-      valorICMS: (prod.precoVenda * prod.aliquotaICMS) / 100,
-      cstPIS: '01',
-      aliquotaPIS: prod.aliquotaPIS,
-      valorPIS: (prod.precoVenda * prod.aliquotaPIS) / 100,
-      cstCOFINS: '01',
-      aliquotaCOFINS: prod.aliquotaCOFINS,
-      valorCOFINS: (prod.precoVenda * prod.aliquotaCOFINS) / 100,
-      valorTributosAproximados: prod.precoVenda * 0.25,
-    };
-
-    setItens(prev => [...prev, newItem]);
-  };
-
-  const handleRemoveItem = (index: number) => {
-    setItens(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleTransmitirNfae = () => {
-    const errs: string[] = [];
-    const valDoc = validarCpfOuCnpj(consumidorDoc);
-    if (!valDoc.valido) errs.push('CPF / CNPJ do consumidor inválido.');
-    if (!consumidorNome.trim()) errs.push('Razão Social do consumidor é obrigatória.');
-    if (consumoCalculado <= 0) errs.push('Consumo de energia deve ser maior que zero.');
-
-    if (errs.length > 0) {
-      setErros(errs);
-      return;
-    }
-
-    setIsTransmitting(true);
-    setErros([]);
-
-    setTimeout(() => {
-      try {
-        const numero = empresa.proximoNumeroNfae || 1;
-        const aamm = new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0');
-
-        const { chaveCompleta } = gerarChaveAcessoNFe({
-          codigoUf: empresa.endereco.codigoMunicipio.slice(0, 2) || '35',
-          anoMes: aamm,
-          cnpjEmitente: empresa.cnpj,
-          modelo: '63',
-          serie: empresa.serieNfae || 1,
-          numero,
-          tipoEmissao: 1,
-        });
-
-        const docDestLimpo = limparDocumento(consumidorDoc);
-        const isCnpj = docDestLimpo.length === 14;
-
-        const novaNfae: NFAeDocumento = {
-          id: `nfae-${Date.now()}`,
-          modelo: '63',
-          serie: empresa.serieNfae || 1,
-          numero,
-          chaveAcesso: chaveCompleta,
-          dataHoraEmissao: new Date().toISOString(),
-          naturezaOperacao,
-          ambiente: empresa.ambienteEmissao,
-          tipoEmissao: 1,
-          status: 'AUTORIZADA',
-          emitente: {
-            cnpj: empresa.cnpj,
-            inscricaoMunicipal: empresa.inscricaoMunicipal,
-            inscricaoEstadual: empresa.inscricaoEstadual,
-            razaoSocial: empresa.razaoSocial,
-            nomeFantasia: empresa.nomeFantasia,
-            regimeTributario: empresa.regimeTributario,
-            optanteSimplesNacional: empresa.optanteSimplesNacional,
-            optanteMEI: empresa.optanteMEI,
-            endereco: empresa.endereco,
-          },
-          destinatario: {
-            tipoPessoa: isCnpj ? 'PJ' : 'PF',
-            documento: consumidorDoc,
-            nomeRazaoSocial: consumidorNome,
-            inscricaoEstadual: consumidorIE || 'ISENTO',
-            email: consumidorEmail,
-            endereco: {
-              logradouro: consumidorLogradouro,
-              numero: consumidorNumero,
-              bairro: consumidorBairro,
-              codigoMunicipio: consumidorMunIbge,
-              nomeMunicipio: consumidorMun,
-              uf: consumidorUf,
-              cep: consumidorCep,
-            },
-          },
-          dadosEnergia: {
-            leituraAnterior,
-            leituraAtual,
-            consumoKwh: consumoCalculado,
-            valorKwh,
-            valorTotalEnergia: valorEnergia,
-            bandeiraTarifaria,
-            valorAdicionalBandeira,
-            numeroMedidor,
-            tipoConexao,
-          },
-          itens,
-          valorTotalEnergia: valorEnergia,
-          valorTotalBandeira: valorAdicionalBandeira,
-          valorTotalServicos: totalServicos,
-          valorTotalNota,
-          formaPagamento,
-          protocoloAutorizacao: `13526000${Math.floor(1000000 + Math.random() * 9000000)}`,
-          dataHoraAutorizacao: new Date().toISOString(),
-          informacoesAdicionais: 'NFA-e emitida para fornecimento de energia elétrica - SUP TECNOLOGIA ERP.',
-          xmlAssinado: `<nfeProc versao="4.00"><NFe><infNFe Id="NFe${chaveCompleta}" versao="4.00"><ide><cUF>35</cUF><mod>63</mod><nNF>${numero}</nNF></ide></infNFe></NFe></nfeProc>`,
-        };
-
-        StorageService.addNfae(novaNfae);
-        onNfaeEmitida(novaNfae);
-        setNfaeEmitidaSucesso(novaNfae);
-      } catch (e) {
-        setErros(['Falha ao autorizar NFA-e junto ao webservice da SEFAZ.']);
-      } finally {
-        setIsTransmitting(false);
-      }
-    }, 1200);
-  };
-
+  // ============================================================
+  // RENDER - MESMO LAYOUT DO NFE (VERTICAL, SEM CÍRCULOS)
+  // ============================================================
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
+    <div className="space-y-4 max-w-6xl mx-auto">
       
-      {/* Header NFA-e */}
-      <div className={`bg-white rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`} style={{ backgroundColor: '#fffbeb' }}>
+      {/* HEADER */}
+      <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
             <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
               <FileBadge2 className="w-4 h-4" />
             </span>
-            <h1 className="text-base font-bold text-slate-900">
-              Emissão de NFA-e (Modelo 63)
-            </h1>
-            <span className={`${corBgBadge} text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
+            <h1 className="text-base font-bold text-slate-900">Emissão de NFA-e (Modelo 63)</h1>
+            <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
               Energia Elétrica
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Emissão de Nota Fiscal de Energia Elétrica Avulsa com dados de consumo e bandeira tarifária.
+            Nota Fiscal Avulsa Eletrônica para fornecimento de energia elétrica.
           </p>
         </div>
-
         <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfae || 1}</div>
-          <div className="text-[10px] text-amber-600 font-medium">Próxima NFA-e: Nº {empresa.proximoNumeroNfae || 1}</div>
+          <div className="text-xs font-semibold text-slate-700">Série {serie || 900}</div>
+          <div className={`text-[10px] font-medium ${corText}`}>Próxima NFA-e: Nº {Math.floor(Math.random() * 900) + 100}</div>
         </div>
       </div>
 
-      {/* Banner Sucesso */}
-      {nfaeEmitidaSucesso && (
-        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 shadow-sm animate-fadeIn">
+      {/* BANNER SUCESSO */}
+      {sucessoNfae && (
+        <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-start gap-2.5">
-              <CheckCircle2 className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <CheckCircle2 className={`w-5 h-5 ${corText} shrink-0 mt-0.5`} />
               <div>
-                <h3 className="text-sm font-bold text-amber-900">
-                  NFA-e Nº {nfaeEmitidaSucesso.numero} Autorizada!
+                <h3 className={`text-sm font-bold ${corTextDark}`}>
+                  NFA-e Nº {sucessoNfae.numero} Autorizada!
                 </h3>
                 <p className="text-xs text-amber-800 font-mono mt-0.5">
-                  Chave: {nfaeEmitidaSucesso.chaveAcesso}
+                  Chave: {sucessoNfae.chaveAcesso}
                 </p>
                 <div className="text-[11px] text-amber-700 mt-1">
-                  Consumidor: {nfaeEmitidaSucesso.destinatario.nomeRazaoSocial} • Total: {formatarMoeda(nfaeEmitidaSucesso.valorTotalNota)}
+                  Requerente: {sucessoNfae.requerente?.nome} • Total: {formatarMoeda(sucessoNfae.valorTotalNota)}
                 </div>
               </div>
             </div>
-
             <div className="flex items-center gap-2">
               <button
-                onClick={() => onViewDanfae(nfaeEmitidaSucesso)}
-                className="bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                onClick={() => onViewDanfae(sucessoNfae)}
+                className={`${corBgButton} text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Visualizar DANFAE</span>
               </button>
-
               <button
                 onClick={() => {
-                  const blob = new Blob([nfaeEmitidaSucesso.xmlAssinado], { type: 'application/xml' });
+                  const blob = new Blob([sucessoNfae.xmlAssinado], { type: 'application/xml' });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = `NFAe_${nfaeEmitidaSucesso.numero}_SUP.xml`;
+                  a.download = `NFAe_${sucessoNfae.numero}_SUP.xml`;
                   a.click();
                 }}
                 className="bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -335,15 +443,8 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
                 <Download className="w-3.5 h-3.5" />
                 <span>XML</span>
               </button>
-
               <button
-                onClick={() => {
-                  setNfaeEmitidaSucesso(null);
-                  setItens([]);
-                  setLeituraAnterior(0);
-                  setLeituraAtual(0);
-                  setValorAdicionalBandeira(0);
-                }}
+                onClick={() => setSucessoNfae(null)}
                 className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer"
               >
                 Nova NFA-e
@@ -353,12 +454,12 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         </div>
       )}
 
-      {/* Erros */}
+      {/* ERROS */}
       {erros.length > 0 && (
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 space-y-1">
           <div className="font-bold flex items-center gap-1.5 text-rose-900">
             <AlertTriangle className="w-4 h-4 text-rose-600" />
-            <span>Pendências na NFA-e:</span>
+            <span>Erros na NFA-e:</span>
           </div>
           <ul className="list-disc list-inside space-y-0.5 pl-2">
             {erros.map((err, idx) => (
@@ -368,332 +469,666 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         </div>
       )}
 
-      {/* Formulário */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        
-        {/* Coluna Principal */}
-        <div className="lg:col-span-2 space-y-4">
-          
-          {/* Consumidor */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-amber-600" />
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">1. Consumidor</h3>
-              </div>
-              <select
-                value={selectedClienteId}
-                onChange={(e) => handleSelectCliente(e.target.value)}
-                className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium text-slate-700 max-w-[280px]"
-              >
-                <option value="">-- Escolher Cliente --</option>
-                {clientes.map(c => (
-                  <option key={c.id} value={c.id}>{c.razaoSocial} ({c.documento})</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
-                <input
-                  type="text"
-                  value={consumidorDoc}
-                  onChange={(e) => setConsumidorDoc(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  placeholder="00.000.000/0000-00"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block font-medium text-slate-600 mb-1">Razão Social / Nome *</label>
-                <input
-                  type="text"
-                  value={consumidorNome}
-                  onChange={(e) => setConsumidorNome(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  placeholder="Razão Social do consumidor"
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Inscrição Estadual</label>
-                <input
-                  type="text"
-                  value={consumidorIE}
-                  onChange={(e) => setConsumidorIE(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  placeholder="ISENTO ou número"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block font-medium text-slate-600 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={consumidorEmail}
-                  onChange={(e) => setConsumidorEmail(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  placeholder="email@consumidor.com"
-                />
-              </div>
-            </div>
+      {/* ============================================================
+          BLOCO 1: REQUERENTE
+          ============================================================ */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+          <div className="flex items-center gap-2">
+            <User className={`w-4 h-4 ${corText}`} />
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">1. Requerente (Emitente Avulso)</h3>
           </div>
-
-          {/* Dados de Energia */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-              <Zap className="w-4 h-4 text-amber-600" />
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">2. Dados de Energia</h3>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Leitura Anterior (kWh)</label>
-                <input
-                  type="number"
-                  value={leituraAnterior}
-                  onChange={(e) => setLeituraAnterior(parseFloat(e.target.value) || 0)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Leitura Atual (kWh)</label>
-                <input
-                  type="number"
-                  value={leituraAtual}
-                  onChange={(e) => setLeituraAtual(parseFloat(e.target.value) || 0)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Valor kWh (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={valorKwh}
-                  onChange={(e) => setValorKwh(parseFloat(e.target.value) || 0)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Consumo (kWh)</label>
-                <div className="w-full bg-amber-50 border border-amber-200 rounded-lg p-1.5 font-bold text-amber-900">
-                  {consumoCalculado.toFixed(1)}
-                </div>
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Bandeira Tarifária</label>
-                <select
-                  value={bandeiraTarifaria}
-                  onChange={(e) => setBandeiraTarifaria(e.target.value as any)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="VERDE">🟢 Verde</option>
-                  <option value="AMARELA">🟡 Amarela</option>
-                  <option value="VERMELHA_1">🔴 Vermelha (Nível 1)</option>
-                  <option value="VERMELHA_2">🔴 Vermelha (Nível 2)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Adicional Bandeira (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={valorAdicionalBandeira}
-                  onChange={(e) => setValorAdicionalBandeira(parseFloat(e.target.value) || 0)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block font-medium text-slate-600 mb-1">Número do Medidor</label>
-                <input
-                  type="text"
-                  value={numeroMedidor}
-                  onChange={(e) => setNumeroMedidor(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  placeholder="Número do medidor"
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Tipo de Conexão</label>
-                <select
-                  value={tipoConexao}
-                  onChange={(e) => setTipoConexao(e.target.value as any)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="MONOFASICO">Monofásico</option>
-                  <option value="BIFASICO">Bifásico</option>
-                  <option value="TRIFASICO">Trifásico</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Serviços Adicionais */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-              <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-amber-600" />
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  3. Serviços Adicionais ({itens.length})
-                </h3>
-              </div>
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleAddItem(e.target.value);
-                    e.target.value = '';
-                  }
-                }}
-                className="text-xs bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg p-1.5 text-amber-900 font-semibold focus:outline-none transition-colors cursor-pointer"
-              >
-                <option value="">+ Adicionar Serviço</option>
-                {produtos && produtos.map(p => (
-                  <option key={p.id} value={p.id}>{p.codigo} - {p.descricao.slice(0, 35)} ({formatarMoeda(p.precoVenda)})</option>
-                ))}
-              </select>
-            </div>
-
-            {itens.length === 0 ? (
-              <div className="p-6 border-2 border-dashed border-slate-200 rounded-lg text-center bg-slate-50/70">
-                <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-slate-700">Nenhum serviço adicional</p>
-                <p className="text-[11px] text-slate-500">Selecione um serviço no botão acima</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {itens.map((item, idx) => (
-                  <div key={item.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="font-semibold text-slate-900 text-xs">{item.descricao}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">
-                          Cód: {item.codigoProduto} | NCM: {item.ncm} | CFOP: {item.cfop}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(idx)}
-                        className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1.5 border-t border-slate-200 text-xs">
-                      <div>
-                        <span className="text-[10px] text-slate-500 block">Qtd:</span>
-                        <span className="font-medium block mt-1">{item.quantidade}</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-500 block">V. Unitário:</span>
-                        <span className="font-medium block mt-1">{formatarMoeda(item.valorUnitario)}</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-500 block">Total:</span>
-                        <span className="font-bold text-slate-900 block mt-1">{formatarMoeda(item.valorTotalBruto)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <select
+            value={selectedRequerenteId}
+            onChange={(e) => handleSelectRequerente(e.target.value)}
+            className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[200px]`}
+          >
+            <option value="">-- Escolher Cliente --</option>
+            {clientes.map(c => (
+              <option key={c.id} value={c.id}>{c.razaoSocial}</option>
+            ))}
+          </select>
         </div>
 
-        {/* Coluna Direita */}
-        <div className="space-y-4">
-          
-          {/* Totais */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-amber-600" />
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">4. Totais</h3>
-              </div>
-              <FileBadge2 className="w-4 h-4 text-amber-600" />
+        <div className="space-y-2.5 text-xs">
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
+            <input
+              type="text"
+              value={requerenteDoc}
+              onChange={(e) => setRequerenteDoc(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="00.000.000/0000-00"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">Razão Social / Nome *</label>
+            <input
+              type="text"
+              value={requerenteNome}
+              onChange={(e) => setRequerenteNome(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="Nome ou Razão Social"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">Inscrição Produtor Rural</label>
+            <input
+              type="text"
+              value={requerenteInscricaoProdutor}
+              onChange={(e) => setRequerenteInscricaoProdutor(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="Inscrição do produtor"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Município</label>
+              <input
+                type="text"
+                value={requerenteMun}
+                onChange={(e) => setRequerenteMun(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="Cidade"
+              />
             </div>
-
-            <div className="space-y-1.5 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">Energia:</span>
-                <span className="font-semibold text-slate-900">{formatarMoeda(valorEnergia)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">Bandeira:</span>
-                <span className="font-semibold text-amber-700">{formatarMoeda(valorAdicionalBandeira)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">Serviços:</span>
-                <span className="font-semibold text-slate-900">{formatarMoeda(totalServicos)}</span>
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5 border-t border-slate-100">
-                <span>Consumo: {consumoCalculado.toFixed(1)} kWh</span>
-                <span>{bandeiraTarifaria}</span>
-              </div>
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">UF</label>
+              <input
+                type="text"
+                value={requerenteUf}
+                onChange={(e) => setRequerenteUf(e.target.value.toUpperCase())}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+                maxLength={2}
+                placeholder="SP"
+              />
             </div>
-
-            <div className="mt-3 p-3 bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-lg">
-              <span className="text-[10px] text-amber-100 uppercase block font-medium">Total da NFA-e</span>
-              <span className="text-xl font-bold text-white">{formatarMoeda(valorTotalNota)}</span>
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">Logradouro</label>
+            <input
+              type="text"
+              value={requerenteLogradouro}
+              onChange={(e) => setRequerenteLogradouro(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="Rua, Avenida..."
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Número</label>
+              <input
+                type="text"
+                value={requerenteNumero}
+                onChange={(e) => setRequerenteNumero(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="123"
+              />
             </div>
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Complemento</label>
+              <input
+                type="text"
+                value={requerenteComplemento}
+                onChange={(e) => setRequerenteComplemento(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="Complemento"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">Bairro</label>
+            <input
+              type="text"
+              value={requerenteBairro}
+              onChange={(e) => setRequerenteBairro(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="Bairro"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">CEP</label>
+            <input
+              type="text"
+              value={requerenteCep}
+              onChange={(e) => setRequerenteCep(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="00000-000"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Telefone</label>
+              <input
+                type="text"
+                value={requerenteTelefone}
+                onChange={(e) => setRequerenteTelefone(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="(00) 0000-0000"
+              />
+            </div>
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">E-mail</label>
+              <input
+                type="email"
+                value={requerenteEmail}
+                onChange={(e) => setRequerenteEmail(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="email@empresa.com"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
-            <button
-              onClick={handleTransmitirNfae}
-              disabled={isTransmitting}
-              id="btn-transmitir-nfae"
-              className="w-full mt-3 bg-amber-600 hover:bg-amber-700 disabled:bg-slate-300 text-white font-semibold text-xs py-2.5 px-3 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+      {/* ============================================================
+          BLOCO 2: DESTINATÁRIO
+          ============================================================ */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+          <div className="flex items-center gap-2">
+            <Building className={`w-4 h-4 ${corText}`} />
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">2. Destinatário</h3>
+          </div>
+          <select
+            value={selectedDestinatarioId}
+            onChange={(e) => handleSelectDestinatario(e.target.value)}
+            className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[200px]`}
+          >
+            <option value="">-- Escolher Cliente --</option>
+            {clientes.map(c => (
+              <option key={c.id} value={c.id}>{c.razaoSocial}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2.5 text-xs">
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
+            <input
+              type="text"
+              value={destinatarioDoc}
+              onChange={(e) => setDestinatarioDoc(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="00.000.000/0000-00"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">Razão Social / Nome *</label>
+            <input
+              type="text"
+              value={destinatarioNome}
+              onChange={(e) => setDestinatarioNome(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="Nome ou Razão Social"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">Inscrição Estadual</label>
+            <input
+              type="text"
+              value={destinatarioIE}
+              onChange={(e) => setDestinatarioIE(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="ISENTO ou número"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Município</label>
+              <input
+                type="text"
+                value={destinatarioMun}
+                onChange={(e) => setDestinatarioMun(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="Cidade"
+              />
+            </div>
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">UF</label>
+              <input
+                type="text"
+                value={destinatarioUf}
+                onChange={(e) => setDestinatarioUf(e.target.value.toUpperCase())}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+                maxLength={2}
+                placeholder="SP"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">Logradouro</label>
+            <input
+              type="text"
+              value={destinatarioLogradouro}
+              onChange={(e) => setDestinatarioLogradouro(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="Rua, Avenida..."
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Número</label>
+              <input
+                type="text"
+                value={destinatarioNumero}
+                onChange={(e) => setDestinatarioNumero(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="123"
+              />
+            </div>
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Complemento</label>
+              <input
+                type="text"
+                value={destinatarioComplemento}
+                onChange={(e) => setDestinatarioComplemento(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="Complemento"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">Bairro</label>
+            <input
+              type="text"
+              value={destinatarioBairro}
+              onChange={(e) => setDestinatarioBairro(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="Bairro"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">CEP</label>
+            <input
+              type="text"
+              value={destinatarioCep}
+              onChange={(e) => setDestinatarioCep(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="00000-000"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Telefone</label>
+              <input
+                type="text"
+                value={destinatarioTelefone}
+                onChange={(e) => setDestinatarioTelefone(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="(00) 0000-0000"
+              />
+            </div>
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">E-mail</label>
+              <input
+                type="email"
+                value={destinatarioEmail}
+                onChange={(e) => setDestinatarioEmail(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="email@empresa.com"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ============================================================
+          BLOCO 3: IDENTIFICAÇÃO
+          ============================================================ */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
+          <Hash className={`w-4 h-4 ${corText}`} />
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">3. Identificação</h3>
+        </div>
+        <div className="space-y-2.5 text-xs">
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Série</label>
+              <input
+                type="number"
+                value={serie}
+                onChange={(e) => setSerie(parseInt(e.target.value) || 900)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                min={900}
+                max={999}
+              />
+            </div>
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Motivo de Emissão</label>
+              <select
+                value={motivoEmissao}
+                onChange={(e) => setMotivoEmissao(e.target.value as MotivoEmissaoNFAe)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              >
+                <option value="PRODUTOR_RURAL">Produtor Rural</option>
+                <option value="MEI_SEM_IE">MEI sem IE</option>
+                <option value="PF_ATIVO_PESSOAL">PF com Atividade Pessoal</option>
+                <option value="FEIRAS_EVENTOS">Feiras e Eventos</option>
+                <option value="DEVOLUCAO_AVULSA">Devolução Avulsa</option>
+                <option value="OUTROS">Outros</option>
+              </select>
+            </div>
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Natureza da Operação</label>
+              <input
+                type="text"
+                value={naturezaOperacao}
+                onChange={(e) => setNaturezaOperacao(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="Fornecimento de Energia"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">Descrição do Motivo</label>
+            <textarea
+              rows={2}
+              value={descricaoMotivo}
+              onChange={(e) => setDescricaoMotivo(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
+              placeholder="Detalhamento do motivo da emissão avulsa..."
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ============================================================
+          BLOCO 4: PRODUTOS/INSUMOS
+          ============================================================ */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+          <div className="flex items-center gap-2">
+            <Package className={`w-4 h-4 ${corText}`} />
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">4. Produtos / Insumos ({itens.length})</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              step="0.001"
+              value={quantidadeItem || ''}
+              onChange={(e) => setQuantidadeItem(parseFloat(e.target.value) || 1)}
+              className={`w-20 border border-slate-300 rounded-lg p-1 focus:outline-none focus:ring-2 ${corFocus} text-xs`}
+              placeholder="Qtd"
+            />
+            <input
+              type="number"
+              step="0.01"
+              value={valorUnitarioItem || ''}
+              onChange={(e) => setValorUnitarioItem(parseFloat(e.target.value) || 0)}
+              className={`w-24 border border-slate-300 rounded-lg p-1 focus:outline-none focus:ring-2 ${corFocus} text-xs`}
+              placeholder="V. Unit"
+            />
+            <select
+              value={selectedProdutoId}
+              onChange={(e) => setSelectedProdutoId(e.target.value)}
+              className={`text-xs bg-white border border-slate-300 rounded-lg p-1 focus:outline-none focus:ring-2 ${corFocus} min-w-[150px]`}
             >
-              {isTransmitting ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Transmitindo...</span>
-                </>
-              ) : (
-                <>
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Emitir NFA-e</span>
-                </>
-              )}
+              <option value="">Selecione...</option>
+              {produtos.map(p => (
+                <option key={p.id} value={p.id}>{p.codigo} - {p.descricao.slice(0, 20)}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={adicionarItem}
+              disabled={!selectedProdutoId}
+              className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Adicionar</span>
             </button>
           </div>
+        </div>
 
-          {/* Natureza e Pagamento */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-              <FileText className="w-4 h-4 text-amber-600" />
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Natureza</h3>
+        {itens.length === 0 ? (
+          <div className="p-6 border-2 border-dashed border-slate-200 rounded-lg text-center bg-slate-50/70">
+            <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-slate-700">Nenhum produto adicionado</p>
+            <p className="text-[11px] text-slate-500">Selecione um produto no botão acima</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            {itens.map((item, idx) => (
+              <div key={item.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <div className="font-semibold text-slate-900 text-sm">{item.descricao}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">
+                      Cód: {item.codigo} | NCM: {item.ncm} | UN: {item.unidade}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removerItem(idx)}
+                    className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3 pt-2 border-t border-slate-200 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">Qtd:</span>
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={item.quantidade}
+                      onChange={(e) => atualizarItem(idx, 'quantidade', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-white border border-slate-300 rounded p-1 font-bold text-slate-900 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">V. Unitário:</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.valorUnitario}
+                      onChange={(e) => atualizarItem(idx, 'valorUnitario', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-white border border-slate-300 rounded p-1 font-bold text-slate-900 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">ICMS:</span>
+                    <span className="font-medium text-amber-700 block mt-1.5">{formatarMoeda(item.valorICMS)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">Total:</span>
+                    <span className="font-bold text-slate-900 block mt-1.5">{formatarMoeda(item.valorTotal)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================
+          BLOCO 5: TRIBUTAÇÃO E DAE
+          ============================================================ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
+            <Shield className={`w-4 h-4 ${corText}`} />
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">5. Tributação ICMS</h3>
+          </div>
+          <div className="space-y-2.5 text-xs">
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Alíquota ICMS (%)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={aliquotaICMS || ''}
+                onChange={(e) => setAliquotaICMS(parseFloat(e.target.value) || 0)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                placeholder="12.00"
+              />
             </div>
-            <div className="space-y-2 text-xs">
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Base de Cálculo (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={baseCalculoICMS || ''}
+                onChange={(e) => setBaseCalculoICMS(parseFloat(e.target.value) || 0)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
+                placeholder="0,00"
+              />
+            </div>
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Valor ICMS (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={valorICMS || ''}
+                onChange={(e) => setValorICMS(parseFloat(e.target.value) || 0)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
+            <Barcode className={`w-4 h-4 ${corText}`} />
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">6. Guia DAE</h3>
+          </div>
+          <div className="space-y-2.5 text-xs">
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Número da Guia DAE</label>
+              <input
+                type="text"
+                value={numeroDAE}
+                onChange={(e) => setNumeroDAE(e.target.value)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+                placeholder="DAE-000000"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block font-medium text-slate-600 mb-1">Descrição da Operação</label>
+                <label className="block font-medium text-slate-600 mb-1">Vencimento</label>
                 <input
-                  type="text"
-                  value={naturezaOperacao}
-                  onChange={(e) => setNaturezaOperacao(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  type="date"
+                  value={dataVencimentoDAE}
+                  onChange={(e) => setDataVencimentoDAE(e.target.value)}
+                  className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
               <div>
-                <label className="block font-medium text-slate-600 mb-1">Forma de Pagamento</label>
-                <select
-                  value={formaPagamento}
-                  onChange={(e) => setFormaPagamento(e.target.value as any)}
-                  className="w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="01">💵 Dinheiro</option>
-                  <option value="02">💳 Cartão de Crédito</option>
-                  <option value="03">💳 Cartão de Débito</option>
-                  <option value="04">💰 Boleto</option>
-                  <option value="15">⚡ PIX</option>
-                  <option value="17">📱 PIX</option>
-                  <option value="90">🔄 Sem Pagamento</option>
-                  <option value="99">📝 Outros</option>
-                </select>
+                <label className="block font-medium text-slate-600 mb-1">Valor (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={valorDAE || ''}
+                  onChange={(e) => setValorDAE(parseFloat(e.target.value) || 0)}
+                  className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
+                  placeholder="0,00"
+                />
               </div>
             </div>
+            <div>
+              <label className="block font-medium text-slate-600 mb-1">Status</label>
+              <select
+                value={statusPagamentoDAE}
+                onChange={(e) => setStatusPagamentoDAE(e.target.value as any)}
+                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              >
+                <option value="AGUARDANDO_PAGAMENTO">Aguardando Pagamento</option>
+                <option value="PAGO">Pago</option>
+                <option value="ISENTO">Isento</option>
+              </select>
+            </div>
           </div>
-
         </div>
 
+      </div>
+
+      {/* ============================================================
+          BLOCO 6: ÓRGÃO EMISSOR E OBSERVAÇÕES
+          ============================================================ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
+            <Building className={`w-4 h-4 ${corText}`} />
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">7. Órgão Emissor</h3>
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">SEFAZ Emissora</label>
+            <input
+              type="text"
+              value={orgaoEmissor}
+              onChange={(e) => setOrgaoEmissor(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="SEFAZ/SP"
+            />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
+            <FileText className={`w-4 h-4 ${corText}`} />
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">8. Observações</h3>
+          </div>
+          <div>
+            <label className="block font-medium text-slate-600 mb-1">Informações Complementares</label>
+            <textarea
+              rows={3}
+              value={observacoes}
+              onChange={(e) => setObservacoes(e.target.value)}
+              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
+              placeholder="Observações complementares..."
+            />
+          </div>
+        </div>
+
+      </div>
+
+      {/* ============================================================
+          BLOCO 7: TOTAIS E AÇÕES
+          ============================================================ */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
+          <DollarSign className={`w-4 h-4 ${corText}`} />
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">9. Totais e Ações</h3>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs mb-4">
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+            <span className="text-slate-500 block">Total Produtos</span>
+            <span className="text-lg font-bold text-slate-900">{formatarMoeda(totalProdutos)}</span>
+          </div>
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+            <span className="text-slate-500 block">Total ICMS</span>
+            <span className="text-lg font-bold text-amber-700">{formatarMoeda(itens.reduce((acc, item) => acc + item.valorICMS, 0))}</span>
+          </div>
+          <div className="bg-gradient-to-r from-amber-600 to-amber-700 p-3 rounded-lg text-white">
+            <span className="text-amber-100 block">Total da NFA-e</span>
+            <span className="text-lg font-bold text-white">{formatarMoeda(valorTotalNota)}</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleTransmitirNfae}
+          disabled={isTransmitting || itens.length === 0}
+          id="btn-emitir-nfae"
+          className={`w-full ${corBgButton} disabled:bg-slate-300 text-white text-sm font-bold py-3 px-4 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
+        >
+          {isTransmitting ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Transmitindo NFA-e...</span>
+            </>
+          ) : (
+            <>
+              <Send className="w-4 h-4" />
+              <span>EMITIR & AUTORIZAR NFA-e (MODELO 63)</span>
+            </>
+          )}
+        </button>
       </div>
 
     </div>

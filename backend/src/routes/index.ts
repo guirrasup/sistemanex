@@ -1,41 +1,42 @@
-// C:\emissornfe\backend\src\routes\index.ts
+// C:\emissornfe\backend\src\routes\cte.routes.ts
 
 import { Router } from 'express';
-import authRoutes from './auth.routes';
-import nfseRoutes from './nfse.routes';
-import nfeRoutes from './nfe.routes';
-import financeiroRoutes from './financeiro.routes';
-import cnpjRoutes from './cnpj.routes';
-import produtoRoutes from './produto.routes';
-import clienteRoutes from './cliente.routes';
-import servicoRoutes from './servico.routes';
-import nfceRoutes from './nfce.routes';      
-import cteRoutes from './cte.routes';        
-import nfaeRoutes from './nfae.routes';      
-import transportadoraRoutes from './transportadora.routes';
-import mdfeRoutes from './mdfe.routes';
+import { CteController } from '../controllers/cte.controller';
+import { authMiddleware } from '../middlewares/auth.middleware';
 
 const router = Router();
+const cteController = new CteController();
 
-// 🔥 ROTAS DE AUTENTICAÇÃO
-router.use('/auth', authRoutes);
+// ✅ TODAS AS ROTAS CT-e
+router.use(authMiddleware);
 
-// 🔥 ROTAS FISCAIS
-router.use('/nfse', nfseRoutes);
-router.use('/nfe', nfeRoutes);
-router.use('/nfce', nfceRoutes);      
-router.use('/cte', cteRoutes);        
-router.use('/nfae', nfaeRoutes);  
-router.use('/mdfe', mdfeRoutes);    
+// 📋 LISTAGEM E CONSULTA
+router.get('/', cteController.listar.bind(cteController));
+router.get('/estatisticas', cteController.getEstatisticas.bind(cteController));
+router.get('/total-frete', cteController.getTotalFrete.bind(cteController));
+router.get('/resumo-mensal', cteController.getResumoMensal.bind(cteController));
 
-// 🔥 ROTAS DE CADASTRO
-router.use('/produtos', produtoRoutes);
-router.use('/clientes', clienteRoutes);
-router.use('/servicos', servicoRoutes);
-router.use('/transportadoras', transportadoraRoutes); 
+// 🔍 BUSCAS POR PARÂMETROS ESPECÍFICOS
+router.get('/chave/:chave', cteController.buscarPorChave.bind(cteController));
+router.get('/protocolo/:protocolo', cteController.buscarPorProtocolo.bind(cteController));
+router.get('/status/:status', cteController.findByStatus.bind(cteController));
+router.get('/modal/:modal', cteController.findByModal.bind(cteController));
 
-// 🔥 ROTAS FINANCEIRAS E FERRAMENTAS
-router.use('/financeiro', financeiroRoutes);
-router.use('/cnpj', cnpjRoutes);
+// 🔍 BUSCAS POR RELACIONAMENTOS
+router.get('/cliente/:clienteId', cteController.findByCliente.bind(cteController));
+router.get('/transportadora/:transportadoraId', cteController.findByTransportadora.bind(cteController));
+
+// 🔍 CT-e DE SUBSTITUIÇÃO E COMPLEMENTO
+router.get('/substituicao/:chave', cteController.buscarCteSubstituido.bind(cteController));
+router.get('/complemento/:chave', cteController.buscarCteComplementado.bind(cteController));
+
+// 📝 CRUD PRINCIPAL
+router.get('/:id', cteController.buscarPorId.bind(cteController));
+router.post('/emitir', cteController.emitir.bind(cteController));
+router.post('/cancelar/:id', cteController.cancelar.bind(cteController));
+
+// 📄 DOWNLOADS
+router.get('/xml/:id', cteController.baixarXml.bind(cteController));
+router.get('/dacte/:id', cteController.gerarDacte.bind(cteController));
 
 export default router;
