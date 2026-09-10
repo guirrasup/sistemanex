@@ -8,25 +8,15 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Runner self-hosted rodando direto no servidor jrnex — o job executa o
+    # script local do próprio checkout, sem precisar de SSH/secrets.
+    runs-on: self-hosted
     steps:
-      - name: Definir diretório do ambiente
-        id: env
+      - name: Deploy
         run: |
           if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "dir=/root/sistemanex" >> "$GITHUB_OUTPUT"
+            DIR=/root/sistemanex
           else
-            echo "dir=/root/sistemanex-dev" >> "$GITHUB_OUTPUT"
+            DIR=/root/sistemanex-dev
           fi
-
-      - name: Configurar chave SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.NEX_DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.NEX_DEPLOY_HOST }}" >> ~/.ssh/known_hosts
-
-      - name: Deploy via SSH
-        run: |
-          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.NEX_DEPLOY_HOST }} \
-            "${{ steps.env.outputs.dir }}/scripts/deploy.sh ${{ steps.env.outputs.dir }} ${{ github.ref_name }}"
+          "$DIR/scripts/deploy.sh" "$DIR" "${{ github.ref_name }}"
