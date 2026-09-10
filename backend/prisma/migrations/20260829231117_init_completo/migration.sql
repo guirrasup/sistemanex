@@ -1,648 +1,868 @@
-/*
-  Warnings:
-
-  - The `indicadorIE` column on the `clientes` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `modelo` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(2)`.
-  - The `tipoEmissao` column on the `ctes` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `municipioInicioCod` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(7)`.
-  - You are about to alter the column `municipioFimCod` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(7)`.
-  - You are about to alter the column `valorCargaAverbada` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `pesoBrutoKg` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `pesoLiquidoKg` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `cubagemM3` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `veiculoPlaca` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(7)`.
-  - You are about to alter the column `motoristaCpf` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(11)`.
-  - You are about to alter the column `valorTotalFrete` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `fretePeso` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `freteValor` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `pedagio` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `taxaGris` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `outrasTaxas` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorReceber` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - The `cstICMS` column on the `ctes` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `baseCalculoICMS` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `aliquotaICMS` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `valorICMS` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorPIS` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorCOFINS` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTributosAprox` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `protocoloAutorizacao` on the `ctes` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(17)`.
-  - You are about to alter the column `valor` on the `duplicatas` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `cnpj` on the `empresas` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(14)`.
-  - The `regimeTributario` column on the `empresas` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `aliquotaSimples` on the `empresas` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `codigoMunicipio` on the `enderecos` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(7)`.
-  - You are about to alter the column `codigoPais` on the `enderecos` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(4)`.
-  - You are about to alter the column `quantidade` on the `itens_nfae` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorUnitario` on the `itens_nfae` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotal` on the `itens_nfae` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `aliquotaICMS` on the `itens_nfae` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `valorICMS` on the `itens_nfae` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `quantidade` on the `itens_nfce` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorUnitario` on the `itens_nfce` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotalBruto` on the `itens_nfce` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - The `cstICMS` column on the `itens_nfce` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `aliquotaICMS` on the `itens_nfce` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `baseCalculoICMS` on the `itens_nfce` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorICMS` on the `itens_nfce` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - The `cstPIS` column on the `itens_nfce` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `aliquotaPIS` on the `itens_nfce` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorPIS` on the `itens_nfce` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - The `cstCOFINS` column on the `itens_nfce` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `aliquotaCOFINS` on the `itens_nfce` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorCOFINS` on the `itens_nfce` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTributosAprox` on the `itens_nfce` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `quantidade` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorUnitario` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotalBruto` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `descontoItem` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - The `origemMercadoria` column on the `itens_nfe` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - The `cstICMS` column on the `itens_nfe` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `aliquotaICMS` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `baseCalculoICMS` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorICMS` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - The `cstIPI` column on the `itens_nfe` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `aliquotaIPI` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `valorIPI` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - The `cstPIS` column on the `itens_nfe` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `aliquotaPIS` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorPIS` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - The `cstCOFINS` column on the `itens_nfe` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `aliquotaCOFINS` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorCOFINS` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `aliquotaIBSUF` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorIBSUF` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `aliquotaIBSMun` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorIBSMun` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `aliquotaCBS` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorCBS` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTributosAprox` on the `itens_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `quantidade` on the `movimentacoes_estoque` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(11,3)`.
-  - You are about to alter the column `quantidadeAnterior` on the `movimentacoes_estoque` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(11,3)`.
-  - You are about to alter the column `quantidadePosterior` on the `movimentacoes_estoque` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(11,3)`.
-  - You are about to alter the column `custoUnitario` on the `movimentacoes_estoque` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotal` on the `movimentacoes_estoque` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `requerenteUf` on the `nfaes` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(2)`.
-  - You are about to alter the column `requerenteCep` on the `nfaes` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(9)`.
-  - You are about to alter the column `valorTotalProdutos` on the `nfaes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `baseCalculoICMS` on the `nfaes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `aliquotaICMSMediana` on the `nfaes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `valorTotalICMS` on the `nfaes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalNota` on the `nfaes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `guiaDAEValor` on the `nfaes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `protocoloAutorizacao` on the `nfaes` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(17)`.
-  - You are about to drop the column `formaPagamento` on the `nfces` table. All the data in the column will be lost.
-  - You are about to alter the column `modelo` on the `nfces` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(2)`.
-  - The `tipoEmissao` column on the `nfces` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `valorTotalProdutos` on the `nfces` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalDesconto` on the `nfces` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalAcrescimo` on the `nfces` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalTributosAprox` on the `nfces` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalNota` on the `nfces` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorPago` on the `nfces` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTroco` on the `nfces` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `protocoloAutorizacao` on the `nfces` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(17)`.
-  - You are about to drop the column `formaPagamento` on the `nfes` table. All the data in the column will be lost.
-  - You are about to alter the column `modelo` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(2)`.
-  - The `tipoEmissao` column on the `nfes` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - The `tipoDocumento` column on the `nfes` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - The `finalidade` column on the `nfes` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - The `consumidorFinal` column on the `nfes` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - The `presencaComprador` column on the `nfes` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `valorTotalProdutos` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalFrete` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalSeguro` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalDesconto` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalOutrasDesp` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `baseCalculoICMS` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalICMS` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `baseCalculoICMSST` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalICMSST` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalIPI` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalPIS` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalCOFINS` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalIBS` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalCBS` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalTributosAprox` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorTotalNota` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `protocoloAutorizacao` on the `nfes` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(17)`.
-  - You are about to alter the column `valorTotalServicos` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotalDescontos` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotalDeducoes` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `baseCalculoISS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotalISS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotalISSRetido` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotalRetencoesFed` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotalIBS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotalCBS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorLiquidoNfse` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `valorTotalNotaFinal` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `aliquotaISS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `valorISS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `aliquotaPIS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorPIS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `aliquotaCOFINS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorCOFINS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `aliquotaIRRF` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `valorIRRF` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `aliquotaCSLL` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `valorCSLL` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `aliquotaINSS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `valorINSS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `aliquotaIBSUF` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorIBSUF` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `aliquotaIBSMun` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorIBSMun` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `aliquotaCBS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorCBS` on the `nfses` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `cfopPadrao` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(4)`.
-  - The `origem` column on the `produtos` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `precoCusto` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `margemLucro` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `precoVenda` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `estoqueAtual` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(11,3)`.
-  - You are about to alter the column `estoqueMinimo` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(11,3)`.
-  - You are about to alter the column `aliquotaICMS` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `aliquotaPIS` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `aliquotaCOFINS` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `aliquotaIPI` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `aliquotaIBS` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `aliquotaCBS` on the `produtos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorUnitario` on the `servicos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,4)`.
-  - You are about to alter the column `aliquotaISS` on the `servicos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `aliquotaPIS` on the `servicos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `aliquotaCOFINS` on the `servicos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `aliquotaIRRF` on the `servicos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `aliquotaCSLL` on the `servicos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `aliquotaINSS` on the `servicos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(3,2)`.
-  - You are about to alter the column `aliquotaIBS` on the `servicos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `aliquotaCBS` on the `servicos` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(5,4)`.
-  - You are about to alter the column `valorOriginal` on the `titulos_financeiros` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorJurosMulta` on the `titulos_financeiros` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorDesconto` on the `titulos_financeiros` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `valorPago` on the `titulos_financeiros` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(15,2)`.
-  - You are about to alter the column `cnpj` on the `transportadoras` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(14)`.
-  - The `regimeTributario` column on the `transportadoras` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - The `modalidadeFrete` column on the `transportes_nfe` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to alter the column `transportadoraCnpj` on the `transportes_nfe` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(14)`.
-  - You are about to alter the column `veiculoPlaca` on the `transportes_nfe` table. The data in that column could be lost. The data in that column will be cast from `Text` to `Char(7)`.
-  - You are about to alter the column `volumesQuantidade` on the `transportes_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Integer`.
-  - You are about to alter the column `volumesPesoLiquido` on the `transportes_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(12,3)`.
-  - You are about to alter the column `volumesPesoBruto` on the `transportes_nfe` table. The data in that column could be lost. The data in that column will be cast from `DoublePrecision` to `Decimal(12,3)`.
-  - Added the required column `codigoUF` to the `empresas` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `codigoUF` to the `enderecos` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `quantidadeTributavel` to the `itens_nfe` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `unidadeTributavel` to the `itens_nfe` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `valorUnitarioTributavel` to the `itens_nfe` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `cDV` to the `nfes` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `cMunFG` to the `nfes` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `cNF` to the `nfes` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `cUF` to the `nfes` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `valorPago` to the `nfes` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `verProc` to the `nfes` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `cListServ` to the `servicos` table without a default value. This is not possible if the table is not empty.
-
-*/
 -- CreateEnum
-CREATE TYPE "CRT" AS ENUM ('SIMPLES_NACIONAL', 'SIMPLES_EXCESSO', 'NORMAL', 'MEI');
+CREATE TYPE "StatusCTe" AS ENUM ('RASCUNHO', 'VALIDADA', 'ASSINADA', 'PROCESSANDO', 'AUTORIZADA', 'REJEITADA', 'CANCELADA', 'DENEGADA');
 
 -- CreateEnum
-CREATE TYPE "TpImp" AS ENUM ('SEM_DANFE', 'DANFE_RETRATO', 'DANFE_PAISAGEM', 'DANFE_SIMPLIFICADO', 'DANFE_NFCE', 'DANFE_NFCE_MSG');
+CREATE TYPE "ModalCTe" AS ENUM ('RODOVIARIO', 'AEREO', 'AQUAVIARIO', 'FERROVIARIO', 'DUTOVIARIO', 'MULTIMODAL');
 
 -- CreateEnum
-CREATE TYPE "TpEmis" AS ENUM ('NORMAL', 'CONTINGENCIA_FS', 'REGIME_ESPECIAL_NFF', 'CONTINGENCIA_DPEC', 'CONTINGENCIA_FSDA', 'CONTINGENCIA_SVC_AN', 'CONTINGENCIA_SVC_RS', 'OFF_LINE_NFCE');
+CREATE TYPE "TipoServicoCTe" AS ENUM ('NORMAL', 'SUBCONTRATACAO', 'REDESPACHO', 'REDESPACHO_INTERMEDIARIO', 'VINCULADO_MULTIMODAL');
 
 -- CreateEnum
-CREATE TYPE "TpNF" AS ENUM ('ENTRADA', 'SAIDA');
+CREATE TYPE "TipoCTe" AS ENUM ('NORMAL', 'COMPLEMENTO_VALORES', 'SUBSTITUICAO');
 
 -- CreateEnum
-CREATE TYPE "IdDest" AS ENUM ('OPERACAO_INTERNA', 'OPERACAO_INTERESTADUAL', 'OPERACAO_EXTERIOR');
+CREATE TYPE "TomadorServicoCTe" AS ENUM ('REMETENTE', 'EXPEDIDOR', 'RECEBEDOR', 'DESTINATARIO', 'OUTROS');
 
 -- CreateEnum
-CREATE TYPE "IndPresenca" AS ENUM ('NAO_APLICA', 'PRESENCIAL', 'NAO_PRESENCIAL_INTERNET', 'NAO_PRESENCIAL_TELE', 'NFC_ENTREGA_DOMICILIO', 'PRESENCIAL_FORA', 'NAO_PRESENCIAL_OUTROS');
+CREATE TYPE "IndicadorIECTe" AS ENUM ('CONTRIBUINTE', 'ISENTO', 'NAO_CONTRIBUINTE');
 
 -- CreateEnum
-CREATE TYPE "FinNFe" AS ENUM ('NORMAL', 'COMPLEMENTAR', 'AJUSTE', 'DEVOLUCAO_RETORNO');
+CREATE TYPE "CSTICMSCTe" AS ENUM ('TRIBUTACAO_NORMAL', 'REDUCAO_BC', 'ISENTA', 'NAO_TRIBUTADA', 'DIFERIDA', 'ST', 'OUTROS');
 
 -- CreateEnum
-CREATE TYPE "ProcEmi" AS ENUM ('APP_CONTRIBUINTE', 'AVULSA_FISCO', 'AVULSA_CONTRIBUINTE_SITE', 'APP_FISCO');
+CREATE TYPE "StatusNFAe" AS ENUM ('RASCUNHO', 'VALIDADA', 'ASSINADA', 'PROCESSANDO', 'AUTORIZADA', 'REJEITADA', 'CANCELADA');
 
 -- CreateEnum
-CREATE TYPE "IndFinal" AS ENUM ('NAO', 'SIM');
+CREATE TYPE "MotivoEmissaoNFAe" AS ENUM ('PRODUTOR_RURAL', 'MEI_SEM_IE', 'PF_ATIVO_PESSOAL', 'FEIRAS_EVENTOS', 'DEVOLUCAO_AVULSA', 'OUTROS');
 
 -- CreateEnum
-CREATE TYPE "IndIntermed" AS ENUM ('SEM_INTERMEDIADOR', 'COM_INTERMEDIADOR');
+CREATE TYPE "TipoPessoaNFAe" AS ENUM ('PF', 'PJ');
 
 -- CreateEnum
-CREATE TYPE "ModFrete" AS ENUM ('CIF', 'FOB', 'TERCEIROS', 'PROPRIO_REMETENTE', 'PROPRIO_DESTINATARIO', 'SEM_TRANSPORTE');
+CREATE TYPE "StatusMDFe" AS ENUM ('RASCUNHO', 'VALIDADA', 'ASSINADA', 'PROCESSANDO', 'AUTORIZADA', 'REJEITADA', 'CANCELADA', 'DENEGADA', 'ENCERRADA');
 
 -- CreateEnum
-CREATE TYPE "IndIEDest" AS ENUM ('CONTRIBUINTE', 'ISENTO', 'NAO_CONTRIBUINTE');
+CREATE TYPE "ModalMDFe" AS ENUM ('RODOVIARIO', 'AEREO', 'AQUAVIARIO', 'FERROVIARIO');
 
 -- CreateEnum
-CREATE TYPE "IndPag" AS ENUM ('VISTA', 'PRAZO');
+CREATE TYPE "TipoEmitenteMDFe" AS ENUM ('PRESTADOR_SERVICO', 'TRANSPORTADOR_CARGA_PROPRIA', 'CTE_GLOBALIZADO');
 
 -- CreateEnum
-CREATE TYPE "TpIntegra" AS ENUM ('INTEGRADO', 'NAO_INTEGRADO');
+CREATE TYPE "TipoTransportadorMDFe" AS ENUM ('ETC', 'TAC', 'CTC');
 
 -- CreateEnum
-CREATE TYPE "OrigemMercadoria" AS ENUM ('NACIONAL', 'ESTRANGEIRA_IMPORTACAO_DIRETA', 'ESTRANGEIRA_MERCADO_INTERNO', 'NACIONAL_CONTEUDO_40_70', 'NACIONAL_PROCESSOS_BASICOS', 'NACIONAL_CONTEUDO_INFERIOR_40', 'ESTRANGEIRA_IMPORTACAO_DIRETA_CAMEX', 'ESTRANGEIRA_MERCADO_INTERNO_CAMEX', 'NACIONAL_CONTEUDO_IMPORTACAO_70');
+CREATE TYPE "TipoCargaMDFe" AS ENUM ('GRANEL_SOLIDO', 'GRANEL_LIQUIDO', 'FRIGORIFICADA', 'CONTEINERIZADA', 'CARGA_GERAL', 'NEOGRANEL', 'PERIGOSA_GRANEL_SOLIDO', 'PERIGOSA_GRANEL_LIQUIDO', 'PERIGOSA_FRIGORIFICADA', 'PERIGOSA_CONTEINERIZADA', 'PERIGOSA_CARGA_GERAL', 'GRANEL_PRESSURIZADA');
 
--- CreateEnum
-CREATE TYPE "ModBC" AS ENUM ('MVA', 'PAUTA', 'PRECO_TABELADO', 'VALOR_OPERACAO');
+-- AlterEnum
+-- This migration adds more than one value to an enum.
+-- With PostgreSQL versions 11 and earlier, this is not possible
+-- in a single migration. This can be worked around by creating
+-- multiple migrations, each migration adding only one value to
+-- the enum.
 
--- CreateEnum
-CREATE TYPE "ModBCST" AS ENUM ('PRECO_TABELADO', 'LISTA_NEGATIVA', 'LISTA_POSITIVA', 'LISTA_NEUTRA', 'MVA', 'PAUTA', 'VALOR_OPERACAO');
 
--- CreateEnum
-CREATE TYPE "MotDesICMS" AS ENUM ('TAXI', 'PRODUTOR_AGROPECUARIO', 'FROTISTA_LOCADORA', 'DIPLOMATICO_CONSULAR', 'AMAZONIA_OCCIDENTAL', 'SUFRAMA', 'ORGAO_PUBLICO', 'OUTROS', 'DEFICIENTE_CONDUTOR', 'DEFICIENTE_NAO_CONDUTOR', 'OLIMPIADAS_2016', 'SOLICITADO_FISCO');
+ALTER TYPE "StatusDocumento" ADD VALUE 'VALIDADA';
+ALTER TYPE "StatusDocumento" ADD VALUE 'ASSINADA';
+ALTER TYPE "StatusDocumento" ADD VALUE 'DENEGADA';
 
--- CreateEnum
-CREATE TYPE "MotDesICMSST" AS ENUM ('USO_AGROPECUARIA', 'OUTROS', 'FOMENTO_AGROPECUARIO');
+-- DropForeignKey
+ALTER TABLE "ctes" DROP CONSTRAINT "ctes_destinatarioId_fkey";
 
--- CreateEnum
-CREATE TYPE "IndDeduzDeson" AS ENUM ('NAO_DEDUZ', 'DEDUZ');
+-- DropForeignKey
+ALTER TABLE "ctes" DROP CONSTRAINT "ctes_remetenteId_fkey";
 
--- CreateEnum
-CREATE TYPE "TpViaTransp" AS ENUM ('MARITIMA', 'FLUVIAL', 'LACUSTRE', 'AEREA', 'POSTAL', 'FERROVIARIA', 'RODOVIARIA', 'CONDUTO', 'MEIOS_PROPRIOS', 'ENTRADA_SAIDA_FICTA', 'COURIER', 'EM_MAOS', 'POR_REBOQUE');
+-- DropForeignKey
+ALTER TABLE "itens_nfae" DROP CONSTRAINT "itens_nfae_nfaeId_fkey";
 
--- CreateEnum
-CREATE TYPE "TpIntermedio" AS ENUM ('CONTA_PROPRIA', 'CONTA_E_ORDEM', 'ENCOMENDA');
+-- DropForeignKey
+ALTER TABLE "nfaes" DROP CONSTRAINT "nfaes_destinatarioId_fkey";
 
--- CreateEnum
-CREATE TYPE "IndISS" AS ENUM ('EXIGIVEL', 'NAO_INCIDENTE', 'ISENCAO', 'EXPORTACAO', 'IMUNIDADE', 'SUSPENSAO_JUDICIAL', 'SUSPENSAO_ADMINISTRATIVA');
+-- DropForeignKey
+ALTER TABLE "nfses" DROP CONSTRAINT "nfses_servicoId_fkey";
 
--- CreateEnum
-CREATE TYPE "IndIncentivo" AS ENUM ('SIM', 'NAO');
+-- DropForeignKey
+ALTER TABLE "nfses" DROP CONSTRAINT "nfses_tomadorId_fkey";
 
--- CreateEnum
-CREATE TYPE "TpAutor" AS ENUM ('EMITENTE', 'DESTINATARIO', 'EMPRESA', 'FISCO', 'RFB', 'OUTROS');
-
--- CreateEnum
-CREATE TYPE "IndProc" AS ENUM ('SEFAZ', 'JUSTICA_FEDERAL', 'JUSTICA_ESTADUAL', 'SECEX_RFB', 'CONFAZ', 'OUTROS');
-
--- CreateEnum
-CREATE TYPE "TpAto" AS ENUM ('TERMO_ACORDO', 'REGIME_ESPECIAL', 'AUTORIZACAO_ESPECIFICA', 'AJUSTE_SINIEF', 'CONVENIO_ICMS');
-
--- CreateEnum
-CREATE TYPE "IndImport" AS ENUM ('NACIONAL', 'IMPORTADO');
-
--- CreateEnum
-CREATE TYPE "TpArma" AS ENUM ('USO_PERMITIDO', 'USO_RESTRITO');
-
--- CreateEnum
-CREATE TYPE "CSTICMS" AS ENUM ('CST_00', 'CST_02', 'CST_10', 'CST_15', 'CST_20', 'CST_30', 'CST_40', 'CST_41', 'CST_50', 'CST_51', 'CST_53', 'CST_60', 'CST_61', 'CST_70', 'CST_90');
-
--- CreateEnum
-CREATE TYPE "CSOSN" AS ENUM ('CSOSN_101', 'CSOSN_102', 'CSOSN_103', 'CSOSN_201', 'CSOSN_202', 'CSOSN_203', 'CSOSN_300', 'CSOSN_400', 'CSOSN_500', 'CSOSN_900');
-
--- CreateEnum
-CREATE TYPE "CSTPIS" AS ENUM ('CST_01', 'CST_02', 'CST_03', 'CST_04', 'CST_05', 'CST_06', 'CST_07', 'CST_08', 'CST_09', 'CST_49', 'CST_50', 'CST_51', 'CST_52', 'CST_53', 'CST_54', 'CST_55', 'CST_56', 'CST_60', 'CST_61', 'CST_62', 'CST_63', 'CST_64', 'CST_65', 'CST_66', 'CST_67', 'CST_70', 'CST_71', 'CST_72', 'CST_73', 'CST_74', 'CST_75', 'CST_98', 'CST_99');
-
--- CreateEnum
-CREATE TYPE "CSTCOFINS" AS ENUM ('CST_01', 'CST_02', 'CST_03', 'CST_04', 'CST_05', 'CST_06', 'CST_07', 'CST_08', 'CST_09', 'CST_49', 'CST_50', 'CST_51', 'CST_52', 'CST_53', 'CST_54', 'CST_55', 'CST_56', 'CST_60', 'CST_61', 'CST_62', 'CST_63', 'CST_64', 'CST_65', 'CST_66', 'CST_67', 'CST_70', 'CST_71', 'CST_72', 'CST_73', 'CST_74', 'CST_75', 'CST_98', 'CST_99');
-
--- CreateEnum
-CREATE TYPE "CSTIPI" AS ENUM ('CST_00', 'CST_01', 'CST_02', 'CST_03', 'CST_04', 'CST_05', 'CST_49', 'CST_50', 'CST_51', 'CST_52', 'CST_53', 'CST_54', 'CST_55', 'CST_99');
+-- DropIndex
+DROP INDEX "ctes_transportadoraId_idx";
 
 -- AlterTable
-ALTER TABLE "clientes" ADD COLUMN     "inscricaoEstadualST" TEXT,
-ADD COLUMN     "inscricaoSuframa" CHAR(9),
-DROP COLUMN "indicadorIE",
-ADD COLUMN     "indicadorIE" "IndIEDest" NOT NULL DEFAULT 'NAO_CONTRIBUINTE';
+ALTER TABLE "certificados_digitais" ADD COLUMN     "senha" TEXT;
 
 -- AlterTable
-ALTER TABLE "ctes" ALTER COLUMN "modelo" SET DATA TYPE CHAR(2),
+ALTER TABLE "clientes" DROP COLUMN "indicadorIE",
+ADD COLUMN     "indIEDest" CHAR(1) NOT NULL DEFAULT '9',
+ADD COLUMN     "inscricaoSuframa" CHAR(9);
+
+-- AlterTable
+ALTER TABLE "ctes" DROP COLUMN "aliquotaICMS",
+DROP COLUMN "ambiente",
+DROP COLUMN "baseCalculoICMS",
+DROP COLUMN "cfop",
+DROP COLUMN "chavesNFeTransportadas",
+DROP COLUMN "cstICMS",
+DROP COLUMN "cubagemM3",
+DROP COLUMN "dataHoraEmissao",
+DROP COLUMN "especieVolumes",
+DROP COLUMN "fretePeso",
+DROP COLUMN "freteValor",
+DROP COLUMN "modelo",
+DROP COLUMN "motoristaCpf",
+DROP COLUMN "motoristaNome",
+DROP COLUMN "municipioFimCod",
+DROP COLUMN "municipioFimNome",
+DROP COLUMN "municipioFimUf",
+DROP COLUMN "municipioInicioCod",
+DROP COLUMN "municipioInicioNome",
+DROP COLUMN "municipioInicioUf",
+DROP COLUMN "naturezaOperacao",
+DROP COLUMN "numero",
+DROP COLUMN "outrasTaxas",
+DROP COLUMN "pedagio",
+DROP COLUMN "pesoBrutoKg",
+DROP COLUMN "pesoLiquidoKg",
+DROP COLUMN "produtoPredominante",
+DROP COLUMN "quantidadeVolumes",
+DROP COLUMN "rntrc",
+DROP COLUMN "taxaGris",
 DROP COLUMN "tipoEmissao",
-ADD COLUMN     "tipoEmissao" "TpEmis" NOT NULL DEFAULT 'NORMAL',
-ALTER COLUMN "municipioInicioCod" SET DATA TYPE CHAR(7),
-ALTER COLUMN "municipioFimCod" SET DATA TYPE CHAR(7),
-ALTER COLUMN "valorCargaAverbada" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "pesoBrutoKg" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "pesoLiquidoKg" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "cubagemM3" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "veiculoPlaca" SET DATA TYPE CHAR(7),
-ALTER COLUMN "motoristaCpf" SET DATA TYPE CHAR(11),
-ALTER COLUMN "valorTotalFrete" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "fretePeso" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "freteValor" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "pedagio" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "taxaGris" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "outrasTaxas" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorReceber" SET DATA TYPE DECIMAL(15,2),
-DROP COLUMN "cstICMS",
-ADD COLUMN     "cstICMS" "CSTICMS" NOT NULL DEFAULT 'CST_00',
-ALTER COLUMN "baseCalculoICMS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "aliquotaICMS" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "valorICMS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorPIS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorCOFINS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTributosAprox" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "protocoloAutorizacao" SET DATA TYPE CHAR(17);
+DROP COLUMN "tomadorServico",
+DROP COLUMN "valorCOFINS",
+DROP COLUMN "valorCargaAverbada",
+DROP COLUMN "valorICMS",
+DROP COLUMN "valorPIS",
+DROP COLUMN "valorReceber",
+DROP COLUMN "valorTotalFrete",
+DROP COLUMN "valorTributosAprox",
+DROP COLUMN "veiculoPlaca",
+DROP COLUMN "veiculoUf",
+ADD COLUMN     "CFOP" CHAR(3) NOT NULL,
+ADD COLUMN     "CST00" CHAR(2),
+ADD COLUMN     "CST20" CHAR(2),
+ADD COLUMN     "CST45" CHAR(2),
+ADD COLUMN     "CST60" CHAR(2),
+ADD COLUMN     "CST90" CHAR(2),
+ADD COLUMN     "CSTIBSCBS" CHAR(3),
+ADD COLUMN     "CSTOutraUF" CHAR(2),
+ADD COLUMN     "CSTReg" CHAR(3),
+ADD COLUMN     "CSTSN" CHAR(2),
+ADD COLUMN     "Id" VARCHAR(47),
+ADD COLUMN     "UFEnv" CHAR(2) NOT NULL,
+ADD COLUMN     "UFFim" CHAR(2) NOT NULL,
+ADD COLUMN     "UFIni" CHAR(2) NOT NULL,
+ADD COLUMN     "cBenef45" VARCHAR(10),
+ADD COLUMN     "cCT" CHAR(8) NOT NULL,
+ADD COLUMN     "cClassTrib" CHAR(6),
+ADD COLUMN     "cClassTribReg" CHAR(6),
+ADD COLUMN     "cDV" CHAR(1) NOT NULL,
+ADD COLUMN     "cMunEnv" CHAR(7) NOT NULL,
+ADD COLUMN     "cMunFim" CHAR(7) NOT NULL,
+ADD COLUMN     "cMunIni" CHAR(7) NOT NULL,
+ADD COLUMN     "cUF" CHAR(2) NOT NULL,
+ADD COLUMN     "chCteSub" CHAR(44),
+ADD COLUMN     "dFim" TIMESTAMP(3),
+ADD COLUMN     "dIni" TIMESTAMP(3),
+ADD COLUMN     "dProg" TIMESTAMP(3),
+ADD COLUMN     "dataHoraEncerramento" TIMESTAMP(3),
+ADD COLUMN     "dataHoraRejeicao" TIMESTAMP(3),
+ADD COLUMN     "destCalc" VARCHAR(40),
+ADD COLUMN     "dhCont" TIMESTAMP(3),
+ADD COLUMN     "dhEmi" TIMESTAMP(3) NOT NULL,
+ADD COLUMN     "emitenteId" TEXT NOT NULL,
+ADD COLUMN     "enviadoEm" TIMESTAMP(3),
+ADD COLUMN     "enviadoPor" TEXT,
+ADD COLUMN     "expedidorId" TEXT,
+ADD COLUMN     "hFim" CHAR(8),
+ADD COLUMN     "hIni" CHAR(8),
+ADD COLUMN     "hProg" CHAR(8),
+ADD COLUMN     "indAlteraToma" CHAR(1),
+ADD COLUMN     "indDoacao" CHAR(1),
+ADD COLUMN     "indGlobalizado" BOOLEAN DEFAULT false,
+ADD COLUMN     "indIEToma" "IndicadorIECTe" NOT NULL DEFAULT 'NAO_CONTRIBUINTE',
+ADD COLUMN     "indSN" CHAR(1),
+ADD COLUMN     "infAdFisco" VARCHAR(2000),
+ADD COLUMN     "ipEnvio" VARCHAR(45),
+ADD COLUMN     "mod" CHAR(2) NOT NULL DEFAULT '57',
+ADD COLUMN     "modal" "ModalCTe" NOT NULL,
+ADD COLUMN     "motivoEncerramento" VARCHAR(255),
+ADD COLUMN     "motivoRejeicao" VARCHAR(500),
+ADD COLUMN     "nCT" INTEGER NOT NULL,
+ADD COLUMN     "nFat" VARCHAR(60),
+ADD COLUMN     "natOp" VARCHAR(60) NOT NULL,
+ADD COLUMN     "origCalc" VARCHAR(40),
+ADD COLUMN     "pAliqEfetCBS" DECIMAL(5,4),
+ADD COLUMN     "pAliqEfetIBSMun" DECIMAL(5,4),
+ADD COLUMN     "pAliqEfetIBSUF" DECIMAL(5,4),
+ADD COLUMN     "pAliqEfetRegCBS" DECIMAL(5,4),
+ADD COLUMN     "pAliqEfetRegIBSMun" DECIMAL(5,4),
+ADD COLUMN     "pAliqEfetRegIBSUF" DECIMAL(5,4),
+ADD COLUMN     "pCBS" DECIMAL(5,4),
+ADD COLUMN     "pDifCBS" DECIMAL(5,4),
+ADD COLUMN     "pDifIBSMun" DECIMAL(5,4),
+ADD COLUMN     "pDifIBSUF" DECIMAL(5,4),
+ADD COLUMN     "pFCPUFFim" DECIMAL(5,2),
+ADD COLUMN     "pIBSMun" DECIMAL(5,4),
+ADD COLUMN     "pIBSUF" DECIMAL(5,4),
+ADD COLUMN     "pICMS00" DECIMAL(5,2),
+ADD COLUMN     "pICMS20" DECIMAL(5,2),
+ADD COLUMN     "pICMS90" DECIMAL(5,2),
+ADD COLUMN     "pICMSInter" DECIMAL(5,2),
+ADD COLUMN     "pICMSOutraUF" DECIMAL(5,2),
+ADD COLUMN     "pICMSSTRet" DECIMAL(5,2),
+ADD COLUMN     "pICMSUFFim" DECIMAL(5,2),
+ADD COLUMN     "pRedAliqCBS" DECIMAL(5,4),
+ADD COLUMN     "pRedAliqIBSMun" DECIMAL(5,4),
+ADD COLUMN     "pRedAliqIBSUF" DECIMAL(5,4),
+ADD COLUMN     "pRedBC20" DECIMAL(5,2),
+ADD COLUMN     "pRedBC90" DECIMAL(5,2),
+ADD COLUMN     "pRedBCOutraUF" DECIMAL(5,2),
+ADD COLUMN     "pRedutor" VARCHAR(5),
+ADD COLUMN     "proPred" VARCHAR(60) NOT NULL,
+ADD COLUMN     "procEmi" CHAR(1) NOT NULL DEFAULT '0',
+ADD COLUMN     "recebedorId" TEXT,
+ADD COLUMN     "reciboLote" VARCHAR(15),
+ADD COLUMN     "refDFeAnt" VARCHAR(44),
+ADD COLUMN     "retira" CHAR(1) NOT NULL,
+ADD COLUMN     "toma" "TomadorServicoCTe" NOT NULL,
+ADD COLUMN     "tomadorCEP" CHAR(8),
+ADD COLUMN     "tomadorCNPJ" CHAR(14),
+ADD COLUMN     "tomadorCPF" CHAR(11),
+ADD COLUMN     "tomadorEmail" VARCHAR(60),
+ADD COLUMN     "tomadorFone" VARCHAR(14),
+ADD COLUMN     "tomadorIE" VARCHAR(14),
+ADD COLUMN     "tomadorNro" VARCHAR(60),
+ADD COLUMN     "tomadorUF" CHAR(2),
+ADD COLUMN     "tomadorcMun" CHAR(7),
+ADD COLUMN     "tomadorcPais" CHAR(4),
+ADD COLUMN     "tomadorxBairro" VARCHAR(60),
+ADD COLUMN     "tomadorxCpl" VARCHAR(60),
+ADD COLUMN     "tomadorxFant" VARCHAR(60),
+ADD COLUMN     "tomadorxLgr" VARCHAR(255),
+ADD COLUMN     "tomadorxMun" VARCHAR(60),
+ADD COLUMN     "tomadorxNome" VARCHAR(60),
+ADD COLUMN     "tomadorxPais" VARCHAR(60),
+ADD COLUMN     "tpAmb" CHAR(1) NOT NULL DEFAULT '1',
+ADD COLUMN     "tpCTe" "TipoCTe" NOT NULL DEFAULT 'NORMAL',
+ADD COLUMN     "tpEmis" CHAR(1) NOT NULL DEFAULT '1',
+ADD COLUMN     "tpEnteGov" CHAR(1),
+ADD COLUMN     "tpHor" CHAR(1),
+ADD COLUMN     "tpImp" CHAR(1) NOT NULL,
+ADD COLUMN     "tpOperGov" CHAR(1),
+ADD COLUMN     "tpPer" CHAR(1),
+ADD COLUMN     "tpServ" "TipoServicoCTe" NOT NULL,
+ADD COLUMN     "vBC00" DECIMAL(15,2),
+ADD COLUMN     "vBC20" DECIMAL(15,2),
+ADD COLUMN     "vBC90" DECIMAL(15,2),
+ADD COLUMN     "vBCIBS" DECIMAL(15,2),
+ADD COLUMN     "vBCOutraUF" DECIMAL(15,2),
+ADD COLUMN     "vBCSTRet" DECIMAL(15,2),
+ADD COLUMN     "vBCUFFim" DECIMAL(15,2),
+ADD COLUMN     "vCBS" DECIMAL(15,2),
+ADD COLUMN     "vCBSEstCred" DECIMAL(15,2),
+ADD COLUMN     "vCarga" DECIMAL(15,2),
+ADD COLUMN     "vCargaAverb" DECIMAL(15,2),
+ADD COLUMN     "vCred" DECIMAL(15,2),
+ADD COLUMN     "vCred90" DECIMAL(15,2),
+ADD COLUMN     "vDesc" DECIMAL(15,2),
+ADD COLUMN     "vDevTribCBS" DECIMAL(15,2),
+ADD COLUMN     "vDevTribIBSMun" DECIMAL(15,2),
+ADD COLUMN     "vDevTribIBSUF" DECIMAL(15,2),
+ADD COLUMN     "vDifCBS" DECIMAL(15,2),
+ADD COLUMN     "vDifIBSMun" DECIMAL(15,2),
+ADD COLUMN     "vDifIBSUF" DECIMAL(15,2),
+ADD COLUMN     "vFCPUFFim" DECIMAL(15,2),
+ADD COLUMN     "vIBS" DECIMAL(15,2),
+ADD COLUMN     "vIBSEstCred" DECIMAL(15,2),
+ADD COLUMN     "vIBSMun" DECIMAL(15,2),
+ADD COLUMN     "vIBSUF" DECIMAL(15,2),
+ADD COLUMN     "vICMS00" DECIMAL(15,2),
+ADD COLUMN     "vICMS20" DECIMAL(15,2),
+ADD COLUMN     "vICMS90" DECIMAL(15,2),
+ADD COLUMN     "vICMSDeson45" DECIMAL(15,2),
+ADD COLUMN     "vICMSOutraUF" DECIMAL(15,2),
+ADD COLUMN     "vICMSSTRet" DECIMAL(15,2),
+ADD COLUMN     "vICMSUFFim" DECIMAL(15,2),
+ADD COLUMN     "vICMSUFIni" DECIMAL(15,2),
+ADD COLUMN     "vLiq" DECIMAL(15,2),
+ADD COLUMN     "vOrig" DECIMAL(15,2),
+ADD COLUMN     "vRec" DECIMAL(15,2) NOT NULL,
+ADD COLUMN     "vTPrest" DECIMAL(15,2) NOT NULL,
+ADD COLUMN     "vTotDFe" DECIMAL(15,2),
+ADD COLUMN     "vTribRegCBS" DECIMAL(15,2),
+ADD COLUMN     "vTribRegIBSMun" DECIMAL(15,2),
+ADD COLUMN     "vTribRegIBSUF" DECIMAL(15,2),
+ADD COLUMN     "veicChassi" VARCHAR(17),
+ADD COLUMN     "veicCor" VARCHAR(4),
+ADD COLUMN     "veiccMod" VARCHAR(6),
+ADD COLUMN     "veicvFrete" DECIMAL(15,2),
+ADD COLUMN     "veicvUnit" DECIMAL(15,2),
+ADD COLUMN     "veicxCor" VARCHAR(40),
+ADD COLUMN     "verProc" VARCHAR(20) NOT NULL,
+ADD COLUMN     "versao" VARCHAR(4) NOT NULL DEFAULT '4.00',
+ADD COLUMN     "xCaracAd" VARCHAR(15),
+ADD COLUMN     "xCaracSer" VARCHAR(30),
+ADD COLUMN     "xDest" VARCHAR(60),
+ADD COLUMN     "xDetRetira" VARCHAR(160),
+ADD COLUMN     "xEmi" VARCHAR(20),
+ADD COLUMN     "xJust" VARCHAR(256),
+ADD COLUMN     "xMunEnv" VARCHAR(60) NOT NULL,
+ADD COLUMN     "xMunFim" VARCHAR(60) NOT NULL,
+ADD COLUMN     "xMunIni" VARCHAR(60) NOT NULL,
+ADD COLUMN     "xObs" VARCHAR(2000),
+ADD COLUMN     "xObsGlobalizado" VARCHAR(256),
+ADD COLUMN     "xOrig" VARCHAR(60),
+ADD COLUMN     "xOutCat" VARCHAR(30),
+ADD COLUMN     "xRota" VARCHAR(10),
+ADD COLUMN     "xmlModal" TEXT,
+ADD COLUMN     "xmlRetorno" TEXT,
+ALTER COLUMN "chaveAcesso" DROP NOT NULL,
+DROP COLUMN "status",
+ADD COLUMN     "status" "StatusCTe" NOT NULL DEFAULT 'RASCUNHO',
+ALTER COLUMN "remetenteId" DROP NOT NULL,
+ALTER COLUMN "destinatarioId" DROP NOT NULL;
 
 -- AlterTable
-ALTER TABLE "duplicatas" ALTER COLUMN "valor" SET DATA TYPE DECIMAL(15,2);
-
--- AlterTable
-ALTER TABLE "empresas" ADD COLUMN     "codigoUF" CHAR(2) NOT NULL,
+ALTER TABLE "empresas" ADD COLUMN     "codigoMunicipio" CHAR(7) NOT NULL,
+ADD COLUMN     "codigoUF" CHAR(2) NOT NULL,
+ADD COLUMN     "homologacaoQrCode" TEXT,
+ADD COLUMN     "homologacaoWebService" TEXT,
 ADD COLUMN     "inscricaoEstadualST" TEXT,
-ALTER COLUMN "cnpj" SET DATA TYPE CHAR(14),
-DROP COLUMN "regimeTributario",
-ADD COLUMN     "regimeTributario" "CRT" NOT NULL DEFAULT 'NORMAL',
-ALTER COLUMN "aliquotaSimples" SET DATA TYPE DECIMAL(3,2);
+ADD COLUMN     "justificativaContingencia" VARCHAR(256),
+ADD COLUMN     "nomeMunicipio" TEXT NOT NULL,
+ADD COLUMN     "producaoQrCode" TEXT,
+ADD COLUMN     "producaoWebService" TEXT,
+ADD COLUMN     "proximoNumeroMdfe" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "proximoNumeroMdfeAno" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "proximoNumeroNfeAno" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "serieMdfe" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "serieMdfeAno" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "serieNfeAno" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "tipoEmissao" CHAR(1) NOT NULL DEFAULT '1',
+ADD COLUMN     "tokenCSC" VARCHAR(36),
+ADD COLUMN     "tokenCSCId" VARCHAR(2),
+ADD COLUMN     "uf" CHAR(2) NOT NULL;
 
 -- AlterTable
-ALTER TABLE "enderecos" ADD COLUMN     "codigoUF" CHAR(2) NOT NULL,
-ALTER COLUMN "codigoMunicipio" SET DATA TYPE CHAR(7),
-ALTER COLUMN "codigoPais" SET DATA TYPE CHAR(4);
+ALTER TABLE "enderecos" ADD COLUMN     "codigoUF" CHAR(2) NOT NULL;
 
 -- AlterTable
-ALTER TABLE "itens_nfae" ALTER COLUMN "quantidade" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorUnitario" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotal" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "aliquotaICMS" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "valorICMS" SET DATA TYPE DECIMAL(15,2);
+ALTER TABLE "eventos_credito_presumido" ALTER COLUMN "tpAutor" SET DEFAULT '1',
+ALTER COLUMN "tpAutor" SET DATA TYPE CHAR(1);
 
 -- AlterTable
-ALTER TABLE "itens_nfce" ALTER COLUMN "quantidade" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorUnitario" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotalBruto" SET DATA TYPE DECIMAL(15,2),
-DROP COLUMN "cstICMS",
-ADD COLUMN     "cstICMS" "CSTICMS" NOT NULL DEFAULT 'CST_00',
-ALTER COLUMN "aliquotaICMS" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "baseCalculoICMS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorICMS" SET DATA TYPE DECIMAL(15,2),
-DROP COLUMN "cstPIS",
-ADD COLUMN     "cstPIS" "CSTPIS" NOT NULL DEFAULT 'CST_01',
-ALTER COLUMN "aliquotaPIS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorPIS" SET DATA TYPE DECIMAL(15,2),
-DROP COLUMN "cstCOFINS",
-ADD COLUMN     "cstCOFINS" "CSTCOFINS" NOT NULL DEFAULT 'CST_01',
-ALTER COLUMN "aliquotaCOFINS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorCOFINS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTributosAprox" SET DATA TYPE DECIMAL(15,2);
+ALTER TABLE "eventos_credito_presumido_itens" ALTER COLUMN "vBCCredPres" SET DATA TYPE DECIMAL(15,4),
+ALTER COLUMN "vCredPresIBS" SET DATA TYPE DECIMAL(15,4),
+ALTER COLUMN "vCredPresCBS" SET DATA TYPE DECIMAL(15,4);
 
 -- AlterTable
-ALTER TABLE "itens_nfe" ADD COLUMN     "cBarra" VARCHAR(30),
+ALTER TABLE "eventos_nfe" ADD COLUMN     "inutilizacaoId" TEXT,
+ADD COLUMN     "nfeId" TEXT,
+ALTER COLUMN "tpAutor" SET DEFAULT '1',
+ALTER COLUMN "tpAutor" SET DATA TYPE CHAR(1);
+
+-- AlterTable
+ALTER TABLE "itens_nfce" ADD COLUMN     "aliquotaCBS" DECIMAL(7,4),
+ADD COLUMN     "aliquotaIBSMun" DECIMAL(7,4),
+ADD COLUMN     "aliquotaIBSUF" DECIMAL(7,4),
+ADD COLUMN     "aliquotaIPI" DECIMAL(5,2),
+ADD COLUMN     "cBarra" VARCHAR(30),
 ADD COLUMN     "cBarraTrib" VARCHAR(30),
 ADD COLUMN     "cEnqIPI" VARCHAR(3),
-ADD COLUMN     "codigoEAN" TEXT,
-ADD COLUMN     "codigoEANTrib" TEXT,
-ADD COLUMN     "csosnICMS" "CSOSN",
-ADD COLUMN     "indTot" INTEGER NOT NULL DEFAULT 1,
-ADD COLUMN     "modBC" "ModBC" NOT NULL DEFAULT 'VALOR_OPERACAO',
-ADD COLUMN     "nFCI" VARCHAR(36),
-ADD COLUMN     "nItemPed" VARCHAR(6),
-ADD COLUMN     "pCOFINSST" DECIMAL(5,4),
-ADD COLUMN     "pFCP" DECIMAL(3,2),
-ADD COLUMN     "pPISST" DECIMAL(5,4),
-ADD COLUMN     "pRedBC" DECIMAL(3,2),
+ADD COLUMN     "codigoEAN" VARCHAR(14),
+ADD COLUMN     "codigoEANTrib" VARCHAR(14),
+ADD COLUMN     "csosnICMS" CHAR(3),
+ADD COLUMN     "cstIBSCBS" CHAR(2),
+ADD COLUMN     "cstIPI" CHAR(2),
+ADD COLUMN     "indTot" CHAR(1) NOT NULL DEFAULT '1',
+ADD COLUMN     "infAdProd" VARCHAR(500),
+ADD COLUMN     "modBC" CHAR(1) DEFAULT '3',
+ADD COLUMN     "origemMercadoria" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "pCOFINSST" DECIMAL(7,4),
+ADD COLUMN     "pFCP" DECIMAL(5,2),
+ADD COLUMN     "pFCPST" DECIMAL(5,2),
+ADD COLUMN     "pICMSST" DECIMAL(5,2),
+ADD COLUMN     "pMVAST" DECIMAL(5,2),
+ADD COLUMN     "pPISST" DECIMAL(7,4),
+ADD COLUMN     "pRedBC" DECIMAL(5,2),
+ADD COLUMN     "pRedBCST" DECIMAL(5,2),
 ADD COLUMN     "qBCProdCOFINS" DECIMAL(15,4),
 ADD COLUMN     "qBCProdPIS" DECIMAL(15,4),
-ADD COLUMN     "quantidadeTributavel" DECIMAL(15,4) NOT NULL,
-ADD COLUMN     "unidadeTributavel" VARCHAR(6) NOT NULL,
 ADD COLUMN     "vAliqProdCOFINS" DECIMAL(15,4),
 ADD COLUMN     "vAliqProdPIS" DECIMAL(15,4),
-ADD COLUMN     "vBCFCP" DECIMAL(15,2),
-ADD COLUMN     "vBCSTCOFINS" DECIMAL(15,2),
-ADD COLUMN     "vBCSTPIS" DECIMAL(15,2),
-ADD COLUMN     "vCOFINSST" DECIMAL(15,2),
-ADD COLUMN     "vFCP" DECIMAL(15,2),
-ADD COLUMN     "vFreteItem" DECIMAL(15,2),
-ADD COLUMN     "vOutroItem" DECIMAL(15,2),
-ADD COLUMN     "vPISST" DECIMAL(15,2),
-ADD COLUMN     "vSegItem" DECIMAL(15,2),
-ADD COLUMN     "valorUnitarioTributavel" DECIMAL(15,4) NOT NULL,
+ADD COLUMN     "vBCFCP" DECIMAL(15,4),
+ADD COLUMN     "vBCFCPST" DECIMAL(15,4),
+ADD COLUMN     "vBCST" DECIMAL(15,4),
+ADD COLUMN     "vBCSTCOFINS" DECIMAL(15,4),
+ADD COLUMN     "vBCSTPIS" DECIMAL(15,4),
+ADD COLUMN     "vCOFINSST" DECIMAL(15,4),
+ADD COLUMN     "vFCP" DECIMAL(15,4),
+ADD COLUMN     "vFCPST" DECIMAL(15,4),
+ADD COLUMN     "vICMSST" DECIMAL(15,4),
+ADD COLUMN     "vPISST" DECIMAL(15,4),
+ADD COLUMN     "valorCBS" DECIMAL(15,4),
+ADD COLUMN     "valorIBSMun" DECIMAL(15,4),
+ADD COLUMN     "valorIBSUF" DECIMAL(15,4),
+ADD COLUMN     "valorIPI" DECIMAL(15,4),
+ALTER COLUMN "descricao" SET DATA TYPE VARCHAR(120),
+ALTER COLUMN "unidadeMedida" SET DATA TYPE VARCHAR(6);
+
+-- AlterTable
+ALTER TABLE "itens_nfe" DROP COLUMN "aliquotaCBS",
+DROP COLUMN "aliquotaCOFINS",
+DROP COLUMN "aliquotaIBSMun",
+DROP COLUMN "aliquotaIBSUF",
+DROP COLUMN "aliquotaICMS",
+DROP COLUMN "aliquotaIPI",
+DROP COLUMN "aliquotaPIS",
+DROP COLUMN "baseCalculoICMS",
+DROP COLUMN "descontoItem",
+DROP COLUMN "valorCBS",
+DROP COLUMN "valorCOFINS",
+DROP COLUMN "valorIBSMun",
+DROP COLUMN "valorIBSUF",
+DROP COLUMN "valorICMS",
+DROP COLUMN "valorIPI",
+DROP COLUMN "valorPIS",
+DROP COLUMN "valorTotalBruto",
+DROP COLUMN "valorTributosAprox",
+ADD COLUMN     "cBarra" VARCHAR(30),
+ADD COLUMN     "cBarraTrib" VARCHAR(30),
+ADD COLUMN     "cEnqIPI" VARCHAR(3),
+ADD COLUMN     "csosnICMS" CHAR(3),
+ADD COLUMN     "indTot" CHAR(1) NOT NULL DEFAULT '1',
+ADD COLUMN     "infAdProd" VARCHAR(500),
+ADD COLUMN     "modBC" CHAR(1) NOT NULL DEFAULT '3',
+ADD COLUMN     "nFCI" VARCHAR(36),
+ADD COLUMN     "nItemPed" INTEGER,
+ADD COLUMN     "pCBS" DECIMAL(7,4),
+ADD COLUMN     "pCOFINS" DECIMAL(7,4),
+ADD COLUMN     "pCOFINSST" DECIMAL(7,4),
+ADD COLUMN     "pFCP" DECIMAL(5,2),
+ADD COLUMN     "pFCPST" DECIMAL(5,2),
+ADD COLUMN     "pIBS" DECIMAL(7,4),
+ADD COLUMN     "pICMS" DECIMAL(5,2),
+ADD COLUMN     "pICMSST" DECIMAL(5,2),
+ADD COLUMN     "pIPI" DECIMAL(5,2),
+ADD COLUMN     "pMVAST" DECIMAL(5,2),
+ADD COLUMN     "pPIS" DECIMAL(7,4),
+ADD COLUMN     "pPISST" DECIMAL(7,4),
+ADD COLUMN     "pRedBC" DECIMAL(5,2),
+ADD COLUMN     "pRedBCST" DECIMAL(5,2),
+ADD COLUMN     "qBCProdCOFINS" DECIMAL(15,4),
+ADD COLUMN     "qBCProdPIS" DECIMAL(15,4),
+ADD COLUMN     "qTrib" DECIMAL(15,4),
+ADD COLUMN     "uTrib" VARCHAR(6),
+ADD COLUMN     "vAliqProdCOFINS" DECIMAL(15,4),
+ADD COLUMN     "vAliqProdPIS" DECIMAL(15,4),
+ADD COLUMN     "vBC" DECIMAL(15,4),
+ADD COLUMN     "vBCFCP" DECIMAL(15,4),
+ADD COLUMN     "vBCFCPST" DECIMAL(15,4),
+ADD COLUMN     "vBCST" DECIMAL(15,4),
+ADD COLUMN     "vBCSTCOFINS" DECIMAL(15,4),
+ADD COLUMN     "vBCSTPIS" DECIMAL(15,4),
+ADD COLUMN     "vCBS" DECIMAL(15,4),
+ADD COLUMN     "vCOFINS" DECIMAL(15,4),
+ADD COLUMN     "vCOFINSST" DECIMAL(15,4),
+ADD COLUMN     "vDesc" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vFCP" DECIMAL(15,4),
+ADD COLUMN     "vFCPST" DECIMAL(15,4),
+ADD COLUMN     "vIBS" DECIMAL(15,4),
+ADD COLUMN     "vICMS" DECIMAL(15,4),
+ADD COLUMN     "vICMSST" DECIMAL(15,4),
+ADD COLUMN     "vIPI" DECIMAL(15,4),
+ADD COLUMN     "vOutro" DECIMAL(15,4),
+ADD COLUMN     "vPIS" DECIMAL(15,4),
+ADD COLUMN     "vPISST" DECIMAL(15,4),
+ADD COLUMN     "vProd" DECIMAL(15,4) NOT NULL,
+ADD COLUMN     "vTotTrib" DECIMAL(15,4),
+ADD COLUMN     "vUnTrib" DECIMAL(15,4),
 ADD COLUMN     "xPed" VARCHAR(15),
-ALTER COLUMN "quantidade" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorUnitario" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotalBruto" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "descontoItem" SET DATA TYPE DECIMAL(15,2),
-DROP COLUMN "origemMercadoria",
-ADD COLUMN     "origemMercadoria" "OrigemMercadoria" NOT NULL DEFAULT 'NACIONAL',
-DROP COLUMN "cstICMS",
-ADD COLUMN     "cstICMS" "CSTICMS" NOT NULL DEFAULT 'CST_00',
-ALTER COLUMN "aliquotaICMS" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "baseCalculoICMS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorICMS" SET DATA TYPE DECIMAL(15,2),
-DROP COLUMN "cstIPI",
-ADD COLUMN     "cstIPI" "CSTIPI",
-ALTER COLUMN "aliquotaIPI" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "valorIPI" SET DATA TYPE DECIMAL(15,2),
-DROP COLUMN "cstPIS",
-ADD COLUMN     "cstPIS" "CSTPIS" NOT NULL DEFAULT 'CST_01',
-ALTER COLUMN "aliquotaPIS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorPIS" SET DATA TYPE DECIMAL(15,2),
-DROP COLUMN "cstCOFINS",
-ADD COLUMN     "cstCOFINS" "CSTCOFINS" NOT NULL DEFAULT 'CST_01',
-ALTER COLUMN "aliquotaCOFINS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorCOFINS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "aliquotaIBSUF" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorIBSUF" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "aliquotaIBSMun" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorIBSMun" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "aliquotaCBS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorCBS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTributosAprox" SET DATA TYPE DECIMAL(15,2);
+ALTER COLUMN "descricao" SET DATA TYPE VARCHAR(120),
+ALTER COLUMN "origemMercadoria" SET DEFAULT '0',
+ALTER COLUMN "origemMercadoria" SET DATA TYPE CHAR(1);
 
 -- AlterTable
-ALTER TABLE "movimentacoes_estoque" ALTER COLUMN "quantidade" SET DATA TYPE DECIMAL(11,3),
-ALTER COLUMN "quantidadeAnterior" SET DATA TYPE DECIMAL(11,3),
-ALTER COLUMN "quantidadePosterior" SET DATA TYPE DECIMAL(11,3),
-ALTER COLUMN "custoUnitario" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotal" SET DATA TYPE DECIMAL(15,2);
-
--- AlterTable
-ALTER TABLE "nfaes" ALTER COLUMN "requerenteUf" SET DATA TYPE CHAR(2),
-ALTER COLUMN "requerenteCep" SET DATA TYPE CHAR(9),
+ALTER TABLE "nfaes" DROP COLUMN "requerenteCpfCnpj",
+DROP COLUMN "requerenteInscricao",
+DROP COLUMN "requerenteTipo",
+ADD COLUMN     "dataHoraRejeicao" TIMESTAMP(3),
+ADD COLUMN     "destinatarioBairro" VARCHAR(60) NOT NULL,
+ADD COLUMN     "destinatarioCep" CHAR(9) NOT NULL,
+ADD COLUMN     "destinatarioComplemento" VARCHAR(60),
+ADD COLUMN     "destinatarioDocumento" VARCHAR(14) NOT NULL,
+ADD COLUMN     "destinatarioEmail" VARCHAR(60),
+ADD COLUMN     "destinatarioIE" VARCHAR(14),
+ADD COLUMN     "destinatarioLogradouro" VARCHAR(60) NOT NULL,
+ADD COLUMN     "destinatarioMunicipio" VARCHAR(60) NOT NULL,
+ADD COLUMN     "destinatarioMunicipioIbge" CHAR(7),
+ADD COLUMN     "destinatarioNome" VARCHAR(60) NOT NULL,
+ADD COLUMN     "destinatarioNumero" VARCHAR(10) NOT NULL,
+ADD COLUMN     "destinatarioTelefone" VARCHAR(14),
+ADD COLUMN     "destinatarioTipoPessoa" "TipoPessoaNFAe" NOT NULL DEFAULT 'PJ',
+ADD COLUMN     "destinatarioUf" CHAR(2) NOT NULL,
+ADD COLUMN     "enviadoEm" TIMESTAMP(3),
+ADD COLUMN     "enviadoPor" TEXT,
+ADD COLUMN     "informacoesComplementares" VARCHAR(2000),
+ADD COLUMN     "ipEnvio" VARCHAR(45),
+ADD COLUMN     "motivoRejeicao" VARCHAR(500),
+ADD COLUMN     "requerenteComplemento" VARCHAR(60),
+ADD COLUMN     "requerenteDocumento" VARCHAR(14) NOT NULL,
+ADD COLUMN     "requerenteInscricaoProdutor" VARCHAR(20),
+ADD COLUMN     "requerenteMunicipioIbge" CHAR(7),
+ADD COLUMN     "requerenteTipoPessoa" "TipoPessoaNFAe" NOT NULL DEFAULT 'PF',
+ADD COLUMN     "tipoEmissao" CHAR(1) NOT NULL DEFAULT '1',
+ADD COLUMN     "xmlRetorno" TEXT,
+ALTER COLUMN "modelo" SET DEFAULT '63',
+ALTER COLUMN "modelo" SET DATA TYPE CHAR(2),
+ALTER COLUMN "chaveAcesso" SET DATA TYPE CHAR(44),
+ALTER COLUMN "naturezaOperacao" SET DATA TYPE VARCHAR(60),
+DROP COLUMN "motivoEmissao",
+ADD COLUMN     "motivoEmissao" "MotivoEmissaoNFAe" NOT NULL,
+ALTER COLUMN "descricaoMotivo" SET DATA TYPE VARCHAR(255),
+ALTER COLUMN "requerenteNome" SET DATA TYPE VARCHAR(60),
+ALTER COLUMN "requerenteLogradouro" SET DATA TYPE VARCHAR(60),
+ALTER COLUMN "requerenteNumero" SET DATA TYPE VARCHAR(10),
+ALTER COLUMN "requerenteBairro" SET DATA TYPE VARCHAR(60),
+ALTER COLUMN "requerenteMunicipio" SET DATA TYPE VARCHAR(60),
+ALTER COLUMN "requerenteTelefone" SET DATA TYPE VARCHAR(14),
+ALTER COLUMN "requerenteEmail" SET DATA TYPE VARCHAR(60),
+ALTER COLUMN "destinatarioId" DROP NOT NULL,
 ALTER COLUMN "valorTotalProdutos" SET DATA TYPE DECIMAL(15,2),
 ALTER COLUMN "baseCalculoICMS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "aliquotaICMSMediana" SET DATA TYPE DECIMAL(3,2),
 ALTER COLUMN "valorTotalICMS" SET DATA TYPE DECIMAL(15,2),
 ALTER COLUMN "valorTotalNota" SET DATA TYPE DECIMAL(15,2),
+ALTER COLUMN "guiaDAENumero" SET DATA TYPE VARCHAR(30),
+ALTER COLUMN "guiaDAECodigoBarras" SET DATA TYPE VARCHAR(50),
+ALTER COLUMN "guiaDAEChavePix" SET DATA TYPE VARCHAR(50),
 ALTER COLUMN "guiaDAEValor" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "protocoloAutorizacao" SET DATA TYPE CHAR(17);
+ALTER COLUMN "guiaDAEStatus" SET DATA TYPE VARCHAR(20),
+ALTER COLUMN "orgaoEmissorSefaz" SET DATA TYPE VARCHAR(60),
+ALTER COLUMN "motivoCancelamento" SET DATA TYPE VARCHAR(255),
+DROP COLUMN "status",
+ADD COLUMN     "status" "StatusNFAe" NOT NULL DEFAULT 'RASCUNHO';
 
 -- AlterTable
-ALTER TABLE "nfces" DROP COLUMN "formaPagamento",
-ALTER COLUMN "modelo" SET DATA TYPE CHAR(2),
+ALTER TABLE "nfces" ADD COLUMN     "consumidorBairro" VARCHAR(60),
+ADD COLUMN     "consumidorCep" CHAR(9),
+ADD COLUMN     "consumidorCodigoMunicipio" CHAR(7),
+ADD COLUMN     "consumidorCodigoPais" CHAR(4),
+ADD COLUMN     "consumidorComplemento" VARCHAR(60),
+ADD COLUMN     "consumidorLogradouro" VARCHAR(60),
+ADD COLUMN     "consumidorNomeMunicipio" VARCHAR(60),
+ADD COLUMN     "consumidorNomePais" VARCHAR(60),
+ADD COLUMN     "consumidorNumero" VARCHAR(60),
+ADD COLUMN     "consumidorTelefone" VARCHAR(14),
+ADD COLUMN     "consumidorUf" CHAR(2),
+ADD COLUMN     "dataHoraRejeicao" TIMESTAMP(3),
+ADD COLUMN     "enviadoEm" TIMESTAMP(3),
+ADD COLUMN     "enviadoPor" TEXT,
+ADD COLUMN     "finNFe" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "idDest" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "indFinal" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "indPres" INTEGER NOT NULL DEFAULT 2,
+ADD COLUMN     "infAdFisco" VARCHAR(2000),
+ADD COLUMN     "infCpl" VARCHAR(5000),
+ADD COLUMN     "ipEnvio" VARCHAR(45),
+ADD COLUMN     "motivoRejeicao" VARCHAR(500),
+ADD COLUMN     "procEmi" CHAR(1) NOT NULL DEFAULT '0',
+ADD COLUMN     "tpNF" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "verProc" VARCHAR(20) NOT NULL DEFAULT 'SUP-TECNOLOGIA-4.00',
+ADD COLUMN     "xmlRetorno" TEXT,
+ALTER COLUMN "naturezaOperacao" SET DATA TYPE VARCHAR(60),
+ALTER COLUMN "tipoEmissao" SET DEFAULT '1',
+ALTER COLUMN "tipoEmissao" SET DATA TYPE CHAR(1),
+ALTER COLUMN "consumidorCpfCnpj" SET DATA TYPE VARCHAR(14),
+ALTER COLUMN "consumidorNome" SET DATA TYPE VARCHAR(60),
+ALTER COLUMN "consumidorEmail" SET DATA TYPE VARCHAR(60),
+ALTER COLUMN "tokenCscId" SET DATA TYPE VARCHAR(6),
+ALTER COLUMN "motivoCancelamento" SET DATA TYPE VARCHAR(255);
+
+-- AlterTable
+ALTER TABLE "nfes" DROP COLUMN "ambiente",
+DROP COLUMN "baseCalculoICMS",
+DROP COLUMN "baseCalculoICMSST",
+DROP COLUMN "consumidorFinal",
+DROP COLUMN "dataHoraEmissao",
+DROP COLUMN "dataHoraSaida",
+DROP COLUMN "finalidade",
+DROP COLUMN "formaPagamento",
+DROP COLUMN "informacoesAdicionais",
+DROP COLUMN "naturezaOperacao",
+DROP COLUMN "presencaComprador",
+DROP COLUMN "tipoDocumento",
 DROP COLUMN "tipoEmissao",
-ADD COLUMN     "tipoEmissao" "TpEmis" NOT NULL DEFAULT 'NORMAL',
-ALTER COLUMN "valorTotalProdutos" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalDesconto" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalAcrescimo" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalTributosAprox" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalNota" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorPago" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTroco" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "protocoloAutorizacao" SET DATA TYPE CHAR(17);
-
--- AlterTable
-ALTER TABLE "nfes" DROP COLUMN "formaPagamento",
+DROP COLUMN "valorTotalCBS",
+DROP COLUMN "valorTotalCOFINS",
+DROP COLUMN "valorTotalDesconto",
+DROP COLUMN "valorTotalFrete",
+DROP COLUMN "valorTotalIBS",
+DROP COLUMN "valorTotalICMS",
+DROP COLUMN "valorTotalICMSST",
+DROP COLUMN "valorTotalIPI",
+DROP COLUMN "valorTotalNota",
+DROP COLUMN "valorTotalOutrasDesp",
+DROP COLUMN "valorTotalPIS",
+DROP COLUMN "valorTotalProdutos",
+DROP COLUMN "valorTotalSeguro",
+DROP COLUMN "valorTotalTributosAprox",
 ADD COLUMN     "cDV" CHAR(1) NOT NULL,
 ADD COLUMN     "cMunFG" CHAR(7) NOT NULL,
 ADD COLUMN     "cNF" CHAR(8) NOT NULL,
 ADD COLUMN     "cUF" CHAR(2) NOT NULL,
+ADD COLUMN     "danfeImpresso" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "dataHoraImpressao" TIMESTAMP(3),
+ADD COLUMN     "dataHoraRejeicao" TIMESTAMP(3),
 ADD COLUMN     "dhCont" TIMESTAMP(3),
-ADD COLUMN     "idDest" "IdDest" NOT NULL DEFAULT 'OPERACAO_INTERNA',
-ADD COLUMN     "indIntermed" "IndIntermed" DEFAULT 'SEM_INTERMEDIADOR',
+ADD COLUMN     "dhEmi" TIMESTAMP(3) NOT NULL,
+ADD COLUMN     "dhSaiEnt" TIMESTAMP(3),
+ADD COLUMN     "enviadoEm" TIMESTAMP(3),
+ADD COLUMN     "enviadoPor" TEXT,
+ADD COLUMN     "finNFe" CHAR(1) NOT NULL,
+ADD COLUMN     "indFinal" CHAR(1) NOT NULL,
+ADD COLUMN     "indPag" CHAR(1) NOT NULL,
+ADD COLUMN     "indPres" CHAR(1) NOT NULL,
 ADD COLUMN     "infAdFisco" VARCHAR(2000),
 ADD COLUMN     "infCpl" VARCHAR(5000),
-ADD COLUMN     "procEmi" "ProcEmi" NOT NULL DEFAULT 'APP_CONTRIBUINTE',
-ADD COLUMN     "qBCMono" DECIMAL(15,2),
-ADD COLUMN     "qBCMonoRet" DECIMAL(15,2),
-ADD COLUMN     "qBCMonoReten" DECIMAL(15,2),
-ADD COLUMN     "tpImp" "TpImp" NOT NULL DEFAULT 'DANFE_RETRATO',
-ADD COLUMN     "vFCP" DECIMAL(15,2) NOT NULL DEFAULT 0,
-ADD COLUMN     "vFCPST" DECIMAL(15,2) NOT NULL DEFAULT 0,
-ADD COLUMN     "vFCPSTRet" DECIMAL(15,2) NOT NULL DEFAULT 0,
-ADD COLUMN     "vFCPUFDest" DECIMAL(15,2) NOT NULL DEFAULT 0,
-ADD COLUMN     "vICMSMono" DECIMAL(15,2),
-ADD COLUMN     "vICMSMonoRet" DECIMAL(15,2),
-ADD COLUMN     "vICMSMonoReten" DECIMAL(15,2),
-ADD COLUMN     "vICMSUFDest" DECIMAL(15,2) NOT NULL DEFAULT 0,
-ADD COLUMN     "vICMSUFRemet" DECIMAL(15,2) NOT NULL DEFAULT 0,
-ADD COLUMN     "valorICMSDeson" DECIMAL(15,2) NOT NULL DEFAULT 0,
-ADD COLUMN     "valorIPIDevol" DECIMAL(15,2) NOT NULL DEFAULT 0,
-ADD COLUMN     "valorPago" DECIMAL(15,2) NOT NULL,
-ADD COLUMN     "valorTroco" DECIMAL(15,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "ipEnvio" VARCHAR(45),
+ADD COLUMN     "loteId" TEXT,
+ADD COLUMN     "mod" CHAR(2) NOT NULL DEFAULT '55',
+ADD COLUMN     "motivoRejeicao" VARCHAR(500),
+ADD COLUMN     "natOp" VARCHAR(60) NOT NULL,
+ADD COLUMN     "procEmi" CHAR(1) NOT NULL,
+ADD COLUMN     "qBCMono" DECIMAL(15,4),
+ADD COLUMN     "qBCMonoRet" DECIMAL(15,4),
+ADD COLUMN     "qBCMonoReten" DECIMAL(15,4),
+ADD COLUMN     "reciboLote" VARCHAR(15),
+ADD COLUMN     "tpAmb" CHAR(1) NOT NULL,
+ADD COLUMN     "tpEmis" CHAR(1) NOT NULL,
+ADD COLUMN     "tpNF" CHAR(1) NOT NULL,
+ADD COLUMN     "usuarioImpressao" TEXT,
+ADD COLUMN     "vBC" DECIMAL(15,4) NOT NULL,
+ADD COLUMN     "vBCST" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vCBS" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vCOFINS" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vDesc" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vFCP" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vFCPST" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vFCPSTRet" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vFCPUFDest" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vFrete" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vIBS" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vICMS" DECIMAL(15,4) NOT NULL,
+ADD COLUMN     "vICMSDeson" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vICMSMono" DECIMAL(15,4),
+ADD COLUMN     "vICMSMonoRet" DECIMAL(15,4),
+ADD COLUMN     "vICMSMonoReten" DECIMAL(15,4),
+ADD COLUMN     "vICMSUFDest" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vICMSUFRemet" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vII" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vIPI" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vIPIDevol" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vNF" DECIMAL(15,4) NOT NULL,
+ADD COLUMN     "vOutro" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vPIS" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vProd" DECIMAL(15,4) NOT NULL,
+ADD COLUMN     "vST" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vSeg" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "vTotTrib" DECIMAL(15,4) NOT NULL DEFAULT 0,
 ADD COLUMN     "verProc" VARCHAR(20) NOT NULL,
+ADD COLUMN     "versaoNFe" VARCHAR(5) NOT NULL DEFAULT '4.00',
 ADD COLUMN     "xJust" VARCHAR(256),
 ADD COLUMN     "xmlRetorno" TEXT,
-ALTER COLUMN "modelo" SET DATA TYPE CHAR(2),
-DROP COLUMN "tipoEmissao",
-ADD COLUMN     "tipoEmissao" "TpEmis" NOT NULL DEFAULT 'NORMAL',
-DROP COLUMN "tipoDocumento",
-ADD COLUMN     "tipoDocumento" "TpNF" NOT NULL DEFAULT 'SAIDA',
-DROP COLUMN "finalidade",
-ADD COLUMN     "finalidade" "FinNFe" NOT NULL DEFAULT 'NORMAL',
-DROP COLUMN "consumidorFinal",
-ADD COLUMN     "consumidorFinal" "IndFinal" NOT NULL DEFAULT 'NAO',
-DROP COLUMN "presencaComprador",
-ADD COLUMN     "presencaComprador" "IndPresenca" NOT NULL DEFAULT 'NAO_PRESENCIAL_INTERNET',
-ALTER COLUMN "valorTotalProdutos" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalFrete" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalSeguro" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalDesconto" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalOutrasDesp" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "baseCalculoICMS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalICMS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "baseCalculoICMSST" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalICMSST" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalIPI" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalPIS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalCOFINS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalIBS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalCBS" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalTributosAprox" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorTotalNota" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "protocoloAutorizacao" SET DATA TYPE CHAR(17);
+ALTER COLUMN "idDest" DROP DEFAULT,
+ALTER COLUMN "idDest" SET DATA TYPE CHAR(1),
+ALTER COLUMN "tpImp" DROP DEFAULT,
+ALTER COLUMN "tpImp" SET DATA TYPE CHAR(1);
 
 -- AlterTable
-ALTER TABLE "nfses" ADD COLUMN     "indISS" "IndISS" NOT NULL DEFAULT 'EXIGIVEL',
-ADD COLUMN     "indIncentivo" "IndIncentivo" NOT NULL DEFAULT 'NAO',
-ALTER COLUMN "valorTotalServicos" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotalDescontos" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotalDeducoes" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "baseCalculoISS" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotalISS" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotalISSRetido" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotalRetencoesFed" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotalIBS" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotalCBS" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorLiquidoNfse" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "valorTotalNotaFinal" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "aliquotaISS" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "valorISS" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "aliquotaPIS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorPIS" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "aliquotaCOFINS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorCOFINS" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "aliquotaIRRF" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "valorIRRF" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "aliquotaCSLL" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "valorCSLL" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "aliquotaINSS" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "valorINSS" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "aliquotaIBSUF" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorIBSUF" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "aliquotaIBSMun" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorIBSMun" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "aliquotaCBS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "valorCBS" SET DATA TYPE DECIMAL(15,4);
+ALTER TABLE "nfses" DROP COLUMN "urlVisualizacao",
+DROP COLUMN "valorTotalCBS",
+DROP COLUMN "valorTotalRetencoesFed",
+ADD COLUMN     "codigoInterno" TEXT,
+ADD COLUMN     "codigoNBS" VARCHAR(15) NOT NULL,
+ADD COLUMN     "codigoTributacaoMunicipal" CHAR(4) NOT NULL,
+ADD COLUMN     "codigoTributacaoNacional" CHAR(6) NOT NULL,
+ADD COLUMN     "dataHoraAutorizacao" TIMESTAMP(3),
+ADD COLUMN     "dataHoraRejeicao" TIMESTAMP(3),
+ADD COLUMN     "deducoesMateriais" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "descontoCondicionado" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "descontoIncondicionado" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "descricaoServico" VARCHAR(2000) NOT NULL,
+ADD COLUMN     "enviadoEm" TIMESTAMP(3),
+ADD COLUMN     "enviadoPor" TEXT,
+ADD COLUMN     "indISS" CHAR(1) NOT NULL DEFAULT '1',
+ADD COLUMN     "indIncentivo" CHAR(1) NOT NULL DEFAULT '2',
+ADD COLUMN     "ipEnvio" VARCHAR(45),
+ADD COLUMN     "localPrestacaoCodigoMunicipio" CHAR(7) NOT NULL,
+ADD COLUMN     "localPrestacaoNomeMunicipio" TEXT NOT NULL,
+ADD COLUMN     "localPrestacaoUf" CHAR(2) NOT NULL,
+ADD COLUMN     "motivoRejeicao" VARCHAR(500),
+ADD COLUMN     "pagamentoCnpjBasePSP" VARCHAR(8),
+ADD COLUMN     "pagamentoCnpjRecebedor" CHAR(14),
+ADD COLUMN     "pagamentoIdTransacao" VARCHAR(50),
+ADD COLUMN     "pagamentoNumero" INTEGER,
+ADD COLUMN     "pagamentoTipoMeio" VARCHAR(10),
+ADD COLUMN     "prestadorBairro" TEXT NOT NULL,
+ADD COLUMN     "prestadorCep" CHAR(9) NOT NULL,
+ADD COLUMN     "prestadorCnpj" CHAR(14) NOT NULL,
+ADD COLUMN     "prestadorCodigoMunicipio" CHAR(7) NOT NULL,
+ADD COLUMN     "prestadorComplemento" TEXT,
+ADD COLUMN     "prestadorEmail" TEXT,
+ADD COLUMN     "prestadorInscricaoMunicipal" TEXT NOT NULL,
+ADD COLUMN     "prestadorLogradouro" TEXT NOT NULL,
+ADD COLUMN     "prestadorNomeFantasia" TEXT,
+ADD COLUMN     "prestadorNomeMunicipio" TEXT NOT NULL,
+ADD COLUMN     "prestadorNumero" TEXT NOT NULL,
+ADD COLUMN     "prestadorOptanteSimples" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "prestadorRazaoSocial" TEXT NOT NULL,
+ADD COLUMN     "prestadorRegimeEspecial" CHAR(1),
+ADD COLUMN     "prestadorRegimeTributario" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "prestadorTelefone" TEXT,
+ADD COLUMN     "prestadorUf" CHAR(2) NOT NULL,
+ADD COLUMN     "protocoloAutorizacao" VARCHAR(15),
+ADD COLUMN     "tomadorBairro" TEXT NOT NULL,
+ADD COLUMN     "tomadorCep" CHAR(9) NOT NULL,
+ADD COLUMN     "tomadorCodigoMunicipio" CHAR(7) NOT NULL,
+ADD COLUMN     "tomadorCodigoPais" CHAR(4),
+ADD COLUMN     "tomadorComplemento" TEXT,
+ADD COLUMN     "tomadorDocumento" VARCHAR(14) NOT NULL,
+ADD COLUMN     "tomadorEmail" TEXT,
+ADD COLUMN     "tomadorIndicadorIE" CHAR(1) NOT NULL DEFAULT '9',
+ADD COLUMN     "tomadorInscricaoEstadual" TEXT,
+ADD COLUMN     "tomadorInscricaoMunicipal" TEXT,
+ADD COLUMN     "tomadorLogradouro" TEXT NOT NULL,
+ADD COLUMN     "tomadorNomeFantasia" TEXT,
+ADD COLUMN     "tomadorNomeMunicipio" TEXT NOT NULL,
+ADD COLUMN     "tomadorNomePais" TEXT,
+ADD COLUMN     "tomadorNumero" TEXT NOT NULL,
+ADD COLUMN     "tomadorRazaoSocial" TEXT NOT NULL,
+ADD COLUMN     "tomadorTelefone" TEXT,
+ADD COLUMN     "tomadorTipoPessoa" CHAR(2) NOT NULL,
+ADD COLUMN     "tomadorUf" CHAR(2) NOT NULL,
+ADD COLUMN     "urlVisualizacaoNacional" TEXT,
+ADD COLUMN     "valorISSRetido" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "valorServico" DECIMAL(15,4) NOT NULL,
+ADD COLUMN     "valorTotalRetencoesFederais" DECIMAL(15,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "xmlCNC" TEXT,
+ADD COLUMN     "xmlDPS" TEXT,
+ADD COLUMN     "xmlRetorno" TEXT,
+ALTER COLUMN "tipoEmissao" SET DEFAULT '1',
+ALTER COLUMN "tipoEmissao" SET DATA TYPE CHAR(1),
+ALTER COLUMN "informacoesComplementares" SET DATA TYPE VARCHAR(2000),
+ALTER COLUMN "numeroPedido" SET DATA TYPE VARCHAR(30),
+ALTER COLUMN "motivoCancelamento" SET DATA TYPE VARCHAR(255),
+ALTER COLUMN "chaveNfseSubstituta" SET DATA TYPE CHAR(53),
+ALTER COLUMN "tomadorId" DROP NOT NULL,
+ALTER COLUMN "servicoId" DROP NOT NULL,
+ALTER COLUMN "aliquotaPIS" SET NOT NULL,
+ALTER COLUMN "aliquotaPIS" SET DEFAULT 0,
+ALTER COLUMN "valorPIS" SET NOT NULL,
+ALTER COLUMN "valorPIS" SET DEFAULT 0,
+ALTER COLUMN "aliquotaCOFINS" SET NOT NULL,
+ALTER COLUMN "aliquotaCOFINS" SET DEFAULT 0,
+ALTER COLUMN "valorCOFINS" SET NOT NULL,
+ALTER COLUMN "valorCOFINS" SET DEFAULT 0,
+ALTER COLUMN "aliquotaIRRF" SET NOT NULL,
+ALTER COLUMN "aliquotaIRRF" SET DEFAULT 0,
+ALTER COLUMN "valorIRRF" SET NOT NULL,
+ALTER COLUMN "valorIRRF" SET DEFAULT 0,
+ALTER COLUMN "aliquotaCSLL" SET NOT NULL,
+ALTER COLUMN "aliquotaCSLL" SET DEFAULT 0,
+ALTER COLUMN "valorCSLL" SET NOT NULL,
+ALTER COLUMN "valorCSLL" SET DEFAULT 0,
+ALTER COLUMN "aliquotaINSS" SET NOT NULL,
+ALTER COLUMN "aliquotaINSS" SET DEFAULT 0,
+ALTER COLUMN "valorINSS" SET NOT NULL,
+ALTER COLUMN "valorINSS" SET DEFAULT 0;
 
 -- AlterTable
-ALTER TABLE "produtos" ADD COLUMN     "aliquotaICMSST" DECIMAL(3,2),
-ADD COLUMN     "csosnICMS" "CSOSN",
-ADD COLUMN     "cstCOFINS" "CSTCOFINS" NOT NULL DEFAULT 'CST_01',
-ADD COLUMN     "cstICMS" "CSTICMS" NOT NULL DEFAULT 'CST_00',
-ADD COLUMN     "cstIPI" "CSTIPI" DEFAULT 'CST_50',
-ADD COLUMN     "cstPIS" "CSTPIS" NOT NULL DEFAULT 'CST_01',
-ADD COLUMN     "extipi" CHAR(3),
-ADD COLUMN     "modBC" "ModBC" NOT NULL DEFAULT 'VALOR_OPERACAO',
-ADD COLUMN     "modBCST" "ModBCST" NOT NULL DEFAULT 'MVA',
-ADD COLUMN     "pMVAST" DECIMAL(3,2),
-ADD COLUMN     "pRedBC" DECIMAL(3,2),
-ADD COLUMN     "pRedBCST" DECIMAL(3,2),
-ALTER COLUMN "cfopPadrao" SET DATA TYPE CHAR(4),
-DROP COLUMN "origem",
-ADD COLUMN     "origem" "OrigemMercadoria" NOT NULL DEFAULT 'NACIONAL',
-ALTER COLUMN "precoCusto" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "margemLucro" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "precoVenda" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "estoqueAtual" SET DATA TYPE DECIMAL(11,3),
-ALTER COLUMN "estoqueMinimo" SET DATA TYPE DECIMAL(11,3),
-ALTER COLUMN "aliquotaICMS" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "aliquotaPIS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "aliquotaCOFINS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "aliquotaIPI" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "aliquotaIBS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "aliquotaCBS" SET DATA TYPE DECIMAL(5,4);
+ALTER TABLE "produtos" ADD COLUMN     "aliquotaICMSST" DECIMAL(5,2),
+ADD COLUMN     "csosnICMS" CHAR(3),
+ADD COLUMN     "cstCOFINS" CHAR(2) NOT NULL DEFAULT '01',
+ADD COLUMN     "cstICMS" CHAR(2) NOT NULL DEFAULT '00',
+ADD COLUMN     "cstIPI" CHAR(2),
+ADD COLUMN     "cstPIS" CHAR(2) NOT NULL DEFAULT '01',
+ADD COLUMN     "estoqueMaximo" DECIMAL(11,3),
+ADD COLUMN     "modBC" CHAR(1) NOT NULL DEFAULT '3',
+ADD COLUMN     "modBCST" CHAR(1) NOT NULL DEFAULT '4',
+ADD COLUMN     "pMVAST" DECIMAL(5,2),
+ADD COLUMN     "pRedBC" DECIMAL(5,2),
+ADD COLUMN     "pRedBCST" DECIMAL(5,2),
+ADD COLUMN     "uTrib" VARCHAR(6),
+ALTER COLUMN "origem" SET DEFAULT '0',
+ALTER COLUMN "origem" SET DATA TYPE CHAR(1);
 
 -- AlterTable
-ALTER TABLE "servicos" ADD COLUMN     "cListServ" CHAR(5) NOT NULL,
-ADD COLUMN     "cServico" VARCHAR(20),
-ALTER COLUMN "valorUnitario" SET DATA TYPE DECIMAL(15,4),
-ALTER COLUMN "aliquotaISS" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "aliquotaPIS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "aliquotaCOFINS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "aliquotaIRRF" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "aliquotaCSLL" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "aliquotaINSS" SET DATA TYPE DECIMAL(3,2),
-ALTER COLUMN "aliquotaIBS" SET DATA TYPE DECIMAL(5,4),
-ALTER COLUMN "aliquotaCBS" SET DATA TYPE DECIMAL(5,4);
+ALTER TABLE "servicos" ADD COLUMN     "cListServ" CHAR(5) NOT NULL;
 
 -- AlterTable
-ALTER TABLE "titulos_financeiros" ALTER COLUMN "valorOriginal" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorJurosMulta" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorDesconto" SET DATA TYPE DECIMAL(15,2),
-ALTER COLUMN "valorPago" SET DATA TYPE DECIMAL(15,2);
-
--- AlterTable
-ALTER TABLE "transportadoras" ALTER COLUMN "cnpj" SET DATA TYPE CHAR(14),
-DROP COLUMN "regimeTributario",
-ADD COLUMN     "regimeTributario" "CRT" DEFAULT 'SIMPLES_NACIONAL';
+ALTER TABLE "transportadoras" DROP COLUMN "regimeTributario",
+ADD COLUMN     "regimeTributario" CHAR(1) DEFAULT '1';
 
 -- AlterTable
 ALTER TABLE "transportes_nfe" ADD COLUMN     "balsa" VARCHAR(20),
 ADD COLUMN     "cMunFGRet" CHAR(7),
 ADD COLUMN     "cfopRet" CHAR(4),
-ADD COLUMN     "pICMSRet" DECIMAL(3,2),
+ADD COLUMN     "pICMSRet" DECIMAL(5,2),
 ADD COLUMN     "reboquePlaca" CHAR(7),
 ADD COLUMN     "reboqueRNTC" TEXT,
 ADD COLUMN     "reboqueUf" CHAR(2),
-ADD COLUMN     "vBCRet" DECIMAL(15,2),
-ADD COLUMN     "vICMSRet" DECIMAL(15,2),
-ADD COLUMN     "vServ" DECIMAL(15,2),
+ADD COLUMN     "vBCRet" DECIMAL(15,4),
+ADD COLUMN     "vICMSRet" DECIMAL(15,4),
+ADD COLUMN     "vServ" DECIMAL(15,4),
 ADD COLUMN     "vagao" VARCHAR(20),
 ADD COLUMN     "volumesNumeracao" TEXT,
-DROP COLUMN "modalidadeFrete",
-ADD COLUMN     "modalidadeFrete" "ModFrete" NOT NULL DEFAULT 'CIF',
-ALTER COLUMN "transportadoraCnpj" SET DATA TYPE CHAR(14),
-ALTER COLUMN "veiculoPlaca" SET DATA TYPE CHAR(7),
+ALTER COLUMN "modalidadeFrete" SET DEFAULT '0',
+ALTER COLUMN "modalidadeFrete" SET DATA TYPE CHAR(1),
 ALTER COLUMN "volumesQuantidade" SET DATA TYPE INTEGER,
 ALTER COLUMN "volumesPesoLiquido" SET DATA TYPE DECIMAL(12,3),
 ALTER COLUMN "volumesPesoBruto" SET DATA TYPE DECIMAL(12,3);
+
+-- DropTable
+DROP TABLE "itens_nfae";
+
+-- CreateTable
+CREATE TABLE "logs_acao" (
+    "id" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "empresaId" TEXT NOT NULL,
+    "acao" TEXT NOT NULL,
+    "entidade" TEXT NOT NULL,
+    "entidadeId" TEXT NOT NULL,
+    "dadosAntigos" TEXT,
+    "dadosNovos" TEXT,
+    "ipOrigem" VARCHAR(45),
+    "dataHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "logs_acao_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "schema_version" (
+    "id" TEXT NOT NULL,
+    "versao" TEXT NOT NULL,
+    "dataAtualizacao" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "descricao" TEXT NOT NULL,
+
+    CONSTRAINT "schema_version_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "historico_status_nfse" (
+    "id" TEXT NOT NULL,
+    "nfseId" TEXT NOT NULL,
+    "statusAnterior" "StatusDocumento" NOT NULL,
+    "statusNovo" "StatusDocumento" NOT NULL,
+    "dataHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usuario" TEXT NOT NULL,
+    "motivo" VARCHAR(500),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "historico_status_nfse_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "historico_status_nfe" (
+    "id" TEXT NOT NULL,
+    "nfeId" TEXT NOT NULL,
+    "statusAnterior" "StatusDocumento" NOT NULL,
+    "statusNovo" "StatusDocumento" NOT NULL,
+    "dataHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usuario" TEXT NOT NULL,
+    "motivo" TEXT,
+
+    CONSTRAINT "historico_status_nfe_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "nfes_referencias" (
@@ -660,10 +880,46 @@ CREATE TABLE "nfes_referencias" (
     "nNF" INTEGER,
     "nECF" VARCHAR(3),
     "nCOO" VARCHAR(6),
+    "chaveNFF" CHAR(44),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "nfes_referencias_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "parametros_sistema" (
+    "id" TEXT NOT NULL,
+    "empresaId" TEXT,
+    "intervaloTransmissao" INTEGER NOT NULL DEFAULT 30,
+    "intervaloConsulta" INTEGER NOT NULL DEFAULT 10,
+    "registrosPorPagina" INTEGER NOT NULL DEFAULT 50,
+    "avisoInutilizacaoMensal" BOOLEAN NOT NULL DEFAULT false,
+    "proxyServidor" TEXT,
+    "proxyPorta" INTEGER,
+    "proxyUsuario" TEXT,
+    "proxySenha" TEXT,
+    "pastaBackup" TEXT,
+    "maxBackups" INTEGER NOT NULL DEFAULT 10,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "parametros_sistema_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "historico_backup" (
+    "id" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "dataHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usuario" TEXT NOT NULL,
+    "arquivo" TEXT NOT NULL,
+    "tamanho" INTEGER,
+    "status" TEXT NOT NULL,
+    "observacao" TEXT,
+    "empresaId" TEXT,
+
+    CONSTRAINT "historico_backup_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -690,9 +946,9 @@ CREATE TABLE "declaracoes_importacao" (
     "xLocDesemb" VARCHAR(60) NOT NULL,
     "UFDesemb" CHAR(2) NOT NULL,
     "dDesemb" TIMESTAMP(3) NOT NULL,
-    "tpViaTransp" "TpViaTransp" NOT NULL DEFAULT 'MARITIMA',
-    "vAFRMM" DECIMAL(15,2),
-    "tpIntermedio" "TpIntermedio" NOT NULL DEFAULT 'CONTA_PROPRIA',
+    "tpViaTransp" CHAR(1) NOT NULL DEFAULT '1',
+    "vAFRMM" DECIMAL(15,4),
+    "tpIntermedio" CHAR(1) NOT NULL DEFAULT '1',
     "CNPJ" CHAR(14),
     "CPF" CHAR(11),
     "UFTerceiro" CHAR(2),
@@ -710,7 +966,7 @@ CREATE TABLE "adicoes_importacao" (
     "nAdicao" TEXT NOT NULL,
     "nSeqAdic" TEXT NOT NULL,
     "cFabricante" VARCHAR(60) NOT NULL,
-    "vDescDI" DECIMAL(15,2),
+    "vDescDI" DECIMAL(15,4),
     "nDraw" VARCHAR(20),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -772,7 +1028,7 @@ CREATE TABLE "medicamentos" (
     "itemNFeId" TEXT NOT NULL,
     "cProdANVISA" TEXT NOT NULL,
     "xMotivoIsencao" VARCHAR(255),
-    "vPMC" DECIMAL(15,2) NOT NULL,
+    "vPMC" DECIMAL(15,4) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -783,7 +1039,7 @@ CREATE TABLE "medicamentos" (
 CREATE TABLE "armas" (
     "id" TEXT NOT NULL,
     "itemNFeId" TEXT NOT NULL,
-    "tpArma" "TpArma" NOT NULL DEFAULT 'USO_PERMITIDO',
+    "tpArma" CHAR(1) NOT NULL DEFAULT '0',
     "nSerie" VARCHAR(15) NOT NULL,
     "nCano" VARCHAR(15) NOT NULL,
     "descr" VARCHAR(256) NOT NULL,
@@ -799,17 +1055,17 @@ CREATE TABLE "combustiveis" (
     "itemNFeId" TEXT NOT NULL,
     "cProdANP" CHAR(9) NOT NULL,
     "descANP" VARCHAR(95) NOT NULL,
-    "pGLP" DECIMAL(3,2),
-    "pGNn" DECIMAL(3,2),
-    "pGNi" DECIMAL(3,2),
-    "vPart" DECIMAL(15,2),
+    "pGLP" DECIMAL(5,2),
+    "pGNn" DECIMAL(5,2),
+    "pGNi" DECIMAL(5,2),
+    "vPart" DECIMAL(15,4),
     "CODIF" VARCHAR(21),
     "qTemp" DECIMAL(12,4),
     "UFCons" CHAR(2) NOT NULL,
-    "pBio" DECIMAL(3,2),
+    "pBio" DECIMAL(5,2),
     "qBCProdCIDE" DECIMAL(15,4) NOT NULL,
     "vAliqProdCIDE" DECIMAL(15,4) NOT NULL,
-    "vCIDE" DECIMAL(15,2) NOT NULL,
+    "vCIDE" DECIMAL(15,4) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -835,9 +1091,9 @@ CREATE TABLE "encerrantes" (
 CREATE TABLE "origens_combustivel" (
     "id" TEXT NOT NULL,
     "combustivelId" TEXT NOT NULL,
-    "indImport" "IndImport" NOT NULL DEFAULT 'NACIONAL',
+    "indImport" CHAR(1) NOT NULL DEFAULT '0',
     "cUFOrig" CHAR(2) NOT NULL,
-    "pOrig" DECIMAL(3,2) NOT NULL,
+    "pOrig" DECIMAL(5,2) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -859,14 +1115,14 @@ CREATE TABLE "lacres" (
 CREATE TABLE "pagamentos_nfe" (
     "id" TEXT NOT NULL,
     "nfeId" TEXT NOT NULL,
-    "indPag" "IndPag" NOT NULL DEFAULT 'VISTA',
+    "indPag" CHAR(1) NOT NULL DEFAULT '0',
     "tPag" CHAR(2) NOT NULL,
     "xPag" VARCHAR(60),
-    "vPag" DECIMAL(15,2) NOT NULL,
+    "vPag" DECIMAL(15,4) NOT NULL,
     "dPag" TIMESTAMP(3),
     "CNPJPag" CHAR(14),
     "UFPag" CHAR(2),
-    "tpIntegra" "TpIntegra" DEFAULT 'INTEGRADO',
+    "tpIntegra" CHAR(1) DEFAULT '1',
     "CNPJInstPag" CHAR(14),
     "tBand" CHAR(2),
     "cAut" VARCHAR(128),
@@ -891,82 +1147,133 @@ CREATE TABLE "intermediadores" (
 );
 
 -- CreateTable
-CREATE TABLE "pagamentos_nfce" (
+CREATE TABLE "inutilizacoes_nfe" (
     "id" TEXT NOT NULL,
-    "nfceId" TEXT NOT NULL,
-    "indPag" "IndPag" NOT NULL DEFAULT 'VISTA',
-    "tPag" CHAR(2) NOT NULL,
-    "xPag" VARCHAR(60),
-    "vPag" DECIMAL(15,2) NOT NULL,
-    "dPag" TIMESTAMP(3),
-    "tpIntegra" "TpIntegra" DEFAULT 'INTEGRADO',
-    "CNPJInstPag" CHAR(14),
-    "tBand" CHAR(2),
-    "cAut" VARCHAR(128),
-    "CNPJReceb" CHAR(14),
-    "idTermPag" VARCHAR(40),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "pagamentos_nfce_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "eventos_nfe" (
-    "id" TEXT NOT NULL,
-    "chaveNFe" CHAR(44) NOT NULL,
-    "tpAutor" "TpAutor" NOT NULL DEFAULT 'EMITENTE',
-    "tpEvento" CHAR(6) NOT NULL,
-    "nSeqEvento" INTEGER NOT NULL DEFAULT 1,
-    "dhEvento" TIMESTAMP(3) NOT NULL,
-    "cStat" CHAR(3) NOT NULL,
-    "xMotivo" TEXT NOT NULL,
-    "nRec" CHAR(15),
-    "nProt" CHAR(17),
-    "xmlEvento" TEXT NOT NULL,
-    "xmlRetorno" TEXT,
     "empresaId" TEXT NOT NULL,
+    "serie" INTEGER NOT NULL,
+    "numeroInicial" INTEGER NOT NULL,
+    "numeroFinal" INTEGER NOT NULL,
+    "ano" INTEGER NOT NULL,
+    "cUF" CHAR(2) NOT NULL,
+    "cnpj" CHAR(14) NOT NULL,
+    "justificativa" VARCHAR(255) NOT NULL,
+    "protocolo" VARCHAR(15),
+    "status" TEXT NOT NULL DEFAULT 'PROCESSANDO',
+    "xmlEnvio" TEXT NOT NULL,
+    "xmlRetorno" TEXT,
+    "dataHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "dataHoraAutorizacao" TIMESTAMP(3),
+    "motivoRejeicao" VARCHAR(500),
+    "eventoId" TEXT,
     "nfeId" TEXT,
+    "nfesExcluidas" INTEGER,
+    "nfesExcluidasIds" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "eventos_nfe_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "inutilizacoes_nfe_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "eventos_credito_presumido" (
+CREATE TABLE "lotes_nfe" (
     "id" TEXT NOT NULL,
-    "chaveNFe" CHAR(44) NOT NULL,
-    "tpAutor" INTEGER NOT NULL DEFAULT 1,
-    "verAplic" TEXT NOT NULL,
-    "cOrgaoAutor" CHAR(2) NOT NULL,
-    "dhEvento" TIMESTAMP(3) NOT NULL,
-    "nRec" CHAR(15),
-    "nProt" CHAR(17),
-    "xmlEvento" TEXT NOT NULL,
-    "xmlRetorno" TEXT,
     "empresaId" TEXT NOT NULL,
+    "numeroLote" INTEGER NOT NULL,
+    "quantidade" INTEGER NOT NULL,
+    "ambiente" "TipoAmbiente" NOT NULL DEFAULT 'PRODUCAO',
+    "versao" VARCHAR(5) NOT NULL DEFAULT '4.00',
+    "situacao" TEXT NOT NULL DEFAULT 'PROCESSANDO',
+    "protocolo" VARCHAR(15),
+    "xmlEnvio" TEXT NOT NULL,
+    "xmlRetorno" TEXT,
+    "dataHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "dataHoraAutorizacao" TIMESTAMP(3),
+    "reciboLote" VARCHAR(15),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "eventos_credito_presumido_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "lotes_nfe_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "eventos_credito_presumido_itens" (
+CREATE TABLE "envios_nfe" (
     "id" TEXT NOT NULL,
-    "nItem" TEXT NOT NULL,
-    "vBCCredPres" DECIMAL(15,2) NOT NULL,
-    "cCredPres" CHAR(2) NOT NULL,
-    "pCredPresIBS" DECIMAL(5,4),
-    "vCredPresIBS" DECIMAL(15,2),
-    "pCredPresCBS" DECIMAL(5,4),
-    "vCredPresCBS" DECIMAL(15,2),
-    "eventoId" TEXT NOT NULL,
+    "empresaId" TEXT NOT NULL,
+    "nfeId" TEXT NOT NULL,
+    "loteId" TEXT,
+    "tipo" TEXT NOT NULL DEFAULT 'NORMAL',
+    "dataHoraEnvio" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "situacao" TEXT NOT NULL,
+    "xmlEnvio" TEXT NOT NULL,
+    "xmlRetorno" TEXT,
+    "protocolo" VARCHAR(15),
+    "motivo" VARCHAR(500),
+    "usuario" TEXT,
+    "ipOrigem" VARCHAR(45),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "eventos_credito_presumido_itens_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "envios_nfe_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "danfes" (
+    "id" TEXT NOT NULL,
+    "nfeId" TEXT NOT NULL,
+    "formato" TEXT NOT NULL DEFAULT 'RETRATO',
+    "tipo" TEXT NOT NULL DEFAULT 'NORMAL',
+    "impressoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usuario" TEXT,
+    "quantidadeCopias" INTEGER NOT NULL DEFAULT 1,
+    "comFormularioPreImpresso" BOOLEAN NOT NULL DEFAULT false,
+    "pdfGerado" BOOLEAN NOT NULL DEFAULT true,
+    "caminhoPdf" TEXT,
+    "hash" TEXT,
+    "motivoReimpressao" VARCHAR(255),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "danfes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "agendamentos_busca" (
+    "id" TEXT NOT NULL,
+    "empresaId" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "tipoBusca" TEXT NOT NULL DEFAULT 'AUTOMATICA',
+    "usuarioSolicitante" TEXT,
+    "dataHoraAgendada" TIMESTAMP(3) NOT NULL,
+    "dataHoraExecucao" TIMESTAMP(3),
+    "status" TEXT NOT NULL DEFAULT 'PENDENTE',
+    "nfesProcessando" INTEGER NOT NULL DEFAULT 0,
+    "tentativas" INTEGER NOT NULL DEFAULT 0,
+    "maxTentativas" INTEGER NOT NULL DEFAULT 10,
+    "resultado" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "agendamentos_busca_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "configuracoes_ambiente" (
+    "id" TEXT NOT NULL,
+    "empresaId" TEXT NOT NULL,
+    "ambiente" "TipoAmbiente" NOT NULL DEFAULT 'PRODUCAO',
+    "ativo" BOOLEAN NOT NULL DEFAULT true,
+    "urlNFeEnvio" TEXT NOT NULL,
+    "urlNFeConsulta" TEXT NOT NULL,
+    "urlNFeCancelamento" TEXT NOT NULL,
+    "urlNFeInutilizacao" TEXT NOT NULL,
+    "urlNFeEvento" TEXT NOT NULL,
+    "urlNFCeEnvio" TEXT NOT NULL,
+    "urlNFCeQrCode" TEXT NOT NULL,
+    "urlCTeEnvio" TEXT NOT NULL,
+    "timeoutConexao" INTEGER NOT NULL DEFAULT 30,
+    "tempoEntreTentativas" INTEGER NOT NULL DEFAULT 10,
+    "maxTentativas" INTEGER NOT NULL DEFAULT 3,
+    "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "atualizadoEm" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "configuracoes_ambiente_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1004,9 +1311,9 @@ CREATE TABLE "cana" (
     "qTotMes" DECIMAL(15,4) NOT NULL,
     "qTotAnt" DECIMAL(15,4) NOT NULL,
     "qTotGer" DECIMAL(15,4) NOT NULL,
-    "vFor" DECIMAL(15,2) NOT NULL,
-    "vTotDed" DECIMAL(15,2) NOT NULL,
-    "vLiqFor" DECIMAL(15,2) NOT NULL,
+    "vFor" DECIMAL(15,4) NOT NULL,
+    "vTotDed" DECIMAL(15,4) NOT NULL,
+    "vLiqFor" DECIMAL(15,4) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -1030,7 +1337,7 @@ CREATE TABLE "deducoes_cana" (
     "id" TEXT NOT NULL,
     "canaId" TEXT NOT NULL,
     "xDed" VARCHAR(60) NOT NULL,
-    "vDed" DECIMAL(15,2) NOT NULL,
+    "vDed" DECIMAL(15,4) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -1058,13 +1365,649 @@ CREATE TABLE "processos_referenciados" (
     "id" TEXT NOT NULL,
     "nfeId" TEXT NOT NULL,
     "nProc" VARCHAR(60) NOT NULL,
-    "indProc" "IndProc" NOT NULL DEFAULT 'SEFAZ',
-    "tpAto" "TpAto",
+    "indProc" CHAR(1) NOT NULL DEFAULT '0',
+    "tpAto" CHAR(1),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "processos_referenciados_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateTable
+CREATE TABLE "pagamentos_nfce" (
+    "id" TEXT NOT NULL,
+    "nfceId" TEXT NOT NULL,
+    "indPag" CHAR(1) NOT NULL DEFAULT '0',
+    "tPag" CHAR(2) NOT NULL,
+    "xPag" VARCHAR(60),
+    "vPag" DECIMAL(15,4) NOT NULL,
+    "dPag" TIMESTAMP(3),
+    "tpIntegra" CHAR(1) DEFAULT '1',
+    "CNPJPag" CHAR(14),
+    "UFPag" CHAR(2),
+    "CNPJInstPag" CHAR(14),
+    "tBand" CHAR(2),
+    "cAut" VARCHAR(128),
+    "CNPJReceb" CHAR(14),
+    "idTermPag" VARCHAR(40),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "pagamentos_nfce_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "historico_status_nfce" (
+    "id" TEXT NOT NULL,
+    "nfceId" TEXT NOT NULL,
+    "statusAnterior" "StatusDocumento" NOT NULL,
+    "statusNovo" "StatusDocumento" NOT NULL,
+    "dataHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usuario" TEXT NOT NULL,
+    "motivo" VARCHAR(500),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "historico_status_nfce_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_componentes" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "xNome" VARCHAR(15) NOT NULL,
+    "vComp" DECIMAL(15,2) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_componentes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_quantidades" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "cUnid" CHAR(2) NOT NULL,
+    "tpMed" VARCHAR(20) NOT NULL,
+    "qCarga" DECIMAL(11,4) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_quantidades_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_documentos" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "tipo" VARCHAR(10) NOT NULL,
+    "chave" CHAR(44),
+    "serie" VARCHAR(3),
+    "nDoc" VARCHAR(20),
+    "dEmi" TIMESTAMP(3),
+    "dPrev" TIMESTAMP(3),
+    "nRoma" VARCHAR(20),
+    "nPed" VARCHAR(20),
+    "mod" CHAR(2),
+    "vBC" DECIMAL(15,2),
+    "vICMS" DECIMAL(15,2),
+    "vBCST" DECIMAL(15,2),
+    "vST" DECIMAL(15,2),
+    "vProd" DECIMAL(15,2),
+    "vNF" DECIMAL(15,2),
+    "nCFOP" CHAR(3),
+    "nPeso" DECIMAL(12,3),
+    "PIN" VARCHAR(9),
+    "tpDoc" CHAR(2),
+    "descOutros" VARCHAR(100),
+    "vDocFisc" DECIMAL(15,2),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_documentos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_unidades_carga" (
+    "id" TEXT NOT NULL,
+    "documentoId" TEXT NOT NULL,
+    "tpUnidCarga" CHAR(1) NOT NULL,
+    "idUnidCarga" VARCHAR(20) NOT NULL,
+    "qtdRat" DECIMAL(3,3),
+    "unidadeTransporteId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_unidades_carga_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_unidade_carga_lacres" (
+    "id" TEXT NOT NULL,
+    "unidadeCargaId" TEXT NOT NULL,
+    "nLacre" VARCHAR(20) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_unidade_carga_lacres_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_unidades_transporte" (
+    "id" TEXT NOT NULL,
+    "documentoId" TEXT NOT NULL,
+    "tpUnidTransp" CHAR(1) NOT NULL,
+    "idUnidTransp" VARCHAR(20) NOT NULL,
+    "qtdRat" DECIMAL(3,3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_unidades_transporte_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_unidade_transporte_lacres" (
+    "id" TEXT NOT NULL,
+    "unidadeTransporteId" TEXT NOT NULL,
+    "nLacre" VARCHAR(20) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_unidade_transporte_lacres_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_duplicatas" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "nDup" VARCHAR(60) NOT NULL,
+    "dVenc" TIMESTAMP(3) NOT NULL,
+    "vDup" DECIMAL(15,2) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_duplicatas_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_obs_cont" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "xCampo" VARCHAR(20) NOT NULL,
+    "xTexto" VARCHAR(160) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_obs_cont_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_obs_fisco" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "xCampo" VARCHAR(20) NOT NULL,
+    "xTexto" VARCHAR(60) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_obs_fisco_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_aut_xml" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "CNPJ" CHAR(14),
+    "CPF" CHAR(11),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_aut_xml_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_historico_status" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "statusAnterior" "StatusCTe" NOT NULL,
+    "statusNovo" "StatusCTe" NOT NULL,
+    "dataHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usuario" TEXT NOT NULL,
+    "motivo" VARCHAR(500),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "cte_historico_status_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_complementos" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "chCTe" CHAR(44) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_complementos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_substitutos" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "chCTe" CHAR(44) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_substitutos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_globalizados" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "chCTe" CHAR(44) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_globalizados_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_servicos_vinculados" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "chCTeMultimodal" CHAR(44) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_servicos_vinculados_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_responsaveis_tecnicos" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "CNPJ" CHAR(14) NOT NULL,
+    "xContato" VARCHAR(60) NOT NULL,
+    "email" VARCHAR(60) NOT NULL,
+    "fone" VARCHAR(14) NOT NULL,
+    "idCSRT" CHAR(3),
+    "hashCSRT" VARCHAR(28),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_responsaveis_tecnicos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cte_pagamentos_vinculados" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "nPag" VARCHAR(3) NOT NULL,
+    "idTransacao" VARCHAR(35) NOT NULL,
+    "tpMeioPgto" CHAR(2) NOT NULL,
+    "CNPJReceb" CHAR(14) NOT NULL,
+    "CNPJBasePSP" CHAR(8) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cte_pagamentos_vinculados_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "nfaes_itens" (
+    "id" TEXT NOT NULL,
+    "nfaeId" TEXT NOT NULL,
+    "codigo" VARCHAR(20) NOT NULL,
+    "descricao" VARCHAR(120) NOT NULL,
+    "ncm" CHAR(8) NOT NULL,
+    "unidade" VARCHAR(6) NOT NULL,
+    "quantidade" DECIMAL(15,4) NOT NULL,
+    "valorUnitario" DECIMAL(15,4) NOT NULL,
+    "valorTotal" DECIMAL(15,2) NOT NULL,
+    "aliquotaICMS" DECIMAL(5,2) NOT NULL,
+    "valorICMS" DECIMAL(15,2) NOT NULL,
+    "codigoBarrasEAN" VARCHAR(14),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "nfaes_itens_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "nfaes_historico_status" (
+    "id" TEXT NOT NULL,
+    "nfaeId" TEXT NOT NULL,
+    "statusAnterior" "StatusNFAe" NOT NULL,
+    "statusNovo" "StatusNFAe" NOT NULL,
+    "dataHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usuario" TEXT NOT NULL,
+    "motivo" VARCHAR(500),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "nfaes_historico_status_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfes" (
+    "id" TEXT NOT NULL,
+    "chaveAcesso" CHAR(44) NOT NULL,
+    "modelo" CHAR(2) NOT NULL DEFAULT '58',
+    "serie" INTEGER NOT NULL,
+    "numero" INTEGER NOT NULL,
+    "cUF" CHAR(2) NOT NULL,
+    "cMDF" CHAR(8) NOT NULL,
+    "cDV" CHAR(1) NOT NULL,
+    "modal" "ModalMDFe" NOT NULL,
+    "tpAmb" CHAR(1) NOT NULL DEFAULT '1',
+    "tpEmit" "TipoEmitenteMDFe" NOT NULL,
+    "tpTransp" "TipoTransportadorMDFe",
+    "tpEmis" CHAR(1) NOT NULL DEFAULT '1',
+    "procEmi" CHAR(1) NOT NULL DEFAULT '0',
+    "verProc" VARCHAR(20) NOT NULL,
+    "dhEmi" TIMESTAMP(3) NOT NULL,
+    "dhIniViagem" TIMESTAMP(3),
+    "UFIni" CHAR(2) NOT NULL,
+    "UFFim" CHAR(2) NOT NULL,
+    "indCanalVerde" BOOLEAN DEFAULT false,
+    "indCarregaPosterior" BOOLEAN DEFAULT false,
+    "status" "StatusMDFe" NOT NULL DEFAULT 'RASCUNHO',
+    "versaoMDFe" VARCHAR(5) NOT NULL DEFAULT '3.00',
+    "qCTe" INTEGER DEFAULT 0,
+    "qNFe" INTEGER DEFAULT 0,
+    "qMDFe" INTEGER DEFAULT 0,
+    "vCarga" DECIMAL(15,4) NOT NULL,
+    "cUnid" CHAR(2) NOT NULL,
+    "qCarga" DECIMAL(15,4) NOT NULL,
+    "tpCarga" "TipoCargaMDFe" NOT NULL,
+    "xProd" VARCHAR(120) NOT NULL,
+    "cEAN" VARCHAR(14),
+    "NCM" CHAR(8),
+    "infAdFisco" VARCHAR(2000),
+    "infCpl" VARCHAR(5000),
+    "protocoloAutorizacao" CHAR(17),
+    "dataHoraAutorizacao" TIMESTAMP(3),
+    "motivoCancelamento" TEXT,
+    "dataHoraCancelamento" TIMESTAMP(3),
+    "motivoRejeicao" VARCHAR(500),
+    "dataHoraRejeicao" TIMESTAMP(3),
+    "motivoEncerramento" VARCHAR(255),
+    "dataHoraEncerramento" TIMESTAMP(3),
+    "xmlAssinado" TEXT NOT NULL,
+    "xmlRetorno" TEXT,
+    "xmlModal" TEXT,
+    "enviadoEm" TIMESTAMP(3),
+    "enviadoPor" TEXT,
+    "ipEnvio" VARCHAR(45),
+    "empresaId" TEXT NOT NULL,
+    "emitenteId" TEXT,
+    "loteId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_municipios_carrega" (
+    "id" TEXT NOT NULL,
+    "mdfeId" TEXT NOT NULL,
+    "cMunCarrega" CHAR(7) NOT NULL,
+    "xMunCarrega" VARCHAR(60) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_municipios_carrega_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_percursos" (
+    "id" TEXT NOT NULL,
+    "mdfeId" TEXT NOT NULL,
+    "UFPer" CHAR(2) NOT NULL,
+    "ordem" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_percursos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_municipios_descarga" (
+    "id" TEXT NOT NULL,
+    "mdfeId" TEXT NOT NULL,
+    "cMunDescarga" CHAR(7) NOT NULL,
+    "xMunDescarga" VARCHAR(60) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_municipios_descarga_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_ctes" (
+    "id" TEXT NOT NULL,
+    "munDescargaId" TEXT NOT NULL,
+    "chCTe" CHAR(44) NOT NULL,
+    "SegCodBarra" VARCHAR(60),
+    "indReentrega" BOOLEAN DEFAULT false,
+    "qtdTotal" DECIMAL(15,4),
+    "qtdParcial" DECIMAL(15,4),
+    "indPrestacaoParcial" BOOLEAN DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_ctes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_nfes" (
+    "id" TEXT NOT NULL,
+    "munDescargaId" TEXT NOT NULL,
+    "chNFe" CHAR(44) NOT NULL,
+    "SegCodBarra" VARCHAR(60),
+    "indReentrega" BOOLEAN DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_nfes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_mdfes_transp" (
+    "id" TEXT NOT NULL,
+    "munDescargaId" TEXT NOT NULL,
+    "chMDFe" CHAR(44) NOT NULL,
+    "indReentrega" BOOLEAN DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_mdfes_transp_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_unidades_transporte" (
+    "id" TEXT NOT NULL,
+    "tpUnidTransp" CHAR(1) NOT NULL,
+    "idUnidTransp" VARCHAR(20) NOT NULL,
+    "cteId" TEXT,
+    "nfeId" TEXT,
+    "mdfeTranspId" TEXT,
+    "qtdRat" DECIMAL(15,4),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_unidades_transporte_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_lacres_unidade" (
+    "id" TEXT NOT NULL,
+    "unidadeTranspId" TEXT NOT NULL,
+    "nLacre" VARCHAR(20) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_lacres_unidade_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_unidades_carga" (
+    "id" TEXT NOT NULL,
+    "unidadeTranspId" TEXT NOT NULL,
+    "tpUnidCarga" CHAR(1) NOT NULL,
+    "idUnidCarga" VARCHAR(20) NOT NULL,
+    "qtdRat" DECIMAL(15,4),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_unidades_carga_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_lacres_unidade_carga" (
+    "id" TEXT NOT NULL,
+    "unidadeCargaId" TEXT NOT NULL,
+    "nLacre" VARCHAR(20) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_lacres_unidade_carga_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_perigosos" (
+    "id" TEXT NOT NULL,
+    "nONU" VARCHAR(4) NOT NULL,
+    "xNomeAE" VARCHAR(150),
+    "xClaRisco" VARCHAR(40),
+    "grEmb" VARCHAR(6),
+    "qTotProd" VARCHAR(20) NOT NULL,
+    "qVolTipo" VARCHAR(60),
+    "cteId" TEXT,
+    "nfeId" TEXT,
+    "mdfeTranspId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_perigosos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_nfes_prest_parcial" (
+    "id" TEXT NOT NULL,
+    "cteId" TEXT NOT NULL,
+    "chNFe" CHAR(44) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_nfes_prest_parcial_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_seguros" (
+    "id" TEXT NOT NULL,
+    "mdfeId" TEXT NOT NULL,
+    "respSeg" CHAR(1) NOT NULL,
+    "respCNPJ" CHAR(14),
+    "respCPF" CHAR(11),
+    "xSeg" VARCHAR(30),
+    "CNPJSeg" CHAR(14),
+    "nApol" VARCHAR(20),
+    "nAver" TEXT[],
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_seguros_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_lacres" (
+    "id" TEXT NOT NULL,
+    "mdfeId" TEXT NOT NULL,
+    "nLacre" VARCHAR(60) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_lacres_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_aut_xml" (
+    "id" TEXT NOT NULL,
+    "mdfeId" TEXT NOT NULL,
+    "CNPJ" CHAR(14),
+    "CPF" CHAR(11),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_aut_xml_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_encerramentos" (
+    "id" TEXT NOT NULL,
+    "mdfeId" TEXT NOT NULL,
+    "nProt" CHAR(17) NOT NULL,
+    "dhEnc" TIMESTAMP(3) NOT NULL,
+    "xMunEnc" VARCHAR(60) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "mdfe_encerramentos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mdfe_historico_status" (
+    "id" TEXT NOT NULL,
+    "mdfeId" TEXT NOT NULL,
+    "statusAnterior" "StatusMDFe" NOT NULL,
+    "statusNovo" "StatusMDFe" NOT NULL,
+    "dataHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usuario" TEXT NOT NULL,
+    "motivo" VARCHAR(500),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "mdfe_historico_status_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "lotes_mdfe" (
+    "id" TEXT NOT NULL,
+    "empresaId" TEXT NOT NULL,
+    "numeroLote" INTEGER NOT NULL,
+    "quantidade" INTEGER NOT NULL,
+    "ambiente" CHAR(1) NOT NULL DEFAULT '1',
+    "versao" VARCHAR(5) NOT NULL DEFAULT '3.00',
+    "situacao" TEXT NOT NULL DEFAULT 'PROCESSANDO',
+    "protocolo" VARCHAR(15),
+    "xmlEnvio" TEXT NOT NULL,
+    "xmlRetorno" TEXT,
+    "dataHora" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "dataHoraAutorizacao" TIMESTAMP(3),
+    "reciboLote" VARCHAR(15),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "lotes_mdfe_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "logs_acao_empresaId_idx" ON "logs_acao"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "logs_acao_entidade_entidadeId_idx" ON "logs_acao"("entidade", "entidadeId");
+
+-- CreateIndex
+CREATE INDEX "historico_status_nfse_nfseId_idx" ON "historico_status_nfse"("nfseId");
+
+-- CreateIndex
+CREATE INDEX "historico_status_nfe_nfeId_idx" ON "historico_status_nfe"("nfeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "parametros_sistema_empresaId_key" ON "parametros_sistema"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "historico_backup_empresaId_idx" ON "historico_backup"("empresaId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "declaracoes_importacao_itemNFeId_key" ON "declaracoes_importacao"("itemNFeId");
@@ -1088,13 +2031,46 @@ CREATE UNIQUE INDEX "encerrantes_combustivelId_key" ON "encerrantes"("combustive
 CREATE UNIQUE INDEX "intermediadores_nfeId_key" ON "intermediadores"("nfeId");
 
 -- CreateIndex
-CREATE INDEX "eventos_nfe_chaveNFe_idx" ON "eventos_nfe"("chaveNFe");
+CREATE UNIQUE INDEX "inutilizacoes_nfe_eventoId_key" ON "inutilizacoes_nfe"("eventoId");
 
 -- CreateIndex
-CREATE INDEX "eventos_credito_presumido_chaveNFe_idx" ON "eventos_credito_presumido"("chaveNFe");
+CREATE UNIQUE INDEX "inutilizacoes_nfe_nfeId_key" ON "inutilizacoes_nfe"("nfeId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "eventos_credito_presumido_itens_eventoId_nItem_key" ON "eventos_credito_presumido_itens"("eventoId", "nItem");
+CREATE INDEX "inutilizacoes_nfe_empresaId_idx" ON "inutilizacoes_nfe"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "inutilizacoes_nfe_status_idx" ON "inutilizacoes_nfe"("status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "inutilizacoes_nfe_empresaId_serie_numeroInicial_numeroFinal_key" ON "inutilizacoes_nfe"("empresaId", "serie", "numeroInicial", "numeroFinal", "ano");
+
+-- CreateIndex
+CREATE INDEX "lotes_nfe_empresaId_idx" ON "lotes_nfe"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "lotes_nfe_situacao_idx" ON "lotes_nfe"("situacao");
+
+-- CreateIndex
+CREATE INDEX "envios_nfe_empresaId_idx" ON "envios_nfe"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "envios_nfe_nfeId_idx" ON "envios_nfe"("nfeId");
+
+-- CreateIndex
+CREATE INDEX "envios_nfe_loteId_idx" ON "envios_nfe"("loteId");
+
+-- CreateIndex
+CREATE INDEX "danfes_nfeId_idx" ON "danfes"("nfeId");
+
+-- CreateIndex
+CREATE INDEX "agendamentos_busca_empresaId_idx" ON "agendamentos_busca"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "agendamentos_busca_status_idx" ON "agendamentos_busca"("status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "configuracoes_ambiente_empresaId_key" ON "configuracoes_ambiente"("empresaId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "exportacoes_nfeId_key" ON "exportacoes"("nfeId");
@@ -1111,8 +2087,323 @@ CREATE UNIQUE INDEX "fornecimentos_dia_canaId_dia_key" ON "fornecimentos_dia"("c
 -- CreateIndex
 CREATE UNIQUE INDEX "responsaveis_tecnicos_nfeId_key" ON "responsaveis_tecnicos"("nfeId");
 
+-- CreateIndex
+CREATE INDEX "pagamentos_nfce_nfceId_idx" ON "pagamentos_nfce"("nfceId");
+
+-- CreateIndex
+CREATE INDEX "historico_status_nfce_nfceId_idx" ON "historico_status_nfce"("nfceId");
+
+-- CreateIndex
+CREATE INDEX "cte_componentes_cteId_idx" ON "cte_componentes"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_quantidades_cteId_idx" ON "cte_quantidades"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_documentos_cteId_idx" ON "cte_documentos"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_documentos_chave_idx" ON "cte_documentos"("chave");
+
+-- CreateIndex
+CREATE INDEX "cte_unidades_carga_documentoId_idx" ON "cte_unidades_carga"("documentoId");
+
+-- CreateIndex
+CREATE INDEX "cte_unidades_carga_unidadeTransporteId_idx" ON "cte_unidades_carga"("unidadeTransporteId");
+
+-- CreateIndex
+CREATE INDEX "cte_unidade_carga_lacres_unidadeCargaId_idx" ON "cte_unidade_carga_lacres"("unidadeCargaId");
+
+-- CreateIndex
+CREATE INDEX "cte_unidades_transporte_documentoId_idx" ON "cte_unidades_transporte"("documentoId");
+
+-- CreateIndex
+CREATE INDEX "cte_unidade_transporte_lacres_unidadeTransporteId_idx" ON "cte_unidade_transporte_lacres"("unidadeTransporteId");
+
+-- CreateIndex
+CREATE INDEX "cte_duplicatas_cteId_idx" ON "cte_duplicatas"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_obs_cont_cteId_idx" ON "cte_obs_cont"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_obs_fisco_cteId_idx" ON "cte_obs_fisco"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_aut_xml_cteId_idx" ON "cte_aut_xml"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_historico_status_cteId_idx" ON "cte_historico_status"("cteId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cte_complementos_cteId_key" ON "cte_complementos"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_complementos_chCTe_idx" ON "cte_complementos"("chCTe");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cte_substitutos_cteId_key" ON "cte_substitutos"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_substitutos_chCTe_idx" ON "cte_substitutos"("chCTe");
+
+-- CreateIndex
+CREATE INDEX "cte_globalizados_cteId_idx" ON "cte_globalizados"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_globalizados_chCTe_idx" ON "cte_globalizados"("chCTe");
+
+-- CreateIndex
+CREATE INDEX "cte_servicos_vinculados_cteId_idx" ON "cte_servicos_vinculados"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_servicos_vinculados_chCTeMultimodal_idx" ON "cte_servicos_vinculados"("chCTeMultimodal");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cte_responsaveis_tecnicos_cteId_key" ON "cte_responsaveis_tecnicos"("cteId");
+
+-- CreateIndex
+CREATE INDEX "cte_pagamentos_vinculados_cteId_idx" ON "cte_pagamentos_vinculados"("cteId");
+
+-- CreateIndex
+CREATE INDEX "nfaes_itens_nfaeId_idx" ON "nfaes_itens"("nfaeId");
+
+-- CreateIndex
+CREATE INDEX "nfaes_historico_status_nfaeId_idx" ON "nfaes_historico_status"("nfaeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "mdfes_chaveAcesso_key" ON "mdfes"("chaveAcesso");
+
+-- CreateIndex
+CREATE INDEX "mdfes_empresaId_idx" ON "mdfes"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "mdfes_chaveAcesso_idx" ON "mdfes"("chaveAcesso");
+
+-- CreateIndex
+CREATE INDEX "mdfes_status_idx" ON "mdfes"("status");
+
+-- CreateIndex
+CREATE INDEX "mdfes_modal_idx" ON "mdfes"("modal");
+
+-- CreateIndex
+CREATE INDEX "mdfes_loteId_idx" ON "mdfes"("loteId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_municipios_carrega_mdfeId_idx" ON "mdfe_municipios_carrega"("mdfeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "mdfe_municipios_carrega_mdfeId_cMunCarrega_key" ON "mdfe_municipios_carrega"("mdfeId", "cMunCarrega");
+
+-- CreateIndex
+CREATE INDEX "mdfe_percursos_mdfeId_idx" ON "mdfe_percursos"("mdfeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "mdfe_percursos_mdfeId_UFPer_key" ON "mdfe_percursos"("mdfeId", "UFPer");
+
+-- CreateIndex
+CREATE INDEX "mdfe_municipios_descarga_mdfeId_idx" ON "mdfe_municipios_descarga"("mdfeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "mdfe_municipios_descarga_mdfeId_cMunDescarga_key" ON "mdfe_municipios_descarga"("mdfeId", "cMunDescarga");
+
+-- CreateIndex
+CREATE INDEX "mdfe_ctes_munDescargaId_idx" ON "mdfe_ctes"("munDescargaId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_ctes_chCTe_idx" ON "mdfe_ctes"("chCTe");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "mdfe_ctes_munDescargaId_chCTe_key" ON "mdfe_ctes"("munDescargaId", "chCTe");
+
+-- CreateIndex
+CREATE INDEX "mdfe_nfes_munDescargaId_idx" ON "mdfe_nfes"("munDescargaId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_nfes_chNFe_idx" ON "mdfe_nfes"("chNFe");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "mdfe_nfes_munDescargaId_chNFe_key" ON "mdfe_nfes"("munDescargaId", "chNFe");
+
+-- CreateIndex
+CREATE INDEX "mdfe_mdfes_transp_munDescargaId_idx" ON "mdfe_mdfes_transp"("munDescargaId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_mdfes_transp_chMDFe_idx" ON "mdfe_mdfes_transp"("chMDFe");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "mdfe_mdfes_transp_munDescargaId_chMDFe_key" ON "mdfe_mdfes_transp"("munDescargaId", "chMDFe");
+
+-- CreateIndex
+CREATE INDEX "mdfe_unidades_transporte_cteId_idx" ON "mdfe_unidades_transporte"("cteId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_unidades_transporte_nfeId_idx" ON "mdfe_unidades_transporte"("nfeId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_unidades_transporte_mdfeTranspId_idx" ON "mdfe_unidades_transporte"("mdfeTranspId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_lacres_unidade_unidadeTranspId_idx" ON "mdfe_lacres_unidade"("unidadeTranspId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_unidades_carga_unidadeTranspId_idx" ON "mdfe_unidades_carga"("unidadeTranspId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_lacres_unidade_carga_unidadeCargaId_idx" ON "mdfe_lacres_unidade_carga"("unidadeCargaId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_perigosos_cteId_idx" ON "mdfe_perigosos"("cteId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_perigosos_nfeId_idx" ON "mdfe_perigosos"("nfeId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_perigosos_mdfeTranspId_idx" ON "mdfe_perigosos"("mdfeTranspId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_nfes_prest_parcial_cteId_idx" ON "mdfe_nfes_prest_parcial"("cteId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "mdfe_nfes_prest_parcial_cteId_chNFe_key" ON "mdfe_nfes_prest_parcial"("cteId", "chNFe");
+
+-- CreateIndex
+CREATE INDEX "mdfe_seguros_mdfeId_idx" ON "mdfe_seguros"("mdfeId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_lacres_mdfeId_idx" ON "mdfe_lacres"("mdfeId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_aut_xml_mdfeId_idx" ON "mdfe_aut_xml"("mdfeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "mdfe_encerramentos_mdfeId_key" ON "mdfe_encerramentos"("mdfeId");
+
+-- CreateIndex
+CREATE INDEX "mdfe_historico_status_mdfeId_idx" ON "mdfe_historico_status"("mdfeId");
+
+-- CreateIndex
+CREATE INDEX "lotes_mdfe_empresaId_idx" ON "lotes_mdfe"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "lotes_mdfe_situacao_idx" ON "lotes_mdfe"("situacao");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ctes_Id_key" ON "ctes"("Id");
+
+-- CreateIndex
+CREATE INDEX "ctes_empresaId_idx" ON "ctes"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "ctes_chaveAcesso_idx" ON "ctes"("chaveAcesso");
+
+-- CreateIndex
+CREATE INDEX "ctes_status_idx" ON "ctes"("status");
+
+-- CreateIndex
+CREATE INDEX "ctes_modal_idx" ON "ctes"("modal");
+
+-- CreateIndex
+CREATE INDEX "ctes_tpCTe_idx" ON "ctes"("tpCTe");
+
+-- CreateIndex
+CREATE INDEX "ctes_emitenteId_idx" ON "ctes"("emitenteId");
+
+-- CreateIndex
+CREATE INDEX "ctes_remetenteId_idx" ON "ctes"("remetenteId");
+
+-- CreateIndex
+CREATE INDEX "ctes_destinatarioId_idx" ON "ctes"("destinatarioId");
+
+-- CreateIndex
+CREATE INDEX "itens_nfce_nfceId_idx" ON "itens_nfce"("nfceId");
+
+-- CreateIndex
+CREATE INDEX "nfaes_empresaId_idx" ON "nfaes"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "nfaes_chaveAcesso_idx" ON "nfaes"("chaveAcesso");
+
+-- CreateIndex
+CREATE INDEX "nfaes_status_idx" ON "nfaes"("status");
+
+-- CreateIndex
+CREATE INDEX "nfaes_numero_serie_idx" ON "nfaes"("numero", "serie");
+
+-- CreateIndex
+CREATE INDEX "nfaes_destinatarioId_idx" ON "nfaes"("destinatarioId");
+
+-- CreateIndex
+CREATE INDEX "nfces_empresaId_idx" ON "nfces"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "nfces_chaveAcesso_idx" ON "nfces"("chaveAcesso");
+
+-- CreateIndex
+CREATE INDEX "nfces_status_idx" ON "nfces"("status");
+
+-- CreateIndex
+CREATE INDEX "nfces_consumidorId_idx" ON "nfces"("consumidorId");
+
+-- CreateIndex
+CREATE INDEX "nfces_dataHoraEmissao_idx" ON "nfces"("dataHoraEmissao");
+
+-- CreateIndex
+CREATE INDEX "nfces_protocoloAutorizacao_idx" ON "nfces"("protocoloAutorizacao");
+
+-- CreateIndex
+CREATE INDEX "nfces_numero_serie_idx" ON "nfces"("numero", "serie");
+
+-- CreateIndex
+CREATE INDEX "nfses_empresaId_idx" ON "nfses"("empresaId");
+
+-- CreateIndex
+CREATE INDEX "nfses_chaveAcesso_idx" ON "nfses"("chaveAcesso");
+
+-- CreateIndex
+CREATE INDEX "nfses_status_idx" ON "nfses"("status");
+
+-- CreateIndex
+CREATE INDEX "nfses_tomadorId_idx" ON "nfses"("tomadorId");
+
+-- CreateIndex
+CREATE INDEX "nfses_dataHoraEmissao_idx" ON "nfses"("dataHoraEmissao");
+
+-- CreateIndex
+CREATE INDEX "nfses_protocoloAutorizacao_idx" ON "nfses"("protocoloAutorizacao");
+
+-- CreateIndex
+CREATE INDEX "nfses_numeroNfse_serieDPS_idx" ON "nfses"("numeroNfse", "serieDPS");
+
+-- AddForeignKey
+ALTER TABLE "logs_acao" ADD CONSTRAINT "logs_acao_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "logs_acao" ADD CONSTRAINT "logs_acao_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "nfses" ADD CONSTRAINT "nfses_tomadorId_fkey" FOREIGN KEY ("tomadorId") REFERENCES "clientes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "nfses" ADD CONSTRAINT "nfses_servicoId_fkey" FOREIGN KEY ("servicoId") REFERENCES "servicos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "historico_status_nfse" ADD CONSTRAINT "historico_status_nfse_nfseId_fkey" FOREIGN KEY ("nfseId") REFERENCES "nfses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "nfes" ADD CONSTRAINT "nfes_loteId_fkey" FOREIGN KEY ("loteId") REFERENCES "lotes_nfe"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "historico_status_nfe" ADD CONSTRAINT "historico_status_nfe_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "nfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
 -- AddForeignKey
 ALTER TABLE "nfes_referencias" ADD CONSTRAINT "nfes_referencias_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "nfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "parametros_sistema" ADD CONSTRAINT "parametros_sistema_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "historico_backup" ADD CONSTRAINT "historico_backup_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "itens_rastreabilidade" ADD CONSTRAINT "itens_rastreabilidade_itemNFeId_fkey" FOREIGN KEY ("itemNFeId") REFERENCES "itens_nfe"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1154,19 +2445,34 @@ ALTER TABLE "pagamentos_nfe" ADD CONSTRAINT "pagamentos_nfe_nfeId_fkey" FOREIGN 
 ALTER TABLE "intermediadores" ADD CONSTRAINT "intermediadores_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "nfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "pagamentos_nfce" ADD CONSTRAINT "pagamentos_nfce_nfceId_fkey" FOREIGN KEY ("nfceId") REFERENCES "nfces"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "inutilizacoes_nfe" ADD CONSTRAINT "inutilizacoes_nfe_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "eventos_nfe" ADD CONSTRAINT "eventos_nfe_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "inutilizacoes_nfe" ADD CONSTRAINT "inutilizacoes_nfe_eventoId_fkey" FOREIGN KEY ("eventoId") REFERENCES "eventos_nfe"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "eventos_nfe" ADD CONSTRAINT "eventos_nfe_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "nfes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "inutilizacoes_nfe" ADD CONSTRAINT "inutilizacoes_nfe_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "nfes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "eventos_credito_presumido" ADD CONSTRAINT "eventos_credito_presumido_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "lotes_nfe" ADD CONSTRAINT "lotes_nfe_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "eventos_credito_presumido_itens" ADD CONSTRAINT "eventos_credito_presumido_itens_eventoId_fkey" FOREIGN KEY ("eventoId") REFERENCES "eventos_credito_presumido"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "envios_nfe" ADD CONSTRAINT "envios_nfe_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "envios_nfe" ADD CONSTRAINT "envios_nfe_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "nfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "envios_nfe" ADD CONSTRAINT "envios_nfe_loteId_fkey" FOREIGN KEY ("loteId") REFERENCES "lotes_nfe"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "danfes" ADD CONSTRAINT "danfes_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "nfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "agendamentos_busca" ADD CONSTRAINT "agendamentos_busca_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "configuracoes_ambiente" ADD CONSTRAINT "configuracoes_ambiente_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "exportacoes" ADD CONSTRAINT "exportacoes_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "nfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1188,3 +2494,172 @@ ALTER TABLE "responsaveis_tecnicos" ADD CONSTRAINT "responsaveis_tecnicos_nfeId_
 
 -- AddForeignKey
 ALTER TABLE "processos_referenciados" ADD CONSTRAINT "processos_referenciados_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "nfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pagamentos_nfce" ADD CONSTRAINT "pagamentos_nfce_nfceId_fkey" FOREIGN KEY ("nfceId") REFERENCES "nfces"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "historico_status_nfce" ADD CONSTRAINT "historico_status_nfce_nfceId_fkey" FOREIGN KEY ("nfceId") REFERENCES "nfces"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ctes" ADD CONSTRAINT "ctes_emitenteId_fkey" FOREIGN KEY ("emitenteId") REFERENCES "empresas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ctes" ADD CONSTRAINT "ctes_remetenteId_fkey" FOREIGN KEY ("remetenteId") REFERENCES "clientes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ctes" ADD CONSTRAINT "ctes_destinatarioId_fkey" FOREIGN KEY ("destinatarioId") REFERENCES "clientes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ctes" ADD CONSTRAINT "ctes_expedidorId_fkey" FOREIGN KEY ("expedidorId") REFERENCES "clientes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ctes" ADD CONSTRAINT "ctes_recebedorId_fkey" FOREIGN KEY ("recebedorId") REFERENCES "clientes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_componentes" ADD CONSTRAINT "cte_componentes_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_quantidades" ADD CONSTRAINT "cte_quantidades_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_documentos" ADD CONSTRAINT "cte_documentos_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_unidades_carga" ADD CONSTRAINT "cte_unidades_carga_documentoId_fkey" FOREIGN KEY ("documentoId") REFERENCES "cte_documentos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_unidades_carga" ADD CONSTRAINT "cte_unidades_carga_unidadeTransporteId_fkey" FOREIGN KEY ("unidadeTransporteId") REFERENCES "cte_unidades_transporte"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_unidade_carga_lacres" ADD CONSTRAINT "cte_unidade_carga_lacres_unidadeCargaId_fkey" FOREIGN KEY ("unidadeCargaId") REFERENCES "cte_unidades_carga"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_unidades_transporte" ADD CONSTRAINT "cte_unidades_transporte_documentoId_fkey" FOREIGN KEY ("documentoId") REFERENCES "cte_documentos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_unidade_transporte_lacres" ADD CONSTRAINT "cte_unidade_transporte_lacres_unidadeTransporteId_fkey" FOREIGN KEY ("unidadeTransporteId") REFERENCES "cte_unidades_transporte"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_duplicatas" ADD CONSTRAINT "cte_duplicatas_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_obs_cont" ADD CONSTRAINT "cte_obs_cont_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_obs_fisco" ADD CONSTRAINT "cte_obs_fisco_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_aut_xml" ADD CONSTRAINT "cte_aut_xml_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_historico_status" ADD CONSTRAINT "cte_historico_status_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_complementos" ADD CONSTRAINT "cte_complementos_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_substitutos" ADD CONSTRAINT "cte_substitutos_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_globalizados" ADD CONSTRAINT "cte_globalizados_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_servicos_vinculados" ADD CONSTRAINT "cte_servicos_vinculados_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_responsaveis_tecnicos" ADD CONSTRAINT "cte_responsaveis_tecnicos_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cte_pagamentos_vinculados" ADD CONSTRAINT "cte_pagamentos_vinculados_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "nfaes" ADD CONSTRAINT "nfaes_destinatarioId_fkey" FOREIGN KEY ("destinatarioId") REFERENCES "clientes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "nfaes_itens" ADD CONSTRAINT "nfaes_itens_nfaeId_fkey" FOREIGN KEY ("nfaeId") REFERENCES "nfaes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "nfaes_historico_status" ADD CONSTRAINT "nfaes_historico_status_nfaeId_fkey" FOREIGN KEY ("nfaeId") REFERENCES "nfaes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "eventos_nfe" ADD CONSTRAINT "eventos_nfe_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "nfes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "eventos_nfe" ADD CONSTRAINT "eventos_nfe_inutilizacaoId_fkey" FOREIGN KEY ("inutilizacaoId") REFERENCES "inutilizacoes_nfe"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfes" ADD CONSTRAINT "mdfes_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfes" ADD CONSTRAINT "mdfes_emitenteId_fkey" FOREIGN KEY ("emitenteId") REFERENCES "clientes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfes" ADD CONSTRAINT "mdfes_loteId_fkey" FOREIGN KEY ("loteId") REFERENCES "lotes_mdfe"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_municipios_carrega" ADD CONSTRAINT "mdfe_municipios_carrega_mdfeId_fkey" FOREIGN KEY ("mdfeId") REFERENCES "mdfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_percursos" ADD CONSTRAINT "mdfe_percursos_mdfeId_fkey" FOREIGN KEY ("mdfeId") REFERENCES "mdfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_municipios_descarga" ADD CONSTRAINT "mdfe_municipios_descarga_mdfeId_fkey" FOREIGN KEY ("mdfeId") REFERENCES "mdfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_ctes" ADD CONSTRAINT "mdfe_ctes_munDescargaId_fkey" FOREIGN KEY ("munDescargaId") REFERENCES "mdfe_municipios_descarga"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_nfes" ADD CONSTRAINT "mdfe_nfes_munDescargaId_fkey" FOREIGN KEY ("munDescargaId") REFERENCES "mdfe_municipios_descarga"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_mdfes_transp" ADD CONSTRAINT "mdfe_mdfes_transp_munDescargaId_fkey" FOREIGN KEY ("munDescargaId") REFERENCES "mdfe_municipios_descarga"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_unidades_transporte" ADD CONSTRAINT "mdfe_unidades_transporte_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "mdfe_ctes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_unidades_transporte" ADD CONSTRAINT "mdfe_unidades_transporte_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "mdfe_nfes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_unidades_transporte" ADD CONSTRAINT "mdfe_unidades_transporte_mdfeTranspId_fkey" FOREIGN KEY ("mdfeTranspId") REFERENCES "mdfe_mdfes_transp"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_lacres_unidade" ADD CONSTRAINT "mdfe_lacres_unidade_unidadeTranspId_fkey" FOREIGN KEY ("unidadeTranspId") REFERENCES "mdfe_unidades_transporte"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_unidades_carga" ADD CONSTRAINT "mdfe_unidades_carga_unidadeTranspId_fkey" FOREIGN KEY ("unidadeTranspId") REFERENCES "mdfe_unidades_transporte"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_lacres_unidade_carga" ADD CONSTRAINT "mdfe_lacres_unidade_carga_unidadeCargaId_fkey" FOREIGN KEY ("unidadeCargaId") REFERENCES "mdfe_unidades_carga"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_perigosos" ADD CONSTRAINT "mdfe_perigosos_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "mdfe_ctes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_perigosos" ADD CONSTRAINT "mdfe_perigosos_nfeId_fkey" FOREIGN KEY ("nfeId") REFERENCES "mdfe_nfes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_perigosos" ADD CONSTRAINT "mdfe_perigosos_mdfeTranspId_fkey" FOREIGN KEY ("mdfeTranspId") REFERENCES "mdfe_mdfes_transp"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_nfes_prest_parcial" ADD CONSTRAINT "mdfe_nfes_prest_parcial_cteId_fkey" FOREIGN KEY ("cteId") REFERENCES "mdfe_ctes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_seguros" ADD CONSTRAINT "mdfe_seguros_mdfeId_fkey" FOREIGN KEY ("mdfeId") REFERENCES "mdfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_lacres" ADD CONSTRAINT "mdfe_lacres_mdfeId_fkey" FOREIGN KEY ("mdfeId") REFERENCES "mdfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_aut_xml" ADD CONSTRAINT "mdfe_aut_xml_mdfeId_fkey" FOREIGN KEY ("mdfeId") REFERENCES "mdfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_encerramentos" ADD CONSTRAINT "mdfe_encerramentos_mdfeId_fkey" FOREIGN KEY ("mdfeId") REFERENCES "mdfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mdfe_historico_status" ADD CONSTRAINT "mdfe_historico_status_mdfeId_fkey" FOREIGN KEY ("mdfeId") REFERENCES "mdfes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "lotes_mdfe" ADD CONSTRAINT "lotes_mdfe_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "empresas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
