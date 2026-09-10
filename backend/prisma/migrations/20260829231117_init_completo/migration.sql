@@ -305,9 +305,6 @@ CREATE TYPE "CSTCOFINS" AS ENUM ('CST_01', 'CST_02', 'CST_03', 'CST_04', 'CST_05
 -- CreateEnum
 CREATE TYPE "CSTIPI" AS ENUM ('CST_00', 'CST_01', 'CST_02', 'CST_03', 'CST_04', 'CST_05', 'CST_49', 'CST_50', 'CST_51', 'CST_52', 'CST_53', 'CST_54', 'CST_55', 'CST_99');
 
--- DropIndex
-DROP INDEX "transportadoras_razaoSocial_idx";
-
 -- AlterTable
 ALTER TABLE "clientes" ADD COLUMN     "inscricaoEstadualST" TEXT,
 ADD COLUMN     "inscricaoSuframa" CHAR(9),
