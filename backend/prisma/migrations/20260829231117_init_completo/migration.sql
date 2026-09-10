@@ -312,13 +312,13 @@ ALTER COLUMN "remetenteId" DROP NOT NULL,
 ALTER COLUMN "destinatarioId" DROP NOT NULL;
 
 -- AlterTable
-ALTER TABLE "empresas" ADD COLUMN     "codigoMunicipio" CHAR(7) NOT NULL,
-ADD COLUMN     "codigoUF" CHAR(2) NOT NULL,
+ALTER TABLE "empresas" ADD COLUMN     "codigoMunicipio" CHAR(7),
+ADD COLUMN     "codigoUF" CHAR(2),
 ADD COLUMN     "homologacaoQrCode" TEXT,
 ADD COLUMN     "homologacaoWebService" TEXT,
 ADD COLUMN     "inscricaoEstadualST" TEXT,
 ADD COLUMN     "justificativaContingencia" VARCHAR(256),
-ADD COLUMN     "nomeMunicipio" TEXT NOT NULL,
+ADD COLUMN     "nomeMunicipio" TEXT,
 ADD COLUMN     "producaoQrCode" TEXT,
 ADD COLUMN     "producaoWebService" TEXT,
 ADD COLUMN     "proximoNumeroMdfe" INTEGER NOT NULL DEFAULT 1,
@@ -330,10 +330,32 @@ ADD COLUMN     "serieNfeAno" INTEGER NOT NULL DEFAULT 0,
 ADD COLUMN     "tipoEmissao" CHAR(1) NOT NULL DEFAULT '1',
 ADD COLUMN     "tokenCSC" VARCHAR(36),
 ADD COLUMN     "tokenCSCId" VARCHAR(2),
-ADD COLUMN     "uf" CHAR(2) NOT NULL;
+ADD COLUMN     "uf" CHAR(2);
 
 -- AlterTable
-ALTER TABLE "enderecos" ADD COLUMN     "codigoUF" CHAR(2) NOT NULL;
+ALTER TABLE "enderecos" ADD COLUMN     "codigoUF" CHAR(2);
+
+-- Backfill: as colunas denormalizadas de UF/município de "empresas" e o
+-- "codigoUF" de "enderecos" são novas e não têm valor pra linhas existentes.
+-- Preenche a partir do endereço já vinculado (codigoUF = 2 primeiros dígitos
+-- do código IBGE do município, convenção padrão) antes de travar como NOT NULL.
+UPDATE "enderecos" SET "codigoUF" = LEFT("codigoMunicipio", 2) WHERE "codigoUF" IS NULL;
+
+UPDATE "empresas" e SET
+  "uf" = en."uf",
+  "codigoUF" = en."codigoUF",
+  "codigoMunicipio" = en."codigoMunicipio",
+  "nomeMunicipio" = en."nomeMunicipio"
+FROM "enderecos" en
+WHERE en.id = e."enderecoId" AND e."uf" IS NULL;
+
+ALTER TABLE "enderecos" ALTER COLUMN "codigoUF" SET NOT NULL;
+
+ALTER TABLE "empresas"
+ALTER COLUMN "uf" SET NOT NULL,
+ALTER COLUMN "codigoUF" SET NOT NULL,
+ALTER COLUMN "codigoMunicipio" SET NOT NULL,
+ALTER COLUMN "nomeMunicipio" SET NOT NULL;
 
 -- AlterTable
 ALTER TABLE "eventos_credito_presumido" ALTER COLUMN "tpAutor" SET DEFAULT '1',
@@ -783,7 +805,15 @@ ALTER COLUMN "origem" SET DEFAULT '0',
 ALTER COLUMN "origem" SET DATA TYPE CHAR(1);
 
 -- AlterTable
-ALTER TABLE "servicos" ADD COLUMN     "cListServ" CHAR(5) NOT NULL;
+ALTER TABLE "servicos" ADD COLUMN     "cListServ" CHAR(5);
+
+-- Backfill: "cListServ" é o código do item da lista de serviços (LC 116),
+-- formato "NN.NN". Deriva do "codigoTributacaoMunicipal" já existente
+-- (mesmo código, sem o ponto) antes de travar como NOT NULL.
+UPDATE "servicos" SET "cListServ" = LEFT("codigoTributacaoMunicipal", 2) || '.' || RIGHT("codigoTributacaoMunicipal", 2)
+WHERE "cListServ" IS NULL AND "codigoTributacaoMunicipal" IS NOT NULL;
+
+ALTER TABLE "servicos" ALTER COLUMN "cListServ" SET NOT NULL;
 
 -- AlterTable
 ALTER TABLE "transportadoras" DROP COLUMN "regimeTributario",
