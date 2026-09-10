@@ -260,6 +260,7 @@ model Empresa {
   nfes                  NFe[]
   nfces                 NFCe[]
   ctes                  CTe[]
+  cteEmitente           CTe[]     @relation("CTeEmitente")
   nfaes                 NFAe[]
   titulos               TituloFinanceiro[]
   movimentacoes         MovimentacaoEstoque[]
@@ -356,8 +357,8 @@ model LogAcao {
   acao                  String                                // ASSINAR, TRANSMITIR, CANCELAR, INUTILIZAR, IMPRIMIR, VALIDAR, EXPORTAR, IMPORTAR, EXCLUIR
   entidade              String                                // NFe, NFCe, CTe, NFSe, Cliente, Produto, Transportadora
   entidadeId            String
-  dadosAntigos          String?   @db.Json
-  dadosNovos            String?   @db.Json
+  dadosAntigos          String?
+  dadosNovos            String?
   ipOrigem              String?   @db.VarChar(45)
   dataHora              DateTime  @default(now())
 
@@ -416,6 +417,8 @@ model Cliente {
   nfcesConsumidor       NFCe[]    @relation("NFCeConsumidor")
   cteRemetente          CTe[]     @relation("CTeRemetente")
   cteDestinatario       CTe[]     @relation("CTeDestinatario")
+  cteExpedidor          CTe[]     @relation("CTeExpedidor")
+  cteRecebedor          CTe[]     @relation("CTeRecebedor")
   nfaesDestinatario     NFAe[]    @relation("NFAeDestinatario")
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -1434,7 +1437,10 @@ model InutilizacaoNFe {
   dataHoraAutorizacao   DateTime?
   motivoRejeicao        String?   @db.VarChar(500)
   eventoId              String?   @unique
-  evento                EventoNFe? @relation(fields: [eventoId], references: [id])
+  evento                EventoNFe? @relation("InutilizacaoGeradaPorEvento", fields: [eventoId], references: [id])
+  eventos               EventoNFe[] @relation("EventoDeInutilizacao")
+  nfeId                 String?   @unique
+  nfe                   NFe?      @relation(fields: [nfeId], references: [id])
   nfesExcluidas         Int?
   nfesExcluidasIds      String?   @db.Text
   createdAt             DateTime  @default(now())
@@ -1466,6 +1472,7 @@ model LoteNFe {
   dataHoraAutorizacao   DateTime?
   reciboLote            String?   @db.VarChar(15)
   nfes                  NFe[]     @relation("LoteNFe")
+  envios                EnvioNFe[]
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -1480,6 +1487,8 @@ model LoteNFe {
 
 model EnvioNFe {
   id                    String    @id @default(cuid())
+  empresaId             String
+  empresa               Empresa   @relation(fields: [empresaId], references: [id])
   nfeId                 String
   nfe                   NFe       @relation(fields: [nfeId], references: [id])
   loteId                String?
@@ -1496,6 +1505,7 @@ model EnvioNFe {
   createdAt             DateTime  @default(now())
 
   @@map("envios_nfe")
+  @@index([empresaId])
   @@index([nfeId])
   @@index([loteId])
 }
@@ -1904,7 +1914,7 @@ model ItemNFCe {
   nfce                  NFCe      @relation(fields: [nfceId], references: [id])
   
   createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedA
+  updatedAt             DateTime  @updatedAt
 
   @@map("itens_nfce")
   @@index([nfceId])
@@ -1971,68 +1981,6 @@ model HistoricoStatusNFCe {
 // ============================================
 // CTe - CONHECIMENTO DE TRANSPORTE
 // ============================================
-
-// ============================================
-// ENUMS DO CT-e
-// ============================================
-
-enum StatusCTe {
-  RASCUNHO
-  VALIDADA
-  ASSINADA
-  PROCESSANDO
-  AUTORIZADA
-  REJEITADA
-  CANCELADA
-  DENEGADA
-}
-
-enum ModalCTe {
-  RODOVIARIO   // 01
-  AEREO        // 02
-  AQUAVIARIO   // 03
-  FERROVIARIO  // 04
-  DUTOVIARIO   // 05
-  MULTIMODAL   // 06
-}
-
-enum TipoServicoCTe {
-  NORMAL              // 0
-  SUBCONTRATACAO      // 1
-  REDESPACHO          // 2
-  REDESPACHO_INTERMEDIARIO // 3
-  VINCULADO_MULTIMODAL // 4
-}
-
-enum TipoCTe {
-  NORMAL              // 0
-  COMPLEMENTO_VALORES // 1
-  SUBSTITUICAO        // 3
-}
-
-enum TomadorServicoCTe {
-  REMETENTE    // 0
-  EXPEDIDOR    // 1
-  RECEBEDOR    // 2
-  DESTINATARIO // 3
-  OUTROS       // 4
-}
-
-enum IndicadorIECTe {
-  CONTRIBUINTE  // 1
-  ISENTO        // 2
-  NAO_CONTRIBUINTE // 9
-}
-
-enum CSTICMSCTe {
-  TRIBUTACAO_NORMAL   // 00
-  REDUCAO_BC          // 20
-  ISENTA              // 40
-  NAO_TRIBUTADA       // 41
-  DIFERIDA            // 51
-  ST                  // 60
-  OUTROS              // 90
-}
 
 // ============================================
 // MODELO PRINCIPAL CTe
@@ -2328,7 +2276,9 @@ model CTe {
   substitutos           CTeSubstituto[]
   globalizados          CTeGlobalizado[]
   servicosVinculados    CTeServicoVinculado[]
-  
+  responsavelTecnico    ResponsavelTecnicoCTe?
+  pagamentosVinculados  PagamentoVinculadoCTe[]
+
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 
@@ -2439,14 +2389,18 @@ model DocumentoUnidadeCarga {
   tpUnidCarga           String      @db.Char(1) // 1=Container, 2=ULD, 3=Pallet, 4=Outros
   idUnidCarga           String      @db.VarChar(20)
   qtdRat                Decimal?    @db.Decimal(3, 3)
-  
+
   lacres                UnidadeCargaLacre[]
-  
+
+  unidadeTransporteId   String?
+  unidadeTransporte     DocumentoUnidadeTransporte? @relation(fields: [unidadeTransporteId], references: [id])
+
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 
   @@map("cte_unidades_carga")
   @@index([documentoId])
+  @@index([unidadeTransporteId])
 }
 
 model UnidadeCargaLacre {
@@ -2983,8 +2937,9 @@ model EventoNFe {
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
   nfeId                 String?
   nfe                   NFe?      @relation(fields: [nfeId], references: [id])
+  inutilizacaoGerada    InutilizacaoNFe? @relation("InutilizacaoGeradaPorEvento")
   inutilizacaoId        String?
-  inutilizacao          InutilizacaoNFe? @relation(fields: [inutilizacaoId], references: [id])
+  inutilizacao          InutilizacaoNFe? @relation("EventoDeInutilizacao", fields: [inutilizacaoId], references: [id])
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -3157,7 +3112,9 @@ model MDFe {
   empresa               Empresa   @relation(fields: [empresaId], references: [id])
   emitenteId            String?
   emitente              Cliente?  @relation("MDFeEmitente", fields: [emitenteId], references: [id])
-  
+  loteId                String?
+  lote                  LoteMDFe? @relation("LoteMDFe", fields: [loteId], references: [id])
+
   // === SUB-ESTRUTURAS ===
   municipiosCarrega     MunCarregaMDFe[]
   percursos             PercursoMDFe[]
@@ -3167,7 +3124,7 @@ model MDFe {
   autorizadosDownload   AutXMLMDFe[]
   historicoStatus       HistoricoStatusMDFe[]
   encerramento          EncerramentoMDFe?
-  
+
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -3176,6 +3133,7 @@ model MDFe {
   @@index([chaveAcesso])
   @@index([status])
   @@index([modal])
+  @@index([loteId])
 }
 
 // ============================================
@@ -3251,11 +3209,11 @@ model MDFeCTe {
   indReentrega          Boolean?  @default(false)
   
   // === UNIDADES DE TRANSPORTE ===
-  unidadesTransporte    MDFeUnidadeTransp[]
-  
+  unidadesTransporte    MDFeUnidadeTransp[] @relation("CTeUnidades")
+
   // === PRODUTOS PERIGOSOS ===
-  perigosos             MDFePerigoso[]
-  
+  perigosos             MDFePerigoso[] @relation("CTePerigosos")
+
   // === ENTREGA PARCIAL ===
   qtdTotal              Decimal?  @db.Decimal(15, 4)
   qtdParcial            Decimal?  @db.Decimal(15, 4)
@@ -3286,11 +3244,11 @@ model MDFeNFe {
   indReentrega          Boolean?  @default(false)
   
   // === UNIDADES DE TRANSPORTE ===
-  unidadesTransporte    MDFeUnidadeTransp[]
-  
+  unidadesTransporte    MDFeUnidadeTransp[] @relation("NFeUnidades")
+
   // === PRODUTOS PERIGOSOS ===
-  perigosos             MDFePerigoso[]
-  
+  perigosos             MDFePerigoso[] @relation("NFePerigosos")
+
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -3312,11 +3270,11 @@ model MDFeMDFeTransp {
   indReentrega          Boolean?  @default(false)
   
   // === UNIDADES DE TRANSPORTE ===
-  unidadesTransporte    MDFeUnidadeTransp[]
-  
+  unidadesTransporte    MDFeUnidadeTransp[] @relation("MDFeTranspUnidades")
+
   // === PRODUTOS PERIGOSOS ===
-  perigosos             MDFePerigoso[]
-  
+  perigosos             MDFePerigoso[] @relation("MDFeTranspPerigosos")
+
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 

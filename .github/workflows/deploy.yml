@@ -1,0 +1,22 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  deploy:
+    # Runner self-hosted rodando direto no servidor jrnex — o job executa o
+    # script local do próprio checkout, sem precisar de SSH/secrets.
+    runs-on: self-hosted
+    steps:
+      - name: Deploy
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            DIR=/root/sistemanex
+          else
+            DIR=/root/sistemanex-dev
+          fi
+          "$DIR/scripts/deploy.sh" "$DIR" "${{ github.ref_name }}"
