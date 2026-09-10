@@ -1,0 +1,32 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Definir diretório do ambiente
+        id: env
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "dir=/root/sistemanex" >> "$GITHUB_OUTPUT"
+          else
+            echo "dir=/root/sistemanex-dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configurar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.NEX_DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.NEX_DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.NEX_DEPLOY_HOST }} \
+            "${{ steps.env.outputs.dir }}/scripts/deploy.sh ${{ steps.env.outputs.dir }} ${{ github.ref_name }}"
