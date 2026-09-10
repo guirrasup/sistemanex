@@ -7,5 +7,6 @@ coverage/
 .env*
 !.env.example
 .codeboarding
+.freebuff
 allcode.bat
 estrutura_src.txt
