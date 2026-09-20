@@ -1,6 +1,5 @@
 // backend/src/repositories/cte.repository.ts
 import { Prisma, StatusDocumento } from '@prisma/client';
-import { StatusDocumento } from '@prisma/client';
 
 export interface FiltroCte {
   status?: StatusDocumento | StatusDocumento[];
@@ -22,8 +21,8 @@ export class CteRepository {
     const where: any = {
       empresaId,
       ...(filtros?.status && {
-        status: Array.isArray(filtros.status) 
-          ? { in: filtros.status } 
+        status: Array.isArray(filtros.status)
+          ? { in: filtros.status }
           : filtros.status
       }),
       ...(filtros?.dataInicio && {
@@ -91,75 +90,78 @@ export class CteRepository {
     };
   }
 
-  async findById(id: string) {
-    return prisma.cTe.findUnique({
-      where: { id },
-      include: {
-        emitente: true,
-        remetente: true,
-        destinatario: true,
-        transportadora: true,
-        componentes: true,
-        quantidades: true,
-        documentos: {
-          include: {
-            unidadesCarga: {
-              include: { lacres: true }
-            },
-            unidadesTransporte: {
-              include: { lacres: true }
-            }
-          }
-        },
-        duplicatas: true,
-        observacoes: true,
-        observacoesFisco: true,
-        autorizadosDownload: true,
-        complementos: true,
-        substitutos: true,
-        globalizados: true,
-        servicosVinculados: true,
-        historicoStatus: true,
-      }
-    });
-  }
-
-  async findByChave(chave: string) {
-    return prisma.cTe.findUnique({
-      where: { chaveAcesso: chave },
-      include: {
-        emitente: true,
-        remetente: true,
-        destinatario: true,
-        transportadora: true,
-        componentes: true,
-        quantidades: true,
-        documentos: {
-          include: {
-            unidadesCarga: {
-              include: { lacres: true }
-            },
-            unidadesTransporte: {
-              include: { lacres: true }
-            }
-          }
-        },
-        duplicatas: true,
-        observacoes: true,
-        observacoesFisco: true,
-        autorizadosDownload: true,
-        complementos: true,
-        substitutos: true,
-        globalizados: true,
-        servicosVinculados: true,
-        historicoStatus: true,
-      }
-    });
-  }
-
-  async findByProtocolo(protocolo: string) {
+  // 🔒 IDOR fix: exige empresaId e usa findFirst({ id, empresaId })
+  async findById(id: string, empresaId: string) {
     return prisma.cTe.findFirst({
-      where: { protocoloAutorizacao: protocolo },
+      where: { id, empresaId },
+      include: {
+        emitente: true,
+        remetente: true,
+        destinatario: true,
+        transportadora: true,
+        componentes: true,
+        quantidades: true,
+        documentos: {
+          include: {
+            unidadesCarga: {
+              include: { lacres: true }
+            },
+            unidadesTransporte: {
+              include: { lacres: true }
+            }
+          }
+        },
+        duplicatas: true,
+        observacoes: true,
+        observacoesFisco: true,
+        autorizadosDownload: true,
+        complementos: true,
+        substitutos: true,
+        globalizados: true,
+        servicosVinculados: true,
+        historicoStatus: true,
+      }
+    });
+  }
+
+  // 🔒 IDOR fix: exige empresaId
+  async findByChave(chave: string, empresaId: string) {
+    return prisma.cTe.findFirst({
+      where: { chaveAcesso: chave, empresaId },
+      include: {
+        emitente: true,
+        remetente: true,
+        destinatario: true,
+        transportadora: true,
+        componentes: true,
+        quantidades: true,
+        documentos: {
+          include: {
+            unidadesCarga: {
+              include: { lacres: true }
+            },
+            unidadesTransporte: {
+              include: { lacres: true }
+            }
+          }
+        },
+        duplicatas: true,
+        observacoes: true,
+        observacoesFisco: true,
+        autorizadosDownload: true,
+        complementos: true,
+        substitutos: true,
+        globalizados: true,
+        servicosVinculados: true,
+        historicoStatus: true,
+      }
+    });
+  }
+
+  // 🔒 IDOR fix: exige empresaId
+  async findByProtocolo(protocolo: string, empresaId: string) {
+    return prisma.cTe.findFirst({
+      where: { protocoloAutorizacao: protocolo, empresaId },
       include: {
         emitente: true,
         remetente: true,
@@ -494,7 +496,17 @@ export class CteRepository {
     });
   }
 
-  async updateStatus(id: string, status: StatusDocumento, motivo?: string) {
+  // 🔒 IDOR fix: valida posse antes de mutar
+  async updateStatus(id: string, empresaId: string, status: StatusDocumento, motivo?: string) {
+    const existente = await prisma.cTe.findFirst({
+      where: { id, empresaId },
+      select: { id: true }
+    });
+
+    if (!existente) {
+      throw new Error('CT-e não encontrado');
+    }
+
     const data: any = { status };
 
     if (status === 'CANCELADA') {
@@ -544,7 +556,17 @@ export class CteRepository {
     });
   }
 
-  async update(id: string, data: any) {
+  // 🔒 IDOR fix: valida posse antes de mutar
+  async update(id: string, empresaId: string, data: any) {
+    const existente = await prisma.cTe.findFirst({
+      where: { id, empresaId },
+      select: { id: true }
+    });
+
+    if (!existente) {
+      throw new Error('CT-e não encontrado');
+    }
+
     return prisma.cTe.update({
       where: { id },
       data,
@@ -578,8 +600,11 @@ export class CteRepository {
     });
   }
 
-  async delete(id: string) {
-    const cte = await prisma.cTe.findUnique({ where: { id } });
+  // 🔒 IDOR fix: findFirst({ id, empresaId }) em vez de findUnique({ id })
+  async delete(id: string, empresaId: string) {
+    const cte = await prisma.cTe.findFirst({
+      where: { id, empresaId }
+    });
 
     if (!cte) {
       throw new Error('CT-e não encontrado');
@@ -621,9 +646,9 @@ export class CteRepository {
   }
 
   async getTotalFrete(empresaId: string, dataInicio?: Date, dataFim?: Date) {
-    const where: any = { 
-      empresaId, 
-      status: 'AUTORIZADA' 
+    const where: any = {
+      empresaId,
+      status: 'AUTORIZADA'
     };
 
     if (dataInicio) {
@@ -673,8 +698,10 @@ export class CteRepository {
     };
   }
 
-  async findByCliente(clienteId: string, tipo: string, dataInicio?: Date, dataFim?: Date) {
+  // 🔒 IDOR fix: exige empresaId
+  async findByCliente(empresaId: string, clienteId: string, tipo: string, dataInicio?: Date, dataFim?: Date) {
     const where: any = {
+      empresaId,
       status: 'AUTORIZADA'
     };
 
@@ -705,8 +732,10 @@ export class CteRepository {
     });
   }
 
-  async findByTransportadora(transportadoraId: string, dataInicio?: Date, dataFim?: Date) {
+  // 🔒 IDOR fix: exige empresaId
+  async findByTransportadora(empresaId: string, transportadoraId: string, dataInicio?: Date, dataFim?: Date) {
     const where: any = {
+      empresaId,
       transportadoraId,
       status: 'AUTORIZADA'
     };
@@ -732,8 +761,10 @@ export class CteRepository {
     });
   }
 
-  async findByModal(modal: string, dataInicio?: Date, dataFim?: Date) {
+  // 🔒 IDOR fix: exige empresaId
+  async findByModal(empresaId: string, modal: string, dataInicio?: Date, dataFim?: Date) {
     const where: any = {
+      empresaId,
       modal,
       status: 'AUTORIZADA'
     };
@@ -759,8 +790,9 @@ export class CteRepository {
     });
   }
 
-  async findByStatus(status: StatusDocumento, dataInicio?: Date, dataFim?: Date) {
-    const where: any = { status };
+  // 🔒 IDOR fix: exige empresaId
+  async findByStatus(empresaId: string, status: StatusDocumento, dataInicio?: Date, dataFim?: Date) {
+    const where: any = { empresaId, status };
 
     if (dataInicio) {
       where.dataHoraEmissao = { ...where.dataHoraEmissao, gte: dataInicio };
@@ -783,9 +815,10 @@ export class CteRepository {
     });
   }
 
-  async buscarCteSubstituido(chave: string) {
+  // 🔒 IDOR fix: exige empresaId
+  async buscarCteSubstituido(chave: string, empresaId: string) {
     return prisma.cTe.findFirst({
-      where: { chCteSub: chave },
+      where: { chCteSub: chave, empresaId },
       include: {
         emitente: true,
         remetente: true,
@@ -816,9 +849,11 @@ export class CteRepository {
     });
   }
 
-  async buscarCteComplementado(chave: string) {
+  // 🔒 IDOR fix: exige empresaId
+  async buscarCteComplementado(chave: string, empresaId: string) {
     return prisma.cTe.findFirst({
-      where: { 
+      where: {
+        empresaId,
         complementos: {
           some: { chCTe: chave }
         }
