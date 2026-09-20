@@ -1,5 +1,4 @@
 // backend/src/repositories/nfae.repository.ts
-import { Prisma, StatusDocumento } from '@prisma/client';
 import { StatusNFAe } from '@prisma/client';
 
 export interface FiltroNFAe {
@@ -13,15 +12,15 @@ export interface FiltroNFAe {
 }
 
 export class NFAeRepository {
-  
+
   async findAll(empresaId: string, page: number = 1, limit: number = 50, filtros?: FiltroNFAe) {
     const skip = (page - 1) * limit;
 
     const where: any = { empresaId };
 
     if (filtros?.status) {
-      where.status = Array.isArray(filtros.status) 
-        ? { in: filtros.status } 
+      where.status = Array.isArray(filtros.status)
+        ? { in: filtros.status }
         : filtros.status;
     }
     if (filtros?.dataInicio) {
@@ -67,9 +66,10 @@ export class NFAeRepository {
     };
   }
 
-  async findById(id: string) {
-    return prisma.nFAe.findUnique({
-      where: { id },
+  // 🔒 IDOR fix: exige empresaId e usa findFirst({ id, empresaId })
+  async findById(id: string, empresaId: string) {
+    return prisma.nFAe.findFirst({
+      where: { id, empresaId },
       include: {
         itens: true,
         destinatario: true,
@@ -78,9 +78,10 @@ export class NFAeRepository {
     });
   }
 
-  async findByChave(chave: string) {
-    return prisma.nFAe.findUnique({
-      where: { chaveAcesso: chave },
+  // 🔒 IDOR fix: exige empresaId
+  async findByChave(chave: string, empresaId: string) {
+    return prisma.nFAe.findFirst({
+      where: { chaveAcesso: chave, empresaId },
       include: {
         itens: true,
         destinatario: true,
@@ -103,7 +104,7 @@ export class NFAeRepository {
         ambiente: data.ambiente || 1,
         tipoEmissao: data.tipoEmissao || '1',
         status: data.status || 'RASCUNHO',
-        
+
         // Requerente
         requerenteTipoPessoa: data.requerenteTipoPessoa || 'PF',
         requerenteDocumento: data.requerenteDocumento,
@@ -119,7 +120,7 @@ export class NFAeRepository {
         requerenteCep: data.requerenteCep,
         requerenteTelefone: data.requerenteTelefone,
         requerenteEmail: data.requerenteEmail,
-        
+
         // Destinatário
         destinatarioTipoPessoa: data.destinatarioTipoPessoa || 'PJ',
         destinatarioDocumento: data.destinatarioDocumento,
@@ -135,14 +136,14 @@ export class NFAeRepository {
         destinatarioCep: data.destinatarioCep,
         destinatarioTelefone: data.destinatarioTelefone,
         destinatarioEmail: data.destinatarioEmail,
-        
+
         // Valores
         valorTotalProdutos: data.valorTotalProdutos || 0,
         baseCalculoICMS: data.baseCalculoICMS || 0,
         aliquotaICMSMediana: data.aliquotaICMSMediana || 0,
         valorTotalICMS: data.valorTotalICMS || 0,
         valorTotalNota: data.valorTotalNota || 0,
-        
+
         // Guia DAE
         guiaDAENumero: data.guiaDAENumero,
         guiaDAECodigoBarras: data.guiaDAECodigoBarras,
@@ -150,10 +151,10 @@ export class NFAeRepository {
         guiaDAEVencimento: data.guiaDAEVencimento,
         guiaDAEValor: data.guiaDAEValor,
         guiaDAEStatus: data.guiaDAEStatus || 'AGUARDANDO_PAGAMENTO',
-        
+
         // Órgão emissor
         orgaoEmissorSefaz: data.orgaoEmissorSefaz || 'SEFAZ/SP',
-        
+
         // Protocolo
         protocoloAutorizacao: data.protocoloAutorizacao,
         dataHoraAutorizacao: data.dataHoraAutorizacao,
@@ -161,19 +162,19 @@ export class NFAeRepository {
         dataHoraCancelamento: data.dataHoraCancelamento,
         motivoRejeicao: data.motivoRejeicao,
         dataHoraRejeicao: data.dataHoraRejeicao,
-        
+
         // XML
         xmlAssinado: data.xmlAssinado || '',
         xmlRetorno: data.xmlRetorno,
-        
+
         // Controle
         enviadoEm: data.enviadoEm,
         enviadoPor: data.enviadoPor,
         ipEnvio: data.ipEnvio,
-        
+
         // Informações adicionais
         informacoesComplementares: data.informacoesComplementares,
-        
+
         // Relacionamentos
         empresaId: data.empresaId,
         destinatarioId: data.destinatarioId,
@@ -186,7 +187,17 @@ export class NFAeRepository {
     });
   }
 
-  async updateStatus(id: string, status: StatusNFAe, motivo?: string) {
+  // 🔒 IDOR fix: valida posse antes de mutar
+  async updateStatus(id: string, empresaId: string, status: StatusNFAe, motivo?: string) {
+    const existente = await prisma.nFAe.findFirst({
+      where: { id, empresaId },
+      select: { id: true },
+    });
+
+    if (!existente) {
+      throw new Error('NFA-e não encontrada');
+    }
+
     const data: any = { status };
 
     if (status === 'CANCELADA') {
@@ -214,7 +225,17 @@ export class NFAeRepository {
     });
   }
 
-  async update(id: string, data: any) {
+  // 🔒 IDOR fix: valida posse antes de mutar
+  async update(id: string, empresaId: string, data: any) {
+    const existente = await prisma.nFAe.findFirst({
+      where: { id, empresaId },
+      select: { id: true },
+    });
+
+    if (!existente) {
+      throw new Error('NFA-e não encontrada');
+    }
+
     return prisma.nFAe.update({
       where: { id },
       data,
@@ -226,8 +247,11 @@ export class NFAeRepository {
     });
   }
 
-  async delete(id: string) {
-    const nfae = await prisma.nFAe.findUnique({ where: { id } });
+  // 🔒 IDOR fix: findFirst({ id, empresaId }) em vez de findUnique({ id })
+  async delete(id: string, empresaId: string) {
+    const nfae = await prisma.nFAe.findFirst({
+      where: { id, empresaId },
+    });
 
     if (!nfae) {
       throw new Error('NFA-e não encontrada');
