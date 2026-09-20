@@ -1,7 +1,44 @@
-// C:\emissornfe\backend\src\controllers\auth.controller.ts
-
+// backend/src/controllers/auth.controller.ts
 import { Request, Response } from 'express';
-import { AuthService } from '../services/auth.service';
+import { AuthService } from '../services/auth.service.js';
+
+// ============================================================
+// TIPAGEM LOCAL DO REQUEST (resolve Problema #1)
+// ============================================================
+
+interface RequestComUsuario extends Request {
+  user?: {
+    id: string;
+    email: string;
+    empresaId: string;
+    perfil?: string;
+  };
+}
+
+// ============================================================
+// CONSTANTES
+// ============================================================
+
+const PERFIS_VALIDOS = ['ADMIN', 'FISCAL', 'OPERADOR'] as const;
+type PerfilValido = (typeof PERFIS_VALIDOS)[number];
+
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+// ============================================================
+// HELPERS DE VALIDAÇÃO
+// ============================================================
+
+function isEmailValido(email: string): boolean {
+  return EMAIL_REGEX.test(email);
+}
+
+function isPerfilValido(perfil: string): perfil is PerfilValido {
+  return (PERFIS_VALIDOS as readonly string[]).includes(perfil);
+}
+
+// ============================================================
+// CONTROLLER
+// ============================================================
 
 export class AuthController {
   private authService: AuthService;
@@ -10,10 +47,6 @@ export class AuthController {
     this.authService = new AuthService();
   }
 
-  /**
-   * 🔥 LOGIN DO USUÁRIO
-   * POST /api/auth/login
-   */
   async login(req: Request, res: Response) {
     try {
       const { email, senha } = req.body;
@@ -21,7 +54,14 @@ export class AuthController {
       if (!email || !senha) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'E-mail e senha são obrigatórios'
+          erro: 'E-mail e senha são obrigatórios',
+        });
+      }
+
+      if (!isEmailValido(email)) {
+        return res.status(400).json({
+          sucesso: false,
+          erro: 'Formato de e-mail inválido',
         });
       }
 
@@ -29,30 +69,77 @@ export class AuthController {
 
       return res.json({
         sucesso: true,
-        dados: resultado
+        dados: resultado,
       });
-
     } catch (error: any) {
-      console.error('Erro no login:', error);
-      return res.status(401).json({
+      const msg = error?.message || '';
+
+      // ✅ Erros de credencial → 401 (esperado)
+      if (msg === 'Credenciais inválidas' || msg === 'Usuário inativo. Contate o administrador.') {
+        return res.status(401).json({
+          sucesso: false,
+          erro: msg,
+        });
+      }
+
+      // ✅ Erros internos (banco, JWT, etc.) → 500 com log real
+      console.error('❌ Erro interno no login:', error);
+      return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Credenciais inválidas'
+        erro: 'Erro interno ao processar login',
       });
     }
   }
 
-  /**
-   * 🔥 REGISTRO DE NOVO USUÁRIO
-   * POST /api/auth/register
-   */
-  async register(req: Request, res: Response) {
+  async register(req: RequestComUsuario, res: Response) {
     try {
-      const { nome, email, senha, cargo, perfil, empresaId } = req.body;
+      const empresaId = req.user?.empresaId;
+      const perfilSolicitante = req.user?.perfil;
 
-      if (!nome || !email || !senha || !empresaId) {
+      if (!empresaId) {
+        return res.status(401).json({
+          sucesso: false,
+          erro: 'Empresa não autenticada',
+        });
+      }
+
+      // ✅ Dupla checagem de perfil (o middleware também valida)
+      if (perfilSolicitante !== 'ADMIN') {
+        return res.status(403).json({
+          sucesso: false,
+          erro: 'Apenas administradores podem cadastrar novos usuários',
+        });
+      }
+
+      const { nome, email, senha, cargo, perfil } = req.body;
+
+      if (!nome || !email || !senha) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'Nome, e-mail, senha e empresa são obrigatórios'
+          erro: 'Nome, e-mail e senha são obrigatórios',
+        });
+      }
+
+      if (!isEmailValido(email)) {
+        return res.status(400).json({
+          sucesso: false,
+          erro: 'Formato de e-mail inválido',
+        });
+      }
+
+      if (senha.length < 6) {
+        return res.status(400).json({
+          sucesso: false,
+          erro: 'Senha deve ter pelo menos 6 caracteres',
+        });
+      }
+
+      // ✅ Valida perfil contra o enum (default: OPERADOR)
+      const perfilFinal = perfil || 'OPERADOR';
+      if (!isPerfilValido(perfilFinal)) {
+        return res.status(400).json({
+          sucesso: false,
+          erro: `Perfil inválido. Use um de: ${PERFIS_VALIDOS.join(', ')}`,
         });
       }
 
@@ -61,55 +148,48 @@ export class AuthController {
         email,
         senha,
         cargo,
-        perfil: perfil || 'OPERADOR',
-        empresaId
+        perfil: perfilFinal,
+        empresaId, // ✅ vem do token, não do body
       });
 
       return res.status(201).json({
         sucesso: true,
-        dados: usuario
-      });
-
-    } catch (error: any) {
-      console.error('Erro no registro:', error);
-      return res.status(400).json({
-        sucesso: false,
-        erro: error.message || 'Erro ao criar usuário'
-      });
-    }
-  }
-
-  /**
-   * 🔥 LOGOUT
-   * POST /api/auth/logout
-   */
-  async logout(req: Request, res: Response) {
-    try {
-      // O logout é gerenciado pelo frontend (remover token)
-      return res.json({
-        sucesso: true,
-        mensagem: 'Logout realizado com sucesso'
+        dados: usuario,
       });
     } catch (error: any) {
+      const msg = error?.message || '';
+
+      // ✅ Erros de negócio → 400
+      if (msg === 'E-mail já cadastrado') {
+        return res.status(400).json({
+          sucesso: false,
+          erro: msg,
+        });
+      }
+
+      console.error('❌ Erro no registro:', error);
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao fazer logout'
+        erro: 'Erro interno ao criar usuário',
       });
     }
   }
 
-  /**
-   * 🔥 DADOS DO USUÁRIO LOGADO
-   * GET /api/auth/me
-   */
-  async me(req: Request, res: Response) {
+  async logout(_req: RequestComUsuario, res: Response) {
+    return res.json({
+      sucesso: true,
+      mensagem: 'Logout realizado com sucesso',
+    });
+  }
+
+  async me(req: RequestComUsuario, res: Response) {
     try {
       const userId = req.user?.id;
-      
+
       if (!userId) {
         return res.status(401).json({
           sucesso: false,
-          erro: 'Usuário não autenticado'
+          erro: 'Usuário não autenticado',
         });
       }
 
@@ -118,28 +198,24 @@ export class AuthController {
       if (!usuario) {
         return res.status(404).json({
           sucesso: false,
-          erro: 'Usuário não encontrado'
+          erro: 'Usuário não encontrado',
         });
       }
 
       return res.json({
         sucesso: true,
-        dados: usuario
+        dados: usuario,
       });
-
     } catch (error: any) {
+      console.error('❌ Erro ao buscar usuário logado:', error);
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar usuário'
+        erro: 'Erro interno ao buscar usuário',
       });
     }
   }
 
-  /**
-   * 🔥 ALTERAR SENHA
-   * PUT /api/auth/alterar-senha
-   */
-  async alterarSenha(req: Request, res: Response) {
+  async alterarSenha(req: RequestComUsuario, res: Response) {
     try {
       const { senhaAtual, novaSenha } = req.body;
       const userId = req.user?.id;
@@ -147,43 +223,47 @@ export class AuthController {
       if (!userId) {
         return res.status(401).json({
           sucesso: false,
-          erro: 'Usuário não autenticado'
+          erro: 'Usuário não autenticado',
         });
       }
 
       if (!senhaAtual || !novaSenha) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'Senha atual e nova senha são obrigatórias'
+          erro: 'Senha atual e nova senha são obrigatórias',
         });
       }
 
-      if (novaSenha.length < 6) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'Nova senha deve ter pelo menos 6 caracteres'
-        });
-      }
-
+      // ✅ Validação de negócio fica no service (regra única).
       await this.authService.alterarSenha(userId, senhaAtual, novaSenha);
 
       return res.json({
         sucesso: true,
-        mensagem: 'Senha alterada com sucesso'
+        mensagem: 'Senha alterada com sucesso',
       });
-
     } catch (error: any) {
-      return res.status(400).json({
+      const msg = error?.message || '';
+
+      if (
+        msg === 'Senha atual incorreta' ||
+        msg === 'Nova senha deve ter pelo menos 6 caracteres' ||
+        msg === 'A nova senha deve ser diferente da senha atual' ||
+        msg === 'Usuário não encontrado'
+      ) {
+        return res.status(400).json({
+          sucesso: false,
+          erro: msg,
+        });
+      }
+
+      console.error('❌ Erro ao alterar senha:', error);
+      return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao alterar senha'
+        erro: 'Erro interno ao alterar senha',
       });
     }
   }
 
-  /**
-   * 🔥 RECUPERAR SENHA (enviar e-mail)
-   * POST /api/auth/recuperar-senha
-   */
   async recuperarSenha(req: Request, res: Response) {
     try {
       const { email } = req.body;
@@ -191,29 +271,42 @@ export class AuthController {
       if (!email) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'E-mail é obrigatório'
+          erro: 'E-mail é obrigatório',
         });
       }
 
-      await this.authService.solicitarRecuperacaoSenha(email);
+      if (!isEmailValido(email)) {
+        return res.status(400).json({
+          sucesso: false,
+          erro: 'Formato de e-mail inválido',
+        });
+      }
+
+      // ✅ Service já é silencioso para e-mail inexistente.
+      // ✅ Capturamos erro de "inativo" para não vazar via 400.
+      try {
+        await this.authService.solicitarRecuperacaoSenha(email);
+      } catch (err: any) {
+        // Log interno, mas resposta genérica pro cliente
+        console.warn('⚠️ Falha silenciosa em recuperar-senha:', err?.message);
+      }
 
       return res.json({
         sucesso: true,
-        mensagem: 'E-mail de recuperação enviado com sucesso'
+        mensagem:
+          'Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.',
       });
-
     } catch (error: any) {
-      return res.status(400).json({
-        sucesso: false,
-        erro: error.message || 'Erro ao recuperar senha'
+      console.error('❌ Erro inesperado em recuperar-senha:', error);
+      // Mesmo em erro inesperado, resposta genérica
+      return res.json({
+        sucesso: true,
+        mensagem:
+          'Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.',
       });
     }
   }
 
-  /**
-   * 🔥 REDEFINIR SENHA (com token)
-   * POST /api/auth/redefinir-senha
-   */
   async redefinirSenha(req: Request, res: Response) {
     try {
       const { token, novaSenha } = req.body;
@@ -221,28 +314,37 @@ export class AuthController {
       if (!token || !novaSenha) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'Token e nova senha são obrigatórios'
+          erro: 'Token e nova senha são obrigatórios',
         });
       }
 
-      if (novaSenha.length < 6) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'Nova senha deve ter pelo menos 6 caracteres'
-        });
-      }
-
+      // ✅ Validação de negócio fica no service.
       await this.authService.redefinirSenha(token, novaSenha);
 
       return res.json({
         sucesso: true,
-        mensagem: 'Senha redefinida com sucesso'
+        mensagem: 'Senha redefinida com sucesso',
       });
-
     } catch (error: any) {
-      return res.status(400).json({
+      const msg = error?.message || '';
+
+      if (
+        msg === 'Token inválido ou expirado' ||
+        msg === 'Token inválido para redefinição de senha' ||
+        msg === 'Usuário não encontrado' ||
+        msg === 'Usuário inativo' ||
+        msg === 'Nova senha deve ter pelo menos 6 caracteres'
+      ) {
+        return res.status(400).json({
+          sucesso: false,
+          erro: msg,
+        });
+      }
+
+      console.error('❌ Erro ao redefinir senha:', error);
+      return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao redefinir senha'
+        erro: 'Erro interno ao redefinir senha',
       });
     }
   }

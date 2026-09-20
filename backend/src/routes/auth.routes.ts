@@ -9,16 +9,12 @@ const controller = new AuthController();
 // Rotas públicas
 router.post('/login', controller.login.bind(controller));
 router.post('/register', controller.register.bind(controller));
-router.post('/logout', controller.logout.bind(controller));
 router.post('/recuperar-senha', controller.recuperarSenha.bind(controller));
 router.post('/redefinir-senha', controller.redefinirSenha.bind(controller));
 
-// Rotas protegidas
+// Rotas protegidas (exigem sessão válida)
+router.post('/logout', authMiddleware, controller.logout.bind(controller));
 router.get('/me', authMiddleware, controller.me.bind(controller));
-router.put(
-  '/alterar-senha',
-  authMiddleware,
-  controller.alterarSenha.bind(controller)
-);
+router.put('/alterar-senha', authMiddleware, controller.alterarSenha.bind(controller));
 
 export default router;
