@@ -1,5 +1,4 @@
 // src/services/openCnpj.service.ts
-
 import { limparDocumento } from '../utils/cpfCnpjValidator';
 
 const API_BASE = 'https://api.opencnpj.org';
@@ -139,9 +138,6 @@ rntrc?: {
   datasets?: string[];
 }
 
-/**
- * 🔥 CONSULTA CNPJ VIA OPENCNPJ (API PÚBLICA SEM AUTENTICAÇÃO)
- */
 export async function consultarCnpjOpen(
   cnpj: string, 
   datasets: string[] = ['receita']
@@ -159,9 +155,7 @@ export async function consultarCnpjOpen(
     const datasetsParam = datasets.length > 0 ? `?datasets=${datasets.join(',')}` : '';
     const url = `${API_BASE}/${cnpjLimpo}${datasetsParam}`;
     
-    console.log(`🔍 Consultando OpenCNPJ: ${url}`);
-    console.log(`📊 Datasets solicitados: ${datasets.join(', ')}`);
-    
+            
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json'
@@ -206,10 +200,8 @@ export async function consultarCnpjOpen(
     }
 
     if (data.rntrc) {
-      console.log('✅ RNTRC encontrado:', data.rntrc);
-    } else {
-      console.log('ℹ️ RNTRC não encontrado para este CNPJ');
-    }
+          } else {
+          }
 
     const resultado = mapearDadosOpenCnpj(data);
 
@@ -236,9 +228,6 @@ export async function consultarCnpjOpen(
   }
 }
 
-/**
- * Mapeia os dados da OpenCNPJ para o formato do sistema
- */
 function mapearDadosOpenCnpj(data: OpenCnpjResponse) {
   let telefone = '';
   if (data.telefone) {
@@ -325,40 +314,27 @@ function mapearDadosOpenCnpj(data: OpenCnpjResponse) {
   };
 
   if (resultado.rntrc) {
-    console.log('✅ RNTRC mapeado com sucesso:', resultado.rntrc);
-  }
+      }
 
   return resultado;
 }
 
-/**
- * 🔥 BUSCA DADOS DA RECEITA + RNTRC (PARA TRANSPORTADORAS)
- */
 export async function consultarCnpjComRntrc(cnpj: string): Promise<OpenCnpjConsultaResultado> {
-  console.log('🚚 Consultando CNPJ com RNTRC...');
-  const resultado = await consultarCnpjOpen(cnpj, ['receita', 'rntrc']);
+    const resultado = await consultarCnpjOpen(cnpj, ['receita', 'rntrc']);
   
   if (resultado.sucesso && resultado.dados) {
     if (resultado.dados.rntrc) {
-      console.log('✅ RNTRC encontrado:', resultado.dados.rntrc);
-    } else {
-      console.log('ℹ️ Nenhum RNTRC encontrado para este CNPJ');
-    }
+          } else {
+          }
   }
   
   return resultado;
 }
 
-/**
- * Busca apenas dados da Receita Federal (mais rápido)
- */
 export async function consultarCnpjReceita(cnpj: string): Promise<OpenCnpjConsultaResultado> {
   return consultarCnpjOpen(cnpj, ['receita']);
 }
 
-/**
- * Busca dados completos com todos os datasets disponíveis
- */
 export async function consultarCnpjCompleto(cnpj: string): Promise<OpenCnpjConsultaResultado> {
   return consultarCnpjOpen(cnpj, ['receita', 'rntrc', 'cno', 'ceis', 'cnep']);
 }

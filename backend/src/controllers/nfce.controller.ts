@@ -1,5 +1,4 @@
-// src/controllers/nfce.controller.ts
-
+// backend/src/controllers/nfce.controller.ts
 import { Request, Response } from 'express';
 import { NfceService } from '../services/nfce.service';
 import { StatusDocumento } from '@prisma/client';
@@ -21,37 +20,22 @@ interface RequestComUsuario extends Request {
 // VALIDAÇÕES
 // ============================================================
 
-/**
- * ✅ Valida TChNFe (44 dígitos)
- */
 function validarChaveAcesso(chave: string): boolean {
   return /^[0-9]{44}$/.test(chave);
 }
 
-/**
- * ✅ Valida TJust (15-255 caracteres)
- */
 function validarTJust(texto: string): boolean {
   return texto.length >= 15 && texto.length <= 255;
 }
 
-/**
- * ✅ Valida TProt (15 ou 17 dígitos)
- */
 function validarProtocolo(protocolo: string): boolean {
   return /^[0-9]{15}$/.test(protocolo) || /^[0-9]{17}$/.test(protocolo);
 }
 
-/**
- * ✅ Valida TNF (1-999999999)
- */
 function validarTNF(numero: number): boolean {
   return numero >= 1 && numero <= 999999999;
 }
 
-/**
- * ✅ Valida TSerie (0 ou 1-999)
- */
 function validarTSerie(serie: number): boolean {
   return serie === 0 || (serie >= 1 && serie <= 999);
 }
@@ -67,21 +51,6 @@ export class NfceController {
     this.nfceService = new NfceService();
   }
 
-  /**
-   * 📋 LISTAR NFC-e COM FILTROS
-   * GET /api/nfce
-   * 
-   * Query params:
-   * - page: number (default: 1)
-   * - limit: number (default: 50)
-   * - status: string (ex: AUTORIZADA,CANCELADA)
-   * - dataInicio: string (YYYY-MM-DD)
-   * - dataFim: string (YYYY-MM-DD)
-   * - consumidorId: string
-   * - numero: number (TNF - 1-999999999)
-   * - serie: number (TSerie - 0 ou 1-999)
-   * - chave: string (TChNFe - 44 dígitos)
-   */
   async listar(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -169,10 +138,6 @@ export class NfceController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR NFC-e POR ID
-   * GET /api/nfce/:id
-   */
   async buscarPorId(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -192,7 +157,7 @@ export class NfceController {
         });
       }
 
-      const nfce = await this.nfceService.buscarPorId(id);
+      const nfce = await this.nfceService.buscarPorId(id, empresaId);
 
       if (!nfce) {
         return res.status(404).json({
@@ -222,10 +187,6 @@ export class NfceController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR NFC-e POR CHAVE DE ACESSO (TChNFe - 44 dígitos)
-   * GET /api/nfce/chave/:chave
-   */
   async buscarPorChave(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -246,7 +207,7 @@ export class NfceController {
         });
       }
 
-      const nfce = await this.nfceService.buscarPorChave(chave);
+      const nfce = await this.nfceService.buscarPorChave(chave, empresaId);
 
       if (!nfce) {
         return res.status(404).json({
@@ -276,10 +237,6 @@ export class NfceController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR NFC-e POR PROTOCOLO (TProt - 15 ou 17 dígitos)
-   * GET /api/nfce/protocolo/:protocolo
-   */
   async buscarPorProtocolo(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -330,36 +287,6 @@ export class NfceController {
     }
   }
 
-  /**
-   * 📝 EMITIR NFC-e
-   * POST /api/nfce/emitir
-   * 
-   * Body:
-   * - itens: ItemNfe[]
-   * - naturezaOperacao: string
-   * - consumidorIdentificado: boolean
-   * - consumidorDoc: string (opcional)
-   * - consumidorNome: string (opcional)
-   * - consumidorEmail: string (opcional)
-   * - consumidorTelefone: string (opcional)
-   * - consumidorEndereco: EnderecoFiscal (opcional)
-   * - formaPagamento: string (01-99)
-   * - valorPago: number
-   * - valorRecebido: number (para dinheiro)
-   * - valorDesconto: number
-   * - valorAcrescimo: number
-   * - tpNF: 0|1 (opcional)
-   * - idDest: 1|2|3 (opcional)
-   * - finNFe: 1|2|3|4 (opcional)
-   * - indFinal: 0|1 (opcional)
-   * - indPres: 0|1|2|3|4|5|9 (opcional)
-   * - procEmi: string (opcional)
-   * - verProc: string (opcional)
-   * - tpEmis: TipoEmissao (opcional)
-   * - pagamentos: PagamentoNFCe[] (opcional)
-   * - infAdFisco: string (opcional)
-   * - infCpl: string (opcional)
-   */
   async emitir(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -457,13 +384,6 @@ export class NfceController {
     }
   }
 
-  /**
-   * ❌ CANCELAR NFC-e
-   * POST /api/nfce/cancelar/:id
-   * 
-   * Body:
-   * - motivo: string (TJust - 15-255 caracteres)
-   */
   async cancelar(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -516,10 +436,6 @@ export class NfceController {
     }
   }
 
-  /**
-   * 📄 BAIXAR XML DA NFC-e
-   * GET /api/nfce/xml/:id
-   */
   async baixarXml(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -551,10 +467,6 @@ export class NfceController {
     }
   }
 
-  /**
-   * 📄 GERAR DANFE NFC-e (Cupom)
-   * GET /api/nfce/danfe/:id
-   */
   async gerarDanfce(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -583,10 +495,6 @@ export class NfceController {
     }
   }
 
-  /**
-   * 📊 ESTATÍSTICAS DE NFC-e
-   * GET /api/nfce/estatisticas
-   */
   async getEstatisticas(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -614,14 +522,6 @@ export class NfceController {
     }
   }
 
-  /**
-   * 💰 TOTAL DE VENDAS POR PERÍODO
-   * GET /api/nfce/total-vendas
-   * 
-   * Query params:
-   * - dataInicio: string (YYYY-MM-DD)
-   * - dataFim: string (YYYY-MM-DD)
-   */
   async getTotalVendas(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -652,14 +552,6 @@ export class NfceController {
     }
   }
 
-  /**
-   * 📊 RESUMO MENSAL
-   * GET /api/nfce/resumo-mensal
-   * 
-   * Query params:
-   * - ano: number
-   * - mes: number (1-12)
-   */
   async getResumoMensal(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -704,15 +596,6 @@ export class NfceController {
     }
   }
 
-  /**
-   * 📊 PRODUTOS MAIS VENDIDOS
-   * GET /api/nfce/produtos-mais-vendidos
-   * 
-   * Query params:
-   * - dataInicio: string (YYYY-MM-DD)
-   * - dataFim: string (YYYY-MM-DD)
-   * - limit: number (default: 10)
-   */
   async getProdutosMaisVendidos(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;

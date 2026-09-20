@@ -1,5 +1,4 @@
-// C:\emissornfe\src\components\layout\Sidebar.tsx
-
+// src/components/layout/Sidebar.tsx
 import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,

@@ -1,5 +1,4 @@
-// src/repositories/mdfe.repository.ts
-
+// backend/src/repositories/mdfe.repository.ts
 import { Prisma, StatusMDFe } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 
@@ -35,9 +34,6 @@ export interface TotalCargaMDFeResult {
 
 export class MdfeRepository extends BaseRepository {
 
-  /**
-   * 🔍 Busca MDF-e por ID com todos os relacionamentos
-   */
   async findById(id: string) {
     if (!id) {
       throw new Error('ID do MDF-e é obrigatório');
@@ -101,9 +97,6 @@ export class MdfeRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 🔍 Busca MDF-e por Chave de Acesso (44 dígitos)
-   */
   async findByChave(chaveAcesso: string) {
     if (!/^[0-9]{44}$/.test(chaveAcesso)) {
       throw new Error('Chave de acesso inválida: deve ter 44 dígitos');
@@ -167,9 +160,6 @@ export class MdfeRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📋 Lista MDF-e com filtros avançados
-   */
   async findAll(filtros: FiltroMDFe) {
     const {
       empresaId,
@@ -271,9 +261,6 @@ export class MdfeRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 📝 Cria um novo MDF-e
-   */
   async create(data: Prisma.MDFeCreateInput) {
     if (!data.chaveAcesso) {
       throw new Error('Chave de acesso é obrigatória');
@@ -340,9 +327,6 @@ export class MdfeRepository extends BaseRepository {
       });
     }
 
-    /**
-     * 📝 Atualiza o status do MDF-e
-     */
     async updateStatus(id: string, status: StatusMDFe, protocolo?: string) {
       if (!id) {
         throw new Error('ID do MDF-e é obrigatório');
@@ -380,9 +364,6 @@ export class MdfeRepository extends BaseRepository {
       });
     }
 
-    /**
-     * ❌ Cancela um MDF-e
-     */
     async cancelar(id: string, motivo: string) {
       if (!id) {
         throw new Error('ID do MDF-e é obrigatório');
@@ -437,9 +418,6 @@ export class MdfeRepository extends BaseRepository {
       });
     }
 
-    /**
-     * 🚩 Encerra um MDF-e
-     */
     async encerrar(id: string, protocolo: string, municipioEncerramento: string) {
       if (!id) {
         throw new Error('ID do MDF-e é obrigatório');
@@ -477,9 +455,6 @@ export class MdfeRepository extends BaseRepository {
       ]);
     }
 
-    /**
-     * 💰 Obtém total de carga transportada por período
-     */
     async getTotalCarga(empresaId: string, startDate?: Date, endDate?: Date): Promise<TotalCargaMDFeResult> {
       const where: Prisma.MDFeWhereInput = {
         empresaId,
@@ -532,9 +507,6 @@ export class MdfeRepository extends BaseRepository {
       };
     }
 
-    /**
-     * 📊 Obtém estatísticas de MDF-e por status
-     */
     async getEstatisticas(empresaId: string) {
       const statusCounts = await this.prisma.mDFe.groupBy({
         by: ['status'],
@@ -555,9 +527,6 @@ export class MdfeRepository extends BaseRepository {
       };
     }
 
-    /**
-     * 🔍 Busca MDF-e por número e série
-     */
     async findByNumeroSerie(empresaId: string, numero: number, serie: number) {
       return this.prisma.mDFe.findFirst({
         where: {
@@ -571,9 +540,6 @@ export class MdfeRepository extends BaseRepository {
       });
     }
 
-    /**
-     * 📊 Obtém o último MDF-e emitido
-     */
     async getUltimoMDFe(empresaId: string) {
       return this.prisma.mDFe.findFirst({
         where: { empresaId },

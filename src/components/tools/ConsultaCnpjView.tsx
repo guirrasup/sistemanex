@@ -1,5 +1,4 @@
-// C:\emissornfe\src\components\tools\ConsultaCnpjView.tsx
-
+// src/components/tools/ConsultaCnpjView.tsx
 import React, { useState } from 'react';
 import {
   Search,
@@ -181,7 +180,6 @@ const formatarData = (data: string) => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       
-      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -204,7 +202,6 @@ const formatarData = (data: string) => {
         </div>
       </div>
 
-      {/* Busca */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
@@ -257,11 +254,9 @@ const formatarData = (data: string) => {
         )}
       </div>
 
-      {/* Resultado */}
       {resultado && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-fadeIn">
           
-          {/* Header do Resultado */}
           <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
@@ -292,10 +287,8 @@ const formatarData = (data: string) => {
             </div>
           </div>
 
-          {/* Grid de Dados */}
           <div className="p-6 space-y-4">
             
-            {/* Status e Situação */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                 <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
@@ -359,7 +352,6 @@ const formatarData = (data: string) => {
               </div>
             </div>
 
-            {/* CNAE */}
             <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
               <span className="text-[10px] font-bold text-slate-400 uppercase block flex items-center gap-1">
                 <Briefcase className="w-3 h-3" />
@@ -381,9 +373,7 @@ const formatarData = (data: string) => {
               )}
             </div>
 
-            {/* 🔥 REMOVIDO: Card Responsável / Administrador */}
 
-            {/* RNTRC - Registro Nacional de Transportadores */}
             {resultado.rntrc && (
               <div className="bg-cyan-50 rounded-lg p-4 border border-cyan-200">
                 <div className="flex items-center gap-2 mb-3">
@@ -433,7 +423,6 @@ const formatarData = (data: string) => {
               </div>
             )}
 
-            {/* Endereço */}
             {resultado.endereco && (resultado.endereco.logradouro || resultado.endereco.municipio) && (
               <div>
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -478,7 +467,6 @@ const formatarData = (data: string) => {
               </div>
             )}
 
-            {/* Contato e Financeiro */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {resultado.telefone && resultado.telefone.length > 0 && (
                 <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
@@ -515,7 +503,6 @@ const formatarData = (data: string) => {
               )}
             </div>
 
-            {/* QSA - Quadro Societário */}
             {resultado.socios && resultado.socios.length > 0 ? (
               <div>
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -551,7 +538,6 @@ const formatarData = (data: string) => {
               </div>
             )}
 
-            {/* Ações */}
             <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-200">
               <button
                 type="button"
@@ -583,7 +569,7 @@ const formatarData = (data: string) => {
                 type="button"
                 onClick={() => {
                   const cnpjLimpo = resultado.cnpj?.replace(/\D/g, '') || '';
-                  window.open(`https://api.opencnpj.org/${cnpjLimpo}?datasets=receita,rntrc`, '_blank');
+                  window.open(`https://api.opencnpj.org/${cnpjLimpo}?datasets=receita,rntrc`, '_blank', 'noopener,noreferrer');
                 }}
                 className="bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium px-4 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-2 cursor-pointer"
               >
@@ -595,7 +581,6 @@ const formatarData = (data: string) => {
         </div>
       )}
 
-      {/* Histórico de Consultas */}
       {historico.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">

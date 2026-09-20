@@ -1,5 +1,4 @@
-// C:\emissornfe\src\utils\consultaCnpjApi.ts
-
+// src/utils/consultaCnpjApi.ts
 import { limparDocumento } from './cpfCnpjValidator';
 
 export interface ConsultaCnpjResponse {
@@ -72,9 +71,6 @@ export interface ConsultaCnpjResponse {
   erro?: string;
 }
 
-/**
- * 🔥 CONSULTA CNPJ VIA OPENCNPJ (API PÚBLICA)
- */
 export async function consultarCnpjConectaGov(cnpj: string): Promise<ConsultaCnpjResponse> {
   const cnpjLimpo = limparDocumento(cnpj);
   
@@ -88,8 +84,7 @@ export async function consultarCnpjConectaGov(cnpj: string): Promise<ConsultaCnp
   try {
     const url = `https://api.opencnpj.org/${cnpjLimpo}?datasets=receita,rntrc`;
     
-    console.log(`🔍 Consultando OpenCNPJ: ${url}`);
-    
+        
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json'
@@ -112,9 +107,7 @@ export async function consultarCnpjConectaGov(cnpj: string): Promise<ConsultaCnp
 
     const data = await response.json();
     
-    console.log('📊 Dados recebidos da OpenCNPJ:', data);
-    console.log('📋 RNTRC recebido:', data.rntrc);
-
+        
     // 🔥 MAPEIA OS SÓCIOS
     let sociosMapeados: Array<{ nome: string; cpf?: string; qualificacao: string; dataInclusao: string }> = [];
 
@@ -138,8 +131,7 @@ rntrcMapeado = {
   dataPrimeiroCadastro: data.rntrc.data_primeiro_cadastro || '',
   equiparado: data.rntrc.equiparado || false,
 };
-      console.log('✅ RNTRC mapeado:', rntrcMapeado);
-    }
+          }
 
     // 🔥 MAPEIA O RESTANTE DOS DADOS
     const resultado = {
@@ -197,8 +189,7 @@ rntrcMapeado = {
       matrizFilial: data.matriz_filial || '',
     };
 
-    console.log('✅ Resultado final:', resultado);
-
+    
     return {
       sucesso: true,
       dados: resultado

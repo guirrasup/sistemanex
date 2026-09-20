@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\routes\cnpj.routes.ts
-
+// backend/src/routes/cnpj.routes.ts
 import { Router } from 'express';
 import { CnpjController } from '../controllers/cnpj.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';

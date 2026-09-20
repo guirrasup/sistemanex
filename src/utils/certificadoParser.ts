@@ -1,5 +1,4 @@
-// C:\emissornfe\src\utils\certificadoParser.ts
-
+// src/utils/certificadoParser.ts
 import forge from 'node-forge';
 import { CertificadoDigitalInfo, ConfiguracaoEmpresa } from '../types/erp';
 import { formatarCpfCnpj, formatarCEP, limparDocumento } from './cpfCnpjValidator';
@@ -11,9 +10,6 @@ export interface ResultadoLeituraCertificado {
   dadosEmpresa?: Partial<ConfiguracaoEmpresa>;
 }
 
-/**
- * Tenta buscar dados cadastrais atualizados via API pública (BrasilAPI / Receita)
- */
 export async function buscarDadosCadastraisCnpj(cnpj: string): Promise<Partial<ConfiguracaoEmpresa> | null> {
   const cnpjLimpo = limparDocumento(cnpj);
   if (cnpjLimpo.length !== 14) return null;
@@ -56,10 +52,6 @@ export async function buscarDadosCadastraisCnpj(cnpj: string): Promise<Partial<C
   return null;
 }
 
-/**
- * 🔥 EXTRAI CNPJ DE FORMA ROBUSTA
- * Suporta: 29535022000138, 29.535.022/0001-38, 29 535 022 0001 38
- */
 function extrairCnpj(texto: string): string {
   // Tenta encontrar CNPJ no formato 14 dígitos consecutivos
   let match = texto.match(/\d{14}/);
@@ -76,11 +68,6 @@ function extrairCnpj(texto: string): string {
   return '';
 }
 
-/**
- * 🔥 EXTRAI RAZÃO SOCIAL DE FORMA ROBUSTA
- * Remove números, espaços extras e caracteres especiais
- * Exemplo: "29 535 022 KEVLYN GUIRRA GELLER:29535022000138" -> "KEVLYN GUIRRA GELLER"
- */
 function extrairRazaoSocial(texto: string): string {
   let razao = texto;
 
@@ -119,9 +106,6 @@ function extrairRazaoSocial(texto: string): string {
   return razao;
 }
 
-/**
- * Lê e descriptografa um arquivo de Certificado Digital A1 (.pfx ou .p12)
- */
 export async function processarCertificadoA1(
   arquivo: File,
   senha: string

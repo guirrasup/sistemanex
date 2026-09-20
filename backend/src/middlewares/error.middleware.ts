@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\middlewares\error.middleware.ts
-
+// backend/src/middlewares/error.middleware.ts
 import { Request, Response, NextFunction } from 'express';
 
 export function errorMiddleware(
@@ -11,7 +10,16 @@ export function errorMiddleware(
   console.error('❌ Erro:', err);
 
   const status = err.status || 500;
-  const message = err.message || 'Erro interno do servidor';
+
+  // Segurança (P5): em produção, erros 5xx não vazam mensagens internas
+  // (detalhes de Prisma/Node/stack). Erros de negócio (4xx) preservam a mensagem.
+  const isOperational = status < 500;
+  const message =
+    isOperational
+      ? err.message || 'Erro interno do servidor'
+      : process.env.NODE_ENV === 'production'
+        ? 'Erro interno do servidor'
+        : err.message || 'Erro interno do servidor';
 
   res.status(status).json({
     sucesso: false,

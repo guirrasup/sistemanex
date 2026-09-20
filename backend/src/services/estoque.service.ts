@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\services\estoque.service.ts
-
+// backend/src/services/estoque.service.ts
 import { ProdutoRepository } from '../repositories/produto.repository.js';
 import { Prisma } from '@prisma/client';
 
@@ -32,8 +31,7 @@ export class EstoqueService {
     });
 
     // Registra movimentação (opcional - pode ser implementado com uma tabela de movimentações)
-    console.log(`✅ Estoque baixado: ${params.quantidade} ${produto.unidade} de ${produto.descricao}`);
-
+    
     return {
       produto: produto.descricao,
       quantidade: params.quantidade,

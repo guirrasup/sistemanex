@@ -1,6 +1,4 @@
 // backend/src/controllers/transportadora.controller.ts
-// ✅ VERSÃO COMPLETA CORRIGIDA
-
 import { Request, Response } from 'express';
 import { TransportadoraService } from '../services/transportadora.service';
 

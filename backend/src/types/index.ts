@@ -1,4 +1,4 @@
-// src/types/index.ts
+// backend/src/types/index.ts
 export interface ApiResponse<T = any> {
   sucesso: boolean
   dados?: T

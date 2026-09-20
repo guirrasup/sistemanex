@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\routes\cliente.routes.ts
-
+// backend/src/routes/cliente.routes.ts
 import { Router } from 'express';
 import { ClienteController } from '../controllers/cliente.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';

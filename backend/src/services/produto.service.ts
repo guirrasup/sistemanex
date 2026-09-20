@@ -1,5 +1,4 @@
-// C:\sistemanex\backend\src\services\produto.service.ts
-
+// backend/src/services/produto.service.ts
 import { ProdutoRepository } from '../repositories/produto.repository.js';
 
 export class ProdutoService {
@@ -13,8 +12,8 @@ export class ProdutoService {
     return this.produtoRepo.findAll(empresaId, page, limit, busca);
   }
 
-  async buscarPorId(id: string) {
-    return this.produtoRepo.findById(id);
+  async buscarPorId(id: string, empresaId?: string) {
+    return this.produtoRepo.findById(id, empresaId);
   }
 
   async criar(data: any) {

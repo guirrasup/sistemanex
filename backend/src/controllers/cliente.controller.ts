@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\controllers\cliente.controller.ts
-
+// backend/src/controllers/cliente.controller.ts
 import { Request, Response } from 'express';
 import { ClienteService } from '../services/cliente.service';
 
@@ -32,7 +31,13 @@ export class ClienteController {
   async buscarPorId(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const dados = await this.clienteService.buscarPorId(id);
+      const empresaId = req.user?.empresaId;
+
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
+      const dados = await this.clienteService.buscarPorId(id, empresaId);
       
       if (!dados) {
         return res.status(404).json({ sucesso: false, erro: 'Cliente não encontrado' });
@@ -47,7 +52,13 @@ export class ClienteController {
   async buscarPorDocumento(req: Request, res: Response) {
     try {
       const { documento } = req.params;
-      const dados = await this.clienteService.buscarPorDocumento(documento);
+      const empresaId = req.user?.empresaId;
+
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
+      const dados = await this.clienteService.buscarPorDocumento(documento, empresaId);
       
       if (!dados) {
         return res.status(404).json({ sucesso: false, erro: 'Cliente não encontrado' });

@@ -1,9 +1,4 @@
-/**
- * Gerador de Payload Pix EMV (BR Code) Padrão Banco Central do Brasil
- * Com cálculo de CRC16-CCITT (0xFFFF)
- * SUP TECNOLOGIA
- */
-
+// src/utils/pixGenerator.ts
 function crc16(str: string): string {
   let crc = 0xffff;
   const strlen = str.length;

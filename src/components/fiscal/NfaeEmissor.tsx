@@ -1,5 +1,4 @@
 // src/components/fiscal/NfaeEmissor.tsx
-
 import React, { useState } from 'react';
 import { 
   FileBadge2, Send, CheckCircle2, AlertTriangle, Eye, Download,
@@ -381,7 +380,6 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
       
-      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -403,7 +401,6 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         </div>
       </div>
 
-      {/* BANNER SUCESSO */}
       {sucessoNfae && (
         <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -454,7 +451,6 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         </div>
       )}
 
-      {/* ERROS */}
       {erros.length > 0 && (
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 space-y-1">
           <div className="font-bold flex items-center gap-1.5 text-rose-900">
@@ -469,9 +465,6 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         </div>
       )}
 
-      {/* ============================================================
-          BLOCO 1: REQUERENTE
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
           <div className="flex items-center gap-2">
@@ -621,9 +614,6 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 2: DESTINATÁRIO
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
           <div className="flex items-center gap-2">
@@ -773,9 +763,6 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 3: IDENTIFICAÇÃO
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <Hash className={`w-4 h-4 ${corText}`} />
@@ -833,9 +820,6 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 4: PRODUTOS/INSUMOS
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
           <div className="flex items-center gap-2">
@@ -943,9 +927,6 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         )}
       </div>
 
-      {/* ============================================================
-          BLOCO 5: TRIBUTAÇÃO E DAE
-          ============================================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -1045,9 +1026,6 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
 
       </div>
 
-      {/* ============================================================
-          BLOCO 6: ÓRGÃO EMISSOR E OBSERVAÇÕES
-          ============================================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -1086,9 +1064,6 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
 
       </div>
 
-      {/* ============================================================
-          BLOCO 7: TOTAIS E AÇÕES
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <DollarSign className={`w-4 h-4 ${corText}`} />

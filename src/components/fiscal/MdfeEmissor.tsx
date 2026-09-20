@@ -1,5 +1,4 @@
 // src/components/fiscal/MdfeEmissor.tsx
-
 import React, { useState } from 'react';
 import {
   Truck,
@@ -631,7 +630,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
       
-      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -656,7 +654,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         </div>
       </div>
 
-      {/* SUCESSO */}
       {sucessoMdfe && (
         <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -715,7 +712,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         </div>
       )}
 
-      {/* ERROS */}
       {erros.length > 0 && (
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 space-y-1">
           <div className="font-bold flex items-center gap-1.5 text-rose-900">
@@ -730,12 +726,8 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         </div>
       )}
 
-      {/* FORMULÁRIO */}
       <div className="space-y-4">
         
-        {/* ============================================================
-            BLOCO 1: EMITENTE
-        ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div className="flex items-center gap-2">
@@ -808,9 +800,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           </div>
         </div>
 
-        {/* ============================================================
-            BLOCO 2: IDENTIFICAÇÃO DO MDF-e
-        ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <FileText className={`w-4 h-4 ${corText}`} />
@@ -897,9 +886,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           </div>
         </div>
 
-        {/* ============================================================
-            BLOCO 3: MUNICÍPIOS DE CARREGAMENTO
-        ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div className="flex items-center gap-2">
@@ -963,9 +949,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           )}
         </div>
 
-        {/* ============================================================
-            BLOCO 4: PERCURSOS
-        ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div className="flex items-center gap-2">
@@ -1020,9 +1003,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           )}
         </div>
 
-        {/* ============================================================
-            BLOCO 5: MUNICÍPIOS DE DESCARGA E DOCUMENTOS
-        ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div className="flex items-center gap-2">
@@ -1033,7 +1013,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
             </div>
           </div>
 
-          {/* Adicionar município de descarga */}
           <div className="flex flex-wrap gap-2 mb-4">
             <input
               type="text"
@@ -1088,7 +1067,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
                   {munDescargaSelecionado === idx && (
                     <div className="mt-3 pt-3 border-t border-slate-200 space-y-3">
-                      {/* CT-e */}
                       <div>
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-xs font-bold text-slate-700">CT-e</span>
@@ -1130,7 +1108,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
                         )}
                       </div>
 
-                      {/* NF-e */}
                       <div>
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-xs font-bold text-slate-700">NF-e</span>
@@ -1172,7 +1149,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
                         )}
                       </div>
 
-                      {/* MDF-e (Aquaviário) */}
                       <div>
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-xs font-bold text-slate-700">MDF-e (Aquaviário)</span>
@@ -1229,9 +1205,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           )}
         </div>
 
-        {/* ============================================================
-            BLOCO 6: PRODUTO PREDOMINANTE
-        ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <Package className={`w-4 h-4 ${corText}`} />
@@ -1294,9 +1267,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           </div>
         </div>
 
-        {/* ============================================================
-            BLOCO 7: TOTALIZADORES
-        ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <Calculator className={`w-4 h-4 ${corText}`} />
@@ -1357,9 +1327,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           </div>
         </div>
 
-        {/* ============================================================
-            BLOCO 8: SEGURO
-        ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div className="flex items-center gap-2">
@@ -1490,9 +1457,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           )}
         </div>
 
-        {/* ============================================================
-            BLOCO 9: LACRES
-        ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <Barcode className={`w-4 h-4 ${corText}`} />
@@ -1542,9 +1506,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           )}
         </div>
 
-        {/* ============================================================
-            BLOCO 10: AUTORIZADOS DOWNLOAD
-        ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <UserCheck className={`w-4 h-4 ${corText}`} />
@@ -1604,9 +1565,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           )}
         </div>
 
-        {/* ============================================================
-            BLOCO 11: INFORMAÇÕES ADICIONAIS
-        ============================================================ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <Info className={`w-4 h-4 ${corText}`} />
@@ -1641,9 +1599,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           </div>
         </div>
 
-        {/* ============================================================
-            BOTÃO TRANSMITIR
-        ============================================================ */}
         <button
           type="button"
           onClick={handleTransmitirMdfe}
@@ -1665,7 +1620,6 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
       </div>
 
-      {/* MODAL DE CONFIRMAÇÃO */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}

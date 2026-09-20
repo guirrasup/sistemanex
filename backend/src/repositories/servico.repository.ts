@@ -1,12 +1,11 @@
-// C:\emissornfe\backend\src\repositories\servico.repository.ts
-
+// backend/src/repositories/servico.repository.ts
 import { Prisma } from '@prisma/client'
 import { BaseRepository } from './base.repository'
 
 export class ServicoRepository extends BaseRepository {
-  async findById(id: string) {
-    return this.prisma.servico.findUnique({
-      where: { id }
+  async findById(id: string, empresaId?: string) {
+    return this.prisma.servico.findFirst({
+      where: empresaId ? { id, empresaId } : { id }
     })
   }
 

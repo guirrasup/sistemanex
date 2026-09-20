@@ -1,5 +1,4 @@
-// src/repositories/nfce.repository.ts
-
+// backend/src/repositories/nfce.repository.ts
 import { Prisma, StatusDocumento } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 
@@ -36,9 +35,6 @@ export interface TotalVendasNFCeResult {
 
 export class NfceRepository extends BaseRepository {
 
-  /**
-   * 🔍 Busca NFC-e por ID com todos os relacionamentos
-   */
   async findById(id: string) {
     if (!id) {
       throw new Error('ID da NFC-e é obrigatório');
@@ -59,9 +55,6 @@ export class NfceRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 🔍 Busca NFC-e por Chave de Acesso (44 dígitos)
-   */
   async findByChave(chaveAcesso: string) {
     if (!/^[0-9]{44}$/.test(chaveAcesso)) {
       throw new Error('Chave de acesso inválida: deve ter 44 dígitos');
@@ -82,9 +75,6 @@ export class NfceRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 🔍 Busca NFC-e por Protocolo de Autorização (TProt - 15 ou 17 dígitos)
-   */
   async findByProtocolo(protocolo: string) {
     if (!/^[0-9]{15}$/.test(protocolo) && !/^[0-9]{17}$/.test(protocolo)) {
       throw new Error('Protocolo inválido: deve ter 15 ou 17 dígitos (TProt)');
@@ -105,9 +95,6 @@ export class NfceRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📋 Lista NFC-e com filtros avançados
-   */
   async findAll(filtros: FiltroNFCe) {
     const {
       empresaId,
@@ -200,9 +187,6 @@ export class NfceRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 📝 Cria uma nova NFC-e com todos os campos do leiaute 4.00
-   */
   async create(data: Prisma.NFCeCreateInput) {
     // ✅ VALIDA DADOS OBRIGATÓRIOS
     if (!data.chaveAcesso) {
@@ -230,9 +214,6 @@ export class NfceRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📝 Atualiza o status da NFC-e
-   */
   async updateStatus(id: string, status: StatusDocumento, protocolo?: string) {
     if (!id) {
       throw new Error('ID da NFC-e é obrigatório');
@@ -263,11 +244,6 @@ export class NfceRepository extends BaseRepository {
     });
   }
 
-  /**
-   * ❌ Cancela uma NFC-e
-   * ✅ Valida TJust (15-255 caracteres)
-   * ✅ Verifica se a NFC-e já está cancelada
-   */
   async cancelar(id: string, motivo: string) {
     if (!id) {
       throw new Error('ID da NFC-e é obrigatório');
@@ -315,11 +291,6 @@ export class NfceRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 💰 Obtém total de vendas por período
-   * ✅ Inclui tributos aproximados (Lei 12.741/2012)
-   * ✅ Retorna quantidade de notas
-   */
   async getTotalVendas(empresaId: string, startDate?: Date, endDate?: Date): Promise<TotalVendasNFCeResult> {
     const where: Prisma.NFCeWhereInput = {
       empresaId,
@@ -359,9 +330,6 @@ export class NfceRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 📊 Obtém estatísticas de NFC-e por status
-   */
   async getEstatisticas(empresaId: string) {
     const statusCounts = await this.prisma.nFCe.groupBy({
       by: ['status'],
@@ -382,9 +350,6 @@ export class NfceRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 📊 Obtém resumo mensal de NFC-e (para dashboard)
-   */
   async getResumoMensal(empresaId: string, ano: number, mes: number) {
     const inicio = new Date(ano, mes - 1, 1);
     const fim = new Date(ano, mes, 0);
@@ -424,9 +389,6 @@ export class NfceRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 🔍 Busca NFC-e por número e série (para validação de duplicidade)
-   */
   async findByNumeroSerie(empresaId: string, numero: number, serie: number) {
     return this.prisma.nFCe.findFirst({
       where: {
@@ -440,9 +402,6 @@ export class NfceRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📊 Obtém a última NFC-e emitida
-   */
   async getUltimaNFCe(empresaId: string) {
     return this.prisma.nFCe.findFirst({
       where: { empresaId },
@@ -457,9 +416,6 @@ export class NfceRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 🧹 Busca NFC-e por data de emissão (para relatórios)
-   */
   async findByDateRange(empresaId: string, startDate: Date, endDate: Date) {
     return this.prisma.nFCe.findMany({
       where: {
@@ -480,9 +436,6 @@ export class NfceRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📊 Obtém produtos mais vendidos por período
-   */
   async getProdutosMaisVendidos(empresaId: string, startDate?: Date, endDate?: Date, limit: number = 10) {
     const where: Prisma.NFCeWhereInput = {
       empresaId,

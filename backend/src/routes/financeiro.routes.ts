@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\routes\financeiro.routes.ts
-
+// backend/src/routes/financeiro.routes.ts
 import { Router } from 'express';
 import { FinanceiroController } from '../controllers/financeiro.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';

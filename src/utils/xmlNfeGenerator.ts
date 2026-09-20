@@ -1,15 +1,4 @@
-// C:\emissornfe\src\utils\xmlNfeGenerator.ts
-
-/**
- * Gerador de XML Oficial NF-e (Modelo 55) e NFC-e (Modelo 65) - Layout SEFAZ 4.00
- * SUP TECNOLOGIA - FRONTEND
- * 
- * ✅ EM CONFORMIDADE COM:
- * - PL_006h - Tipos Básicos NF-e (NT 2011/004)
- * - Schema XSD da SEFAZ v4.00
- * - Schema Prisma
- */
-
+// src/utils/xmlNfeGenerator.ts
 import { NFeDocumento, TChNFe, TProt, TDec_1104v, TUf, TCnpj } from '../types/fiscal';
 import { limparDocumento } from './cpfCnpjValidator';
 
@@ -17,11 +6,6 @@ import { limparDocumento } from './cpfCnpjValidator';
 // FUNÇÕES AUXILIARES
 // ============================================================
 
-/**
- * Formata número para XML com quantidade específica de decimais
- * ✅ TDec_1104v: até 4 decimais para valores
- * ✅ TDec_0302_04: 2-4 decimais para alíquotas
- */
 function formatarNumero(val: number | string | undefined | null, decimais: number = 2): string {
   if (val === undefined || val === null) return '0.00';
   
@@ -34,9 +18,6 @@ function formatarNumero(val: number | string | undefined | null, decimais: numbe
   return num.toFixed(decimais);
 }
 
-/**
- * Escapa caracteres especiais para XML
- */
 function escapeXml(str: string | undefined | null): string {
   if (!str) return '';
   return str
@@ -47,10 +28,6 @@ function escapeXml(str: string | undefined | null): string {
     .replace(/'/g, '&apos;');
 }
 
-/**
- * ✅ CORREÇÃO: Base64 encode para Node.js/Browser
- * Substitui btoa() que não funciona em Node.js
- */
 function base64Encode(str: string): string {
   // Browser: usa btoa
   if (typeof btoa === 'function') {
@@ -64,16 +41,10 @@ function base64Encode(str: string): string {
   return str;
 }
 
-/**
- * ✅ Valida TChNFe (44 dígitos)
- */
 function validarChaveAcesso(chave: string): boolean {
   return /^[0-9]{44}$/.test(chave);
 }
 
-/**
- * ✅ Valida TProt (15 ou 17 dígitos)
- */
 function validarProtocolo(protocolo: string): boolean {
   return /^[0-9]{15}$/.test(protocolo) || /^[0-9]{17}$/.test(protocolo);
 }

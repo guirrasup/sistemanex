@@ -1,11 +1,4 @@
-// C:\emissornfe\src\utils\cpfCnpjValidator.ts
-
-/**
- * Validador e Formatador de CPF e CNPJ
- * Implementação matemática rigorosa do algoritmo de Módulo 11
- * SUP TECNOLOGIA - FRONTEND
- */
-
+// src/utils/cpfCnpjValidator.ts
 export function limparDocumento(doc: string): string {
   return doc.replace(/\D/g, '');
 }

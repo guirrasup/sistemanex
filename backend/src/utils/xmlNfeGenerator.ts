@@ -1,19 +1,4 @@
-// C:\emissornfe\backend\src\utils\xmlNfeGenerator.ts
-
-/**
- * Gerador de XML Oficial NF-e (Modelo 55) e NFC-e (Modelo 65) - Layout SEFAZ 4.00
- * SUP TECNOLOGIA - BACKEND (NODE.JS)
- * 
- * ✅ EM CONFORMIDADE COM:
- * - PL_006h - Tipos Básicos NF-e (NT 2011/004)
- * - Schema XSD da SEFAZ v4.00
- * - Schema Prisma
- * 
- * ⚠️ ATENÇÃO: Este arquivo roda no Node.js (backend)
- * - NÃO use btoa() - não existe no Node.js
- * - Use Buffer.from().toString('base64') para Base64
- */
-
+// backend/src/utils/xmlNfeGenerator.ts
 import { NFeDocumento } from '../../../src/types/fiscal.js';
 import { limparDocumento } from './cpfCnpjValidator.js';
 
@@ -21,11 +6,6 @@ import { limparDocumento } from './cpfCnpjValidator.js';
 // FUNÇÕES AUXILIARES
 // ============================================================
 
-/**
- * Formata número para XML com quantidade específica de decimais
- * ✅ TDec_1104v: até 4 decimais para valores
- * ✅ TDec_0302_04: 2-4 decimais para alíquotas
- */
 function formatarNumero(val: number | string | undefined | null, decimais: number = 2): string {
   if (val === undefined || val === null) return '0.00';
   
@@ -38,9 +18,6 @@ function formatarNumero(val: number | string | undefined | null, decimais: numbe
   return num.toFixed(decimais);
 }
 
-/**
- * Escapa caracteres especiais para XML
- */
 function escapeXml(str: string | undefined | null): string {
   if (!str) return '';
   return str
@@ -51,32 +28,18 @@ function escapeXml(str: string | undefined | null): string {
     .replace(/'/g, '&apos;');
 }
 
-/**
- * ✅ CORREÇÃO: Base64 encode para Node.js
- * ⚠️ NÃO use btoa() - não existe no Node.js!
- * ✅ Use Buffer.from().toString('base64')
- */
 function base64Encode(str: string): string {
   return Buffer.from(str).toString('base64');
 }
 
-/**
- * ✅ Valida TChNFe (44 dígitos) - PL_006h
- */
 function validarChaveAcesso(chave: string): boolean {
   return /^[0-9]{44}$/.test(chave);
 }
 
-/**
- * ✅ Valida TProt (15 ou 17 dígitos) - PL_006h
- */
 function validarProtocolo(protocolo: string): boolean {
   return /^[0-9]{15}$/.test(protocolo) || /^[0-9]{17}$/.test(protocolo);
 }
 
-/**
- * ✅ Valida TJust (15-255 caracteres) - PL_006h
- */
 function validarTJust(texto: string): boolean {
   return texto.length >= 15 && texto.length <= 255;
 }

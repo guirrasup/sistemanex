@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\services\emissao.service.ts
-
+// backend/src/services/emissao.service.ts
 import { NfeService } from './nfe.service';
 import { NfseService } from './nfse.service';
 import { NfceService } from './nfce.service';

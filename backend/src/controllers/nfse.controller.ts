@@ -1,5 +1,4 @@
-// src/controllers/nfse.controller.ts
-
+// backend/src/controllers/nfse.controller.ts
 import { Request, Response } from 'express';
 import { NfseService } from '../services/nfse.service';
 import { StatusDocumento } from '@prisma/client';
@@ -21,23 +20,14 @@ interface RequestComUsuario extends Request {
 // VALIDAÇÕES
 // ============================================================
 
-/**
- * ✅ Valida TChNFSe (53 dígitos)
- */
 function validarChaveAcesso(chave: string): boolean {
   return /^[0-9]{53}$/.test(chave);
 }
 
-/**
- * ✅ Valida TJust (15-255 caracteres)
- */
 function validarTJust(texto: string): boolean {
   return texto.length >= 15 && texto.length <= 255;
 }
 
-/**
- * ✅ Valida TProt (15 ou 17 dígitos)
- */
 function validarProtocolo(protocolo: string): boolean {
   return /^[0-9]{15}$/.test(protocolo) || /^[0-9]{17}$/.test(protocolo);
 }
@@ -53,21 +43,6 @@ export class NfseController {
     this.nfseService = new NfseService();
   }
 
-  /**
-   * 📋 LISTAR NFS-e COM FILTROS
-   * GET /api/nfse
-   * 
-   * Query params:
-   * - page: number (default: 1)
-   * - limit: number (default: 50)
-   * - status: string (ex: AUTORIZADA,CANCELADA)
-   * - dataInicio: string (YYYY-MM-DD)
-   * - dataFim: string (YYYY-MM-DD)
-   * - tomadorId: string
-   * - numeroNfse: number
-   * - serieDPS: number
-   * - chave: string (TChNFSe - 53 dígitos)
-   */
   async listar(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -139,10 +114,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR NFS-e POR ID
-   * GET /api/nfse/:id
-   */
   async buscarPorId(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -162,7 +133,7 @@ export class NfseController {
         });
       }
 
-      const nfse = await this.nfseService.buscarPorId(id);
+      const nfse = await this.nfseService.buscarPorId(id, empresaId);
 
       if (!nfse) {
         return res.status(404).json({
@@ -192,10 +163,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR NFS-e POR CHAVE DE ACESSO (TChNFSe - 53 dígitos)
-   * GET /api/nfse/chave/:chave
-   */
   async buscarPorChave(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -216,7 +183,7 @@ export class NfseController {
         });
       }
 
-      const nfse = await this.nfseService.buscarPorChave(chave);
+      const nfse = await this.nfseService.buscarPorChave(chave, empresaId);
 
       if (!nfse) {
         return res.status(404).json({
@@ -246,10 +213,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR NFS-e POR PROTOCOLO (TProt - 15 ou 17 dígitos)
-   * GET /api/nfse/protocolo/:protocolo
-   */
   async buscarPorProtocolo(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -300,36 +263,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 📝 EMITIR NFS-e
-   * POST /api/nfse/emitir
-   * 
-   * Body:
-   * - tomadorId: string (obrigatório)
-   * - servicoId: string (opcional)
-   * - servico: {
-   *     valorServico: number
-   *     descricao: string
-   *     aliquotaISS: number
-   *     codigoTributacaoNacional: string
-   *     codigoTributacaoMunicipal: string
-   *     codigoNBS: string
-   *     descontoIncondicionado: number
-   *     deducoesMateriais: number
-   *     tributacaoISSQN: 1|2|3|4
-   *     tipoRetencaoISS: 1|2|3
-   *     aliquotaPIS: number
-   *     retidoPIS: boolean
-   *     aliquotaCOFINS: number
-   *     retidoCOFINS: boolean
-   *     aliquotaIRRF: number
-   *     aliquotaCSLL: number
-   *     aliquotaINSS: number
-   *   }
-   * - formaPagamento: string
-   * - informacoesComplementares: string
-   * - numeroPedido: string
-   */
   async emitir(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -396,13 +329,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * ❌ CANCELAR NFS-e
-   * POST /api/nfse/cancelar/:id
-   * 
-   * Body:
-   * - motivo: string (TJust - 15-255 caracteres)
-   */
   async cancelar(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -455,10 +381,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 📄 BAIXAR XML DA NFS-e
-   * GET /api/nfse/xml/:id
-   */
   async baixarXml(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -490,10 +412,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 📄 GERAR DANFSe
-   * GET /api/nfse/danfse/:id
-   */
   async gerarDanfse(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -522,10 +440,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 📊 ESTATÍSTICAS DE NFS-e
-   * GET /api/nfse/estatisticas
-   */
   async getEstatisticas(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -553,14 +467,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 💰 TOTAL FATURADO POR PERÍODO
-   * GET /api/nfse/total-faturado
-   * 
-   * Query params:
-   * - dataInicio: string (YYYY-MM-DD)
-   * - dataFim: string (YYYY-MM-DD)
-   */
   async getTotalFaturado(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -591,14 +497,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 📊 RESUMO MENSAL
-   * GET /api/nfse/resumo-mensal
-   * 
-   * Query params:
-   * - ano: number
-   * - mes: number (1-12)
-   */
   async getResumoMensal(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -643,15 +541,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 📊 SERVIÇOS MAIS PRESTADOS
-   * GET /api/nfse/servicos-mais-prestados
-   * 
-   * Query params:
-   * - dataInicio: string (YYYY-MM-DD)
-   * - dataFim: string (YYYY-MM-DD)
-   * - limit: number (default: 10)
-   */
   async getServicosMaisPrestados(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -688,14 +577,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 📊 NFS-e POR TOMADOR
-   * GET /api/nfse/tomador/:tomadorId
-   * 
-   * Query params:
-   * - dataInicio: string (YYYY-MM-DD)
-   * - dataFim: string (YYYY-MM-DD)
-   */
   async findByTomador(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -730,14 +611,6 @@ export class NfseController {
     }
   }
 
-  /**
-   * 📊 NFS-e POR SERVIÇO
-   * GET /api/nfse/servico/:servicoId
-   * 
-   * Query params:
-   * - dataInicio: string (YYYY-MM-DD)
-   * - dataFim: string (YYYY-MM-DD)
-   */
   async findByServico(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;

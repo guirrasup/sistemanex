@@ -1,11 +1,4 @@
-// src/types/mdfe.d.ts
-
-/**
- * Tipos e Interfaces para MDF-e (Manifesto de Documentos Fiscais Eletrônicos)
- * Versão 3.00 - Conforme Schema XSD da SEFAZ
- * SUP TECNOLOGIA - BACKEND
- */
-
+// backend/src/types/mdfe.d.ts
 export type ModalMDFe = 'RODOVIARIO' | 'AEREO' | 'AQUAVIARIO' | 'FERROVIARIO';
 export type TipoEmitenteMDFe = 'PRESTADOR_SERVICO' | 'TRANSPORTADOR_CARGA_PROPRIA' | 'CTE_GLOBALIZADO';
 export type TipoTransportadorMDFe = 'ETC' | 'TAC' | 'CTC';

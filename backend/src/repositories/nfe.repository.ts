@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\repositories\nfe.repository.ts
-
+// backend/src/repositories/nfe.repository.ts
 import { Prisma, StatusDocumento } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 import { TChNFe, TProt, TJust } from '../../src/types/fiscal';
@@ -38,9 +37,6 @@ export interface TotalVendasResult {
 
 export class NfeRepository extends BaseRepository {
   
-  /**
-   * 🔍 Busca NF-e por ID com todos os relacionamentos
-   */
   async findById(id: string) {
     if (!id) {
       throw new Error('ID da NF-e é obrigatório');
@@ -68,10 +64,6 @@ export class NfeRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 🔍 Busca NF-e por Chave de Acesso (TChNFe - 44 dígitos)
-   * ✅ Valida TChNFe (PL_006h)
-   */
   async findByChave(chaveAcesso: string) {
     // ✅ VALIDA TChNFe (44 dígitos)
     if (!/^[0-9]{44}$/.test(chaveAcesso)) {
@@ -100,11 +92,6 @@ export class NfeRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 🔍 Lista NF-e com filtros avançados
-   * ✅ Suporte a múltiplos status
-   * ✅ Filtro por período, destinatário, número, série
-   */
   async findAll(filtros: FiltroNFe) {
     const {
       empresaId,
@@ -201,11 +188,6 @@ export class NfeRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 📝 Cria uma nova NF-e
-   * ✅ Usa StatusDocumento enum do Prisma
-   * ✅ Valida dados obrigatórios
-   */
   async create(data: Prisma.NFeCreateInput) {
     // ✅ VALIDA DADOS OBRIGATÓRIOS
     if (!data.chaveAcesso) {
@@ -243,11 +225,6 @@ export class NfeRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📝 Atualiza o status da NF-e
-   * ✅ Usa StatusDocumento enum do Prisma
-   * ✅ Valida TProt (15 ou 17 dígitos)
-   */
   async updateStatus(id: string, status: StatusDocumento, protocolo?: string) {
     if (!id) {
       throw new Error('ID da NF-e é obrigatório');
@@ -290,12 +267,6 @@ export class NfeRepository extends BaseRepository {
     });
   }
 
-  /**
-   * ❌ Cancela uma NF-e
-   * ✅ Usa StatusDocumento enum do Prisma
-   * ✅ Valida TJust (15-255 caracteres)
-   * ✅ Verifica se a NF-e já está cancelada
-   */
   async cancelar(id: string, motivo: string) {
     if (!id) {
       throw new Error('ID da NF-e é obrigatório');
@@ -350,11 +321,6 @@ export class NfeRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 💰 Obtém total de vendas por período
-   * ✅ Inclui IBS e CBS (Reforma Tributária 2026)
-   * ✅ Retorna quantidade de notas
-   */
   async getTotalVendas(empresaId: string, startDate?: Date, endDate?: Date): Promise<TotalVendasResult> {
     const where: Prisma.NFeWhereInput = {
       empresaId,
@@ -396,9 +362,6 @@ export class NfeRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 📊 Obtém estatísticas de NF-e por status
-   */
   async getEstatisticas(empresaId: string) {
     const statusCounts = await this.prisma.nFe.groupBy({
       by: ['status'],
@@ -419,9 +382,6 @@ export class NfeRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 📊 Obtém resumo mensal de NF-e (para dashboard)
-   */
   async getResumoMensal(empresaId: string, ano: number, mes: number) {
     const inicio = new Date(ano, mes - 1, 1);
     const fim = new Date(ano, mes, 0);
@@ -463,9 +423,6 @@ export class NfeRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 🔍 Busca NF-e por número e série (para validação de duplicidade)
-   */
   async findByNumeroSerie(empresaId: string, numero: number, serie: number) {
     return this.prisma.nFe.findFirst({
       where: {
@@ -479,9 +436,6 @@ export class NfeRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📊 Obtém a última NF-e emitida
-   */
   async getUltimaNFe(empresaId: string) {
     return this.prisma.nFe.findFirst({
       where: { empresaId },
@@ -496,9 +450,6 @@ export class NfeRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 🔍 Busca NF-e por protocolo de autorização (TProt)
-   */
   async findByProtocolo(protocolo: string) {
     // ✅ VALIDA TProt (15 ou 17 dígitos)
     if (!/^[0-9]{15}$/.test(protocolo) && !/^[0-9]{17}$/.test(protocolo)) {

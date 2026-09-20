@@ -1,5 +1,4 @@
 // backend/src/services/nfae.service.ts
-
 import { PrismaClient, StatusNFAe, Prisma } from '@prisma/client';
 import { NFAeDocumento, NFAeItem } from '../types/nfae.types';
 import { gerarChaveAcessoNFe } from '../utils/chaveAcesso';
@@ -9,9 +8,6 @@ const prisma = new PrismaClient();
 
 export class NFAeService {
   
-  /**
-   * 📋 LISTAR NFA-e COM FILTROS
-   */
   async listar(empresaId: string, page: number = 1, limit: number = 50, filtros?: any) {
     const skip = (page - 1) * limit;
 
@@ -63,12 +59,9 @@ export class NFAeService {
     };
   }
 
-  /**
-   * 🔍 BUSCAR NFA-e POR ID
-   */
-  async buscarPorId(id: string) {
-    return prisma.nFAe.findUnique({
-      where: { id },
+  async buscarPorId(id: string, empresaId?: string) {
+    return prisma.nFAe.findFirst({
+      where: empresaId ? { id, empresaId } : { id },
       include: {
         itens: true,
         destinatario: true,
@@ -77,12 +70,9 @@ export class NFAeService {
     });
   }
 
-  /**
-   * 🔍 BUSCAR NFA-e POR CHAVE DE ACESSO
-   */
-  async buscarPorChave(chave: string) {
-    return prisma.nFAe.findUnique({
-      where: { chaveAcesso: chave },
+  async buscarPorChave(chave: string, empresaId?: string) {
+    return prisma.nFAe.findFirst({
+      where: empresaId ? { chaveAcesso: chave, empresaId } : { chaveAcesso: chave },
       include: {
         itens: true,
         destinatario: true,
@@ -91,9 +81,32 @@ export class NFAeService {
     });
   }
 
-  /**
-   * 📝 EMITIR NFA-e
-   */
+  async findByDestinatario(destinatarioId: string, empresaId: string) {
+    return prisma.nFAe.findMany({
+      where: { destinatarioId, empresaId },
+      include: {
+        itens: true,
+        destinatario: true,
+        historicoStatus: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async excluir(id: string, empresaId: string) {
+    const nfae = await this.buscarPorId(id, empresaId);
+
+    if (!nfae) {
+      throw new Error('NFA-e não encontrada');
+    }
+
+    if (nfae.status !== 'RASCUNHO') {
+      throw new Error('Apenas NFA-e em RASCUNHO podem ser excluídas');
+    }
+
+    return prisma.nFAe.delete({ where: { id } });
+  }
+
   async emitir(data: any) {
     // 1. Gerar chave de acesso
     const aamm = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
@@ -231,11 +244,8 @@ export class NFAeService {
     return this.buscarPorId(nfae.id);
   }
 
-  /**
-   * ❌ CANCELAR NFA-e
-   */
   async cancelar(id: string, motivo: string, empresaId: string) {
-    const nfae = await this.buscarPorId(id);
+    const nfae = await this.buscarPorId(id, empresaId);
 
     if (!nfae) {
       throw new Error('NFA-e não encontrada');
@@ -268,11 +278,8 @@ export class NFAeService {
     });
   }
 
-  /**
-   * 📄 BAIXAR XML DA NFA-e
-   */
   async baixarXml(id: string, empresaId: string) {
-    const nfae = await this.buscarPorId(id);
+    const nfae = await this.buscarPorId(id, empresaId);
 
     if (!nfae) {
       throw new Error('NFA-e não encontrada');
@@ -285,9 +292,6 @@ export class NFAeService {
     return nfae.xmlAssinado;
   }
 
-  /**
-   * 📊 ESTATÍSTICAS
-   */
   async getEstatisticas(empresaId: string) {
     const [total, autorizadas, canceladas] = await Promise.all([
       prisma.nFAe.count({ where: { empresaId } }),
@@ -312,9 +316,6 @@ export class NFAeService {
     };
   }
 
-  /**
-   * 🔢 PRÓXIMO NÚMERO
-   */
   async getProximoNumero(empresaId: string, serie: number = 900): Promise<number> {
     const last = await prisma.nFAe.findFirst({
       where: { empresaId, serie },
@@ -325,9 +326,6 @@ export class NFAeService {
     return (last?.numero || 0) + 1;
   }
 
-  /**
-   * 🔧 XML MOCK
-   */
   private gerarXmlMock(chave: string, numero: number, data: any): string {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">

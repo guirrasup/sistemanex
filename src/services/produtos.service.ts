@@ -1,5 +1,4 @@
-// C:\sistemanex\src\services\produtos.service.ts
-
+// src/services/produtos.service.ts
 import api from './api';
 
 export interface Produto {

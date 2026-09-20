@@ -1,5 +1,4 @@
-// C:\emissornfe\src\services\cte.service.ts
-
+// src/services/cte.service.ts
 import api from './api';
 import { CTeDocumento } from '../types/fiscal';
 

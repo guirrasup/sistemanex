@@ -1,5 +1,4 @@
-// C:\emissornfe\src\services\nfce.service.ts
-
+// src/services/nfce.service.ts
 import api from './api';
 
 export const nfceService = {
@@ -8,8 +7,7 @@ export const nfceService = {
       const response = await api.get('/nfce', {
         params: { page, limit }
       });
-      console.log('📡 NFC-e response:', response.data);
-      
+            
       if (response.data && response.data.sucesso && response.data.dados) {
         return response.data.dados;
       }

@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\controllers\cte.controller.ts
-
+// backend/src/controllers/cte.controller.ts
 import { Request, Response } from 'express';
 import { CteService } from '../services/cte.service';
 import { StatusDocumento } from '@prisma/client';
@@ -52,10 +51,6 @@ export class CteController {
     this.cteService = new CteService();
   }
 
-  /**
-   * 📋 LISTAR CT-e COM FILTROS
-   * GET /api/cte
-   */
   async listar(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -144,10 +139,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR CT-e POR ID
-   * GET /api/cte/:id
-   */
   async buscarPorId(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -167,7 +158,7 @@ export class CteController {
         });
       }
 
-      const cte = await this.cteService.buscarPorId(id);
+      const cte = await this.cteService.buscarPorId(id, empresaId);
 
       if (!cte) {
         return res.status(404).json({
@@ -197,10 +188,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR CT-e POR CHAVE DE ACESSO
-   * GET /api/cte/chave/:chave
-   */
   async buscarPorChave(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -220,7 +207,7 @@ export class CteController {
         });
       }
 
-      const cte = await this.cteService.buscarPorChave(chave);
+      const cte = await this.cteService.buscarPorChave(chave, empresaId);
 
       if (!cte) {
         return res.status(404).json({
@@ -250,10 +237,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR CT-e POR PROTOCOLO
-   * GET /api/cte/protocolo/:protocolo
-   */
   async buscarPorProtocolo(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -303,10 +286,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 📝 EMITIR CT-e
-   * POST /api/cte/emitir
-   */
   async emitir(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -456,10 +435,6 @@ export class CteController {
     }
   }
 
-  /**
-   * ❌ CANCELAR CT-e
-   * POST /api/cte/cancelar/:id
-   */
   async cancelar(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -511,10 +486,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 📄 BAIXAR XML DO CT-e
-   * GET /api/cte/xml/:id
-   */
   async baixarXml(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -546,10 +517,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 📄 GERAR DACTE
-   * GET /api/cte/dacte/:id
-   */
   async gerarDacte(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -578,10 +545,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 📊 ESTATÍSTICAS DE CT-e
-   * GET /api/cte/estatisticas
-   */
   async getEstatisticas(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -609,10 +572,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 💰 TOTAL DE FRETE POR PERÍODO
-   * GET /api/cte/total-frete
-   */
   async getTotalFrete(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -643,10 +602,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 📊 RESUMO MENSAL DE CT-e
-   * GET /api/cte/resumo-mensal
-   */
   async getResumoMensal(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -690,10 +645,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 📊 CT-e POR CLIENTE
-   * GET /api/cte/cliente/:clienteId
-   */
   async findByCliente(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -727,10 +678,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 📊 CT-e POR TRANSPORTADORA
-   * GET /api/cte/transportadora/:transportadoraId
-   */
   async findByTransportadora(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -763,10 +710,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 📊 CT-e POR MODAL
-   * GET /api/cte/modal/:modal
-   */
   async findByModal(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -807,10 +750,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 📊 CT-e POR STATUS
-   * GET /api/cte/status/:status
-   */
   async findByStatus(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -851,10 +790,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 🔄 CT-e DE SUBSTITUIÇÃO - BUSCAR ORIGINAL
-   * GET /api/cte/substituicao/:chave
-   */
   async buscarCteSubstituido(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -904,10 +839,6 @@ export class CteController {
     }
   }
 
-  /**
-   * 🔄 CT-e DE COMPLEMENTO - BUSCAR ORIGINAL
-   * GET /api/cte/complemento/:chave
-   */
   async buscarCteComplementado(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;

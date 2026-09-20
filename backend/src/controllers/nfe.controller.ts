@@ -1,5 +1,4 @@
-// src/controllers/nfe.controller.ts
-
+// backend/src/controllers/nfe.controller.ts
 import { Request, Response } from 'express';
 import { NfeService } from '../services/nfe.service';
 import { StatusDocumento } from '@prisma/client';
@@ -30,44 +29,26 @@ interface RequestComUsuario extends Request {
 // VALIDAÇÕES DO PL_006h
 // ============================================================
 
-/**
- * ✅ Valida TChNFe (44 dígitos)
- */
 function validarChaveAcesso(chave: string): boolean {
   return /^[0-9]{44}$/.test(chave);
 }
 
-/**
- * ✅ Valida TJust (15-255 caracteres)
- */
 function validarTJust(texto: string): boolean {
   return texto.length >= 15 && texto.length <= 255;
 }
 
-/**
- * ✅ Valida TProt (15 ou 17 dígitos)
- */
 function validarProtocolo(protocolo: string): boolean {
   return /^[0-9]{15}$/.test(protocolo) || /^[0-9]{17}$/.test(protocolo);
 }
 
-/**
- * ✅ Valida TCnpj (14 dígitos)
- */
 function validarTCnpj(cnpj: string): boolean {
   return /^[0-9]{14}$/.test(cnpj.replace(/\D/g, ''));
 }
 
-/**
- * ✅ Valida TSerie (0 ou 1-999)
- */
 function validarTSerie(serie: number): boolean {
   return serie === 0 || (serie >= 1 && serie <= 999);
 }
 
-/**
- * ✅ Valida TNF (1-999999999)
- */
 function validarTNF(numero: number): boolean {
   return numero >= 1 && numero <= 999999999;
 }
@@ -83,13 +64,6 @@ export class NfeController {
     this.nfeService = new NfeService();
   }
 
-  /**
-   * 🔥 EMITIR NF-e
-   * POST /api/nfe/emitir
-   * 
-   * ✅ Valida empresa autenticada
-   * ✅ Valida dados obrigatórios
-   */
   async emitir(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -160,13 +134,6 @@ export class NfeController {
     }
   }
 
-  /**
-   * ❌ CANCELAR NF-e
-   * POST /api/nfe/cancelar/:id
-   * 
-   * ✅ Valida TJust (15-255 caracteres)
-   * ✅ Valida se a NF-e existe e pertence à empresa
-   */
   async cancelar(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -219,13 +186,6 @@ export class NfeController {
     }
   }
 
-  /**
-   * 📋 LISTAR NF-e COM FILTROS
-   * GET /api/nfe
-   * 
-   * ✅ Filtros: status, dataInicio, dataFim, destinatarioId, numero, serie
-   * ✅ Paginação: page, limit
-   */
   async listar(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -312,10 +272,6 @@ export class NfeController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR NF-e POR ID
-   * GET /api/nfe/:id
-   */
   async buscarPorId(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -358,12 +314,6 @@ export class NfeController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR NF-e POR CHAVE DE ACESSO (TChNFe - 44 dígitos)
-   * GET /api/nfe/chave/:chave
-   * 
-   * ✅ Valida TChNFe (44 dígitos)
-   */
   async buscarPorChave(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -407,12 +357,6 @@ export class NfeController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR NF-e POR PROTOCOLO (TProt - 15 ou 17 dígitos)
-   * GET /api/nfe/protocolo/:protocolo
-   * 
-   * ✅ Valida TProt (15 ou 17 dígitos)
-   */
   async buscarPorProtocolo(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -456,12 +400,6 @@ export class NfeController {
     }
   }
 
-  /**
-   * 📊 ESTATÍSTICAS DE NF-e
-   * GET /api/nfe/estatisticas
-   * 
-   * ✅ Retorna contagem por status
-   */
   async getEstatisticas(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -489,12 +427,6 @@ export class NfeController {
     }
   }
 
-  /**
-   * 📊 RESUMO MENSAL DE NF-e
-   * GET /api/nfe/resumo-mensal?ano=2026&mes=8
-   * 
-   * ✅ Retorna resumo de vendas por mês
-   */
   async getResumoMensal(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -539,12 +471,6 @@ export class NfeController {
     }
   }
 
-  /**
-   * 📄 BAIXAR XML DA NF-e
-   * GET /api/nfe/xml/:id
-   * 
-   * ✅ Retorna o XML como arquivo para download
-   */
   async baixarXml(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -590,12 +516,6 @@ export class NfeController {
     }
   }
 
-  /**
-   * 📄 GERAR DANFE
-   * GET /api/nfe/danfe/:id
-   * 
-   * ✅ Retorna o DANFE em PDF (placeholder)
-   */
   async gerarDanfe(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -640,13 +560,6 @@ export class NfeController {
     }
   }
 
-  /**
-   * 📝 ENVIAR CARTA DE CORREÇÃO (CC-e)
-   * POST /api/nfe/carta-correcao
-   * 
-   * ✅ Valida TChNFe (44 dígitos)
-   * ✅ Valida TJust (15-255 caracteres)
-   */
   async enviarCartaCorrecao(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -705,12 +618,6 @@ export class NfeController {
     }
   }
 
-  /**
-   * 🔍 CONSULTAR SITUAÇÃO NA SEFAZ
-   * GET /api/nfe/consultar/:chave
-   * 
-   * ✅ Valida TChNFe (44 dígitos)
-   */
   async consultarSituacao(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;

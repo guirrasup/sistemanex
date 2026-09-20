@@ -1,3 +1,4 @@
+// src/components/fiscal/DanfceViewer.tsx
 import React from 'react';
 import { 
   Printer, 
@@ -32,7 +33,6 @@ export const DanfceViewer: React.FC<DanfceViewerProps> = ({ nfce, onBack }) => {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      {/* Barra de Ações */}
       <div className="bg-white rounded-lg border border-slate-200 p-3 shadow-xs flex items-center justify-between gap-2 print:hidden">
         <button
           onClick={onBack}
@@ -61,10 +61,8 @@ export const DanfceViewer: React.FC<DanfceViewerProps> = ({ nfce, onBack }) => {
         </div>
       </div>
 
-      {/* Cupom Fiscal Eletrônico NFC-e (Estilo Bobina Térmica / DANFE NFC-e) */}
       <div className="bg-white rounded-lg border border-slate-300 p-6 shadow-sm font-mono text-xs text-slate-800 space-y-4 max-w-md mx-auto print:border-none print:shadow-none print:p-0">
         
-        {/* Cabeçalho do Emitente */}
         <div className="text-center border-b border-dashed border-slate-300 pb-3 space-y-0.5">
           <div className="font-bold text-sm text-slate-900">{nfce.emitente.razaoSocial}</div>
           {nfce.emitente.nomeFantasia && (
@@ -78,7 +76,6 @@ export const DanfceViewer: React.FC<DanfceViewerProps> = ({ nfce, onBack }) => {
           </div>
         </div>
 
-        {/* Título do Documento */}
         <div className="text-center border-b border-dashed border-slate-300 pb-2 space-y-0.5">
           <div className="font-bold text-xs uppercase tracking-wide">
             DANFE NFC-e - Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica
@@ -88,7 +85,6 @@ export const DanfceViewer: React.FC<DanfceViewerProps> = ({ nfce, onBack }) => {
           </div>
         </div>
 
-        {/* Tabela de Itens */}
         <div className="space-y-2 border-b border-dashed border-slate-300 pb-3">
           <div className="grid grid-cols-12 text-[10px] font-bold text-slate-700 uppercase border-b border-slate-200 pb-1">
             <span className="col-span-1">#</span>
@@ -107,7 +103,6 @@ export const DanfceViewer: React.FC<DanfceViewerProps> = ({ nfce, onBack }) => {
           ))}
         </div>
 
-        {/* Totalizadores */}
         <div className="space-y-1 text-xs border-b border-dashed border-slate-300 pb-3">
           <div className="flex justify-between text-slate-600">
             <span>Qtd. Total de Itens:</span>
@@ -145,7 +140,6 @@ export const DanfceViewer: React.FC<DanfceViewerProps> = ({ nfce, onBack }) => {
           </div>
         </div>
 
-        {/* Identificação do Consumidor */}
         <div className="text-center text-[10px] text-slate-600 border-b border-dashed border-slate-300 pb-2 space-y-0.5">
           {nfce.destinatario && nfce.destinatario.cpfCnpj ? (
             <>
@@ -160,7 +154,6 @@ export const DanfceViewer: React.FC<DanfceViewerProps> = ({ nfce, onBack }) => {
           )}
         </div>
 
-        {/* Informações Fiscais e Emissão */}
         <div className="text-center text-[10px] text-slate-600 space-y-1">
           <div>
             <strong>NFC-e Nº {nfce.numero}</strong> • Série {nfce.serie} • Emissão: {new Date(nfce.dataHoraEmissao).toLocaleString('pt-BR')}
@@ -174,7 +167,6 @@ export const DanfceViewer: React.FC<DanfceViewerProps> = ({ nfce, onBack }) => {
           </div>
         </div>
 
-        {/* QR Code SEFAZ para Consulta Pública */}
         <div className="flex flex-col items-center justify-center p-3 bg-slate-50 rounded border border-slate-200 text-center space-y-2">
           <div className="w-28 h-28 bg-white p-2 border border-slate-300 rounded flex flex-col items-center justify-center shadow-2xs">
             <QrCode className="w-20 h-20 text-slate-900" />

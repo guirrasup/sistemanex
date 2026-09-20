@@ -1,10 +1,4 @@
-// C:\emissornfe\src\utils\storage.ts
-
-/**
- * Armazenamento Local Persistente (Storage Engine) - FRONTEND
- * SUP TECNOLOGIA - Emissor Fiscal & Gestão ERP
- */
-
+// src/utils/storage.ts
 import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento, EventoFiscal } from '../types/fiscal';
 import { Produto, MovimentacaoEstoque, ServicoCatalogo, ClienteFornecedor, TituloFinanceiro, ConfiguracaoEmpresa, UsuarioAuth } from '../types/erp';
 import { gerarChaveAcessoNFSe, gerarChaveAcessoNFe } from './chaveAcesso';

@@ -1,10 +1,4 @@
-// C:\emissornfe\backend\src\types\erp.d.ts
-
-/**
- * Tipos e Interfaces do Sistema de Gestão ERP
- * SUP TECNOLOGIA - BACKEND
- */
-
+// backend/src/types/erp.d.ts
 export interface Produto {
   id: string;
   codigo: string;

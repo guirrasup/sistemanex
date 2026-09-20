@@ -1,6 +1,4 @@
-// C:\emissornfe\src\components\dashboard\DashboardReal.tsx
-// ✅ VERSÃO COMPLETA - GRÁFICOS CORRIGIDOS COM RECHARTS
-
+// src/components/dashboard/DashboardReal.tsx
 import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
@@ -143,8 +141,7 @@ export const DashboardReal: React.FC = () => {
     setError(null);
 
     try {
-      console.log('🔄 Carregando dashboard...');
-
+      
       // Busca todos os dados em paralelo
       const [
         clientesRes,
@@ -179,18 +176,7 @@ export const DashboardReal: React.FC = () => {
       const nfaes = nfaesRes.data?.dados?.data || nfaesRes.data?.dados || [];
       const transportadoras = transportadorasRes.data?.dados?.data || transportadorasRes.data?.dados || [];
 
-      console.log('📊 Dados carregados:', {
-        clientes: clientes.length,
-        produtos: produtos.length,
-        titulos: titulos.length,
-        nfes: nfes.length,
-        nfses: nfses.length,
-        nfces: nfces.length,
-        ctes: ctes.length,
-        nfaes: nfaes.length,
-        transportadoras: transportadoras.length
-      });
-
+      
       // ============================================================
       // CÁLCULOS
       // ============================================================
@@ -276,8 +262,7 @@ export const DashboardReal: React.FC = () => {
       // 🔥 Inverter para mostrar na ordem correta
       faturamentoPorMes.reverse();
 
-      console.log('📊 Faturamento por mês (corrigido):', faturamentoPorMes);
-
+      
       // 8. Crescimento
       const mesAtual = faturamentoPorMes[faturamentoPorMes.length - 1]?.valor || 0;
       const mesAnterior = faturamentoPorMes[faturamentoPorMes.length - 2]?.valor || 0;
@@ -323,14 +308,7 @@ export const DashboardReal: React.FC = () => {
         documentosPorStatus
       });
 
-      console.log('✅ Dashboard processado:', {
-        faturamentoTotal,
-        totalNfes,
-        notasPorTipo,
-        documentosPorStatus,
-        faturamentoPorMes
-      });
-
+      
     } catch (err: any) {
       console.error('❌ Erro:', err);
       setError(err.message || 'Erro ao carregar dados');
@@ -423,7 +401,6 @@ export const DashboardReal: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       
-      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -467,7 +444,6 @@ export const DashboardReal: React.FC = () => {
         </div>
       </div>
 
-      {/* CARDS PRINCIPAIS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
@@ -578,7 +554,6 @@ export const DashboardReal: React.FC = () => {
 
       </div>
 
-      {/* GRÁFICO DE BARRAS COM RECHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -660,7 +635,6 @@ export const DashboardReal: React.FC = () => {
           </div>
         </div>
 
-        {/* GRÁFICO DE PIZZA COM RECHARTS */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div className="flex items-center gap-2">
@@ -727,7 +701,6 @@ export const DashboardReal: React.FC = () => {
 
       </div>
 
-      {/* STATUS DOS DOCUMENTOS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
           <div>
@@ -760,7 +733,6 @@ export const DashboardReal: React.FC = () => {
         </div>
       </div>
 
-      {/* ÚLTIMAS NOTAS */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">

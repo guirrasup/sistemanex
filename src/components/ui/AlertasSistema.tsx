@@ -1,5 +1,4 @@
-// C:\sistemanex\src\components\ui\AlertasSistema.tsx
-
+// src/components/ui/AlertasSistema.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
   AlertTriangle,
@@ -53,15 +52,13 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
 
   const carregarAlertas = async () => {
     if (isLoading.current) {
-      console.log('⏳ Carregamento de alertas em andamento...');
-      return;
+            return;
     }
 
     if (cacheRef.current) {
       const now = Date.now();
       if (now - cacheRef.current.timestamp < CACHE_TTL) {
-        console.log('📦 Usando cache de alertas');
-        setAlertas(cacheRef.current.alertas);
+                setAlertas(cacheRef.current.alertas);
         setTotalAlertas(cacheRef.current.alertas.length);
         setNotificacoes(cacheRef.current.alertas.filter(a => a.nivel === 'CRITICO'));
         return;

@@ -1,5 +1,4 @@
 // backend/src/repositories/nfae.repository.ts
-
 import { Prisma, StatusDocumento } from '@prisma/client';
 import { StatusNFAe } from '@prisma/client';
 
@@ -15,9 +14,6 @@ export interface FiltroNFAe {
 
 export class NFAeRepository {
   
-  /**
-   * 🔍 LISTAR NFA-e COM FILTROS
-   */
   async findAll(empresaId: string, page: number = 1, limit: number = 50, filtros?: FiltroNFAe) {
     const skip = (page - 1) * limit;
 
@@ -71,9 +67,6 @@ export class NFAeRepository {
     };
   }
 
-  /**
-   * 🔍 BUSCAR NFA-e POR ID
-   */
   async findById(id: string) {
     return prisma.nFAe.findUnique({
       where: { id },
@@ -85,9 +78,6 @@ export class NFAeRepository {
     });
   }
 
-  /**
-   * 🔍 BUSCAR NFA-e POR CHAVE DE ACESSO
-   */
   async findByChave(chave: string) {
     return prisma.nFAe.findUnique({
       where: { chaveAcesso: chave },
@@ -99,9 +89,6 @@ export class NFAeRepository {
     });
   }
 
-  /**
-   * 📝 CRIAR NFA-e
-   */
   async create(data: any) {
     return prisma.nFAe.create({
       data: {
@@ -199,9 +186,6 @@ export class NFAeRepository {
     });
   }
 
-  /**
-   * 📝 ATUALIZAR STATUS DA NFA-e
-   */
   async updateStatus(id: string, status: StatusNFAe, motivo?: string) {
     const data: any = { status };
 
@@ -230,9 +214,6 @@ export class NFAeRepository {
     });
   }
 
-  /**
-   * 📝 ATUALIZAR NFA-e
-   */
   async update(id: string, data: any) {
     return prisma.nFAe.update({
       where: { id },
@@ -245,9 +226,6 @@ export class NFAeRepository {
     });
   }
 
-  /**
-   * ❌ EXCLUIR NFA-e (apenas RASCUNHO)
-   */
   async delete(id: string) {
     const nfae = await prisma.nFAe.findUnique({ where: { id } });
 
@@ -262,9 +240,6 @@ export class NFAeRepository {
     return prisma.nFAe.delete({ where: { id } });
   }
 
-  /**
-   * 🔢 PRÓXIMO NÚMERO
-   */
   async getProximoNumero(empresaId: string, serie: number = 900): Promise<number> {
     const last = await prisma.nFAe.findFirst({
       where: { empresaId, serie },
@@ -275,9 +250,6 @@ export class NFAeRepository {
     return (last?.numero || 0) + 1;
   }
 
-  /**
-   * 📊 ESTATÍSTICAS
-   */
   async getEstatisticas(empresaId: string) {
     const [total, autorizadas, canceladas] = await Promise.all([
       prisma.nFAe.count({ where: { empresaId } }),
@@ -302,9 +274,6 @@ export class NFAeRepository {
     };
   }
 
-  /**
-   * 💰 TOTAL POR PERÍODO
-   */
   async getTotalPeriodo(empresaId: string, dataInicio?: Date, dataFim?: Date) {
     const where: any = { empresaId, status: 'AUTORIZADA' };
 
@@ -328,9 +297,6 @@ export class NFAeRepository {
     };
   }
 
-  /**
-   * 📊 RESUMO MENSAL
-   */
   async getResumoMensal(empresaId: string, ano: number, mes: number) {
     const dataInicio = new Date(ano, mes - 1, 1);
     const dataFim = new Date(ano, mes, 0);

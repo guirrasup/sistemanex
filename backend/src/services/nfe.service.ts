@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\services\nfe.service.ts
-
+// backend/src/services/nfe.service.ts
 import { Prisma } from '@prisma/client';
 import { NfeRepository } from '../repositories/nfe.repository.js';
 import { ClienteRepository } from '../repositories/cliente.repository.js';
@@ -188,12 +187,16 @@ export class NfeService {
     return this.nfeRepo.findAll(empresaId, page, limit);
   }
 
-  async buscarPorId(id: string) {
-    return this.nfeRepo.findById(id);
+  async buscarPorId(id: string, empresaId?: string) {
+    const nfe = await this.nfeRepo.findById(id);
+    if (empresaId && nfe && nfe.empresaId !== empresaId) return null;
+    return nfe;
   }
 
-  async buscarPorChave(chave: string) {
-    return this.nfeRepo.findByChave(chave);
+  async buscarPorChave(chave: string, empresaId?: string) {
+    const nfe = await this.nfeRepo.findByChave(chave);
+    if (empresaId && nfe && nfe.empresaId !== empresaId) return null;
+    return nfe;
   }
 
   async getTotalVendas(empresaId: string, startDate?: Date, endDate?: Date) {

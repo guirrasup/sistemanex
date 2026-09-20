@@ -1,5 +1,4 @@
-// src/repositories/cte.repository.ts
-
+// backend/src/repositories/cte.repository.ts
 import { Prisma, StatusDocumento } from '@prisma/client';
 import { StatusDocumento } from '@prisma/client';
 
@@ -17,9 +16,6 @@ export interface FiltroCte {
 }
 
 export class CteRepository {
-  /**
-   * 🔍 LISTAR CT-e COM FILTROS
-   */
   async findAll(empresaId: string, page: number = 1, limit: number = 50, filtros?: FiltroCte) {
     const skip = (page - 1) * limit;
 
@@ -95,9 +91,6 @@ export class CteRepository {
     };
   }
 
-  /**
-   * 🔍 BUSCAR CT-e POR ID
-   */
   async findById(id: string) {
     return prisma.cTe.findUnique({
       where: { id },
@@ -131,9 +124,6 @@ export class CteRepository {
     });
   }
 
-  /**
-   * 🔍 BUSCAR CT-e POR CHAVE DE ACESSO
-   */
   async findByChave(chave: string) {
     return prisma.cTe.findUnique({
       where: { chaveAcesso: chave },
@@ -167,9 +157,6 @@ export class CteRepository {
     });
   }
 
-  /**
-   * 🔍 BUSCAR CT-e POR PROTOCOLO
-   */
   async findByProtocolo(protocolo: string) {
     return prisma.cTe.findFirst({
       where: { protocoloAutorizacao: protocolo },
@@ -203,9 +190,6 @@ export class CteRepository {
     });
   }
 
-  /**
-   * 📝 CRIAR CT-e
-   */
   async create(data: any) {
     return prisma.cTe.create({
       data: {
@@ -510,9 +494,6 @@ export class CteRepository {
     });
   }
 
-  /**
-   * 📝 ATUALIZAR STATUS DO CT-e
-   */
   async updateStatus(id: string, status: StatusDocumento, motivo?: string) {
     const data: any = { status };
 
@@ -563,9 +544,6 @@ export class CteRepository {
     });
   }
 
-  /**
-   * 📝 ATUALIZAR CT-e (completo)
-   */
   async update(id: string, data: any) {
     return prisma.cTe.update({
       where: { id },
@@ -600,9 +578,6 @@ export class CteRepository {
     });
   }
 
-  /**
-   * ❌ EXCLUIR CT-e (apenas se RASCUNHO)
-   */
   async delete(id: string) {
     const cte = await prisma.cTe.findUnique({ where: { id } });
 
@@ -617,9 +592,6 @@ export class CteRepository {
     return prisma.cTe.delete({ where: { id } });
   }
 
-  /**
-   * 📊 ESTATÍSTICAS
-   */
   async getEstatisticas(empresaId: string) {
     const [total, autorizadas, canceladas, processando, rejeitadas, totalFrete, totalCargas] = await Promise.all([
       prisma.cTe.count({ where: { empresaId } }),
@@ -648,9 +620,6 @@ export class CteRepository {
     };
   }
 
-  /**
-   * 💰 TOTAL DE FRETE POR PERÍODO
-   */
   async getTotalFrete(empresaId: string, dataInicio?: Date, dataFim?: Date) {
     const where: any = { 
       empresaId, 
@@ -676,9 +645,6 @@ export class CteRepository {
     };
   }
 
-  /**
-   * 📊 RESUMO MENSAL
-   */
   async getResumoMensal(empresaId: string, ano: number, mes: number) {
     const dataInicio = new Date(ano, mes - 1, 1);
     const dataFim = new Date(ano, mes, 0);
@@ -707,9 +673,6 @@ export class CteRepository {
     };
   }
 
-  /**
-   * 📊 CT-e POR CLIENTE
-   */
   async findByCliente(clienteId: string, tipo: string, dataInicio?: Date, dataFim?: Date) {
     const where: any = {
       status: 'AUTORIZADA'
@@ -742,9 +705,6 @@ export class CteRepository {
     });
   }
 
-  /**
-   * 📊 CT-e POR TRANSPORTADORA
-   */
   async findByTransportadora(transportadoraId: string, dataInicio?: Date, dataFim?: Date) {
     const where: any = {
       transportadoraId,
@@ -772,9 +732,6 @@ export class CteRepository {
     });
   }
 
-  /**
-   * 📊 CT-e POR MODAL
-   */
   async findByModal(modal: string, dataInicio?: Date, dataFim?: Date) {
     const where: any = {
       modal,
@@ -802,9 +759,6 @@ export class CteRepository {
     });
   }
 
-  /**
-   * 📊 CT-e POR STATUS
-   */
   async findByStatus(status: StatusDocumento, dataInicio?: Date, dataFim?: Date) {
     const where: any = { status };
 
@@ -829,9 +783,6 @@ export class CteRepository {
     });
   }
 
-  /**
-   * 🔄 BUSCAR CT-e SUBSTITUÍDO
-   */
   async buscarCteSubstituido(chave: string) {
     return prisma.cTe.findFirst({
       where: { chCteSub: chave },
@@ -865,9 +816,6 @@ export class CteRepository {
     });
   }
 
-  /**
-   * 🔄 BUSCAR CT-e COMPLEMENTADO
-   */
   async buscarCteComplementado(chave: string) {
     return prisma.cTe.findFirst({
       where: { 

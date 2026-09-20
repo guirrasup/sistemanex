@@ -1,4 +1,4 @@
-// src/repositories/empresa.repository.ts
+// backend/src/repositories/empresa.repository.ts
 import { Prisma } from '@prisma/client'
 import { BaseRepository } from './base.repository'
 

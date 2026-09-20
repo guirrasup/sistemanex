@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\controllers\dashboard.controller.ts
-
+// backend/src/controllers/dashboard.controller.ts
 import { Request, Response } from 'express';
 import { NfeService } from '../services/nfe.service';
 import { NfseService } from '../services/nfse.service';

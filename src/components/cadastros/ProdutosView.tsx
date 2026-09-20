@@ -1,6 +1,4 @@
-// C:\emissornfe\src\components\cadastros\ProdutosView.tsx
-// ✅ VERSÃO COMPLETA - COM TODOS OS CAMPOS DO PL_006h
-
+// src/components/cadastros/ProdutosView.tsx
 import React, { useState, useMemo } from 'react';
 import { 
   Package, 
@@ -326,7 +324,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       
-      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -348,7 +345,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         </div>
       </div>
 
-      {/* Busca e Botão */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1 flex items-center bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm">
           <Search className="w-4 h-4 text-slate-400 ml-1.5" />
@@ -373,7 +369,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         </button>
       </div>
 
-      {/* Tabela */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600">
@@ -474,7 +469,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         </div>
       </div>
 
-      {/* MODAL DE CONFIRMAÇÃO */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         onClose={closeConfirmModal}
@@ -487,9 +481,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         loading={confirmModal.loading}
       />
 
-      {/* ============================================================
-          MODAL DE CADASTRO/EDIÇÃO (COMPLETO)
-      ============================================================ */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-xl max-w-2xl w-full p-6 shadow-xl space-y-4 max-h-[95vh] overflow-y-auto">
@@ -519,9 +510,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
             )}
 
             <form onSubmit={handleSave} className="space-y-3 text-xs">
-              {/* ============================================================
-                  SEÇÃO 1: DADOS BÁSICOS
-              ============================================================ */}
               <div className="grid grid-cols-4 gap-2">
                 <div className="col-span-2">
                   <label className="block font-medium text-slate-600 mb-1">Código *</label>
@@ -603,9 +591,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                 </div>
               </div>
 
-              {/* ============================================================
-                  SEÇÃO 2: TRIBUTAÇÃO (NCM, CEST, CFOP)
-              ============================================================ */}
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                 <div className="flex items-center gap-2 mb-2">
                   <Hash className="w-3.5 h-3.5 text-slate-500" />
@@ -648,9 +633,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                 </div>
               </div>
 
-              {/* ============================================================
-                  SEÇÃO 3: ALÍQUOTAS (PL_006h)
-              ============================================================ */}
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                 <div className="flex items-center gap-2 mb-2">
                   <Percent className="w-3.5 h-3.5 text-slate-500" />
@@ -732,9 +714,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                 </div>
               </div>
 
-              {/* ============================================================
-                  SEÇÃO 4: FINANCEIRO E ESTOQUE
-              ============================================================ */}
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                 <div className="flex items-center gap-2 mb-2">
                   <DollarSign className="w-3.5 h-3.5 text-slate-500" />
@@ -789,9 +768,6 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                 </div>
               </div>
 
-              {/* ============================================================
-                  BOTÕES
-              ============================================================ */}
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 sticky bottom-0 bg-white">
                 <button
                   type="button"

@@ -1,22 +1,20 @@
-// C:\emissornfe\backend\src\repositories\cliente.repository.ts
-// ✅ CORREÇÃO - MÉTODO UPDATE
-
+// backend/src/repositories/cliente.repository.ts
 import { Prisma } from '@prisma/client'
 import { BaseRepository } from './base.repository'
 
 export class ClienteRepository extends BaseRepository {
-  async findById(id: string) {
-    return this.prisma.cliente.findUnique({
-      where: { id },
+  async findById(id: string, empresaId?: string) {
+    return this.prisma.cliente.findFirst({
+      where: empresaId ? { id, empresaId } : { id },
       include: {
         endereco: true
       }
     })
   }
 
-  async findByDocumento(documento: string) {
-    return this.prisma.cliente.findUnique({
-      where: { documento },
+  async findByDocumento(documento: string, empresaId?: string) {
+    return this.prisma.cliente.findFirst({
+      where: empresaId ? { documento, empresaId } : { documento },
       include: {
         endereco: true
       }

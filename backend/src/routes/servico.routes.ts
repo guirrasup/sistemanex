@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\routes\servico.routes.ts
-
+// backend/src/routes/servico.routes.ts
 import { Router } from 'express';
 import { ServicoController } from '../controllers/servico.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';

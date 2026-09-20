@@ -1,5 +1,4 @@
-// src/repositories/nfse.repository.ts
-
+// backend/src/repositories/nfse.repository.ts
 import { Prisma, StatusDocumento } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 
@@ -35,9 +34,6 @@ export interface TotalFaturadoNFSeResult {
 
 export class NfseRepository extends BaseRepository {
 
-  /**
-   * 🔍 Busca NFS-e por ID com todos os relacionamentos
-   */
   async findById(id: string) {
     if (!id) {
       throw new Error('ID da NFS-e é obrigatório');
@@ -58,9 +54,6 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 🔍 Busca NFS-e por Chave de Acesso (53 dígitos)
-   */
   async findByChave(chaveAcesso: string) {
     if (!/^[0-9]{53}$/.test(chaveAcesso)) {
       throw new Error('Chave de acesso inválida: deve ter 53 dígitos');
@@ -81,9 +74,6 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 🔍 Busca NFS-e por Protocolo de Autorização
-   */
   async findByProtocolo(protocolo: string) {
     if (!/^[0-9]{15}$/.test(protocolo) && !/^[0-9]{17}$/.test(protocolo)) {
       throw new Error('Protocolo inválido: deve ter 15 ou 17 dígitos');
@@ -104,9 +94,6 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📋 Lista NFS-e com filtros avançados
-   */
   async findAll(filtros: FiltroNFSe) {
     const {
       empresaId,
@@ -198,9 +185,6 @@ export class NfseRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 📋 Busca NFS-e por período (para relatórios)
-   */
   async findByPeriodo(empresaId: string, startDate: Date, endDate: Date) {
     return this.prisma.nFSe.findMany({
       where: {
@@ -221,9 +205,6 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📝 Cria uma nova NFS-e
-   */
   async create(data: Prisma.NFSeCreateInput) {
     // ✅ VALIDA DADOS OBRIGATÓRIOS
     if (!data.chaveAcesso) {
@@ -253,9 +234,6 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📝 Atualiza o status da NFS-e
-   */
   async updateStatus(id: string, status: StatusDocumento, protocolo?: string) {
     if (!id) {
       throw new Error('ID da NFS-e é obrigatório');
@@ -285,11 +263,6 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  /**
-   * ❌ Cancela uma NFS-e
-   * ✅ Valida TJust (15-255 caracteres)
-   * ✅ Verifica se a NFS-e já está cancelada
-   */
   async cancelar(id: string, motivo: string) {
     if (!id) {
       throw new Error('ID da NFS-e é obrigatório');
@@ -336,11 +309,6 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 💰 Obtém total faturado por período
-   * ✅ Inclui retenções federais
-   * ✅ Retorna quantidade de notas
-   */
   async getTotalFaturado(empresaId: string, startDate?: Date, endDate?: Date): Promise<TotalFaturadoNFSeResult> {
     const where: Prisma.NFSeWhereInput = {
       empresaId,
@@ -378,9 +346,6 @@ export class NfseRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 📊 Obtém estatísticas de NFS-e por status
-   */
   async getEstatisticas(empresaId: string) {
     const statusCounts = await this.prisma.nFSe.groupBy({
       by: ['status'],
@@ -401,9 +366,6 @@ export class NfseRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 📊 Obtém resumo mensal de NFS-e (para dashboard)
-   */
   async getResumoMensal(empresaId: string, ano: number, mes: number) {
     const inicio = new Date(ano, mes - 1, 1);
     const fim = new Date(ano, mes, 0);
@@ -443,9 +405,6 @@ export class NfseRepository extends BaseRepository {
     };
   }
 
-  /**
-   * 🔍 Busca NFS-e por número e série (para validação de duplicidade)
-   */
   async findByNumeroSerie(empresaId: string, numeroNfse: number, serieDPS: number) {
     return this.prisma.nFSe.findFirst({
       where: {
@@ -459,9 +418,6 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📊 Obtém a última NFS-e emitida
-   */
   async getUltimaNFSe(empresaId: string) {
     return this.prisma.nFSe.findFirst({
       where: { empresaId },
@@ -476,9 +432,6 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📊 Obtém serviços mais prestados por período
-   */
   async getServicosMaisPrestados(empresaId: string, startDate?: Date, endDate?: Date, limit: number = 10) {
     const where: Prisma.NFSeWhereInput = {
       empresaId,
@@ -526,9 +479,6 @@ export class NfseRepository extends BaseRepository {
     return resultados;
   }
 
-  /**
-   * 📝 Cria histórico de status
-   */
   async createHistoricoStatus(data: {
     nfseId: string;
     statusAnterior: StatusDocumento;
@@ -547,9 +497,6 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📊 Busca NFS-e por tomador (para relatórios)
-   */
   async findByTomador(tomadorId: string, startDate?: Date, endDate?: Date) {
     const where: Prisma.NFSeWhereInput = {
       tomadorId,
@@ -572,9 +519,6 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  /**
-   * 📊 Busca NFS-e por serviço (para relatórios)
-   */
   async findByServico(servicoId: string, startDate?: Date, endDate?: Date) {
     const where: Prisma.NFSeWhereInput = {
       servicoId,

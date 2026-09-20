@@ -1,16 +1,6 @@
-// src/utils/xmlMdfeGenerator.ts
-
-/**
- * Gerador de XML Oficial MDF-e (Modelo 58) - Layout 3.00
- * Em conformidade com o Schema XSD da SEFAZ
- * SUP TECNOLOGIA - BACKEND
- */
-
+// backend/src/utils/xmlMdfeGenerator.ts
 import { limparDocumento } from './cpfCnpjValidator';
 
-/**
- * Escapa caracteres especiais para XML
- */
 function escapeXml(str: string | undefined | null): string {
   if (!str) return '';
   return str
@@ -21,9 +11,6 @@ function escapeXml(str: string | undefined | null): string {
     .replace(/'/g, '&apos;');
 }
 
-/**
- * Formata número para XML
- */
 function formatarNumero(val: number | string | undefined | null, decimais: number = 2): string {
   if (val === undefined || val === null) return '0.00';
   const num = typeof val === 'string' ? parseFloat(val) : val;
@@ -31,16 +18,10 @@ function formatarNumero(val: number | string | undefined | null, decimais: numbe
   return num.toFixed(decimais);
 }
 
-/**
- * Base64 encode para Node.js
- */
 function base64Encode(str: string): string {
   return Buffer.from(str).toString('base64');
 }
 
-/**
- * Gera XML do MDF-e versão 3.00
- */
 export function gerarXmlMDFe(params: {
   mdfe: any;
   emitente: any;

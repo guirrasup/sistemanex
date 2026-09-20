@@ -1,4 +1,4 @@
-// src/services/certificado.service.ts
+// backend/src/services/certificado.service.ts
 import forge from 'node-forge'
 import { EmpresaRepository } from '../repositories/empresa.repository'
 import { CertificadoDigital } from '@prisma/client'

@@ -1,7 +1,15 @@
-// src/controllers/nfae.controller.ts
-
+// backend/src/controllers/nfae.controller.ts
 import { Request, Response } from 'express';
 import { NFAeService } from '../services/nfae.service';
+
+interface RequestComUsuario extends Request {
+  user?: {
+    id: string;
+    email: string;
+    empresaId: string;
+    perfil?: string;
+  };
+}
 
 export class NFAeController {
   private service: NFAeService;
@@ -10,192 +18,226 @@ export class NFAeController {
     this.service = new NFAeService();
   }
 
-  /**
-   * 📋 LISTAR NFA-e
-   */
-  async listar(req: Request, res: Response) {
+  private validarAcesso(req: RequestComUsuario): { empresaId: string } | null {
+    const empresaId = req.user?.empresaId;
+    if (!empresaId) {
+      return null;
+    }
+    return { empresaId };
+  }
+
+  async listar(req: RequestComUsuario, res: Response) {
     try {
-      const { empresaId } = req.params;
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
       const { page, limit, ...filtros } = req.query;
-      
       const result = await this.service.listar(
-        empresaId,
+        acesso.empresaId,
         page ? Number(page) : 1,
         limit ? Number(limit) : 50,
         filtros
       );
-      
+
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
 
-  /**
-   * 📊 ESTATÍSTICAS
-   */
-  async getEstatisticas(req: Request, res: Response) {
+  async getEstatisticas(req: RequestComUsuario, res: Response) {
     try {
-      const { empresaId } = req.params;
-      const stats = await this.service.getEstatisticas(empresaId);
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
+      const stats = await this.service.getEstatisticas(acesso.empresaId);
       res.json(stats);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
 
-  /**
-   * 📊 TOTAL POR PERÍODO
-   */
-  async getTotalPeriodo(req: Request, res: Response) {
+  async getTotalPeriodo(req: RequestComUsuario, res: Response) {
     try {
-      const { empresaId } = req.params;
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
       const { dataInicio, dataFim } = req.query;
-      
       const result = await this.service.getTotalPeriodo(
-        empresaId,
+        acesso.empresaId,
         dataInicio ? new Date(dataInicio as string) : undefined,
         dataFim ? new Date(dataFim as string) : undefined
       );
-      
+
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
 
-  /**
-   * 📊 RESUMO MENSAL
-   */
-  async getResumoMensal(req: Request, res: Response) {
+  async getResumoMensal(req: RequestComUsuario, res: Response) {
     try {
-      const { empresaId } = req.params;
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
       const { ano, mes } = req.query;
-      
       const result = await this.service.getResumoMensal(
-        empresaId,
+        acesso.empresaId,
         ano ? Number(ano) : new Date().getFullYear(),
         mes ? Number(mes) : new Date().getMonth() + 1
       );
-      
+
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
 
-  /**
-   * 🔍 BUSCAR POR CHAVE
-   */
-  async buscarPorChave(req: Request, res: Response) {
+  async buscarPorChave(req: RequestComUsuario, res: Response) {
     try {
-      const { chave } = req.params;
-      const nfae = await this.service.buscarPorChave(chave);
-      
-      if (!nfae) {
-        return res.status(404).json({ error: 'NFA-e não encontrada' });
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
       }
-      
+
+      const { chave } = req.params;
+      const nfae = await this.service.buscarPorChave(chave, acesso.empresaId);
+
+      if (!nfae) {
+        return res.status(404).json({ sucesso: false, erro: 'NFA-e não encontrada' });
+      }
+
       res.json(nfae);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
 
-  /**
-   * 🔍 BUSCAR POR DESTINATÁRIO
-   */
-  async findByDestinatario(req: Request, res: Response) {
+  async findByDestinatario(req: RequestComUsuario, res: Response) {
     try {
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
       const { destinatarioId } = req.params;
-      const { empresaId } = req.query;
-      
       const nfae = await this.service.findByDestinatario(
         destinatarioId,
-        empresaId as string
+        acesso.empresaId
       );
-      
+
       res.json(nfae);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
 
-  /**
-   * 🔍 BUSCAR POR ID
-   */
-  async buscarPorId(req: Request, res: Response) {
+  async buscarPorId(req: RequestComUsuario, res: Response) {
     try {
-      const { id } = req.params;
-      const nfae = await this.service.buscarPorId(id);
-      
-      if (!nfae) {
-        return res.status(404).json({ error: 'NFA-e não encontrada' });
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
       }
-      
+
+      const { id } = req.params;
+      const nfae = await this.service.buscarPorId(id, acesso.empresaId);
+
+      if (!nfae) {
+        return res.status(404).json({ sucesso: false, erro: 'NFA-e não encontrada' });
+      }
+
       res.json(nfae);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
 
-  /**
-   * 📝 EMITIR NFA-e
-   */
-  async emitir(req: Request, res: Response) {
+  async emitir(req: RequestComUsuario, res: Response) {
     try {
-      const data = req.body;
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
+      const data = { ...req.body, empresaId: acesso.empresaId };
       const nfae = await this.service.emitir(data);
       res.status(201).json(nfae);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
 
-  /**
-   * ❌ CANCELAR NFA-e
-   */
-  async cancelar(req: Request, res: Response) {
+  async cancelar(req: RequestComUsuario, res: Response) {
     try {
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
       const { id } = req.params;
-      const { motivo, empresaId } = req.body;
-      
-      const nfae = await this.service.cancelar(id, motivo, empresaId);
+      const { motivo } = req.body;
+
+      if (!motivo || motivo.length < 15) {
+        return res.status(400).json({
+          sucesso: false,
+          erro: 'Motivo é obrigatório e deve ter no mínimo 15 caracteres'
+        });
+      }
+
+      const nfae = await this.service.cancelar(id, motivo, acesso.empresaId);
       res.json(nfae);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      const msg = error?.message || '';
+      if (msg === 'NFA-e não encontrada' || msg === 'Acesso negado') {
+        return res.status(404).json({ sucesso: false, erro: 'NFA-e não encontrada' });
+      }
+      if (
+        msg === 'NFA-e já está cancelada' ||
+        msg === 'Apenas NFA-e autorizadas podem ser canceladas'
+      ) {
+        return res.status(400).json({ sucesso: false, erro: msg });
+      }
+      res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
 
-  /**
-   * 🗑️ EXCLUIR NFA-e (apenas rascunho)
-   */
-  async excluir(req: Request, res: Response) {
+  async excluir(req: RequestComUsuario, res: Response) {
     try {
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
       const { id } = req.params;
-      const { empresaId } = req.body;
-      
-      await this.service.excluir(id, empresaId);
-      res.json({ message: 'NFA-e excluída com sucesso' });
+      await this.service.excluir(id, acesso.empresaId);
+      res.json({ sucesso: true, message: 'NFA-e excluída com sucesso' });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
 
-  /**
-   * 📄 BAIXAR XML
-   */
-  async baixarXml(req: Request, res: Response) {
+  async baixarXml(req: RequestComUsuario, res: Response) {
     try {
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
       const { id } = req.params;
-      const { empresaId } = req.query;
-      
-      const xml = await this.service.baixarXml(id, empresaId as string);
+      const xml = await this.service.baixarXml(id, acesso.empresaId);
       res.setHeader('Content-Type', 'application/xml');
       res.setHeader('Content-Disposition', `attachment; filename="NFAe-${id}.xml"`);
       res.send(xml);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
 }

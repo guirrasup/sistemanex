@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\services\cliente.service.ts
-
+// backend/src/services/cliente.service.ts
 import { ClienteRepository } from '../repositories/cliente.repository.js';
 
 export class ClienteService {
@@ -17,12 +16,12 @@ export class ClienteService {
     return this.clienteRepo.findAll(empresaId, page, limit);
   }
 
-  async buscarPorId(id: string) {
-    return this.clienteRepo.findById(id);
+  async buscarPorId(id: string, empresaId?: string) {
+    return this.clienteRepo.findById(id, empresaId);
   }
 
-  async buscarPorDocumento(documento: string) {
-    return this.clienteRepo.findByDocumento(documento);
+  async buscarPorDocumento(documento: string, empresaId?: string) {
+    return this.clienteRepo.findByDocumento(documento, empresaId);
   }
 
   async buscarPorTipo(empresaId: string, tipo: string) {

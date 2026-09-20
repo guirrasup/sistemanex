@@ -1,3 +1,4 @@
+// backend/src/services/nfse.service.ts
 ﻿import { Prisma, StatusDocumento } from '@prisma/client';
 import { NfseRepository } from '../repositories/nfse.repository.js';
 import { ClienteRepository } from '../repositories/cliente.repository.js';
@@ -23,9 +24,6 @@ export class NfseService {
     this.servicoRepo = new ServicoRepository();
   }
 
-  /**
-   * 📋 LISTAR NFS-e COM FILTROS
-   */
   async listarNfses(
     empresaId: string,
     page: number = 1,
@@ -54,33 +52,25 @@ export class NfseService {
     });
   }
 
-  /**
-   * 🔍 BUSCAR NFS-e POR ID
-   */
-  async buscarPorId(id: string) {
-    return this.nfseRepo.findById(id);
+  async buscarPorId(id: string, empresaId?: string) {
+    const nfse = await this.nfseRepo.findById(id);
+    if (empresaId && nfse && nfse.empresaId !== empresaId) return null;
+    return nfse;
   }
 
-  /**
-   * 🔍 BUSCAR NFS-e POR CHAVE (53 dígitos)
-   */
-  async buscarPorChave(chave: string) {
+  async buscarPorChave(chave: string, empresaId?: string) {
     if (!/^[0-9]{53}$/.test(chave)) {
       throw new Error('Chave de acesso inválida: deve ter 53 dígitos');
     }
-    return this.nfseRepo.findByChave(chave);
+    const nfse = await this.nfseRepo.findByChave(chave);
+    if (empresaId && nfse && nfse.empresaId !== empresaId) return null;
+    return nfse;
   }
 
-  /**
-   * 🔍 BUSCAR NFS-e POR PROTOCOLO
-   */
   async buscarPorProtocolo(protocolo: string) {
     return this.nfseRepo.findByProtocolo(protocolo);
   }
 
-  /**
-   * 📝 EMITIR NFS-e
-   */
   async emitirNfse(data: any) {
     const empresa = await this.empresaRepo.findById(data.empresaId);
     if (!empresa) throw new Error('Empresa não encontrada');
@@ -325,18 +315,12 @@ export class NfseService {
     };
   }
 
-  /**
-   * 🔢 OBTÉM PRÓXIMO NÚMERO
-   */
   async getProximoNumero(empresaId: string): Promise<number> {
     const empresa = await this.empresaRepo.findById(empresaId);
     if (!empresa) throw new Error('Empresa não encontrada');
     return (empresa.proximoNumeroNfse || 1);
   }
 
-  /**
-   * ❌ CANCELAR NFS-e
-   */
   async cancelarNfse(id: string, motivo: string, empresaId: string) {
     const nfse = await this.nfseRepo.findById(id);
     if (!nfse) throw new Error('NFS-e não encontrada');
@@ -375,30 +359,18 @@ export class NfseService {
     return nfseCancelada;
   }
 
-  /**
-   * 📊 ESTATÍSTICAS DE NFS-e
-   */
   async getEstatisticas(empresaId: string) {
     return this.nfseRepo.getEstatisticas(empresaId);
   }
 
-  /**
-   * 💰 TOTAL FATURADO POR PERÍODO
-   */
   async getTotalFaturado(empresaId: string, startDate?: Date, endDate?: Date) {
     return this.nfseRepo.getTotalFaturado(empresaId, startDate, endDate);
   }
 
-  /**
-   * 📊 RESUMO MENSAL
-   */
   async getResumoMensal(empresaId: string, ano: number, mes: number) {
     return this.nfseRepo.getResumoMensal(empresaId, ano, mes);
   }
 
-  /**
-   * 📄 BAIXAR XML DA NFS-e
-   */
   async baixarXml(id: string, empresaId: string) {
     const nfse = await this.nfseRepo.findById(id);
 
@@ -417,9 +389,6 @@ export class NfseService {
     return nfse.xmlAssinado;
   }
 
-  /**
-   * 📄 GERAR DANFSe
-   */
   async gerarDanfse(id: string, empresaId: string) {
     const nfse = await this.nfseRepo.findById(id);
 
@@ -442,23 +411,14 @@ export class NfseService {
     };
   }
 
-  /**
-   * 📊 SERVIÇOS MAIS PRESTADOS
-   */
   async getServicosMaisPrestados(empresaId: string, startDate?: Date, endDate?: Date, limit: number = 10) {
     return this.nfseRepo.getServicosMaisPrestados(empresaId, startDate, endDate, limit);
   }
 
-  /**
-   * 📊 NFS-e POR TOMADOR
-   */
   async findByTomador(tomadorId: string, startDate?: Date, endDate?: Date) {
     return this.nfseRepo.findByTomador(tomadorId, startDate, endDate);
   }
 
-  /**
-   * 📊 NFS-e POR SERVIÇO
-   */
   async findByServico(servicoId: string, startDate?: Date, endDate?: Date) {
     return this.nfseRepo.findByServico(servicoId, startDate, endDate);
   }

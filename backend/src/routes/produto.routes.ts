@@ -1,3 +1,4 @@
+// backend/src/routes/produto.routes.ts
 import { Router } from 'express';
 import { ProdutoController } from '../controllers/produto.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';

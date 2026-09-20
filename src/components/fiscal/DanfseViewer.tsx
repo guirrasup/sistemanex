@@ -1,5 +1,4 @@
-// C:\emissornfe\src\components\fiscal\DanfseViewer.tsx
-
+// src/components/fiscal/DanfseViewer.tsx
 import React, { useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import { Printer, Download, X, ShieldCheck, CheckCircle, FileCode, Building2 } from 'lucide-react';
@@ -47,7 +46,6 @@ export const DanfseViewer: React.FC<DanfseViewerProps> = ({ nfse, onClose }) => 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white">
       
-      {/* Controles no topo (Não imprimem) */}
       <div className="bg-slate-900 text-white rounded-t-xl px-6 py-3 flex items-center justify-between max-w-4xl w-full mx-auto print:hidden shadow-lg border-b border-slate-800">
         <div className="flex items-center space-x-2.5">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
@@ -82,10 +80,8 @@ export const DanfseViewer: React.FC<DanfseViewerProps> = ({ nfse, onClose }) => 
         </div>
       </div>
 
-      {/* DANFSe Oficial (Layout Documento Fiscal Nacional) */}
       <div className="bg-white text-black max-w-4xl w-full mx-auto p-8 rounded-b-xl shadow-2xl print:shadow-none print:p-0 print:rounded-none font-sans text-xs border border-slate-300 print:border-none">
         
-        {/* Cabeçalho do Documento */}
         <div className="border border-black p-3 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 border border-slate-400 rounded-lg flex flex-col items-center justify-center p-1 bg-slate-50 text-center">
@@ -108,7 +104,6 @@ export const DanfseViewer: React.FC<DanfseViewerProps> = ({ nfse, onClose }) => 
             </div>
           </div>
 
-          {/* QR Code e Código de Verificação */}
           <div className="flex items-center space-x-3 border-l border-black pl-3 shrink-0">
             <canvas ref={qrCanvasRef} className="w-24 h-24 border border-slate-300 rounded"></canvas>
             <div className="text-[10px] space-y-1">
@@ -128,7 +123,6 @@ export const DanfseViewer: React.FC<DanfseViewerProps> = ({ nfse, onClose }) => 
           </div>
         </div>
 
-        {/* Chave de Acesso Oficial de 53 Dígitos */}
         <div className="border-x border-b border-black p-2 bg-slate-50 flex items-center justify-between">
           <div>
             <span className="text-[9px] font-bold uppercase text-slate-600 block">Chave de Acesso NFS-e Nacional</span>
@@ -142,7 +136,6 @@ export const DanfseViewer: React.FC<DanfseViewerProps> = ({ nfse, onClose }) => 
           </div>
         </div>
 
-        {/* DADOS DO PRESTADOR DE SERVIÇOS */}
         <div className="border-x border-b border-black p-3">
           <div className="font-bold text-[10px] uppercase text-slate-700 bg-slate-100 px-2 py-0.5 border border-slate-300 mb-2">
             1. PRESTADOR DE SERVIÇOS
@@ -169,7 +162,6 @@ export const DanfseViewer: React.FC<DanfseViewerProps> = ({ nfse, onClose }) => 
           </div>
         </div>
 
-        {/* DADOS DO TOMADOR DE SERVIÇOS */}
         <div className="border-x border-b border-black p-3">
           <div className="font-bold text-[10px] uppercase text-slate-700 bg-slate-100 px-2 py-0.5 border border-slate-300 mb-2">
             2. TOMADOR DE SERVIÇOS
@@ -194,7 +186,6 @@ export const DanfseViewer: React.FC<DanfseViewerProps> = ({ nfse, onClose }) => 
           </div>
         </div>
 
-        {/* DISCRIMINAÇÃO DOS SERVIÇOS */}
         <div className="border-x border-b border-black p-3 min-h-[140px]">
           <div className="font-bold text-[10px] uppercase text-slate-700 bg-slate-100 px-2 py-0.5 border border-slate-300 mb-2 flex items-center justify-between">
             <span>3. DISCRIMINAÇÃO DOS SERVIÇOS PRESTADOS</span>
@@ -215,7 +206,6 @@ export const DanfseViewer: React.FC<DanfseViewerProps> = ({ nfse, onClose }) => 
           </div>
         </div>
 
-        {/* DETALHAMENTO DE TRIBUTOS E VALORES */}
         <div className="border-x border-b border-black p-3">
           <div className="font-bold text-[10px] uppercase text-slate-700 bg-slate-100 px-2 py-0.5 border border-slate-300 mb-2">
             4. APURAÇÃO DO ISSQN E RETENÇÕES FEDERAIS
@@ -272,7 +262,6 @@ export const DanfseViewer: React.FC<DanfseViewerProps> = ({ nfse, onClose }) => 
           </div>
         </div>
 
-        {/* GRUPO EXCLUSIVO: REFORMA TRIBUTÁRIA 2026 (IBS / CBS) */}
         <div className="border-x border-b border-black p-3 bg-cyan-50/40">
           <div className="font-bold text-[10px] uppercase text-cyan-900 bg-cyan-100 px-2 py-0.5 border border-cyan-300 mb-2 flex items-center justify-between">
             <span>5. TRIBUTAÇÃO SOBRE CONSUMO - REFORMA TRIBUTÁRIA 2026 (IBS / CBS)</span>
@@ -299,7 +288,6 @@ export const DanfseViewer: React.FC<DanfseViewerProps> = ({ nfse, onClose }) => 
           </div>
         </div>
 
-        {/* VALOR LÍQUIDO FINAL */}
         <div className="border-x border-b border-black p-3 bg-slate-100 flex items-center justify-between">
           <div>
             <div className="text-[10px] text-slate-600 font-bold uppercase">Valor Total do Documento Fiscal</div>
@@ -311,7 +299,6 @@ export const DanfseViewer: React.FC<DanfseViewerProps> = ({ nfse, onClose }) => 
           </div>
         </div>
 
-        {/* INFORMAÇÕES COMPLEMENTARES E ASSINATURA DIGITAL */}
         <div className="border-x border-b border-black p-3 text-[10px] space-y-2">
           <div className="font-bold text-slate-700 uppercase text-[9px]">6. INFORMAÇÕES COMPLEMENTARES / OBSERVAÇÕES</div>
           <div className="text-slate-600 text-[10px] leading-relaxed">

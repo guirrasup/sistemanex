@@ -1,5 +1,4 @@
 // src/services/nfae.service.ts
-
 import api from './api';
 import { NFAeDocumento } from '../types/fiscal';
 
@@ -24,10 +23,6 @@ export interface FiltroNFAe {
 }
 
 export const nfaeService = {
-  /**
-   * 📋 LISTAR NFA-e COM FILTROS
-   * GET /api/nfae
-   */
   async listar(filtros: FiltroNFAe = {}): Promise<ListaNfaeResponse> {
     const { page = 1, limit = 50, ...outrosFiltros } = filtros;
     
@@ -36,8 +31,7 @@ export const nfaeService = {
         params: { page, limit, ...outrosFiltros }
       });
       
-      console.log('📡 NFA-e response:', response.data);
-      
+            
       if (response.data && response.data.sucesso && response.data.dados) {
         return response.data.dados;
       }
@@ -51,10 +45,6 @@ export const nfaeService = {
     }
   },
 
-  /**
-   * 🔍 BUSCAR NFA-e POR ID
-   * GET /api/nfae/:id
-   */
   async buscarPorId(id: string): Promise<NFAeDocumento | null> {
     try {
       const response = await api.get(`/nfae/${id}`);
@@ -65,10 +55,6 @@ export const nfaeService = {
     }
   },
 
-  /**
-   * 🔍 BUSCAR NFA-e POR CHAVE DE ACESSO
-   * GET /api/nfae/chave/:chave
-   */
   async buscarPorChave(chave: string): Promise<NFAeDocumento | null> {
     try {
       const response = await api.get(`/nfae/chave/${chave}`);
@@ -79,10 +65,6 @@ export const nfaeService = {
     }
   },
 
-  /**
-   * 📝 EMITIR NFA-e
-   * POST /api/nfae/emitir
-   */
   async emitir(nfae: any): Promise<NFAeDocumento | null> {
     try {
       const response = await api.post('/nfae/emitir', nfae);
@@ -93,10 +75,6 @@ export const nfaeService = {
     }
   },
 
-  /**
-   * ❌ CANCELAR NFA-e
-   * POST /api/nfae/cancelar/:id
-   */
   async cancelar(id: string, justificativa: string): Promise<void> {
     try {
       await api.post(`/nfae/cancelar/${id}`, { motivo: justificativa });
@@ -106,10 +84,6 @@ export const nfaeService = {
     }
   },
 
-  /**
-   * ❌ EXCLUIR NFA-e (RASCUNHO)
-   * DELETE /api/nfae/:id
-   */
   async excluir(id: string): Promise<void> {
     try {
       await api.delete(`/nfae/${id}`);
@@ -119,10 +93,6 @@ export const nfaeService = {
     }
   },
 
-  /**
-   * 📄 BAIXAR XML DA NFA-e
-   * GET /api/nfae/xml/:id
-   */
   async baixarXml(id: string): Promise<Blob> {
     try {
       const response = await api.get(`/nfae/xml/${id}`, {
@@ -135,10 +105,6 @@ export const nfaeService = {
     }
   },
 
-  /**
-   * 📊 ESTATÍSTICAS DE NFA-e
-   * GET /api/nfae/estatisticas
-   */
   async getEstatisticas(): Promise<any> {
     try {
       const response = await api.get('/nfae/estatisticas');
@@ -149,10 +115,6 @@ export const nfaeService = {
     }
   },
 
-  /**
-   * 💰 TOTAL POR PERÍODO
-   * GET /api/nfae/total-periodo
-   */
   async getTotalPeriodo(dataInicio?: string, dataFim?: string): Promise<any> {
     try {
       const response = await api.get('/nfae/total-periodo', {
@@ -165,10 +127,6 @@ export const nfaeService = {
     }
   },
 
-  /**
-   * 📊 RESUMO MENSAL
-   * GET /api/nfae/resumo-mensal
-   */
   async getResumoMensal(ano: number, mes: number): Promise<any> {
     try {
       const response = await api.get('/nfae/resumo-mensal', {
@@ -181,10 +139,6 @@ export const nfaeService = {
     }
   },
 
-  /**
-   * 📊 NFA-e POR DESTINATÁRIO
-   * GET /api/nfae/destinatario/:destinatarioId
-   */
   async findByDestinatario(destinatarioId: string): Promise<NFAeDocumento[]> {
     try {
       const response = await api.get(`/nfae/destinatario/${destinatarioId}`);

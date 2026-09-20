@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\services\financeiro.service.ts
-
+// backend/src/services/financeiro.service.ts
 import { FinanceiroRepository } from '../repositories/financeiro.repository.js';
 
 export class FinanceiroService {

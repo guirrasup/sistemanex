@@ -1,5 +1,4 @@
-// src/repositories/mdfe.component.repository.ts
-
+// backend/src/repositories/mdfe.component.repository.ts
 import { BaseRepository } from './base.repository';
 
 export class MdfeComponentRepository extends BaseRepository {

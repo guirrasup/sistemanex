@@ -1,4 +1,4 @@
-// src/repositories/financeiro.repository.ts
+// backend/src/repositories/financeiro.repository.ts
 import { Prisma } from '@prisma/client'
 import { BaseRepository } from './base.repository'
 

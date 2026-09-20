@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\controllers\cnpj.controller.ts
-
+// backend/src/controllers/cnpj.controller.ts
 import { Request, Response } from 'express';
 import { ConectaGovService } from '../services/conectagov.service';
 
@@ -10,10 +9,6 @@ export class CnpjController {
     this.conectaGovService = ConectaGovService.getInstance();
   }
 
-  /**
-   * 🔥 CONSULTA CNPJ - SUPORTE A DATASETS
-   * GET /api/cnpj/consultar/:cnpj?datasets=receita,rntrc
-   */
   async consultar(req: Request, res: Response) {
     try {
       const { cnpj } = req.params;
@@ -119,10 +114,6 @@ export class CnpjController {
     }
   }
 
-  /**
-   * 🔥 CONSULTA CNPJ COM DATASETS PERSONALIZADOS
-   * GET /api/cnpj/consultar-completo/:cnpj
-   */
   async consultarCompleto(req: Request, res: Response) {
     try {
       const { cnpj } = req.params;

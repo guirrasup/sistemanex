@@ -1,5 +1,4 @@
-// C:\emissornfe\src\components\fiscal\DanfeViewer.tsx
-
+// src/components/fiscal/DanfeViewer.tsx
 import React, { useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 import { Printer, Download, X, ShieldCheck, Receipt } from 'lucide-react';
@@ -49,7 +48,6 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white">
       
-      {/* Controles do Topo (Não Imprimem) */}
       <div className="bg-slate-900 text-white rounded-t-xl px-6 py-3 flex items-center justify-between max-w-4xl w-full mx-auto print:hidden shadow-lg border-b border-slate-800">
         <div className="flex items-center space-x-2.5">
           <Receipt className="w-4 h-4 text-emerald-400" />
@@ -84,10 +82,8 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
         </div>
       </div>
 
-      {/* Layout Oficial DANFE Retrato */}
       <div className="bg-white text-black max-w-4xl w-full mx-auto p-6 rounded-b-xl shadow-2xl print:shadow-none print:p-0 print:rounded-none font-sans text-xs border border-slate-300 print:border-none space-y-2">
         
-        {/* CANHOTO DE RECEBIMENTO */}
         <div className="border border-black p-2 text-[9px]">
           <div className="flex items-center justify-between border-b border-dashed border-black pb-1.5">
             <div>
@@ -109,10 +105,8 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
           </div>
         </div>
 
-        {/* CABEÇALHO DO DANFE */}
         <div className="border border-black grid grid-cols-12">
           
-          {/* Identificação do Emitente */}
           <div className="col-span-5 p-3 border-r border-black flex flex-col justify-between">
             <div>
               <div className="w-12 h-12 bg-slate-900 text-white rounded-lg flex items-center justify-center font-black text-sm mb-1">
@@ -127,7 +121,6 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
             </div>
           </div>
 
-          {/* Tipo DANFE e Dados Básicos */}
           <div className="col-span-3 p-3 border-r border-black flex flex-col items-center justify-center text-center">
             <div className="font-black text-sm tracking-wider">DANFE</div>
             <div className="text-[8px] text-slate-600 leading-tight">Documento Auxiliar da Nota Fiscal Eletrônica</div>
@@ -149,7 +142,6 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
             </div>
           </div>
 
-          {/* Código de Barras e Chave de Acesso */}
           <div className="col-span-4 p-2 flex flex-col justify-between">
             <div className="flex flex-col items-center">
               <svg ref={barcodeSvgRef} className="w-full h-11"></svg>
@@ -167,7 +159,6 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
 
         </div>
 
-        {/* NATUREZA DA OPERAÇÃO E PROTOCOLO */}
         <div className="border border-black grid grid-cols-12 text-[9px]">
           <div className="col-span-7 p-1.5 border-r border-black">
             <span className="block text-[8px] text-slate-500 font-bold uppercase">Natureza da Operação</span>
@@ -179,7 +170,6 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
           </div>
         </div>
 
-        {/* INSCRIÇÕES */}
         <div className="border border-black grid grid-cols-3 text-[9px]">
           <div className="p-1.5 border-r border-black">
             <span className="block text-[8px] text-slate-500 uppercase font-bold">Inscrição Estadual</span>
@@ -195,7 +185,6 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
           </div>
         </div>
 
-        {/* DESTINATÁRIO / REMETENTE */}
         <div className="border border-black text-[9px]">
           <div className="bg-slate-100 px-2 py-0.5 font-bold uppercase text-[8px] border-b border-black">
             DESTINATÁRIO / REMETENTE
@@ -240,7 +229,6 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
           </div>
         </div>
 
-        {/* FATURA / DUPLICATAS */}
         <div className="border border-black text-[9px]">
           <div className="bg-slate-100 px-2 py-0.5 font-bold uppercase text-[8px] border-b border-black">
             FATURA / DUPLICATA
@@ -256,7 +244,6 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
           </div>
         </div>
 
-        {/* CÁLCULO DO IMPOSTO */}
         <div className="border border-black text-[9px]">
           <div className="bg-slate-100 px-2 py-0.5 font-bold uppercase text-[8px] border-b border-black">
             CÁLCULO DO IMPOSTO
@@ -315,7 +302,6 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
           </div>
         </div>
 
-        {/* DADOS DOS PRODUTOS / SERVIÇOS */}
         <div className="border border-black text-[9px]">
           <div className="bg-slate-100 px-2 py-0.5 font-bold uppercase text-[8px] border-b border-black">
             DADOS DO PRODUTO / SERVIÇO
@@ -358,7 +344,6 @@ export const DanfeViewer: React.FC<DanfeViewerProps> = ({ nfe, onClose }) => {
           </table>
         </div>
 
-        {/* DADOS ADICIONAIS */}
         <div className="border border-black text-[9px] p-2 space-y-1">
           <div className="font-bold text-[8px] uppercase text-slate-700">DADOS ADICIONAIS / INFORMAÇÕES COMPLEMENTARES</div>
           <div className="text-slate-700 leading-relaxed">

@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\services\servico.service.ts
-
+// backend/src/services/servico.service.ts
 import { ServicoRepository } from '../repositories/servico.repository.js';
 
 export class ServicoService {
@@ -17,8 +16,8 @@ export class ServicoService {
     return this.servicoRepo.findAll(empresaId, page, limit);
   }
 
-  async buscarPorId(id: string) {
-    return this.servicoRepo.findById(id);
+  async buscarPorId(id: string, empresaId?: string) {
+    return this.servicoRepo.findById(id, empresaId);
   }
 
   async criar(data: any) {

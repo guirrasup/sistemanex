@@ -1,12 +1,11 @@
 // backend/src/repositories/transportadora.repository.ts
-
 import { Prisma } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 
 export class TransportadoraRepository extends BaseRepository {
-  async findById(id: string) {
-    return this.prisma.transportadora.findUnique({
-      where: { id },
+  async findById(id: string, empresaId?: string) {
+    return this.prisma.transportadora.findFirst({
+      where: empresaId ? { id, empresaId } : { id },
       include: {
         endereco: true
       }

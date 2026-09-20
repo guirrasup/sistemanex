@@ -1,5 +1,4 @@
-// C:\sistemanex\backend\src\controllers\produto.controller.ts
-
+// backend/src/controllers/produto.controller.ts
 import { Request, Response } from 'express';
 import { ProdutoService } from '../services/produto.service.js';
 
@@ -31,8 +30,7 @@ export class ProdutoController {
       const data = result?.data || [];
       const total = result?.total || 0;
 
-      console.log(`✅ Produtos encontrados: ${data.length} de ${total}`);
-
+      
       // 🔥 RETORNA NO FORMATO QUE O FRONTEND ESPERA
       return res.json({
         sucesso: true,
@@ -56,7 +54,16 @@ export class ProdutoController {
   async buscarPorId(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const produto = await produtoService.buscarPorId(id);
+      const empresaId = req.user?.empresaId;
+
+      if (!empresaId) {
+        return res.status(401).json({
+          sucesso: false,
+          erro: 'Empresa não autenticada'
+        });
+      }
+
+      const produto = await produtoService.buscarPorId(id, empresaId);
 
       if (!produto) {
         return res.status(404).json({

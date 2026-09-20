@@ -1,6 +1,4 @@
-// C:\emissornfe\src\components\cadastros\ClientesView.tsx
-// ✅ VERSÃO COMPLETA - COM TOASTS E MODAL DE CONFIRMAÇÃO
-
+// src/components/cadastros/ClientesView.tsx
 import React, { useState, useMemo } from 'react';
 import { 
   Users, 
@@ -215,8 +213,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
     setConfirmModal(prev => ({ ...prev, loading: true }));
 
     try {
-      console.log(`🗑️ Excluindo cliente: ${id} - ${razaoSocial}`);
-      
+            
       await clientesService.excluir(id);
       
       closeConfirmModal();
@@ -293,7 +290,6 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       
-      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -316,7 +312,6 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
         </div>
       </div>
 
-      {/* Busca e Botão */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1 flex items-center bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm">
           <Search className="w-4 h-4 text-slate-400 ml-1.5" />
@@ -342,7 +337,6 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
         </button>
       </div>
 
-      {/* Tabela */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600">
@@ -425,7 +419,6 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
         </div>
       </div>
 
-      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         onClose={closeConfirmModal}
@@ -438,7 +431,6 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
         loading={confirmModal.loading}
       />
 
-      {/* MODAL DE CADASTRO/EDIÇÃO */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-xl w-full p-6 shadow-xl space-y-4">

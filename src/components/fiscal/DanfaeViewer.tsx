@@ -1,3 +1,4 @@
+// src/components/fiscal/DanfaeViewer.tsx
 import React from 'react';
 import { 
   Printer, 
@@ -32,7 +33,6 @@ export const DanfaeViewer: React.FC<DanfaeViewerProps> = ({ nfae, onBack }) => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      {/* Barra de Ações */}
       <div className="bg-white rounded-lg border border-slate-200 p-3 shadow-xs flex items-center justify-between gap-2 print:hidden">
         <button
           onClick={onBack}
@@ -61,10 +61,8 @@ export const DanfaeViewer: React.FC<DanfaeViewerProps> = ({ nfae, onBack }) => {
         </div>
       </div>
 
-      {/* DANFE NFA-e Oficial */}
       <div className="bg-white border-2 border-slate-800 p-4 font-sans text-xs text-slate-900 space-y-3 print:border print:m-0 print:p-2">
         
-        {/* Cabeçalho SEFAZ */}
         <div className="grid grid-cols-12 border-b-2 border-slate-800 pb-2 gap-2">
           <div className="col-span-8 space-y-1 border-r border-slate-400 pr-2">
             <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">
@@ -89,7 +87,6 @@ export const DanfaeViewer: React.FC<DanfaeViewerProps> = ({ nfae, onBack }) => {
           </div>
         </div>
 
-        {/* Requerente / Emitente */}
         <div className="border border-slate-800 p-2 text-[10px] space-y-0.5">
           <div className="font-bold text-[11px] text-amber-900 border-b border-slate-300 pb-0.5 uppercase flex justify-between">
             <span>REQUERENTE / EMITENTE AVULSO</span>
@@ -103,7 +100,6 @@ export const DanfaeViewer: React.FC<DanfaeViewerProps> = ({ nfae, onBack }) => {
           <div>{nfae.requerente.endereco.nomeMunicipio}/{nfae.requerente.endereco.uf} - CEP: {nfae.requerente.endereco.cep}</div>
         </div>
 
-        {/* Destinatário */}
         <div className="border border-slate-800 p-2 text-[10px] space-y-0.5">
           <div className="font-bold text-[11px] text-slate-900 border-b border-slate-300 pb-0.5 uppercase flex justify-between">
             <span>DESTINATÁRIO / REMETENTE</span>
@@ -114,7 +110,6 @@ export const DanfaeViewer: React.FC<DanfaeViewerProps> = ({ nfae, onBack }) => {
           <div>{nfae.destinatario.endereco.nomeMunicipio}/{nfae.destinatario.endereco.uf} - CEP: {nfae.destinatario.endereco.cep}</div>
         </div>
 
-        {/* Tabela de Itens */}
         <div className="border border-slate-800 text-[10px]">
           <div className="bg-slate-100 grid grid-cols-12 p-1 font-bold border-b border-slate-800">
             <span className="col-span-1">CÓD</span>
@@ -137,7 +132,6 @@ export const DanfaeViewer: React.FC<DanfaeViewerProps> = ({ nfae, onBack }) => {
           ))}
         </div>
 
-        {/* Cálculo do Imposto */}
         <div className="grid grid-cols-4 border border-slate-800 p-2 text-[10px] gap-2 bg-slate-50">
           <div>
             <span className="text-slate-600 block">BASE DE CÁLCULO ICMS:</span>
@@ -157,7 +151,6 @@ export const DanfaeViewer: React.FC<DanfaeViewerProps> = ({ nfae, onBack }) => {
           </div>
         </div>
 
-        {/* Guia DAE de Arrecadação Estadual Vinculada */}
         {nfae.guiaDAE && (
           <div className="border-2 border-amber-800 rounded p-3 bg-amber-50/40 text-[10px] space-y-2">
             <div className="flex items-center justify-between border-b border-amber-300 pb-1">

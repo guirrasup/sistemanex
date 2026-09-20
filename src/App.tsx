@@ -1,11 +1,4 @@
-// C:\emissornfe\src\App.tsx
-// ✅ VERSÃO COMPLETA E ATUALIZADA - COM MDF-e
-
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
+// src/App.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -80,15 +73,11 @@ export default function App() {
   const [usuarioLogado, setUsuarioLogado] = useState<UsuarioAuth | null>(() => {
     const token = localStorage.getItem('@sup:token');
     const user = localStorage.getItem('@sup:user');
-    console.log('🔍 Verificando sessão:');
-    console.log('  Token:', token ? '✅ Presente' : '❌ Ausente');
-    console.log('  User:', user ? '✅ Presente' : '❌ Ausente');
-    
+                
     if (token && user) {
       try {
         const parsed = JSON.parse(user);
-        console.log('👤 Usuário restaurado:', parsed.email);
-        return parsed;
+                return parsed;
       } catch {
         console.warn('⚠️ Erro ao parsear user');
         return null;
@@ -136,20 +125,15 @@ export default function App() {
   // ============================================================
 
   const refreshData = useCallback(async (forceRefresh: boolean = false) => {
-    console.log('🔄 ===== REFRESH DATA INICIADO =====');
-    console.log('📌 forceRefresh:', forceRefresh);
-    console.log('📌 isRefreshing:', isRefreshing.current);
-
+            
     if (isRefreshing.current) {
-      console.log('⏳ Refresh em andamento, ignorando chamada...');
-      return;
+            return;
     }
 
     if (!forceRefresh && cacheRef.current) {
       const now = Date.now();
       if (now - cacheRef.current.timestamp < CACHE_TTL) {
-        console.log('📦 Usando dados em cache');
-        const cache = cacheRef.current;
+                const cache = cacheRef.current;
         setProdutos(cache.produtos);
         setClientes(cache.clientes);
         setServicos(cache.servicos);
@@ -162,15 +146,13 @@ export default function App() {
         // 🔥 NOVO - MDF-e
         setMdfes(cache.mdfes || []);
         setTransportadoras(cache.transportadoras || []);
-        console.log('✅ Cache aplicado com sucesso!');
-        return;
+                return;
       }
     }
 
     const now = Date.now();
     if (now - lastRefreshTime.current < 2000) {
-      console.log('⏳ Aguardando cooldown...');
-      return;
+            return;
     }
     lastRefreshTime.current = now;
 
@@ -180,8 +162,7 @@ export default function App() {
       setCarregando(true);
       
       const token = localStorage.getItem('@sup:token');
-      console.log('🔑 Token:', token ? `✅ Presente` : '❌ Ausente');
-      
+            
       if (!token) {
         console.warn('⚠️ Sem token, carregando dados do cache local');
         setProdutos(StorageService.getProdutos());
@@ -196,12 +177,10 @@ export default function App() {
         setMdfes([]);
         setTransportadoras([]);
         setCarregando(false);
-        console.log('✅ Dados carregados do cache local');
-        return;
+                return;
       }
 
-      console.log('🔄 Carregando dados do backend...');
-
+      
       const servicePromises = [
         produtosService.listar(1, 100),
         clientesService.listar(1, 100),
@@ -217,12 +196,10 @@ export default function App() {
         transportadoraService.listar(1, 100),
       ];
 
-      console.log('📡 Enviando', servicePromises.length, 'requisições...');
-      
+            
       const results = await Promise.allSettled(servicePromises);
 
-      console.log('📊 ===== RESULTADOS DAS REQUISIÇÕES =====');
-      let hasError = false;
+            let hasError = false;
       
       const serviceNames = ['produtos', 'clientes', 'servicos', 'financeiro', 'nfse', 'nfe', 'nfce', 'cte', 'nfae', 'mdfe', 'transportadoras'];
       
@@ -231,8 +208,7 @@ export default function App() {
         if (result.status === 'fulfilled') {
           const data = result.value;
           const count = data?.data?.length || data?.length || 0;
-          console.log(`✅ ${name}: OK (${count} itens)`);
-        } else {
+                  } else {
           hasError = true;
           console.error(`❌ ${name}: FALHOU`);
           console.error(`   Motivo:`, result.reason);
@@ -247,8 +223,7 @@ export default function App() {
         if (result.status === 'fulfilled') {
           const value = result.value;
           const data = value?.dados?.data || value?.data || [];
-          console.log(`📦 getData ${serviceNames[index]}:`, Array.isArray(data) ? data.length : 0);
-          return { data: Array.isArray(data) ? data : [] };
+                    return { data: Array.isArray(data) ? data : [] };
         }
         console.warn(`⚠️ Rota ${serviceNames[index]} falhou, retornando array vazio`);
         return { data: [] };
@@ -308,20 +283,8 @@ export default function App() {
       StorageService.saveServicos(cacheData.servicos);
       StorageService.saveTitulos(cacheData.titulos);
       
-      console.log('✅ Dados carregados do backend com sucesso!');
-      console.log('📊 Totais:');
-      console.log(`   Produtos: ${cacheData.produtos.length}`);
-      console.log(`   Clientes: ${cacheData.clientes.length}`);
-      console.log(`   Serviços: ${cacheData.servicos.length}`);
-      console.log(`   Títulos: ${cacheData.titulos.length}`);
-      console.log(`   NFS-e: ${cacheData.nfses.length}`);
-      console.log(`   NF-e: ${cacheData.nfes.length}`);
-      console.log(`   NFC-e: ${cacheData.nfces.length}`);
-      console.log(`   CT-e: ${cacheData.ctes.length}`);
-      console.log(`   NFA-e: ${cacheData.nfaes.length}`);
-      console.log(`   MDF-e: ${cacheData.mdfes.length}`); // 🔥 NOVO
-      console.log(`   Transportadoras: ${cacheData.transportadoras.length}`);
-
+                                                                         // 🔥 NOVO
+      
     } catch (error: any) {
       console.error('❌ ERRO GLOBAL no refreshData:');
       console.error('   Mensagem:', error.message);
@@ -341,8 +304,7 @@ export default function App() {
     } finally {
       setCarregando(false);
       isRefreshing.current = false;
-      console.log('🔄 ===== REFRESH DATA FINALIZADO =====');
-    }
+          }
   }, []);
 
   // ============================================================
@@ -350,20 +312,16 @@ export default function App() {
   // ============================================================
 
   const handleLogin = async (user: UsuarioAuth) => {
-    console.log('🔑 ===== HANDLE LOGIN =====');
-    console.log('👤 Usuário:', user.email);
-    
+            
     StorageService.saveUsuarioLogado(user);
     setUsuarioLogado(user);
     setCurrentView('dashboard');
     
-    console.log('🔄 Forçando refresh com limpeza de cache...');
-    cacheRef.current = null;
+        cacheRef.current = null;
     
     try {
       await refreshData(true);
-      console.log('✅ Login e refresh concluídos com sucesso!');
-    } catch (error) {
+          } catch (error) {
       console.error('❌ Erro no refresh após login:', error);
     }
   };
@@ -429,15 +387,11 @@ export default function App() {
   // ============================================================
 
   useEffect(() => {
-    console.log('📌 ===== USEEFFECT =====');
-    console.log('📌 usuarioLogado:', usuarioLogado ? usuarioLogado.email : 'NULL');
-    
+            
     if (usuarioLogado) {
-      console.log('🔄 Usuário logado, chamando refreshData...');
-      refreshData(false);
+            refreshData(false);
     } else {
-      console.log('❌ Usuário não logado, setando carregando=false');
-      setCarregando(false);
+            setCarregando(false);
     }
   }, [usuarioLogado, refreshData]);
 
@@ -593,7 +547,6 @@ export default function App() {
                 />
               )}
 
-              {/* 🔥 NOVO - MDF-e */}
               {currentView === 'mdfe-emissor' && (
                 <MdfeEmissor
                   empresa={empresa}
@@ -704,10 +657,8 @@ export default function App() {
           </main>
         </div>
 
-        {/* Alertas do Sistema */}
         <AlertasSistema />
 
-        {/* Visualizadores de Documentos */}
         {viewingDanfse && (
           <DanfseViewer
             nfse={viewingDanfse}
@@ -755,7 +706,6 @@ export default function App() {
           </div>
         )}
 
-        {/* 🔥 NOVO - MDF-e Viewer */}
         {viewingMdfe && (
           <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 relative">

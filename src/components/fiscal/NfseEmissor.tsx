@@ -1,6 +1,4 @@
-// C:\emissornfe\src\components\fiscal\NfseEmissor.tsx
-// ✅ VERSÃO COMPLETA - PADRÃO NACIONAL v1.01 - VALORES ZERADOS INICIALMENTE
-
+// src/components/fiscal/NfseEmissor.tsx
 import React, { useState } from 'react';
 import {
   FileText,
@@ -481,8 +479,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           informacoesComplementares,
           numeroPedido,
         });
-        console.log('✅ NFS-e salva no backend:', response.data);
-      } catch (err: any) {
+              } catch (err: any) {
         console.error('Erro ao salvar NFS-e no backend:', err);
         StorageService.addNfse(novaNfse);
       }
@@ -508,7 +505,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
       
-      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -531,7 +527,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       </div>
 
-      {/* SUCESSO */}
       {sucessoNfse && (
         <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -590,7 +585,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       )}
 
-      {/* ERROS */}
       {errosValidacao.length > 0 && (
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 space-y-1">
           <div className="font-bold flex items-center gap-1.5 text-rose-900">
@@ -605,9 +599,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       )}
 
-      {/* ============================================================
-          BLOCO 1: TOMADOR (Toma)
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <div className="flex items-center gap-2">
@@ -799,9 +790,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 2: LOCAL DA PRESTAÇÃO
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <MapPin className={`w-4 h-4 ${corText}`} />
@@ -843,9 +831,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 3: DADOS DO SERVIÇO (Serv)
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <div className="flex items-center gap-2">
@@ -922,9 +907,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 4: VALORES E TRIBUTAÇÃO
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <Calculator className={`w-4 h-4 ${corText}`} />
@@ -967,7 +949,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           </div>
         </div>
 
-        {/* ISSQN */}
         <div className={`mt-3 p-3 ${corBg} rounded-lg border ${corBorder}`}>
           <div className="flex items-center gap-2 mb-2">
             <Building className={`w-4 h-4 ${corText}`} />
@@ -1018,7 +999,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           </div>
         </div>
 
-        {/* Retenções Federais */}
         <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
           <div className="flex items-center gap-2 mb-2">
             <ShieldCheck className={`w-4 h-4 ${corText}`} />
@@ -1116,7 +1096,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           </div>
         </div>
 
-        {/* IBS/CBS */}
         <div className={`mt-3 p-3 ${corBg} rounded-lg border ${corBorder}`}>
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className={`w-4 h-4 ${corText}`} />
@@ -1146,9 +1125,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 5: PAGAMENTO VINCULADO
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <CreditCard className={`w-4 h-4 ${corText}`} />
@@ -1205,9 +1181,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 6: INFORMAÇÕES ADICIONAIS
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <Info className={`w-4 h-4 ${corText}`} />
@@ -1240,9 +1213,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 7: TOTAIS DA NFS-e
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <DollarSign className={`w-4 h-4 ${corText}`} />
@@ -1298,9 +1268,6 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BOTÃO TRANSMITIR
-      ============================================================ */}
       <button
         onClick={handleTransmitirNfse}
         disabled={isTransmitting}

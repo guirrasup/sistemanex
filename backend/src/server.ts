@@ -1,4 +1,4 @@
-// src/server.ts
+// backend/src/server.ts
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -26,6 +26,10 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3333;
+
+// Segurança (P5): atrás de 1 proxy (nginx) — habilita IP real do cliente
+// para rate limiting e logs (X-Forwarded-For).
+app.set('trust proxy', 1);
 
 // Security
 app.use(helmet());
@@ -62,11 +66,37 @@ const dataLimiter = rateLimit({
   },
 });
 
+// Segurança (P4): brute-force de credenciais — mais restritivo que o global.
+// O frontend já trata 429 com backoff exponencial.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    sucesso: false,
+    erro: 'Muitas tentativas de login. Tente novamente em 15 minutos.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Segurança (P4): emissão de documentos fiscais é operação crítica.
+const emissaoLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: {
+    sucesso: false,
+    erro: 'Limite de emissões excedido. Aguarde um momento e tente novamente.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Body parser
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rotas
+app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/nfse', nfseRoutes);
 app.use('/api/nfe', nfeRoutes);
@@ -78,16 +108,24 @@ app.use('/api/clientes', dataLimiter, clienteRoutes);
 app.use('/api/servicos', dataLimiter, servicoRoutes);
 app.use('/api/transportadoras', dataLimiter, transportadoraRoutes);
 
-app.use('/api/nfce', dataLimiter, nfceRoutes);
-app.use('/api/cte', dataLimiter, cteRoutes);
-app.use('/api/nfae', dataLimiter, nfaeRoutes);
-app.use('/api/mdfe', dataLimiter, mdfeRoutes);
+app.use('/api/nfce', dataLimiter, emissaoLimiter, nfceRoutes);
+app.use('/api/cte', dataLimiter, emissaoLimiter, cteRoutes);
+app.use('/api/nfae', dataLimiter, emissaoLimiter, nfaeRoutes);
+app.use('/api/mdfe', dataLimiter, emissaoLimiter, mdfeRoutes);
 
 // Dashboard
 app.use('/api/dashboard', dataLimiter, dashboardRoutes);
 
 // Health check
+// Segurança (P6): em produção só revela status básico — sem detalhes de configuração.
 app.get('/health', (req, res) => {
+  const conectaGovConfigurado =
+    !!process.env.CONECTAGOV_CLIENT_ID && !!process.env.CONECTAGOV_CLIENT_SECRET;
+
+  if (process.env.NODE_ENV === 'production') {
+    return res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  }
+
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
@@ -103,10 +141,9 @@ app.get('/health', (req, res) => {
       privateKey: process.env.CONECTAGOV_PRIVATE_KEY
         ? '✅ Configurado'
         : '❌ Não configurado',
-      status:
-        process.env.CONECTAGOV_CLIENT_ID && process.env.CONECTAGOV_CLIENT_SECRET
-          ? 'Pronto para uso'
-          : 'Configure as credenciais no .env',
+      status: conectaGovConfigurado
+        ? 'Pronto para uso'
+        : 'Configure as credenciais no .env',
     },
   });
 });
@@ -116,14 +153,4 @@ app.use(errorMiddleware);
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`📝 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 http://localhost:${PORT}`);
-  console.log(
-    `🔑 ConectaGov: ${
-      process.env.CONECTAGOV_CLIENT_ID
-        ? '✅ Cliente configurado'
-        : '❌ Cliente não configurado'
-    }`
-  );
-});
+        });

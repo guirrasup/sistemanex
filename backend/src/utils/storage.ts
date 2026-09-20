@@ -1,13 +1,4 @@
-// C:\emissornfe\backend\src\utils\storage.ts
-
-/**
- * Armazenamento Local Persistente (Storage Engine) - BACKEND
- * SUP TECNOLOGIA - Emissor Fiscal & Gestão ERP
- * 
- * ⚠️ ESTE ARQUIVO É PARA TESTES/DESENVOLVIMENTO
- * Em produção, use o banco de dados via Prisma
- */
-
+// backend/src/utils/storage.ts
 import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento } from '../types/fiscal';
 import { Produto, ServicoCatalogo, ClienteFornecedor, TituloFinanceiro, ConfiguracaoEmpresa, UsuarioAuth } from '../types/erp';
 

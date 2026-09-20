@@ -10,3 +10,8 @@ coverage/
 .freebuff
 allcode.bat
 estrutura_src.txt
+_tmp_clean.cjs
+dump_para_auditoria.txt
+dump.bat
+reset-senha.mjs
+backend/update-senha.sql

@@ -1,5 +1,4 @@
-// C:\emissornfe\src\services\financeiro.service.ts
-
+// src/services/financeiro.service.ts
 import api from './api';
 import { TituloFinanceiro } from '../types/erp';
 

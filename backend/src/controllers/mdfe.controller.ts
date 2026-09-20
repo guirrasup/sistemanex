@@ -1,5 +1,4 @@
-// src/controllers/mdfe.controller.ts
-
+// backend/src/controllers/mdfe.controller.ts
 import { Request, Response } from 'express';
 import { MdfeService } from '../services/mdfe.service';
 import { StatusMDFe } from '@prisma/client';
@@ -20,10 +19,6 @@ export class MdfeController {
     this.mdfeService = new MdfeService();
   }
 
-  /**
-   * 📋 LISTAR MDF-e
-   * GET /api/mdfe
-   */
   async listar(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -70,10 +65,6 @@ export class MdfeController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR MDF-e POR ID
-   * GET /api/mdfe/:id
-   */
   async buscarPorId(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -86,7 +77,7 @@ export class MdfeController {
         });
       }
 
-      const mdfe = await this.mdfeService.buscarPorId(id);
+      const mdfe = await this.mdfeService.buscarPorId(id, empresaId);
 
       if (!mdfe) {
         return res.status(404).json({
@@ -116,10 +107,6 @@ export class MdfeController {
     }
   }
 
-  /**
-   * 🔍 BUSCAR MDF-e POR CHAVE
-   * GET /api/mdfe/chave/:chave
-   */
   async buscarPorChave(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -139,7 +126,7 @@ export class MdfeController {
         });
       }
 
-      const mdfe = await this.mdfeService.buscarPorChave(chave);
+      const mdfe = await this.mdfeService.buscarPorChave(chave, empresaId);
 
       if (!mdfe) {
         return res.status(404).json({
@@ -169,10 +156,6 @@ export class MdfeController {
     }
   }
 
-  /**
-   * 📝 EMITIR MDF-e
-   * POST /api/mdfe/emitir
-   */
   async emitir(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -220,10 +203,6 @@ export class MdfeController {
     }
   }
 
-  /**
-   * ❌ CANCELAR MDF-e
-   * POST /api/mdfe/cancelar/:id
-   */
   async cancelar(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -275,10 +254,6 @@ export class MdfeController {
     }
   }
 
-  /**
-   * 🚩 ENCERRAR MDF-e
-   * POST /api/mdfe/encerrar/:id
-   */
   async encerrar(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -328,10 +303,6 @@ export class MdfeController {
     }
   }
 
-  /**
-   * 📊 ESTATÍSTICAS DE MDF-e
-   * GET /api/mdfe/estatisticas
-   */
   async getEstatisticas(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -358,10 +329,6 @@ export class MdfeController {
     }
   }
 
-  /**
-   * 💰 TOTAL DE CARGA TRANSPORTADA
-   * GET /api/mdfe/total-carga
-   */
   async getTotalCarga(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -391,10 +358,6 @@ export class MdfeController {
     }
   }
 
-  /**
-   * 📄 BAIXAR XML DO MDF-e
-   * GET /api/mdfe/xml/:id
-   */
   async baixarXml(req: RequestComUsuario, res: Response) {
     try {
       const empresaId = req.user?.empresaId;
@@ -407,7 +370,7 @@ export class MdfeController {
         });
       }
 
-      const mdfe = await this.mdfeService.buscarPorId(id);
+      const mdfe = await this.mdfeService.buscarPorId(id, empresaId);
 
       if (!mdfe) {
         return res.status(404).json({

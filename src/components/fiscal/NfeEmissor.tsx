@@ -1,5 +1,4 @@
-// C:\emissornfe\src\components\fiscal\NfeEmissor.tsx
-
+// src/components/fiscal/NfeEmissor.tsx
 import React, { useState } from 'react';
 import { 
   Receipt, Plus, Trash2, Send, CheckCircle2, AlertTriangle, 
@@ -518,7 +517,6 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
       
-      {/* HEADER */}
       <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -540,7 +538,6 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         </div>
       </div>
 
-      {/* SUCESSO / ERRO */}
       {nfeEmitidaSucesso && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -578,9 +575,6 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         </div>
       )}
 
-      {/* ============================================================
-          BLOCO 1: DESTINATÁRIO
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <div className="flex items-center gap-2">
@@ -666,9 +660,6 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 2: DADOS GERAIS
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <FileText className="w-4 h-4 text-emerald-600" />
@@ -705,9 +696,6 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 3: ITENS
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <div className="flex items-center gap-2">
@@ -785,9 +773,6 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         )}
       </div>
 
-      {/* ============================================================
-          BLOCO 4: TRANSPORTE
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <Truck className="w-4 h-4 text-slate-500" />
@@ -888,9 +873,6 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 5: PAGAMENTO
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <CreditCard className="w-4 h-4 text-slate-500" />
@@ -938,9 +920,6 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 6: TOTAIS DA NF-e
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
         <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3 mb-4">6. Totais da NF-e</h3>
 
@@ -997,9 +976,6 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 7: AÇÕES (ÚLTIMO)
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <Send className="w-4 h-4 text-emerald-600" />

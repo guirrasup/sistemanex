@@ -1,5 +1,4 @@
-// C:\emissornfe\src\services\api.ts
-
+// src/services/api.ts
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333/api';
@@ -27,9 +26,7 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    console.log('🔑 Token:', token ? `✅ Presente (${token.substring(0, 20)}...)` : '❌ Ausente');
-    console.log('📡 Requisição:', config.method?.toUpperCase(), config.url);
-
+        
     // 2. Rate limiting (agora o token já está no config)
     const now = Date.now();
     if (now - requestWindowStart > 1000) {
@@ -59,8 +56,7 @@ api.interceptors.request.use(
 // 🔥 INTERCEPTOR DE RESPOSTA - SIMPLIFICADO (SEM 401)
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ Resposta:', response.status, response.config.url);
-    return response;
+        return response;
   },
   async (error) => {
     // 🔥 TRATAMENTO PARA 429 (Too Many Requests)
@@ -78,8 +74,7 @@ api.interceptors.response.use(
       config.__retryCount++;
       
       const delay = Math.pow(2, config.__retryCount - 1) * 1000;
-      console.log(`⏳ Aguardando ${delay}ms...`);
-      
+            
       await new Promise(resolve => setTimeout(resolve, delay));
       
       return api.request(config);

@@ -1,5 +1,4 @@
-// C:\emissornfe\src\services\nfe.service.ts
-
+// src/services/nfe.service.ts
 import api from './api';
 import { NFeDocumento, TChNFe, TJust, TProt, TCnpj, TSerie, TNF } from '../types/fiscal';
 
@@ -16,57 +15,37 @@ export interface ListaNfeResponse {
 }
 
 export interface FiltroNFe {
-  /** Número da página */
   page?: number;
-  /** Itens por página */
   limit?: number;
-  /** Status do documento */
   status?: string;
-  /** Data inicial (YYYY-MM-DD) */
   dataInicio?: string;
-  /** Data final (YYYY-MM-DD) */
   dataFim?: string;
-  /** CNPJ/CPF do destinatário */
   destinatarioDocumento?: string;
-  /** Nome do destinatário */
   destinatarioNome?: string;
-  /** Número da NF-e */
   numero?: TNF;
-  /** Série da NF-e */
   serie?: TSerie;
 }
 
 export interface CancelamentoNFeParams {
-  /** TJust: 15-255 caracteres */
   justificativa: TJust;
 }
 
 export interface InutilizacaoNFeParams {
-  /** TCnpj: 14 dígitos */
   cnpj: TCnpj;
-  /** TSerie: 0 ou 1-999 */
   serie: TSerie;
-  /** TNF: número inicial */
   numeroInicial: TNF;
-  /** TNF: número final */
   numeroFinal: TNF;
-  /** TJust: 15-255 caracteres */
   justificativa: TJust;
 }
 
 export interface CartaCorrecaoParams {
-  /** TChNFe: 44 dígitos */
   chaveAcesso: TChNFe;
-  /** TCnpj: 14 dígitos */
   cnpjAutor: TCnpj;
-  /** TJust: 15-255 caracteres */
   textoCorrecao: TJust;
 }
 
 export interface BaixarDocumentoParams {
-  /** ID da NF-e no sistema */
   id: string;
-  /** TChNFe: 44 dígitos (opcional para validação) */
   chaveAcesso?: TChNFe;
 }
 
@@ -74,37 +53,22 @@ export interface BaixarDocumentoParams {
 // VALIDAÇÕES DO PL_006h
 // ============================================================
 
-/**
- * ✅ Valida TChNFe (44 dígitos)
- */
 function validarChaveAcesso(chave: string): boolean {
   return /^[0-9]{44}$/.test(chave);
 }
 
-/**
- * ✅ Valida TJust (15-255 caracteres)
- */
 function validarTJust(texto: string): boolean {
   return texto.length >= 15 && texto.length <= 255;
 }
 
-/**
- * ✅ Valida TCnpj (14 dígitos)
- */
 function validarTCnpj(cnpj: string): boolean {
   return /^[0-9]{14}$/.test(cnpj.replace(/\D/g, ''));
 }
 
-/**
- * ✅ Valida TSerie (0 ou 1-999)
- */
 function validarTSerie(serie: number): boolean {
   return serie === 0 || (serie >= 1 && serie <= 999);
 }
 
-/**
- * ✅ Valida TNF (1-999999999)
- */
 function validarTNF(numero: number): boolean {
   return numero >= 1 && numero <= 999999999;
 }
@@ -114,10 +78,6 @@ function validarTNF(numero: number): boolean {
 // ============================================================
 
 export const nfeService = {
-  /**
-   * 🔥 LISTAR NF-e COM FILTROS
-   * GET /api/nfe
-   */
   async listar(filtros: FiltroNFe = {}): Promise<ListaNfeResponse> {
     const { page = 1, limit = 50, ...outrosFiltros } = filtros;
     
@@ -134,10 +94,6 @@ export const nfeService = {
     return { data: [], total: 0, page, limit, totalPages: 0 };
   },
 
-  /**
-   * 🔥 BUSCAR NF-e POR ID
-   * GET /api/nfe/:id
-   */
   async buscarPorId(id: string): Promise<NFeDocumento> {
     if (!id) {
       throw new Error('ID da NF-e é obrigatório');
@@ -147,12 +103,6 @@ export const nfeService = {
     return response.data.dados || response.data;
   },
 
-  /**
-   * 🔥 BUSCAR NF-e POR CHAVE DE ACESSO
-   * GET /api/nfe/chave/:chave
-   * 
-   * ✅ Valida TChNFe (44 dígitos)
-   */
   async buscarPorChave(chave: string): Promise<NFeDocumento> {
     // ✅ VALIDA TChNFe (44 dígitos)
     if (!validarChaveAcesso(chave)) {
@@ -163,12 +113,6 @@ export const nfeService = {
     return response.data.dados || response.data;
   },
 
-  /**
-   * 🔥 EMITIR NF-e
-   * POST /api/nfe/emitir
-   * 
-   * ✅ Valida dados obrigatórios antes de enviar
-   */
   async emitir(nfe: Partial<NFeDocumento>): Promise<NFeDocumento> {
     // ✅ VALIDA DADOS OBRIGATÓRIOS
     if (!nfe.emitente?.cnpj) {
@@ -198,12 +142,6 @@ export const nfeService = {
     return response.data.dados || response.data;
   },
 
-  /**
-   * 🔥 CANCELAR NF-e
-   * POST /api/nfe/cancelar/:id
-   * 
-   * ✅ Valida TJust (15-255 caracteres)
-   */
   async cancelar(id: string, justificativa: string): Promise<void> {
     // ✅ VALIDA TJust (15-255 caracteres)
     if (!validarTJust(justificativa)) {
@@ -213,12 +151,6 @@ export const nfeService = {
     await api.post(`/nfe/cancelar/${id}`, { justificativa });
   },
 
-  /**
-   * 🔥 INUTILIZAR NUMERAÇÃO
-   * POST /api/nfe/inutilizar
-   * 
-   * ✅ Valida TCnpj, TSerie, TNF, TJust
-   */
   async inutilizar(params: InutilizacaoNFeParams): Promise<void> {
     // ✅ VALIDA TCnpj (14 dígitos)
     if (!validarTCnpj(params.cnpj)) {
@@ -251,10 +183,6 @@ export const nfeService = {
     await api.post('/nfe/inutilizar', params);
   },
 
-  /**
-   * 🔥 GERAR DANFE (Documento Auxiliar)
-   * GET /api/nfe/danfe/:id
-   */
   async gerarDanfe(id: string): Promise<Blob> {
     if (!id) {
       throw new Error('ID da NF-e é obrigatório');
@@ -266,12 +194,6 @@ export const nfeService = {
     return response.data;
   },
 
-  /**
-   * 🔥 BAIXAR XML DA NF-e
-   * GET /api/nfe/xml/:id
-   * 
-   * ✅ Validação opcional da chave
-   */
   async baixarXml(params: BaixarDocumentoParams): Promise<Blob> {
     const { id, chaveAcesso } = params;
     
@@ -291,12 +213,6 @@ export const nfeService = {
     return response.data;
   },
 
-  /**
-   * 🔥 ENVIAR CARTA DE CORREÇÃO (CC-e)
-   * POST /api/nfe/carta-correcao
-   * 
-   * ✅ Valida TChNFe, TCnpj, TJust
-   */
   async enviarCartaCorrecao(params: CartaCorrecaoParams): Promise<void> {
     // ✅ VALIDA TChNFe (44 dígitos)
     if (!validarChaveAcesso(params.chaveAcesso)) {
@@ -316,10 +232,6 @@ export const nfeService = {
     await api.post('/nfe/carta-correcao', params);
   },
 
-  /**
-   * 🔥 CONSULTAR SITUAÇÃO DA NF-e NA SEFAZ
-   * GET /api/nfe/consultar/:chave
-   */
   async consultarSituacao(chave: string): Promise<{
     status: string;
     protocolo?: string;
@@ -334,10 +246,6 @@ export const nfeService = {
     return response.data.dados || response.data;
   },
 
-  /**
-   * 🔥 ENVIAR LOTE DE NF-e
-   * POST /api/nfe/lote
-   */
   async enviarLote(nfes: Partial<NFeDocumento>[]): Promise<{
     idLote: string;
     status: string;

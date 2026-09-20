@@ -1,5 +1,4 @@
-// src/types/cte.types.ts
-
+// backend/src/types/cte.types.ts
 export enum StatusCTe {
   RASCUNHO = 'RASCUNHO',
   VALIDADA = 'VALIDADA',

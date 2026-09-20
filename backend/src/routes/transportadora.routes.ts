@@ -1,6 +1,4 @@
-// C:\emissornfe\backend\src\routes\transportadora.routes.ts
-
-
+// backend/src/routes/transportadora.routes.ts
 import { Router } from 'express';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { TransportadoraController } from '../controllers/transportadora.controller';

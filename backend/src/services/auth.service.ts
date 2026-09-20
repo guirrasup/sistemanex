@@ -1,9 +1,16 @@
-// src/services/auth.service.ts
+// backend/src/services/auth.service.ts
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { UsuarioRepository } from '../repositories/usuario.repository';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+// Segurança (P1): fail-fast — a API nunca deve subir com segredo conhecido/padrão.
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  throw new Error(
+    'JWT_SECRET ausente ou fraca. Defina JWT_SECRET (>= 32 caracteres) no ambiente antes de iniciar a API.'
+  );
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 const RESET_TOKEN_EXPIRES = '1h'; // tempo do token de redefinição
 
 export class AuthService {
@@ -93,9 +100,6 @@ export class AuthService {
     return usuarioSemSenha;
   }
 
-  /**
-   * Altera a senha do usuário logado
-   */
   async alterarSenha(userId: string, senhaAtual: string, novaSenha: string) {
     const usuario = await this.usuarioRepo.findById(userId);
     if (!usuario) {
@@ -119,10 +123,6 @@ export class AuthService {
     await this.usuarioRepo.updateSenha(userId, novaSenhaHash);
   }
 
-  /**
-   * Solicita recuperação de senha (gera token e "envia" e-mail)
-   * Em produção: integrar com serviço real de e-mail (Resend, SendGrid, SES, etc.)
-   */
   async solicitarRecuperacaoSenha(email: string) {
     const usuario = await this.usuarioRepo.findByEmail(email.toLowerCase().trim());
 
@@ -149,20 +149,11 @@ export class AuthService {
     // TODO: Enviar e-mail real
     // Exemplo de link que o frontend deve consumir:
     // `${process.env.FRONTEND_URL}/redefinir-senha?token=${resetToken}`
-    console.log('========================================');
-    console.log('📧 RECUPERAÇÃO DE SENHA');
-    console.log(`Para: ${usuario.email}`);
-    console.log(`Token: ${resetToken}`);
-    console.log(`Expira em: ${RESET_TOKEN_EXPIRES}`);
-    console.log('========================================');
-
+                        
     // Em produção você faria algo como:
     // await emailService.enviarRecuperacaoSenha(usuario.email, resetToken);
   }
 
-  /**
-   * Redefine a senha usando o token recebido por e-mail
-   */
   async redefinirSenha(token: string, novaSenha: string) {
     if (novaSenha.length < 6) {
       throw new Error('Nova senha deve ter pelo menos 6 caracteres');

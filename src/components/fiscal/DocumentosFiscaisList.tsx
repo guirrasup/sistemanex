@@ -1,5 +1,4 @@
-// C:\emissornfe\src\components\fiscal\DocumentosFiscaisList.tsx
-
+// src/components/fiscal/DocumentosFiscaisList.tsx
 import React, { useState, useMemo } from 'react';
 import { 
   FileText, 
@@ -517,7 +516,6 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                 </button>
               ))}
 
-              {/* 🔥 OPÇÃO PERSONALIZADO - NÃO FECHA O MENU */}
               <button
                 onClick={() => {
                   setPeriodoFiltro('PERSONALIZADO');
@@ -532,7 +530,6 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                 {periodosLabels.PERSONALIZADO}
               </button>
 
-              {/* 🔥 INPUTS DE DATA - SEMPRE VISÍVEIS QUANDO PERSONALIZADO ESTÁ SELECIONADO */}
               {periodoFiltro === 'PERSONALIZADO' && (
                 <div className="mt-2 pt-2 border-t border-slate-200 space-y-2 px-1">
                   <div>
@@ -586,7 +583,6 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       
-      {/* 🔥 HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -609,7 +605,6 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
         </div>
       </div>
 
-      {/* 2. Cards de Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
@@ -678,7 +673,6 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
         </div>
       </div>
 
-      {/* 3. Barra de Controles com SELETOR DE PERÍODO */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative flex-1">
@@ -693,10 +687,8 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* 🔥 SELETOR DE PERÍODO */}
             {renderPeriodoSelector()}
 
-            {/* Filtros de tipo */}
             <div className="flex flex-wrap items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 text-xs">
               {renderFiltroBotao('TODOS', 'Todos', todosDocs.length)}
               {renderFiltroBotao('NFE', 'NF-e', todosDocs.filter(d => d.tipo === 'NFE').length)}
@@ -706,7 +698,6 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
               {renderFiltroBotao('NFAE', 'NFA-e', todosDocs.filter(d => d.tipo === 'NFAE').length)}
             </div>
 
-            {/* Botão Emitir Nova Nota */}
             <div className="relative flex items-center gap-2">
               <div className="relative inline-block text-left">
                 <div className="flex rounded-lg shadow-sm">
@@ -797,7 +788,6 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           </div>
         </div>
 
-        {/* 🔥 INDICADOR DO PERÍODO SELECIONADO */}
         {periodoFiltro !== 'TODOS' && (
           <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
             <Calendar className="w-3.5 h-3.5 text-indigo-500" />
@@ -821,7 +811,6 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
         )}
       </div>
 
-      {/* 4. Tabela Grid de Documentos Fiscais com ORDENAÇÃO */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
@@ -924,7 +913,6 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
         </div>
       </div>
 
-      {/* 🔥 RODAPÉ COM INFORMAÇÕES DO PERÍODO */}
       <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
         <span>Total de documentos: <strong>{todosDocs.length}</strong></span>
         <span>Faturamento total: <strong>{formatarMoeda(totalFaturado)}</strong></span>

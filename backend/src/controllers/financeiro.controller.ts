@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\controllers\financeiro.controller.ts
-
+// backend/src/controllers/financeiro.controller.ts
 import { Request, Response } from 'express';
 import { FinanceiroService } from '../services/financeiro.service';
 

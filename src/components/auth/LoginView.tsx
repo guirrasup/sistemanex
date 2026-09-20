@@ -1,6 +1,4 @@
-// C:\emissornfe\src\components\auth\LoginView.tsx
-// ✅ VERSÃO CORRIGIDA - TEXTO DESLOCADO 9cm PARA A DIREITA + SEM BOTÕES
-
+// src/components/auth/LoginView.tsx
 import React, { useState, useEffect } from 'react';
 import { 
   Lock, 
@@ -110,9 +108,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
   return (
     <div className="min-h-screen w-full flex bg-slate-900">
       
-      {/* ============================================================
-          LADO ESQUERDO - TEXTO E FEATURES (DESLOCADO ~9cm PARA DIREITA)
-          ============================================================ */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-start pl-96 pr-8 text-white">
         
         <div className="flex items-center gap-3 mb-10">
@@ -173,12 +168,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
         </div>
       </div>
 
-      {/* ============================================================
-          LADO DIREITO - IMAGEM + FORMULÁRIO GLASS
-          ============================================================ */}
       <div className="w-full lg:w-1/2 relative flex items-center justify-center p-4 sm:p-6 lg:p-8 min-h-screen">
         
-        {/* Imagem de fundo do lado direito */}
         <div 
           className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat"
           style={{ 
@@ -188,7 +179,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
         />
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900/60 via-slate-900/40 to-blue-900/30" />
 
-        {/* Formulário */}
         <div className="relative z-10 w-full max-w-md">
           
           <div className="lg:hidden text-center mb-6">
@@ -311,7 +301,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
               </button>
             </form>
 
-            {/* Divisor e botões removidos */}
 
             <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-white/30">
               <div className="flex items-center gap-1.5">

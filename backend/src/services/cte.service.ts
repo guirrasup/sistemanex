@@ -1,5 +1,4 @@
-// src/services/cte.service.ts
-
+// backend/src/services/cte.service.ts
 import { CteRepository, FiltroCte } from '../repositories/cte.repository';
 import { StatusDocumento } from '@prisma/client';
 import { gerarChaveAcessoNFe, calcularDVMod11NFe } from '../utils/chaveAcesso';
@@ -11,9 +10,6 @@ export class CteService {
     this.cteRepo = new CteRepository();
   }
 
-  /**
-   * 📋 LISTAR CT-e COM FILTROS
-   */
   async listarCtes(
     empresaId: string,
     page: number = 1,
@@ -23,30 +19,22 @@ export class CteService {
     return this.cteRepo.findAll(empresaId, page, limit, filtros);
   }
 
-  /**
-   * 🔍 BUSCAR CT-e POR ID
-   */
-  async buscarPorId(id: string) {
-    return this.cteRepo.findById(id);
+  async buscarPorId(id: string, empresaId?: string) {
+    const cte = await this.cteRepo.findById(id);
+    if (empresaId && cte && cte.empresaId !== empresaId) return null;
+    return cte;
   }
 
-  /**
-   * 🔍 BUSCAR CT-e POR CHAVE DE ACESSO
-   */
-  async buscarPorChave(chave: string) {
-    return this.cteRepo.findByChave(chave);
+  async buscarPorChave(chave: string, empresaId?: string) {
+    const cte = await this.cteRepo.findByChave(chave);
+    if (empresaId && cte && cte.empresaId !== empresaId) return null;
+    return cte;
   }
 
-  /**
-   * 🔍 BUSCAR CT-e POR PROTOCOLO
-   */
   async buscarPorProtocolo(protocolo: string) {
     return this.cteRepo.findByProtocolo(protocolo);
   }
 
-  /**
-   * 📝 EMITIR CT-e
-   */
   async emitirCte(data: any) {
     // 1. Gerar chave de acesso
     const cUF = data.cUF || data.cMunIni?.slice(0, 2) || '35';
@@ -211,9 +199,6 @@ export class CteService {
     return cte;
   }
 
-  /**
-   * ❌ CANCELAR CT-e
-   */
   async cancelarCte(id: string, motivo: string, empresaId: string) {
     const cte = await this.cteRepo.findById(id);
 
@@ -236,9 +221,6 @@ export class CteService {
     return this.cteRepo.updateStatus(id, 'CANCELADA', motivo);
   }
 
-  /**
-   * 📄 BAIXAR XML DO CT-e
-   */
   async baixarXml(id: string, empresaId: string) {
     const cte = await this.cteRepo.findById(id);
 
@@ -253,9 +235,6 @@ export class CteService {
     return cte.xmlAssinado;
   }
 
-  /**
-   * 📄 GERAR DACTE
-   */
   async gerarDacte(id: string, empresaId: string) {
     const cte = await this.cteRepo.findById(id);
 
@@ -324,72 +303,42 @@ export class CteService {
     };
   }
 
-  /**
-   * 📊 ESTATÍSTICAS
-   */
   async getEstatisticas(empresaId: string) {
     return this.cteRepo.getEstatisticas(empresaId);
   }
 
-  /**
-   * 💰 TOTAL DE FRETE POR PERÍODO
-   */
   async getTotalFrete(empresaId: string, dataInicio?: Date, dataFim?: Date) {
     return this.cteRepo.getTotalFrete(empresaId, dataInicio, dataFim);
   }
 
-  /**
-   * 📊 RESUMO MENSAL
-   */
   async getResumoMensal(empresaId: string, ano: number, mes: number) {
     return this.cteRepo.getResumoMensal(empresaId, ano, mes);
   }
 
-  /**
-   * 📊 CT-e POR CLIENTE
-   */
   async findByCliente(clienteId: string, tipo: string, dataInicio?: Date, dataFim?: Date) {
     return this.cteRepo.findByCliente(clienteId, tipo, dataInicio, dataFim);
   }
 
-  /**
-   * 📊 CT-e POR TRANSPORTADORA
-   */
   async findByTransportadora(transportadoraId: string, dataInicio?: Date, dataFim?: Date) {
     return this.cteRepo.findByTransportadora(transportadoraId, dataInicio, dataFim);
   }
 
-  /**
-   * 📊 CT-e POR MODAL
-   */
   async findByModal(modal: string, dataInicio?: Date, dataFim?: Date) {
     return this.cteRepo.findByModal(modal, dataInicio, dataFim);
   }
 
-  /**
-   * 📊 CT-e POR STATUS
-   */
   async findByStatus(status: StatusDocumento, dataInicio?: Date, dataFim?: Date) {
     return this.cteRepo.findByStatus(status, dataInicio, dataFim);
   }
 
-  /**
-   * 🔄 BUSCAR CT-e SUBSTITUÍDO
-   */
   async buscarCteSubstituido(chave: string) {
     return this.cteRepo.buscarCteSubstituido(chave);
   }
 
-  /**
-   * 🔄 BUSCAR CT-e COMPLEMENTADO
-   */
   async buscarCteComplementado(chave: string) {
     return this.cteRepo.buscarCteComplementado(chave);
   }
 
-  /**
-   * 🔢 CALCULAR TOTAL DO FRETE
-   */
   private calcularTotalFrete(data: any): number {
     let total = 0;
 
@@ -404,9 +353,6 @@ export class CteService {
     return total || 0;
   }
 
-  /**
-   * 🔧 GERAR XML MOCK (para desenvolvimento)
-   */
   private gerarXmlMock(chave: string, numero: number, data: any): string {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <cteProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/cte">

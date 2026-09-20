@@ -1,11 +1,4 @@
-// C:\emissornfe\backend\src\utils\xmlNfseGenerator.ts
-
-/**
- * Gerador de XML Oficial NFS-e Padrão Nacional v1.01 (com Reforma Tributária IBS/CBS 2026)
- * Em total conformidade com o Manual de Integração da Receita Federal / SEFIN / ABRASF
- * SUP TECNOLOGIA - BACKEND
- */
-
+// backend/src/utils/xmlNfseGenerator.ts
 import { NFSeDocumento } from '../types/fiscal.js';
 import { limparDocumento } from './cpfCnpjValidator.js';
 
@@ -24,9 +17,6 @@ function escapeXml(str: string | undefined | null): string {
     .replace(/'/g, '&apos;');
 }
 
-/**
- * Gera o XML completo da Nota Fiscal de Serviços Eletrônica Padrão Nacional
- */
 export function gerarXmlNfseNacional(nfse: NFSeDocumento): string {
   const cnpjEmit = limparDocumento(nfse.emitente.cnpj);
   const docToma = limparDocumento(nfse.tomador.documento);
@@ -262,9 +252,6 @@ export function gerarXmlNfseNacional(nfse: NFSeDocumento): string {
   return xml.trim();
 }
 
-/**
- * Gera mensagem SOAP de Envio de Lote Síncrono de DPS (Manual pág. 68)
- */
 export function gerarSoapEnviarLoteDpsSincrono(nfse: NFSeDocumento): string {
   const xmlNfse = gerarXmlNfseNacional(nfse);
   return `<?xml version="1.0" encoding="utf-8"?>
@@ -292,9 +279,6 @@ export function gerarSoapEnviarLoteDpsSincrono(nfse: NFSeDocumento): string {
 </soap:Envelope>`;
 }
 
-/**
- * Gera XML do Evento de Cancelamento de NFS-e (Evento e101101)
- */
 export function gerarXmlCancelamentoNfse(params: {
   chaveNFSe: string;
   cnpjAutor: string;

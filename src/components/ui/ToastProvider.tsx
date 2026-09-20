@@ -81,19 +81,16 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
                   animate-in slide-in-from-top-full duration-300
                   flex items-start gap-3 p-4 min-w-[300px] max-w-[420px]
                 `}>
-                  {/* Ícone */}
                   <div className="flex-shrink-0 mt-0.5">
                     {style.icon}
                   </div>
 
-                  {/* Mensagem */}
                   <div className="flex-1 min-w-0">
                     <div className={`text-sm font-medium ${style.text}`}>
                       {message}
                     </div>
                   </div>
 
-                  {/* Botão Fechar */}
                   <button
                     onClick={() => toast.dismiss(t.id)}
                     className="flex-shrink-0 -mt-1 -mr-1 p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -101,7 +98,6 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
                     <X className="w-4 h-4" />
                   </button>
 
-                  {/* Barra de progresso */}
                   <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-200/50">
                     <div 
                       className={`h-full ${style.progress} transition-all duration-[5000ms] ease-linear`}

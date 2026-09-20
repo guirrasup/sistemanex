@@ -1,5 +1,4 @@
-// C:\emissornfe\src\components\config\ConfiguracoesEmpresaView.tsx
-
+// src/components/config/ConfiguracoesEmpresaView.tsx
 import React, { useState, useRef } from 'react';
 import { 
   Building2, 
@@ -306,7 +305,6 @@ const handleCarregarCertificadoEPreencher = async () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       
-      {/* 🔥 HEADER - COR ARDÓSIA */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -331,7 +329,6 @@ const handleCarregarCertificadoEPreencher = async () => {
         </div>
       </div>
 
-      {/* BLOCO DESTAQUE: Carregar Certificado A1 */}
       <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-5 sm:p-6 text-white shadow-md border border-slate-700/80 relative overflow-hidden">
         
         <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-slate-500/10 rounded-full blur-2xl pointer-events-none"></div>
@@ -486,7 +483,6 @@ const handleCarregarCertificadoEPreencher = async () => {
 
       <form onSubmit={handleSalvar} className="space-y-6">
         
-        {/* Bloco 1: Certificado Digital Ativo */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
@@ -593,7 +589,6 @@ const handleCarregarCertificadoEPreencher = async () => {
           )}
         </div>
 
-        {/* Bloco 2: Dados Cadastrais com Consulta CNPJ */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
             <Building2 className="w-5 h-5 text-slate-600" />
@@ -761,7 +756,6 @@ const handleCarregarCertificadoEPreencher = async () => {
           </div>
         </div>
 
-        {/* Bloco 3: Endereço */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
             <MapPin className="w-5 h-5 text-slate-600" />
@@ -898,7 +892,6 @@ const handleCarregarCertificadoEPreencher = async () => {
           </div>
         </div>
 
-        {/* Bloco 4: Séries e Numeração */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
             <Settings className="w-5 h-5 text-slate-600" />
@@ -975,7 +968,6 @@ const handleCarregarCertificadoEPreencher = async () => {
           </div>
         </div>
 
-        {/* Botões */}
         <div className="flex items-center justify-end gap-3 pt-2">
           <button
             type="button"

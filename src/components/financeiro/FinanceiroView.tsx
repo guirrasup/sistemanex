@@ -1,6 +1,4 @@
-// C:\emissornfe\src\components\financeiro\FinanceiroView.tsx
-// ✅ VERSÃO COMPLETA - COM TOASTS E CONFIRMAÇÃO
-
+// src/components/financeiro/FinanceiroView.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import { 
@@ -118,8 +116,7 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
     setConfirmModal(prev => ({ ...prev, loading: true }));
 
     try {
-      console.log(`💰 Liquidando título: ${id} - ${titulo}`);
-      
+            
       await financeiroService.baixarTitulo(id);
       
       closeConfirmModal();
@@ -183,7 +180,6 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       
-      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -208,7 +204,6 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
         </div>
       </div>
 
-      {/* Cards de Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-sm">
           <div className="flex items-center justify-between">
@@ -244,7 +239,6 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
         </div>
       </div>
 
-      {/* Barra de Controles */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           
@@ -328,7 +322,6 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
         </div>
       </div>
 
-      {/* Tabela */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-600">
@@ -429,7 +422,6 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
         </div>
       </div>
 
-      {/* MODAL DE CONFIRMAÇÃO DE LIQUIDAÇÃO */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         onClose={closeConfirmModal}
@@ -442,7 +434,6 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
         loading={confirmModal.loading}
       />
 
-      {/* Modal PIX */}
       {pixModalTitulo && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-xl space-y-4 text-center">

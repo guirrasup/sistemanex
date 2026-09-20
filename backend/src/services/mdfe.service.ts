@@ -1,5 +1,4 @@
-// src/services/mdfe.service.ts
-
+// backend/src/services/mdfe.service.ts
 import { Prisma, StatusMDFe, ModalMDFe } from '@prisma/client';
 import { MdfeRepository } from '../repositories/mdfe.repository';
 import { MdfeComponentRepository } from '../repositories/mdfe.component.repository';
@@ -21,9 +20,6 @@ export class MdfeService {
     this.empresaRepo = new EmpresaRepository();
   }
 
-  /**
-   * 📋 LISTAR MDF-e COM FILTROS
-   */
   async listarMdfes(
     empresaId: string,
     page: number = 1,
@@ -52,23 +48,18 @@ export class MdfeService {
     });
   }
 
-  /**
-   * 🔍 BUSCAR MDF-e POR ID
-   */
-  async buscarPorId(id: string) {
-    return this.mdfeRepo.findById(id);
+  async buscarPorId(id: string, empresaId?: string) {
+    const mdfe = await this.mdfeRepo.findById(id);
+    if (empresaId && mdfe && mdfe.empresaId !== empresaId) return null;
+    return mdfe;
   }
 
-  /**
-   * 🔍 BUSCAR MDF-e POR CHAVE
-   */
-  async buscarPorChave(chave: string) {
-    return this.mdfeRepo.findByChave(chave);
+  async buscarPorChave(chave: string, empresaId?: string) {
+    const mdfe = await this.mdfeRepo.findByChave(chave);
+    if (empresaId && mdfe && mdfe.empresaId !== empresaId) return null;
+    return mdfe;
   }
 
-  /**
-   * 📝 EMITIR MDF-e
-   */
   async emitirMdfe(data: any) {
     const empresa = await this.empresaRepo.findById(data.empresaId);
     if (!empresa) throw new Error('Empresa não encontrada');
@@ -235,9 +226,6 @@ export class MdfeService {
     return { ...mdfeAtualizado, xml };
   }
 
-  /**
-   * 🧩 CRIA COMPONENTES DO MDF-e
-   */
   private async criarComponentesMDFe(mdfeId: string, data: any) {
     // 1. Municípios de Carregamento
     if (data.municipiosCarrega?.length > 0) {
@@ -416,9 +404,6 @@ export class MdfeService {
     }
   }
 
-  /**
-   * 🧩 CRIA UNIDADES DE TRANSPORTE
-   */
   private async criarUnidadesTransporte(
     parentId: string,
     unidades: any[],
@@ -466,9 +451,6 @@ export class MdfeService {
     }
   }
 
-  /**
-   * 🚩 ENCERRAR MDF-e
-   */
   async encerrarMdfe(id: string, protocolo: string, municipioEncerramento: string, empresaId: string) {
     const mdfe = await this.mdfeRepo.findById(id);
     if (!mdfe) throw new Error('MDF-e não encontrado');
@@ -495,9 +477,6 @@ export class MdfeService {
     return result;
   }
 
-  /**
-   * ❌ CANCELAR MDF-e
-   */
   async cancelarMdfe(id: string, motivo: string, empresaId: string) {
     const mdfe = await this.mdfeRepo.findById(id);
     if (!mdfe) throw new Error('MDF-e não encontrado');
@@ -524,23 +503,14 @@ export class MdfeService {
     return result;
   }
 
-  /**
-   * 📊 ESTATÍSTICAS DE MDF-e
-   */
   async getEstatisticas(empresaId: string) {
     return this.mdfeRepo.getEstatisticas(empresaId);
   }
 
-  /**
-   * 💰 TOTAL DE CARGA TRANSPORTADA
-   */
   async getTotalCarga(empresaId: string, startDate?: Date, endDate?: Date) {
     return this.mdfeRepo.getTotalCarga(empresaId, startDate, endDate);
   }
 
-  /**
-   * 🔢 OBTÉM PRÓXIMO NÚMERO
-   */
   private async getProximoNumero(empresaId: string): Promise<number> {
     const empresa = await this.empresaRepo.findById(empresaId);
     if (!empresa) throw new Error('Empresa não encontrada');

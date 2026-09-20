@@ -1,5 +1,4 @@
-// src/services/nfce.service.ts
-
+// backend/src/services/nfce.service.ts
 import { Prisma, StatusDocumento } from '@prisma/client';
 import { NfceRepository } from '../repositories/nfce.repository';
 import { ClienteRepository } from '../repositories/cliente.repository';
@@ -25,9 +24,6 @@ export class NfceService {
     this.financeiroRepo = new FinanceiroRepository();
   }
 
-  /**
-   * 📋 LISTAR NFC-e COM FILTROS
-   */
   async listarNfces(
     empresaId: string,
     page: number = 1,
@@ -56,30 +52,22 @@ export class NfceService {
     });
   }
 
-  /**
-   * 🔍 BUSCAR NFC-e POR ID
-   */
-  async buscarPorId(id: string) {
-    return this.nfceRepo.findById(id);
+  async buscarPorId(id: string, empresaId?: string) {
+    const nfce = await this.nfceRepo.findById(id);
+    if (empresaId && nfce && nfce.empresaId !== empresaId) return null;
+    return nfce;
   }
 
-  /**
-   * 🔍 BUSCAR NFC-e POR CHAVE
-   */
-  async buscarPorChave(chave: string) {
-    return this.nfceRepo.findByChave(chave);
+  async buscarPorChave(chave: string, empresaId?: string) {
+    const nfce = await this.nfceRepo.findByChave(chave);
+    if (empresaId && nfce && nfce.empresaId !== empresaId) return null;
+    return nfce;
   }
 
-  /**
-   * 🔍 BUSCAR NFC-e POR PROTOCOLO
-   */
   async buscarPorProtocolo(protocolo: string) {
     return this.nfceRepo.findByProtocolo(protocolo);
   }
 
-  /**
-   * 📝 EMITIR NFC-e
-   */
   async emitirNfce(data: any) {
     const empresa = await this.empresaRepo.findById(data.empresaId);
     if (!empresa) throw new Error('Empresa não encontrada');
@@ -264,9 +252,6 @@ export class NfceService {
     };
   }
 
-  /**
-   * 🧩 CRIA ITEM DA NFC-e
-   */
   private async createItem(nfceId: string, item: any) {
     return this.prisma.itemNFCe.create({
       data: {
@@ -295,9 +280,6 @@ export class NfceService {
     });
   }
 
-  /**
-   * 🧩 CRIA PAGAMENTO DA NFC-e
-   */
   private async createPagamento(nfceId: string, pag: any) {
     return this.prisma.pagamentoNFCe.create({
       data: {
@@ -319,18 +301,12 @@ export class NfceService {
     });
   }
 
-  /**
-   * 🔢 OBTÉM PRÓXIMO NÚMERO
-   */
   private async getProximoNumero(empresaId: string): Promise<number> {
     const empresa = await this.empresaRepo.findById(empresaId);
     if (!empresa) throw new Error('Empresa não encontrada');
     return (empresa.proximoNumeroNfce || 1);
   }
 
-  /**
-   * 📝 OBTÉM DESCRIÇÃO DA FORMA DE PAGAMENTO
-   */
   private getDescricaoPagamento(codigo: string): string {
     const descricoes: Record<string, string> = {
       '01': 'Dinheiro',
@@ -350,9 +326,6 @@ export class NfceService {
     return descricoes[codigo] || 'Outros';
   }
 
-  /**
-   * ❌ CANCELAR NFC-e
-   */
   async cancelarNfce(id: string, motivo: string, empresaId: string) {
     const nfce = await this.nfceRepo.findById(id);
 
@@ -389,30 +362,18 @@ export class NfceService {
     return this.nfceRepo.cancelar(id, motivo);
   }
 
-  /**
-   * 📊 ESTATÍSTICAS DE NFC-e
-   */
   async getEstatisticas(empresaId: string) {
     return this.nfceRepo.getEstatisticas(empresaId);
   }
 
-  /**
-   * 💰 TOTAL DE VENDAS POR PERÍODO
-   */
   async getTotalVendas(empresaId: string, startDate?: Date, endDate?: Date) {
     return this.nfceRepo.getTotalVendas(empresaId, startDate, endDate);
   }
 
-  /**
-   * 📊 RESUMO MENSAL
-   */
   async getResumoMensal(empresaId: string, ano: number, mes: number) {
     return this.nfceRepo.getResumoMensal(empresaId, ano, mes);
   }
 
-  /**
-   * 📄 BAIXAR XML DA NFC-e
-   */
   async baixarXml(id: string, empresaId: string) {
     const nfce = await this.nfceRepo.findById(id);
 
@@ -431,9 +392,6 @@ export class NfceService {
     return nfce.xmlAssinado;
   }
 
-  /**
-   * 📄 GERAR DANFE NFC-e (Cupom)
-   */
   async gerarDanfce(id: string, empresaId: string) {
     const nfce = await this.nfceRepo.findById(id);
 
@@ -456,9 +414,6 @@ export class NfceService {
     };
   }
 
-  /**
-   * 📊 PRODUTOS MAIS VENDIDOS
-   */
   async getProdutosMaisVendidos(empresaId: string, startDate?: Date, endDate?: Date, limit: number = 10) {
     return this.nfceRepo.getProdutosMaisVendidos(empresaId, startDate, endDate, limit);
   }

@@ -1,6 +1,4 @@
 // src/components/cadastros/TransportadorasView.tsx
-// ✅ VERSÃO COMPLETA CORRIGIDA
-
 import React, { useState, useMemo } from 'react';
 import { 
   Truck, 
@@ -316,12 +314,10 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
     setConfirmModal(prev => ({ ...prev, loading: true }));
 
     try {
-      console.log(`🗑️ Excluindo transportadora: ${id} - ${razaoSocial}`);
-      
+            
       const resultado = await transportadoraService.excluir(id);
       
-      console.log('📥 Resultado da exclusão:', resultado);
-      
+            
       if (resultado.sucesso === true) {
         closeConfirmModal();
         await onTransportadorasChange();

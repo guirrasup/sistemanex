@@ -1,12 +1,8 @@
-// C:\emissornfe\backend\src\repositories\usuario.repository.ts
-
+// backend/src/repositories/usuario.repository.ts
 import { Prisma } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 
 export class UsuarioRepository extends BaseRepository {
-  /**
-   * Busca usuário por ID
-   */
   async findById(id: string) {
     return this.prisma.usuario.findUnique({
       where: { id },
@@ -21,9 +17,6 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Busca usuário por email
-   */
   async findByEmail(email: string) {
     return this.prisma.usuario.findUnique({
       where: { email },
@@ -38,9 +31,6 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Busca usuário por email com dados da empresa (para login)
-   */
   async findByEmailComEmpresa(email: string) {
     return this.prisma.usuario.findUnique({
       where: { email },
@@ -55,9 +45,6 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Lista todos os usuários de uma empresa
-   */
   async findAllByEmpresa(empresaId: string, page: number = 1, limit: number = 50) {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
@@ -84,9 +71,6 @@ export class UsuarioRepository extends BaseRepository {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  /**
-   * Lista todos os usuários ativos de uma empresa
-   */
   async findAtivosByEmpresa(empresaId: string) {
     return this.prisma.usuario.findMany({
       where: {
@@ -104,9 +88,6 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Cria um novo usuário
-   */
   async create(data: Prisma.UsuarioCreateInput) {
     return this.prisma.usuario.create({
       data,
@@ -121,9 +102,6 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Atualiza um usuário
-   */
   async update(id: string, data: Prisma.UsuarioUpdateInput) {
     return this.prisma.usuario.update({
       where: { id },
@@ -139,9 +117,6 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Atualiza o último login do usuário
-   */
   async updateUltimoLogin(id: string) {
     return this.prisma.usuario.update({
       where: { id },
@@ -149,9 +124,6 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Atualiza a senha do usuário
-   */
   async updateSenha(id: string, novaSenhaHash: string) {
     return this.prisma.usuario.update({
       where: { id },
@@ -159,9 +131,6 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Ativa/Desativa um usuário
-   */
   async toggleAtivo(id: string, ativo: boolean) {
     return this.prisma.usuario.update({
       where: { id },
@@ -169,9 +138,6 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Verifica se um email já está cadastrado (exceto o próprio usuário)
-   */
   async emailExists(email: string, excludeId?: string) {
     const where: any = { email };
     if (excludeId) {
@@ -181,9 +147,6 @@ export class UsuarioRepository extends BaseRepository {
     return count > 0;
   }
 
-  /**
-   * Busca usuários por nome ou email (pesquisa)
-   */
   async search(empresaId: string, term: string) {
     return this.prisma.usuario.findMany({
       where: {
@@ -206,9 +169,6 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Deleta um usuário (apenas se não for o único admin)
-   */
   async delete(id: string, empresaId: string) {
     // Verifica se é o último admin da empresa
     const admins = await this.prisma.usuario.count({
@@ -233,9 +193,6 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  /**
-   * Conta usuários por perfil em uma empresa
-   */
   async countByPerfil(empresaId: string) {
     const result = await this.prisma.usuario.groupBy({
       by: ['perfil'],

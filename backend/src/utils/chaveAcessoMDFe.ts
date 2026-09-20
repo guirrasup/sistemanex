@@ -1,16 +1,6 @@
-// src/utils/chaveAcessoMDFe.ts
-
-/**
- * Gerador de Chave de Acesso para MDF-e (44 dígitos)
- * Conforme Schema XSD MDF-e 3.00
- * SUP TECNOLOGIA - BACKEND
- */
-
+// backend/src/utils/chaveAcessoMDFe.ts
 import { limparDocumento } from './cpfCnpjValidator';
 
-/**
- * Calcula Dígito Verificador Módulo 11 (Pesos de 2 a 9)
- */
 export function calcularDVMod11MDFe(chave43: string): number {
   let soma = 0;
   let peso = 2;
@@ -25,14 +15,6 @@ export function calcularDVMod11MDFe(chave43: string): number {
   return dv;
 }
 
-/**
- * Gera Chave de Acesso Oficial de MDF-e (44 dígitos)
- * 
- * Formato: UF + AAMM + CNPJ + MOD + SERIE + NNF + TP_EMIS + CMDF + DV
- * 
- * @param params - Parâmetros para geração
- * @returns Objeto com chave completa, cMDF e DV
- */
 export function gerarChaveAcessoMDFe(params: {
   cUF: string;
   aamm: string;
@@ -61,17 +43,11 @@ export function gerarChaveAcessoMDFe(params: {
   return { chaveCompleta, cMDF, cDV };
 }
 
-/**
- * Formata Chave de Acesso em grupos de 4 dígitos para leitura
- */
 export function formatarChaveAcessoMDFe(chave: string): string {
   const limpa = chave.replace(/\D/g, '');
   return limpa.replace(/(\d{4})/g, '$1 ').trim();
 }
 
-/**
- * Valida Chave de Acesso do MDF-e (44 dígitos)
- */
 export function validarChaveAcessoMDFe(chave: string): boolean {
   if (!/^[0-9]{44}$/.test(chave)) return false;
   

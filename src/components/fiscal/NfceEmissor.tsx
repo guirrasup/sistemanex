@@ -1,6 +1,4 @@
 // src/components/fiscal/NfceEmissor.tsx
-// ✅ VERSÃO COMPLETA - FORMATO VERTICAL (MESMO PADRÃO DO MDF-e)
-
 import React, { useState } from 'react';
 import {
   ShoppingBag,
@@ -521,7 +519,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       
-      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -544,7 +541,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         </div>
       </div>
 
-      {/* SUCESSO */}
       {sucessoNfce && (
         <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -605,7 +601,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         </div>
       )}
 
-      {/* ERROS */}
       {erros.length > 0 && (
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 space-y-1">
           <div className="font-bold flex items-center gap-1.5 text-rose-900">
@@ -620,9 +615,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         </div>
       )}
 
-      {/* ============================================================
-          BLOCO 1: CONSUMIDOR
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <div className="flex items-center gap-2">
@@ -793,9 +785,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         )}
       </div>
 
-      {/* ============================================================
-          BLOCO 2: IDENTIFICAÇÃO DA NFC-e
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <FileText className={`w-4 h-4 ${corText}`} />
@@ -916,9 +905,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 3: ITENS
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3 mb-4">
           <div className="flex items-center gap-2">
@@ -947,7 +933,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           </div>
         </div>
 
-        {/* Resultados da busca */}
         {buscaProduto.trim() && (
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 max-h-48 overflow-y-auto space-y-1 mb-3">
             {produtosFiltrados.length === 0 ? (
@@ -1035,7 +1020,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           </div>
         )}
 
-        {/* Resumo dos itens */}
         {itens.length > 0 && (
           <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-xs mt-3">
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
@@ -1068,9 +1052,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         )}
       </div>
 
-      {/* ============================================================
-          BLOCO 4: PAGAMENTO
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <CreditCard className={`w-4 h-4 ${corText}`} />
@@ -1123,7 +1104,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           </div>
         </div>
 
-        {/* Detalhes do Cartão */}
         {['03', '04'].includes(formaPagamento) && (
           <div className={`${corBg} border ${corBorder} rounded-lg p-4 space-y-3 mt-3`}>
             <div className="text-xs font-medium text-slate-700">Detalhes do Cartão</div>
@@ -1168,7 +1148,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           </div>
         )}
 
-        {/* PIX */}
         {formaPagamento === '17' && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mt-3">
             <div className="flex items-center gap-2 text-xs font-medium text-emerald-800">
@@ -1179,7 +1158,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           </div>
         )}
 
-        {/* Dinheiro - Troco */}
         {formaPagamento === '01' && (
           <div className={`${corBg} border ${corBorder} rounded-lg p-4 space-y-3 mt-3`}>
             <div className="text-xs font-medium text-slate-700">Pagamento em Dinheiro</div>
@@ -1206,7 +1184,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           </div>
         )}
 
-        {/* Desconto e Acréscimo */}
         <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-200 text-xs">
           <div>
             <label className="block font-medium text-slate-600 mb-1">Desconto (R$)</label>
@@ -1234,7 +1211,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           </div>
         </div>
 
-        {/* Totais do Pagamento */}
         <div className={`mt-3 p-3 ${corBg} rounded-lg border ${corBorder} text-xs`}>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
             <div>
@@ -1261,9 +1237,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 5: INFORMAÇÕES ADICIONAIS
-      ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
           <Info className={`w-4 h-4 ${corText}`} />
@@ -1298,7 +1271,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         </div>
       </div>
 
-      {/* BOTÃO TRANSMITIR */}
       <button
         type="button"
         onClick={handleTransmitirNfce}

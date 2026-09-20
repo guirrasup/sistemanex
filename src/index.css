@@ -1,8 +1,6 @@
-/* C:\emissornfe\src\index.css */
-
+/* src/index.css */
 @import "tailwindcss";
 
-/* 🔥 ANIMAÇÃO PERSONALIZADA PARA O LOADING */
 @keyframes spin-slow {
   from {
     transform: rotate(0deg);
@@ -16,7 +14,6 @@
   animation: spin-slow 3s linear infinite;
 }
 
-/* Fade-in suave para as frases */
 @keyframes fadeSlideIn {
   from {
     opacity: 0;
@@ -32,7 +29,6 @@
   animation: fadeSlideIn 0.4s ease-out forwards;
 }
 
-/* Pulse suave para o ícone */
 @keyframes soft-pulse {
   0%, 100% {
     opacity: 1;

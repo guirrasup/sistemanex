@@ -1,6 +1,4 @@
 // src/services/transportadora.service.ts
-// ✅ VERSÃO COMPLETA - COM LISTAR CORRETO
-
 import api from './api';
 
 // 🔥 TIPO Transportadora
@@ -50,30 +48,21 @@ export interface Transportadora {
 }
 
 export const transportadoraService = {
-  /**
-   * 🔥 LISTAR TRANSPORTADORAS
-   */
   async listar(page: number = 1, limit: number = 50): Promise<any> {
     try {
-      console.log(`📡 Buscando transportadoras: page=${page}, limit=${limit}`);
-      const response = await api.get(`/transportadoras?page=${page}&limit=${limit}`);
-      console.log('📦 Resposta bruta:', response.data);
-      
+            const response = await api.get(`/transportadoras?page=${page}&limit=${limit}`);
+            
       // 🔥 EXTRAI OS DADOS CORRETAMENTE
       // O backend retorna: { sucesso: true, dados: { data: [...], total: X, ... } }
       const dados = response.data?.dados?.data || response.data?.data || [];
       
-      console.log(`✅ Transportadoras encontradas: ${dados.length}`);
-      return { data: dados };
+            return { data: dados };
     } catch (error: any) {
       console.error('❌ Erro ao listar transportadoras:', error);
       return { data: [] };
     }
   },
 
-  /**
-   * 🔥 BUSCAR POR ID
-   */
   async buscarPorId(id: string): Promise<any> {
     try {
       const response = await api.get(`/transportadoras/${id}`);
@@ -84,9 +73,6 @@ export const transportadoraService = {
     }
   },
 
-  /**
-   * 🔥 CRIAR TRANSPORTADORA
-   */
   async criar(data: any): Promise<any> {
     try {
       const response = await api.post('/transportadoras', data);
@@ -97,9 +83,6 @@ export const transportadoraService = {
     }
   },
 
-  /**
-   * 🔥 ATUALIZAR TRANSPORTADORA
-   */
   async atualizar(id: string, data: any): Promise<any> {
     try {
       const response = await api.put(`/transportadoras/${id}`, data);
@@ -110,21 +93,16 @@ export const transportadoraService = {
     }
   },
 
-  /**
-   * 🔥 EXCLUIR TRANSPORTADORA
-   */
   async excluir(id: string): Promise<{ sucesso: boolean; mensagem?: string; erro?: string }> {
     try {
       if (!id) {
         return { sucesso: false, erro: 'ID da transportadora não informado' };
       }
 
-      console.log(`🗑️ Excluindo transportadora: ${id}`);
-
+      
       const response = await api.delete(`/transportadoras/${id}`);
       
-      console.log('📥 Resposta da exclusão:', response.data);
-
+      
       if (response.data && response.data.sucesso === true) {
         return { 
           sucesso: true, 

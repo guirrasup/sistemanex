@@ -1,5 +1,4 @@
 // backend/src/types/nfae.types.ts
-
 export type MotivoEmissaoNFAe = 
   | 'PRODUTOR_RURAL'
   | 'MEI_SEM_IE'

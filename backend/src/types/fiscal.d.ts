@@ -1,11 +1,4 @@
-// C:\emissornfe\backend\src\types\fiscal.d.ts
-
-/**
- * Tipos e Interfaces para Documentos Fiscais Brasileiros
- * SUP TECNOLOGIA - BACKEND
- * Padrões: NFS-e Padrão Nacional v1.01, NF-e v4.00, NFC-e v4.00
- */
-
+// backend/src/types/fiscal.d.ts
 export type TipoDocumentoFiscal = 'NFSE' | 'NFE' | 'NFCE' | 'CTE' | 'NFAE';
 export type StatusDocumentoFiscal = 'AUTORIZADA' | 'CANCELADA' | 'SUBSTITUIDA' | 'PROCESSANDO' | 'REJEITADA';
 export type TipoAmbiente = 1 | 2;

@@ -1,5 +1,4 @@
-// C:\emissornfe\src\components\fiscal\CteEmissor.tsx
-
+// src/components/fiscal/CteEmissor.tsx
 import React, { useState } from 'react';
 import { 
   Truck, Send, CheckCircle2, AlertTriangle, Eye, Download,
@@ -710,7 +709,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
       
-      {/* HEADER */}
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
           <div className="flex items-center gap-2">
@@ -732,7 +730,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* BANNER SUCESSO */}
       {sucessoCte && (
         <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -783,7 +780,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       )}
 
-      {/* ERROS */}
       {erros.length > 0 && (
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 space-y-1">
           <div className="font-bold flex items-center gap-1.5 text-rose-900">
@@ -798,9 +794,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       )}
 
-      {/* ============================================================
-          BLOCO 1: REMETENTE
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
           <div className="flex items-center gap-2">
@@ -966,9 +959,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 2: DESTINATÁRIO
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
           <div className="flex items-center gap-2">
@@ -1134,9 +1124,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 3: IDENTIFICAÇÃO
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <Hash className={`w-4 h-4 ${corText}`} />
@@ -1235,9 +1222,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 4: TOMADOR
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <UserCheck className={`w-4 h-4 ${corText}`} />
@@ -1385,9 +1369,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 5: PERCURSO
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <Route className={`w-4 h-4 ${corText}`} />
@@ -1485,9 +1466,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 6: CARGA
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
           <div className="flex items-center gap-2">
@@ -1635,9 +1613,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 7: VEÍCULO E MOTORISTA
-          ============================================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
@@ -1712,9 +1687,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 8: FRETE
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <Calculator className={`w-4 h-4 ${corText}`} />
@@ -1786,9 +1758,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 9: TRIBUTAÇÃO
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <Shield className={`w-4 h-4 ${corText}`} />
@@ -1871,9 +1840,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 10: PREVISÃO DE ENTREGA
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <Calendar className={`w-4 h-4 ${corText}`} />
@@ -1980,9 +1946,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 11: OBSERVAÇÕES
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <FileText className={`w-4 h-4 ${corText}`} />
@@ -2037,9 +2000,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BLOCO 12: AUTORIZADOS DOWNLOAD
-          ============================================================ */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
           <div className="flex items-center gap-2">
@@ -2097,9 +2057,6 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         </div>
       </div>
 
-      {/* ============================================================
-          BOTÃO TRANSMITIR
-          ============================================================ */}
       <button
         type="button"
         onClick={handleTransmitirCte}

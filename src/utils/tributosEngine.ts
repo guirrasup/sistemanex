@@ -1,11 +1,4 @@
-// C:\emissornfe\src\utils\tributosEngine.ts
-
-/**
- * Motor de Cálculo Tributário Fiscal Brasileiro
- * Em conformidade com o Manual NFS-e Nacional v1.01 (2026), Reforma Tributária (IBS/CBS) e ICMS/IPI/PIS/COFINS
- * SUP TECNOLOGIA - FRONTEND
- */
-
+// src/utils/tributosEngine.ts
 import { ServicoItemNfse, InformacoesIBSCBS, ItemNfe } from '../types/fiscal';
 
 export interface CalculoNfseResultado {
@@ -49,9 +42,6 @@ export interface CalculoNfseResultado {
   ibscbs: InformacoesIBSCBS;
 }
 
-/**
- * Executa o cálculo integral de tributos da NFS-e Nacional conforme Manual v1.01
- */
 export function calcularTributosNfse(params: {
   valorServico: number;
   descontoIncondicionado?: number;
@@ -185,9 +175,6 @@ export function calcularTributosNfse(params: {
   };
 }
 
-/**
- * Calcula os totais de itens e impostos de uma NF-e de Produtos
- */
 export function calcularTotaisNfe(itens: ItemNfe[], frete = 0, seguro = 0, outrasDespesas = 0, descontoGeral = 0) {
   let valorTotalProdutos = 0;
   let baseCalculoICMS = 0;

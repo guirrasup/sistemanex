@@ -1,3 +1,4 @@
+// src/components/fiscal/DacteViewer.tsx
 import React from 'react';
 import { 
   Printer, 
@@ -34,7 +35,6 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      {/* Barra de Ações */}
       <div className="bg-white rounded-lg border border-slate-200 p-3 shadow-xs flex items-center justify-between gap-2 print:hidden">
         <button
           onClick={onBack}
@@ -63,13 +63,10 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
         </div>
       </div>
 
-      {/* DACTE Oficial CT-e */}
       <div className="bg-white border-2 border-slate-800 p-4 font-sans text-xs text-slate-900 space-y-2.5 print:border print:m-0 print:p-2">
         
-        {/* Cabeçalho */}
         <div className="grid grid-cols-12 border-b-2 border-slate-800 pb-2 gap-2">
           
-          {/* Dados do Emitente */}
           <div className="col-span-5 border-r border-slate-400 pr-2 space-y-0.5">
             <div className="font-extrabold text-sm uppercase leading-tight">{cte.emitente.razaoSocial}</div>
             <div className="text-[10px] text-slate-600">{cte.emitente.nomeFantasia || 'Transportes e Logística'}</div>
@@ -82,7 +79,6 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
             </div>
           </div>
 
-          {/* DACTE Identificação */}
           <div className="col-span-3 text-center border-r border-slate-400 px-2 flex flex-col justify-center">
             <div className="font-black text-sm uppercase tracking-wider">DACTE</div>
             <div className="text-[9px] uppercase leading-tight font-medium">
@@ -96,7 +92,6 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
             </div>
           </div>
 
-          {/* Chave de Acesso e Código de Barras */}
           <div className="col-span-4 pl-2 flex flex-col justify-center space-y-1">
             <div className="bg-slate-100 p-1 border border-slate-300 text-center font-mono text-[9px] font-bold tracking-wider">
               {cte.chaveAcesso.replace(/(\d{4})/g, '$1 ')}
@@ -111,7 +106,6 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
 
         </div>
 
-        {/* Tipo do Serviço e Tomador */}
         <div className="grid grid-cols-4 border border-slate-800 text-[10px]">
           <div className="p-1 border-r border-slate-800">
             <span className="font-bold block text-slate-600">CFOP / NATUREZA:</span>
@@ -133,10 +127,8 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
           </div>
         </div>
 
-        {/* Remetente e Destinatário */}
         <div className="grid grid-cols-2 gap-2">
           
-          {/* Remetente */}
           <div className="border border-slate-800 p-2 space-y-0.5 text-[10px]">
             <div className="font-bold text-[11px] uppercase text-blue-900 border-b border-slate-300 pb-0.5 flex items-center justify-between">
               <span>REMETENTE</span>
@@ -148,7 +140,6 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
             <div>Inscrição Estadual: {cte.remetente.inscricaoEstadual}</div>
           </div>
 
-          {/* Destinatário */}
           <div className="border border-slate-800 p-2 space-y-0.5 text-[10px]">
             <div className="font-bold text-[11px] uppercase text-emerald-900 border-b border-slate-300 pb-0.5 flex items-center justify-between">
               <span>DESTINATÁRIO</span>
@@ -162,7 +153,6 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
 
         </div>
 
-        {/* Informações da Carga e Documentos Originários */}
         <div className="border border-slate-800 p-2 space-y-1 text-[10px]">
           <div className="font-bold text-[11px] uppercase border-b border-slate-300 pb-0.5">
             INFORMAÇÕES DA CARGA & DOCUMENTOS TRANSPORTADOS
@@ -194,10 +184,8 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
           </div>
         </div>
 
-        {/* Componentes do Valor da Prestação e ICMS */}
         <div className="grid grid-cols-12 border border-slate-800 text-[10px]">
           
-          {/* Componentes */}
           <div className="col-span-8 p-2 border-r border-slate-800 space-y-1">
             <div className="font-bold border-b border-slate-300 pb-0.5">COMPONENTES DO VALOR DA PRESTAÇÃO</div>
             <div className="grid grid-cols-4 gap-1 text-[9px]">
@@ -211,7 +199,6 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
             </div>
           </div>
 
-          {/* Totais e Tributos */}
           <div className="col-span-4 p-2 bg-slate-50 flex flex-col justify-between">
             <div>
               <div className="text-slate-600">Base ICMS ({cte.aliquotaICMS}%): <strong>{formatarMoeda(cte.baseCalculoICMS)}</strong></div>
@@ -225,7 +212,6 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
 
         </div>
 
-        {/* Canhoto de Entrega */}
         <div className="border border-slate-800 p-2 text-[9px] space-y-1 border-dashed">
           <div className="flex justify-between font-bold">
             <span>DECLARO QUE RECEBI OS VOLUMES DESTE CONHECIMENTO EM PERFEITO ESTADO</span>

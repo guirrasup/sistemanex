@@ -1,4 +1,4 @@
-// src/routes/auth.routes.ts
+// backend/src/routes/auth.routes.ts
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
@@ -8,7 +8,10 @@ const controller = new AuthController();
 
 // Rotas públicas
 router.post('/login', controller.login.bind(controller));
-router.post('/register', controller.register.bind(controller));
+
+// Segurança (P4): registro de usuários exige sessão ADMIN — não é rota pública.
+router.post('/register', authMiddleware, controller.register.bind(controller));
+
 router.post('/recuperar-senha', controller.recuperarSenha.bind(controller));
 router.post('/redefinir-senha', controller.redefinirSenha.bind(controller));
 

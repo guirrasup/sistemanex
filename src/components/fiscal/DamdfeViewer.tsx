@@ -1,5 +1,4 @@
 // src/components/fiscal/DamdfeViewer.tsx
-
 import React from 'react';
 import {
   Printer,
@@ -47,7 +46,6 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white">
       
-      {/* Controles do Topo */}
       <div className="bg-slate-900 text-white rounded-t-xl px-6 py-3 flex items-center justify-between max-w-4xl w-full mx-auto print:hidden shadow-lg border-b border-slate-800">
         <div className="flex items-center gap-2.5">
           <Truck className="w-4 h-4 text-orange-400" />
@@ -84,10 +82,8 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
         </div>
       </div>
 
-      {/* DAMDFE */}
       <div className="bg-white text-black max-w-4xl w-full mx-auto p-6 rounded-b-xl shadow-2xl print:shadow-none print:p-0 print:rounded-none font-sans text-xs border border-slate-300 print:border-none space-y-3">
         
-        {/* Cabeçalho */}
         <div className="border border-black p-3 flex items-center justify-between">
           <div>
             <div className="font-black text-sm uppercase">MANIFESTO DE DOCUMENTOS FISCAIS ELETRÔNICOS</div>
@@ -103,7 +99,6 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
           </div>
         </div>
 
-        {/* Status */}
         <div className="border border-black p-2 flex items-center justify-between">
           <div>
             <span className="font-bold">Status:</span>
@@ -128,7 +123,6 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
           </div>
         </div>
 
-        {/* Emitente */}
         <div className="border border-black p-2">
           <div className="font-bold text-[10px] uppercase text-slate-600">Emitente</div>
           <div className="font-bold">{mdfe.emitente.razaoSocial}</div>
@@ -140,7 +134,6 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
           </div>
         </div>
 
-        {/* Percurso */}
         <div className="border border-black p-2">
           <div className="font-bold text-[10px] uppercase text-slate-600">Percurso</div>
           <div className="flex items-center gap-2">
@@ -157,7 +150,6 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
           )}
         </div>
 
-        {/* Carregamento e Descarga */}
         <div className="grid grid-cols-2 gap-3">
           <div className="border border-black p-2">
             <div className="font-bold text-[10px] uppercase text-slate-600 flex items-center gap-1">
@@ -179,7 +171,6 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
           </div>
         </div>
 
-        {/* Documentos e Totalizadores */}
         <div className="border border-black p-2">
           <div className="font-bold text-[10px] uppercase text-slate-600 flex items-center gap-1">
             <FileText className="w-3 h-3" />
@@ -206,7 +197,6 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
           </div>
         </div>
 
-        {/* Produto Predominante */}
         <div className="border border-black p-2">
           <div className="font-bold text-[10px] uppercase text-slate-600 flex items-center gap-1">
             <Package className="w-3 h-3" />
@@ -236,7 +226,6 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
           </div>
         </div>
 
-        {/* Seguro */}
         {mdfe.seguros && mdfe.seguros.length > 0 && (
           <div className="border border-black p-2">
             <div className="font-bold text-[10px] uppercase text-slate-600 flex items-center gap-1">
@@ -266,7 +255,6 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
           </div>
         )}
 
-        {/* Lacres */}
         {mdfe.lacres && mdfe.lacres.length > 0 && (
           <div className="border border-black p-2">
             <div className="font-bold text-[10px] uppercase text-slate-600 flex items-center gap-1">
@@ -283,7 +271,6 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
           </div>
         )}
 
-        {/* Rodapé */}
         <div className="border border-black p-2 text-[9px] text-slate-500 flex items-center justify-between">
           <span>SUP TECNOLOGIA - Sistema Emissor Fiscal</span>
           <span>MDF-e autorizado via SEFAZ</span>

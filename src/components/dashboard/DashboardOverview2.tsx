@@ -1,3 +1,4 @@
+// src/components/dashboard/DashboardOverview2.tsx
 import React, { useEffect, useState } from 'react';
 import { 
   FileText, 
@@ -174,9 +175,6 @@ export const DashboardOverview: React.FC = () => {
   return (
     <div className="space-y-5">
       
-      {/* ============================================================
-          HEADER COM AÇÕES RÁPIDAS
-          ============================================================ */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
         <div>
           <h1 className="text-lg font-bold text-slate-900">Dashboard</h1>
@@ -213,12 +211,8 @@ export const DashboardOverview: React.FC = () => {
         </div>
       </div>
 
-      {/* ============================================================
-          CARDS PRINCIPAIS - MÉTRICAS ESSENCIAIS
-          ============================================================ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         
-        {/* 1. FATURAMENTO TOTAL */}
         <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-semibold uppercase tracking-wider">Faturamento</span>
@@ -237,7 +231,6 @@ export const DashboardOverview: React.FC = () => {
           </div>
         </div>
 
-        {/* 2. NOTAS NO MÊS */}
         <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs hover:border-blue-300 transition-colors cursor-pointer" 
              onClick={() => window.location.href = '/documentos'}>
           <div className="flex items-center justify-between text-slate-500">
@@ -252,7 +245,6 @@ export const DashboardOverview: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. A RECEBER (FINANCEIRO) */}
         <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs hover:border-emerald-300 transition-colors cursor-pointer" 
              onClick={() => window.location.href = '/financeiro'}>
           <div className="flex items-center justify-between text-slate-500">
@@ -267,7 +259,6 @@ export const DashboardOverview: React.FC = () => {
           </div>
         </div>
 
-        {/* 4. CLIENTES + PRODUTOS */}
         <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-semibold uppercase tracking-wider">Cadastros</span>
@@ -289,12 +280,8 @@ export const DashboardOverview: React.FC = () => {
 
       </div>
 
-      {/* ============================================================
-          GRID: TRIBUTOS + ALERTAS
-          ============================================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         
-        {/* Painel Tributário */}
         <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 p-4 shadow-xs">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
@@ -350,10 +337,8 @@ export const DashboardOverview: React.FC = () => {
           </div>
         </div>
 
-        {/* Alertas: Estoque Crítico + Certificado */}
         <div className="space-y-3">
           
-          {/* Estoque Crítico */}
           <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -384,7 +369,6 @@ export const DashboardOverview: React.FC = () => {
             )}
           </div>
 
-          {/* Status do Certificado Digital */}
           <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -405,9 +389,6 @@ export const DashboardOverview: React.FC = () => {
 
       </div>
 
-      {/* ============================================================
-          TABELA: ÚLTIMAS NOTAS EMITIDAS
-          ============================================================ */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-900">

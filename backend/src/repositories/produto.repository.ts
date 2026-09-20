@@ -1,5 +1,4 @@
-// C:\sistemanex\backend\src\repositories\produto.repository.ts
-
+// backend/src/repositories/produto.repository.ts
 import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 
@@ -40,9 +39,9 @@ export class ProdutoRepository extends BaseRepository {
     };
   }
 
-  async findById(id: string) {
-    return prisma.produto.findUnique({
-      where: { id },
+  async findById(id: string, empresaId?: string) {
+    return prisma.produto.findFirst({
+      where: empresaId ? { id, empresaId } : { id },
     });
   }
 

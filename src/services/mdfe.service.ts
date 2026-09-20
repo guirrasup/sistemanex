@@ -1,5 +1,4 @@
 // src/services/mdfe.service.ts
-
 import api from './api';
 import { MDFeDocumento } from '../types/mdfe';
 
@@ -24,9 +23,6 @@ export interface FiltroMDFe {
 }
 
 export const mdfeService = {
-  /**
-   * 📋 LISTAR MDF-e COM FILTROS
-   */
   async listar(filtros: FiltroMDFe = {}): Promise<ListaMdfeResponse> {
     try {
       const { page = 1, limit = 50, ...outrosFiltros } = filtros;
@@ -48,9 +44,6 @@ export const mdfeService = {
     }
   },
 
-  /**
-   * 🔍 BUSCAR MDF-e POR ID
-   */
   async buscarPorId(id: string): Promise<MDFeDocumento | null> {
     try {
       const response = await api.get(`/mdfe/${id}`);
@@ -60,9 +53,6 @@ export const mdfeService = {
     }
   },
 
-  /**
-   * 🔍 BUSCAR MDF-e POR CHAVE DE ACESSO
-   */
   async buscarPorChave(chave: string): Promise<MDFeDocumento | null> {
     try {
       const response = await api.get(`/mdfe/chave/${chave}`);
@@ -72,9 +62,6 @@ export const mdfeService = {
     }
   },
 
-  /**
-   * 📝 EMITIR MDF-e
-   */
   async emitir(data: Partial<MDFeDocumento>): Promise<MDFeDocumento | null> {
     try {
       const response = await api.post('/mdfe/emitir', data);
@@ -85,16 +72,10 @@ export const mdfeService = {
     }
   },
 
-  /**
-   * ❌ CANCELAR MDF-e
-   */
   async cancelar(id: string, justificativa: string): Promise<void> {
     await api.post(`/mdfe/cancelar/${id}`, { motivo: justificativa });
   },
 
-  /**
-   * 🚩 ENCERRAR MDF-e
-   */
   async encerrar(id: string, protocolo: string, municipioEncerramento: string): Promise<void> {
     await api.post(`/mdfe/encerrar/${id}`, { 
       protocolo, 
@@ -102,9 +83,6 @@ export const mdfeService = {
     });
   },
 
-  /**
-   * 📊 ESTATÍSTICAS DE MDF-e
-   */
   async getEstatisticas(): Promise<{ total: number; porStatus: Record<string, number> }> {
     try {
       const response = await api.get('/mdfe/estatisticas');
@@ -114,9 +92,6 @@ export const mdfeService = {
     }
   },
 
-  /**
-   * 💰 TOTAL DE CARGA TRANSPORTADA
-   */
   async getTotalCarga(dataInicio?: string, dataFim?: string): Promise<{
     valorTotal: number;
     pesoTotal: number;
@@ -149,9 +124,6 @@ export const mdfeService = {
     }
   },
 
-  /**
-   * 📄 BAIXAR XML DO MDF-e
-   */
   async baixarXml(id: string): Promise<Blob | null> {
     try {
       const response = await api.get(`/mdfe/xml/${id}`, {

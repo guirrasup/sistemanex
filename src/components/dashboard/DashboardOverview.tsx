@@ -1,3 +1,4 @@
+// src/components/dashboard/DashboardOverview.tsx
 import React from 'react';
 import { 
   FileText, 
@@ -116,7 +117,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   return (
     <div className="space-y-5">
       
-      {/* Barra de Ações Rápidas */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
         <div>
           <h1 className="text-lg font-bold text-slate-900">Dashboard</h1>
@@ -142,10 +142,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       </div>
 
-      {/* Cards de Métricas Principais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         
-        {/* Faturamento Total */}
         <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-semibold uppercase tracking-wider">Faturamento Total</span>
@@ -159,7 +157,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        {/* Serviços (NFS-e) */}
         <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs hover:border-blue-300 transition-colors cursor-pointer" onClick={() => onNavigate('nfse-emissor')}>
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-semibold uppercase tracking-wider">NFS-e (Serviços)</span>
@@ -173,7 +170,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        {/* Produtos (NF-e) */}
         <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs hover:border-blue-300 transition-colors cursor-pointer" onClick={() => onNavigate('nfe-emissor')}>
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-semibold uppercase tracking-wider">NF-e (Produtos)</span>
@@ -187,7 +183,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        {/* Impostos Totais */}
         <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-semibold uppercase tracking-wider">Tributos Totais</span>
@@ -203,10 +198,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
       </div>
 
-      {/* Grid: Composição Fiscal / Reforma 2026 + Alertas */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         
-        {/* Painel IBS / CBS 2026 */}
         <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 p-4 shadow-xs">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
@@ -249,7 +242,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        {/* Resumo Financeiro & Estoque */}
         <div className="space-y-3">
           
           <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs">
@@ -298,7 +290,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
       </div>
 
-      {/* Tabela de Últimos Documentos Emitidos */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-900">

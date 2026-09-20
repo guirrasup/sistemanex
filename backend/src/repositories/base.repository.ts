@@ -1,4 +1,4 @@
-// src/repositories/base.repository.ts
+// backend/src/repositories/base.repository.ts
 import { PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 

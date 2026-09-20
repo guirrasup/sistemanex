@@ -1,16 +1,6 @@
-// C:\emissornfe\backend\src\utils\chaveAcesso.ts
-
-/**
- * Gerador de Chaves de Acesso Fiscais e Códigos de Verificação
- * NF-e (44 Dígitos Padrão SEFAZ) e NFS-e Nacional (53 Dígitos Padrão Receita Federal / SEFIN)
- * SUP TECNOLOGIA - BACKEND
- */
-
+// backend/src/utils/chaveAcesso.ts
 import { limparDocumento } from './cpfCnpjValidator.js';
 
-/**
- * Calcula Dígito Verificador Módulo 11 (Pesos de 2 a 9) para chave de NF-e
- */
 export function calcularDVMod11NFe(chave43: string): number {
   let soma = 0;
   let peso = 2;
@@ -25,9 +15,6 @@ export function calcularDVMod11NFe(chave43: string): number {
   return dv;
 }
 
-/**
- * Gera Chave de Acesso Oficial de NF-e (44 dígitos)
- */
 export function gerarChaveAcessoNFe(params: {
   codigoUf: string;
   anoMes: string;
@@ -54,9 +41,6 @@ export function gerarChaveAcessoNFe(params: {
   return { chaveCompleta, codigoNumerico: cNF, dv: cDV };
 }
 
-/**
- * Gera Chave de Acesso Oficial de NFS-e Padrão Nacional (53 dígitos)
- */
 export function gerarChaveAcessoNFSe(params: {
   codigoMunicipioIBGE: string;
   ambienteGerador: number;
@@ -99,9 +83,6 @@ export function gerarChaveAcessoNFSe(params: {
   return { chaveCompleta, idNfse, codigoVerificacao: codVerif };
 }
 
-/**
- * Formata Chave de Acesso em grupos de 4 dígitos para leitura no DANFE
- */
 export function formatarChaveAcesso44(chave: string): string {
   const limpa = chave.replace(/\D/g, '');
   return limpa.replace(/(\d{4})/g, '$1 ').trim();

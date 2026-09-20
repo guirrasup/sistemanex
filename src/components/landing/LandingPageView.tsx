@@ -1,5 +1,4 @@
-// C:\emissornfe\src\components\landing\LandingPageView.tsx
-
+// src/components/landing/LandingPageView.tsx
 import React from 'react';
 import { 
   LogIn, 
@@ -48,11 +47,9 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
   return (
     <div className="min-h-screen bg-white text-slate-900 flex flex-col justify-between font-sans selection:bg-blue-600 selection:text-white scroll-smooth">
       
-      {/* 1. Header Superior com Links e Botão Entrar */}
       <header className="w-full bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50 shadow-2xs">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12 h-20 flex items-center justify-between">
           
-          {/* Logo S + SUP TECNOLOGIA */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollToSection('hero')}>
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-extrabold text-xl shadow-xs">
               S
@@ -62,7 +59,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
             </span>
           </div>
 
-          {/* Menus e Botão Entrar */}
           <div className="flex items-center gap-6 sm:gap-10">
             <nav className="hidden md:flex items-center gap-8 text-xs font-bold tracking-wider text-slate-700 uppercase">
               <button 
@@ -98,14 +94,11 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
         </div>
       </header>
 
-      {/* 2. Hero Section */}
       <section id="hero" className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12 py-10 sm:py-16 w-full flex items-center">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center w-full">
           
-          {/* Coluna Esquerda: Textos, Título, Bullet points e CTA */}
           <div className="lg:col-span-7 space-y-6">
             
-            {/* Pill / Tag: SISTEMA COMPLETO DE GESTÃO */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50/80 border border-blue-100">
               <span className="w-2 h-2 rounded-full bg-blue-600"></span>
               <span className="text-[11px] sm:text-xs font-bold text-blue-900 tracking-wider uppercase">
@@ -113,19 +106,16 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
               </span>
             </div>
 
-            {/* Título Principal */}
             <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-black tracking-tight text-slate-900 leading-[1.12]">
               Emissor de NF-e <br />
               <span className="text-blue-600">Simples, Rápido</span> e <br />
               Integrado
             </h1>
 
-            {/* Subtítulo Descritivo */}
             <p className="text-base sm:text-lg text-slate-600 max-w-xl font-normal leading-relaxed">
               Organize sua empresa em um só lugar: Emissão de NF-e, DANFE, XML, controle de estoque e financeiro conectado.
             </p>
 
-            {/* Itens com Check Azul */}
             <div className="space-y-3 pt-1">
               <div className="flex items-center gap-3">
                 <div className="text-blue-600 font-black text-base flex items-center justify-center">
@@ -146,7 +136,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
               </div>
             </div>
 
-            {/* Botão Escuro + Preço ao Lado */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-5 pt-4">
               
               <button
@@ -171,11 +160,9 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
 
           </div>
 
-          {/* Coluna Direita: Mockup da Janela do Painel */}
           <div className="lg:col-span-5 flex justify-center lg:justify-end">
             <div className="w-full max-w-lg bg-white rounded-2xl border border-slate-200/90 shadow-2xl overflow-hidden transform hover:-translate-y-1 transition-transform duration-300">
               
-              {/* Barra superior do Browser Mockup */}
               <div className="bg-slate-50 border-b border-slate-200/80 px-4 py-3 flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full bg-rose-400"></div>
@@ -189,16 +176,13 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
                 </div>
               </div>
 
-              {/* Conteúdo visual interno do mockup */}
               <div className="p-6 space-y-4 bg-slate-50/50">
                 
-                {/* Linha de topo no mockup */}
                 <div className="flex items-center justify-between">
                   <div className="h-5 w-32 bg-slate-200 rounded-md"></div>
                   <div className="w-8 h-8 rounded-full bg-blue-100"></div>
                 </div>
 
-                {/* 3 mini cards ilustrativos */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-white p-3 rounded-lg border border-slate-200/80 shadow-2xs space-y-2">
                     <div className="h-2 w-10 bg-blue-200 rounded"></div>
@@ -214,7 +198,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
                   </div>
                 </div>
 
-                {/* Bloco de tabela / formulário ilustrado */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs space-y-3">
                   <div className="h-2.5 w-3/4 bg-slate-200 rounded"></div>
                   <div className="h-2 w-1/2 bg-slate-100 rounded"></div>
@@ -233,7 +216,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
         </div>
       </section>
 
-      {/* 3. Seção FISCAL */}
       <section id="fiscal" className="py-16 bg-slate-50 border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12">
           
@@ -262,7 +244,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
-            {/* Card 1: NF-e */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4 hover:border-blue-300 transition-colors">
               <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                 <Receipt className="w-5 h-5" />
@@ -285,7 +266,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
               </ul>
             </div>
 
-            {/* Card 2: NFS-e */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4 hover:border-blue-300 transition-colors">
               <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
                 <FileText className="w-5 h-5" />
@@ -308,7 +288,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
               </ul>
             </div>
 
-            {/* Card 3: Certificado e Segurança */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4 hover:border-blue-300 transition-colors">
               <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
                 <ShieldCheck className="w-5 h-5" />
@@ -336,7 +315,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
         </div>
       </section>
 
-      {/* 4. Seção ESTOQUE */}
       <section id="estoque" className="py-16 bg-white border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12">
           
@@ -400,7 +378,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
         </div>
       </section>
 
-      {/* 5. Seção FINANCEIRO */}
       <section id="financeiro" className="py-16 bg-slate-50 border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12">
           
@@ -464,14 +441,11 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
         </div>
       </section>
 
-      {/* 6. Rodapé Institucional Completo */}
       <footer className="w-full bg-slate-900 text-slate-300 pt-12 pb-8 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12">
           
-          {/* Grade Institucional */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 pb-12 border-b border-slate-800">
             
-            {/* Coluna 1 e 2: Marca, Apresentação e Dados da Empresa */}
             <div className="lg:col-span-2 space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center text-white font-extrabold text-lg">
@@ -486,7 +460,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
                 Plataforma corporativa especializada em emissão fiscal inteligente, gestão integrada de faturamento, controle de estoque e fluxo financeiro automatizado.
               </p>
 
-              {/* 🔥 DADOS DA EMPRESA COM FALLBACK */}
               <div className="space-y-1.5 text-xs text-slate-400 pt-2">
                 <div className="flex items-center gap-2">
                   <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
@@ -503,7 +476,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
               </div>
             </div>
 
-            {/* Coluna 3: Módulos do Sistema */}
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">
                 Módulos do Sistema
@@ -537,7 +509,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
               </ul>
             </div>
 
-            {/* Coluna 4: Conformidade & Fiscal */}
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">
                 Conformidade Fiscal
@@ -566,7 +537,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
               </ul>
             </div>
 
-            {/* Coluna 5: Atendimento & Acesso */}
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">
                 Atendimento & Suporte
@@ -595,7 +565,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoT
 
           </div>
 
-          {/* Linha Final de Copyright */}
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
             <div>
               © {new Date().getFullYear()} SUP TECNOLOGIA. Todos os direitos reservados.

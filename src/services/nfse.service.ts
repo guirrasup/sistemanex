@@ -1,5 +1,4 @@
-// C:\emissornfe\src\services\nfse.service.ts
-
+// src/services/nfse.service.ts
 import api from './api';
 import { NFSeDocumento } from '../types/fiscal';
 
@@ -59,10 +58,6 @@ export interface ServicoMaisPrestado {
 // ============================================================
 
 export const nfseService = {
-  /**
-   * 📋 LISTAR NFS-e COM FILTROS
-   * GET /api/nfse
-   */
   async listar(filtros: FiltroNFSe = {}): Promise<ListaNfseResponse> {
     try {
       const { page = 1, limit = 50, ...outrosFiltros } = filtros;
@@ -84,10 +79,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 🔍 BUSCAR NFS-e POR ID
-   * GET /api/nfse/:id
-   */
   async buscarPorId(id: string): Promise<NFSeDocumento | null> {
     try {
       const response = await api.get(`/nfse/${id}`);
@@ -97,10 +88,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 🔍 BUSCAR NFS-e POR CHAVE DE ACESSO (53 dígitos)
-   * GET /api/nfse/chave/:chave
-   */
   async buscarPorChave(chave: string): Promise<NFSeDocumento | null> {
     try {
       // ✅ VALIDA TChNFSe (53 dígitos)
@@ -115,10 +102,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 🔍 BUSCAR NFS-e POR PROTOCOLO
-   * GET /api/nfse/protocolo/:protocolo
-   */
   async buscarPorProtocolo(protocolo: string): Promise<NFSeDocumento | null> {
     try {
       const response = await api.get(`/nfse/protocolo/${protocolo}`);
@@ -128,10 +111,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 📝 EMITIR NFS-e
-   * POST /api/nfse/emitir
-   */
   async emitir(nfse: Partial<NFSeDocumento>): Promise<NFSeDocumento> {
     try {
       // ✅ VALIDA DADOS OBRIGATÓRIOS
@@ -156,10 +135,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * ❌ CANCELAR NFS-e
-   * POST /api/nfse/cancelar/:id
-   */
   async cancelar(id: string, justificativa: string): Promise<void> {
     try {
       // ✅ VALIDA TJust (15-255 caracteres)
@@ -177,10 +152,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 📄 GERAR DANFSe
-   * GET /api/nfse/danfse/:id
-   */
   async gerarDanfse(id: string): Promise<Blob | null> {
     try {
       const response = await api.get(`/nfse/danfse/${id}`, {
@@ -192,10 +163,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 📄 BAIXAR XML DA NFS-e
-   * GET /api/nfse/xml/:id
-   */
   async baixarXml(id: string): Promise<Blob | null> {
     try {
       const response = await api.get(`/nfse/xml/${id}`, {
@@ -207,10 +174,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 📊 ESTATÍSTICAS DE NFS-e
-   * GET /api/nfse/estatisticas
-   */
   async getEstatisticas(): Promise<{ total: number; porStatus: Record<string, number> }> {
     try {
       const response = await api.get('/nfse/estatisticas');
@@ -220,10 +183,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 💰 TOTAL FATURADO POR PERÍODO
-   * GET /api/nfse/total-faturado
-   */
   async getTotalFaturado(dataInicio?: string, dataFim?: string): Promise<TotalFaturadoNFSe> {
     try {
       const response = await api.get('/nfse/total-faturado', {
@@ -249,10 +208,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 📊 RESUMO MENSAL
-   * GET /api/nfse/resumo-mensal
-   */
   async getResumoMensal(ano: number, mes: number): Promise<ResumoMensalNFSe> {
     try {
       const response = await api.get('/nfse/resumo-mensal', {
@@ -282,10 +237,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 📊 SERVIÇOS MAIS PRESTADOS
-   * GET /api/nfse/servicos-mais-prestados
-   */
   async getServicosMaisPrestados(dataInicio?: string, dataFim?: string, limit: number = 10): Promise<ServicoMaisPrestado[]> {
     try {
       const response = await api.get('/nfse/servicos-mais-prestados', {
@@ -297,10 +248,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 📊 NFS-e POR TOMADOR
-   * GET /api/nfse/tomador/:tomadorId
-   */
   async findByTomador(tomadorId: string, dataInicio?: string, dataFim?: string): Promise<NFSeDocumento[]> {
     try {
       const response = await api.get(`/nfse/tomador/${tomadorId}`, {
@@ -312,10 +259,6 @@ export const nfseService = {
     }
   },
 
-  /**
-   * 📊 NFS-e POR SERVIÇO
-   * GET /api/nfse/servico/:servicoId
-   */
   async findByServico(servicoId: string, dataInicio?: string, dataFim?: string): Promise<NFSeDocumento[]> {
     try {
       const response = await api.get(`/nfse/servico/${servicoId}`, {

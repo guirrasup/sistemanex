@@ -1,14 +1,9 @@
-// C:\emissornfe\backend\src\services\conectagov.service.ts
-
+// backend/src/services/conectagov.service.ts
 import axios from 'axios';
 import * as jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { ConectaGovTokenResponse, ConectaGovEmpresaResponse } from '../types/cnpj.js';
 
-/**
- * 🔥 SERVIÇO DE AUTENTICAÇÃO CONECTAGOV
- * Obtém token JWT para acessar as APIs
- */
 export class ConectaGovService {
   private static instance: ConectaGovService;
   private token: string | null = null;
@@ -21,9 +16,6 @@ export class ConectaGovService {
     return ConectaGovService.instance;
   }
 
-  /**
-   * 🔥 OBTÉM TOKEN JWT DO CONECTAGOV VIA OAUTH2
-   */
   async getToken(): Promise<string> {
     if (this.token && this.tokenExpiresAt > Date.now() + 60000) {
       return this.token;
@@ -42,8 +34,7 @@ export class ConectaGovService {
     }
 
     try {
-      console.log('🔑 Obtendo token do ConectaGov...');
-
+      
       const tokenUrl = process.env.NODE_ENV === 'production'
         ? 'https://apigateway.conectagov.estaleiro.serpro.gov.br/oauth2/jwt-token'
         : 'https://h-apigateway.conectagov.np.estaleiro.serpro.gov.br/oauth2/jwt-token';
@@ -69,17 +60,13 @@ export class ConectaGovService {
       this.token = response.data.access_token;
       this.tokenExpiresAt = Date.now() + (response.data.expires_in * 1000);
 
-      console.log('✅ Token ConectaGov obtido com sucesso!');
-      return this.token;
+            return this.token;
     } catch (error: any) {
       console.error('❌ Erro ao obter token ConectaGov:', error.response?.data || error.message);
       throw new Error(`Erro na autenticação ConectaGov: ${error.response?.data?.message || error.message}`);
     }
   }
 
-  /**
-   * 🔥 GERA CLIENT ASSERTION (JWT) PARA AUTENTICAÇÃO
-   */
   private generateClientAssertion(clientId: string): string {
     const now = Math.floor(Date.now() / 1000);
     const jti = randomBytes(16).toString('hex');
@@ -102,9 +89,6 @@ export class ConectaGovService {
     return jwt.sign(payload, privateKey, { algorithm: 'RS256' });
   }
 
-  /**
-   * 🔥 CONSULTA CNPJ NA API CONECTAGOV
-   */
   async consultarCnpj(cnpj: string, cpfUsuario?: string): Promise<ConectaGovEmpresaResponse> {
     const cnpjLimpo = cnpj.replace(/\D/g, '');
     
@@ -120,8 +104,7 @@ export class ConectaGovService {
     }
 
     try {
-      console.log(`🔍 Consultando ConectaGov para CNPJ: ${cnpjLimpo}`);
-
+      
       const baseUrl = process.env.NODE_ENV === 'production'
         ? 'https://apigateway.conectagov.estaleiro.serpro.gov.br'
         : 'https://h-apigateway.conectagov.np.estaleiro.serpro.gov.br';
@@ -137,8 +120,7 @@ export class ConectaGovService {
         timeout: 30000,
       });
 
-      console.log('✅ Dados obtidos do ConectaGov');
-      return response.data;
+            return response.data;
 
     } catch (error: any) {
       console.error('❌ Erro ao consultar ConectaGov:', error.response?.data || error.message);

@@ -1,5 +1,4 @@
-// src/routes/cte.routes.ts
-
+// backend/src/routes/cte.routes.ts
 import { Router } from 'express';
 import { CteController } from '../controllers/cte.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';

@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\types\cnpj.ts
-
+// backend/src/types/cnpj.ts
 export interface ConectaGovTokenResponse {
   access_token: string;
   token_type: string;

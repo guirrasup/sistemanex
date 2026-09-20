@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\controllers\servico.controller.ts
-
+// backend/src/controllers/servico.controller.ts
 import { Request, Response } from 'express';
 import { ServicoService } from '../services/servico.service';
 
@@ -31,7 +30,13 @@ export class ServicoController {
   async buscarPorId(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const dados = await this.servicoService.buscarPorId(id);
+      const empresaId = req.user?.empresaId;
+
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
+      const dados = await this.servicoService.buscarPorId(id, empresaId);
       
       if (!dados) {
         return res.status(404).json({ sucesso: false, erro: 'Serviço não encontrado' });

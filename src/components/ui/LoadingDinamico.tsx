@@ -1,5 +1,4 @@
-// C:\emissornfe\src\components\ui\LoadingDinamico.tsx
-
+// src/components/ui/LoadingDinamico.tsx
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, 

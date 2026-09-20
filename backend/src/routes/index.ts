@@ -1,5 +1,4 @@
-// C:\emissornfe\backend\src\routes\cte.routes.ts
-
+// backend/src/routes/index.ts
 import { Router } from 'express';
 import { CteController } from '../controllers/cte.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';

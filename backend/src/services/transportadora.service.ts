@@ -1,5 +1,4 @@
 // backend/src/services/transportadora.service.ts
-
 import { TransportadoraRepository } from '../repositories/transportadora.repository';
 import { EmpresaRepository } from '../repositories/empresa.repository';
 
@@ -21,8 +20,8 @@ export class TransportadoraService {
     return this.transportadoraRepo.findAll(empresaId, page, limit, busca);
   }
 
-  async buscarPorId(id: string) {
-    return this.transportadoraRepo.findById(id);
+  async buscarPorId(id: string, empresaId?: string) {
+    return this.transportadoraRepo.findById(id, empresaId);
   }
 
   async buscarPorCnpj(cnpj: string, empresaId: string) {
