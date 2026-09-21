@@ -25,7 +25,11 @@ export class ConectaGovService {
     }
 
     const clientId = process.env.CONECTAGOV_CLIENT_ID || '';
-    const clientSecret = process.env.CONECTAGOV_CLIENT_SECRET || '';
+    const clientSecret = (() => {
+  const v = process.env.CONECTAGOV_CLIENT_SECRET;
+  if (!v) throw new Error("Variável obrigatória ausente: CONECTAGOV_CLIENT_SECRET");
+  return v;
+})();
     const cpfUsuario = process.env.CONECTAGOV_CPF_USUARIO || '';
 
     if (!clientId || !clientSecret) {
@@ -88,7 +92,11 @@ export class ConectaGovService {
       exp: now + 300,
     };
 
-    const privateKey = process.env.CONECTAGOV_PRIVATE_KEY || '';
+    const privateKey = (() => {
+  const v = process.env.CONECTAGOV_PRIVATE_KEY;
+  if (!v) throw new Error("Variável obrigatória ausente: CONECTAGOV_PRIVATE_KEY");
+  return v;
+})();
     
     if (!privateKey) {
       throw new Error('Chave privada do ConectaGov não configurada. Configure CONECTAGOV_PRIVATE_KEY');

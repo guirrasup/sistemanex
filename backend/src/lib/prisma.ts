@@ -16,11 +16,16 @@ export const prisma =
         : ['error'],
   });
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV === "development") {
   global.prisma = prisma;
 }
 
 // Graceful shutdown
 process.on('beforeExit', async () => {
-  await prisma.$disconnect();
+  try {
+  await prisma.$disconnect()
+} catch (error) {
+  console.error("[AutoPatch] Falha capturada:", error);
+  throw error;
+};
 });
