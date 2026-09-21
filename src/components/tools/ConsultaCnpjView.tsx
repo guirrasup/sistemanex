@@ -32,8 +32,9 @@ import {
   Info,
   FileCheck
 } from 'lucide-react';
-import { consultarCnpjConectaGov } from '../../utils/consultaCnpjApi';
+import { consultarCnpjConectaGov, ConsultaCnpjResponse } from '../../utils/consultaCnpjApi';
 import { formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface ConsultaCnpjViewProps {
   onNavigate?: (view: string) => void;
@@ -42,7 +43,7 @@ interface ConsultaCnpjViewProps {
 export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }) => {
   const [cnpj, setCnpj] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resultado, setResultado] = useState<any>(null);
+  const [resultado, setResultado] = useState<ConsultaCnpjResponse['dados'] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [historico, setHistorico] = useState<string[]>([]);
 
@@ -80,8 +81,8 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
       } else {
         setErro(response.erro || 'CNPJ não encontrado');
       }
-    } catch (err: any) {
-      setErro(`Erro na consulta: ${err.message || 'Tente novamente'}`);
+    } catch (err: unknown) {
+      setErro(`Erro na consulta: ${getApiErrorMessage(err, 'Tente novamente')}`);
     } finally {
       setLoading(false);
     }
@@ -364,7 +365,7 @@ const formatarData = (data: string) => {
               {resultado.cnaeSecundarios && resultado.cnaeSecundarios.length > 0 && (
                 <div className="mt-1">
                   <span className="text-[10px] text-slate-500 block">Secundários:</span>
-                  {resultado.cnaeSecundarios.map((c: any, idx: number) => (
+                  {resultado.cnaeSecundarios.map((c, idx: number) => (
                     <span key={idx} className="text-[10px] text-slate-600 block ml-2">
                       {c.codigo} - {c.descricao}
                     </span>
@@ -474,7 +475,7 @@ const formatarData = (data: string) => {
                     <Phone className="w-3 h-3" />
                     Telefone
                   </span>
-                  {resultado.telefone.map((t: any, idx: number) => (
+                  {resultado.telefone.map((t, idx: number) => (
                     <span key={idx} className="font-medium text-slate-900 block text-sm">
                       ({t.ddd}) {t.numero}
                     </span>
@@ -520,7 +521,7 @@ const formatarData = (data: string) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {resultado.socios.map((socio: any, index: number) => (
+                      {resultado.socios.map((socio, index: number) => (
                         <tr key={index} className="hover:bg-white/50">
                           <td className="p-2 font-medium text-slate-900">{socio.nome || '-'}</td>
                           <td className="p-2 font-mono text-slate-700">{socio.cpf ? formatarCpfCnpj(socio.cpf) : '-'}</td>

@@ -66,7 +66,7 @@ export const mdfeService = {
     try {
       const response = await api.post('/mdfe/emitir', data);
       return response.data.dados || response.data || null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ MDF-e emitir erro:', error);
       throw error;
     }

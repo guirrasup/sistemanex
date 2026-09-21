@@ -1,6 +1,19 @@
 // src/services/cte.service.ts
 import api from './api';
 import { CTeDocumento } from '../types/fiscal';
+import { getApiErrorMessage } from '../utils/apiError';
+
+export interface EstatisticasCTe {
+  total: number;
+  porStatus: Record<string, number>;
+}
+
+export interface ResumoMensalCTe {
+  ano: number;
+  mes: number;
+  quantidade: number;
+  valorTotal: number;
+}
 
 export interface ListaCteResponse {
   data: CTeDocumento[];
@@ -75,22 +88,22 @@ export const cteService = {
     }
   },
 
-  async emitir(cteData: any): Promise<CTeDocumento | null> {
+  async emitir(cteData: CTeDocumento): Promise<CTeDocumento | null> {
     try {
       const response = await api.post('/cte/emitir', cteData);
       return response.data?.dados || response.data || null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ CT-e emitir erro:', error);
-      throw new Error(error.response?.data?.erro || 'Erro ao emitir CT-e');
+      throw new Error(getApiErrorMessage(error, 'Erro ao emitir CT-e'));
     }
   },
 
   async cancelar(id: string, justificativa: string): Promise<void> {
     try {
       await api.post(`/cte/cancelar/${id}`, { motivo: justificativa });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ CT-e cancelar erro:', error);
-      throw new Error(error.response?.data?.erro || 'Erro ao cancelar CT-e');
+      throw new Error(getApiErrorMessage(error, 'Erro ao cancelar CT-e'));
     }
   },
 
@@ -100,23 +113,23 @@ export const cteService = {
         responseType: 'blob'
       });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ CT-e baixarXml erro:', error);
-      throw new Error(error.response?.data?.erro || 'Erro ao baixar XML');
+      throw new Error(getApiErrorMessage(error, 'Erro ao baixar XML'));
     }
   },
 
-  async gerarDacte(id: string): Promise<any> {
+  async gerarDacte(id: string): Promise<unknown> {
     try {
       const response = await api.get(`/cte/dacte/${id}`);
       return response.data?.dados || response.data || null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ CT-e gerarDacte erro:', error);
-      throw new Error(error.response?.data?.erro || 'Erro ao gerar DACTE');
+      throw new Error(getApiErrorMessage(error, 'Erro ao gerar DACTE'));
     }
   },
 
-  async getEstatisticas(): Promise<any> {
+  async getEstatisticas(): Promise<EstatisticasCTe | null> {
     try {
       const response = await api.get('/cte/estatisticas');
       return response.data?.dados || response.data || null;
@@ -126,7 +139,7 @@ export const cteService = {
     }
   },
 
-  async getTotalFrete(dataInicio?: string, dataFim?: string): Promise<any> {
+  async getTotalFrete(dataInicio?: string, dataFim?: string): Promise<{ total: number } | null> {
     try {
       const response = await api.get('/cte/total-frete', {
         params: { dataInicio, dataFim }
@@ -138,7 +151,7 @@ export const cteService = {
     }
   },
 
-  async getResumoMensal(ano: number, mes: number): Promise<any> {
+  async getResumoMensal(ano: number, mes: number): Promise<ResumoMensalCTe | null> {
     try {
       const response = await api.get('/cte/resumo-mensal', {
         params: { ano, mes }

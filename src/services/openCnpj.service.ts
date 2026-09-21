@@ -211,19 +211,19 @@ export async function consultarCnpjOpen(
       datasets: datasets
     };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erro ao consultar OpenCNPJ:', error);
-    
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+
+    if (error instanceof TypeError && error.message.includes('fetch')) {
       return {
         sucesso: false,
         erro: 'Erro de rede. Verifique sua conexão com a internet.'
       };
     }
-    
+
     return {
       sucesso: false,
-      erro: error.message || 'Erro desconhecido ao consultar CNPJ'
+      erro: error instanceof Error ? error.message : 'Erro desconhecido ao consultar CNPJ'
     };
   }
 }
@@ -250,7 +250,7 @@ function mapearDadosOpenCnpj(data: OpenCnpjResponse) {
     }
   }
 
-  const qsa = (data.socios || []).map((socio: any) => ({
+  const qsa = (data.socios || []).map((socio) => ({
     nome: socio.nome || socio.nome_socio || '',
     cpf: socio.cpf || socio.cpf_socio || '',
     qualificacao: socio.qualificacao || socio.qualificacao_socio || '',
@@ -299,13 +299,13 @@ function mapearDadosOpenCnpj(data: OpenCnpjResponse) {
       numero: data.cno.numero || '',
       situacao: data.cno.situacao || ''
     } : undefined,
-    ceis: data.ceis ? data.ceis.map((item: any) => ({
+    ceis: data.ceis ? data.ceis.map((item) => ({
       orgao: item.orgao || '',
       dataInicio: item.data_inicio || '',
       dataFim: item.data_fim || '',
       tipo: item.tipo || ''
     })) : undefined,
-    cnep: data.cnep ? data.cnep.map((item: any) => ({
+    cnep: data.cnep ? data.cnep.map((item) => ({
       orgao: item.orgao || '',
       dataInicio: item.data_inicio || '',
       dataFim: item.data_fim || '',

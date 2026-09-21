@@ -16,6 +16,7 @@ import {
 import { UsuarioAuth, ConfiguracaoEmpresa } from '../../types/erp';
 import api from '../../services/api';
 import { useToast } from '../../hooks/useToast';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 // 🔥 IMAGEM DE FUNDO BUSINESS
 const BACKGROUND_IMAGE = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1920&q=80';
@@ -96,8 +97,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
         setErro(response.data.erro || 'Credenciais inválidas');
         toast.showError(`❌ ${response.data.erro || 'Credenciais inválidas'}`);
       }
-    } catch (error: any) {
-      const mensagem = error.response?.data?.erro || 'Erro ao fazer login. Tente novamente.';
+    } catch (error: unknown) {
+      const mensagem = getApiErrorMessage(error, 'Erro ao fazer login. Tente novamente.');
       setErro(mensagem);
       toast.showError(`❌ ${mensagem}`);
     } finally {

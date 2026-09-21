@@ -15,6 +15,7 @@ import { formatarMoeda, formatarCpfCnpj, validarCpfOuCnpj, limparDocumento } fro
 import { gerarChaveAcessoNFe, calcularDVMod11NFe } from '../../utils/chaveAcesso';
 import { cteService } from '../../services/cte.service';
 import { useToast } from '../../hooks/useToast';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 // ============================================================
 // INTERFACES
@@ -378,8 +379,12 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
     setQuantidades(prev => prev.filter((_, i) => i !== index));
   };
 
-  const atualizarQuantidade = (index: number, campo: string, valor: any) => {
-    setQuantidades(prev => prev.map((q, i) => 
+  const atualizarQuantidade = <K extends keyof (typeof quantidades)[number]>(
+    index: number,
+    campo: K,
+    valor: (typeof quantidades)[number][K]
+  ) => {
+    setQuantidades(prev => prev.map((q, i) =>
       i === index ? { ...q, [campo]: valor } : q
     ));
   };
@@ -474,7 +479,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
 
       const chavesList = documentos.map(d => d.chave);
 
-      const novoCte: any = {
+      const novoCte = {
         // IDENTIFICAÇÃO
         versao: '4.00',
         Id: `CTe${chaveData.chaveCompleta}`,
@@ -672,7 +677,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         autorizadosDownload: autXML.filter(a => a.CNPJ || a.CPF),
       };
 
-      const response = await cteService.emitir(novoCte);
+      const response = await cteService.emitir(novoCte as unknown as CTeDocumento);
 
       if (response) {
         StorageService.addCte(response);
@@ -681,10 +686,11 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         toast.showSuccess(`✅ CT-e Nº ${numero} emitido com sucesso!`);
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao emitir CT-e:', error);
-      setErros([error.message || 'Falha ao emitir CT-e junto à SEFAZ.']);
-      toast.showError(`❌ ${error.message || 'Falha ao emitir CT-e'}`);
+      const mensagemErro = getApiErrorMessage(error, 'Falha ao emitir CT-e junto à SEFAZ.');
+      setErros([mensagemErro]);
+      toast.showError(`❌ ${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
     }
@@ -749,7 +755,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => onViewDacte(sucessoCte as any)}
+                onClick={() => sucessoCte && onViewDacte(sucessoCte)}
                 className={`${corBgButton} text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
               >
                 <Eye className="w-3.5 h-3.5" />

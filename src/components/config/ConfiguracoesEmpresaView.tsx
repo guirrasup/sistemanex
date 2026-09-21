@@ -29,6 +29,7 @@ import { formatarCpfCnpj, formatarCEP, limparDocumento } from '../../utils/cpfCn
 import { StorageService } from '../../utils/storage';
 import { processarCertificadoA1 } from '../../utils/certificadoParser';
 import { consultarCnpjConectaGov } from '../../utils/consultaCnpjApi';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface ConfiguracoesEmpresaViewProps {
   empresa: ConfiguracaoEmpresa;
@@ -85,7 +86,7 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleChange = (field: keyof ConfiguracaoEmpresa, value: any) => {
+  const handleChange = <K extends keyof ConfiguracaoEmpresa>(field: K, value: ConfiguracaoEmpresa[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -275,10 +276,10 @@ const handleCarregarCertificadoEPreencher = async () => {
         mensagem: resultado.mensagem || 'Falha ao processar o certificado.',
       });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     setFeedbackCert({
       tipo: 'erro',
-      mensagem: `Erro ao processar certificado: ${err.message || 'Erro inesperado'}`,
+      mensagem: `Erro ao processar certificado: ${getApiErrorMessage(err, 'Erro inesperado')}`,
     });
   } finally {
     setIsProcessandoCert(false);
@@ -693,7 +694,7 @@ const handleCarregarCertificadoEPreencher = async () => {
               <label className="block font-medium text-slate-600 mb-1">Regime Tributário</label>
               <select
                 value={formData.regimeTributario}
-                onChange={(e) => handleChange('regimeTributario', parseInt(e.target.value))}
+                onChange={(e) => handleChange('regimeTributario', parseInt(e.target.value) as 1 | 2 | 3)}
                 className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-medium text-slate-800 focus:outline-none ${corFocus}`}
               >
                 <option value={1}>1 - Simples Nacional</option>
@@ -927,9 +928,9 @@ const handleCarregarCertificadoEPreencher = async () => {
                 <div>
                   <label className="block text-slate-600 mb-1">Série DPS:</label>
                   <input
-                    type="text"
+                    type="number"
                     value={formData.serieNfse}
-                    onChange={(e) => handleChange('serieNfse', e.target.value)}
+                    onChange={(e) => handleChange('serieNfse', parseInt(e.target.value) || 1)}
                     className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
                   />
                 </div>

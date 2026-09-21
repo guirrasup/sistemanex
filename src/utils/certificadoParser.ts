@@ -147,8 +147,8 @@ export async function processarCertificadoA1(
           const p12Der = forge.util.createBuffer(binary);
           const p12Asn1 = forge.asn1.fromDer(p12Der);
           p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, senha);
-        } catch (forgeErr: any) {
-          const msg = forgeErr?.message || '';
+        } catch (forgeErr: unknown) {
+          const msg = forgeErr instanceof Error ? forgeErr.message : '';
           if (msg.includes('password') || msg.includes('Mac') || msg.includes('PKCS#12') || msg.includes('decrypt')) {
             erroSenha = true;
           }
@@ -182,14 +182,14 @@ export async function processarCertificadoA1(
           certX509 = certBag[0].cert;
           
           const cnAttr = certX509.subject.attributes.find(
-            (a: any) => a.name === 'commonName' || a.type === '2.5.4.3'
+            (a) => a.name === 'commonName' || a.type === '2.5.4.3'
           );
           if (cnAttr && cnAttr.value) {
             subjectName = String(cnAttr.value);
           }
 
           const issuerAttr = certX509.issuer.attributes.find(
-            (a: any) => a.name === 'commonName' || a.name === 'organizationName'
+            (a) => a.name === 'commonName' || a.name === 'organizationName'
           );
           if (issuerAttr && issuerAttr.value) {
             issuerName = String(issuerAttr.value);
@@ -280,11 +280,11 @@ export async function processarCertificadoA1(
           dadosEmpresa: dadosCompletos,
         });
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Erro ao ler certificado:', err);
         resolve({
           sucesso: false,
-          mensagem: `Erro ao processar certificado: ${err.message || 'Erro desconhecido'}`,
+          mensagem: `Erro ao processar certificado: ${err instanceof Error ? err.message : 'Erro desconhecido'}`,
         });
       }
     };

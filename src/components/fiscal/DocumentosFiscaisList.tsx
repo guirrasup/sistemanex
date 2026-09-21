@@ -59,6 +59,32 @@ type OrdenacaoDirecao = 'asc' | 'desc';
 // 🔥 TIPO PARA PERÍODO
 type PeriodoFiltro = 'TODOS' | 'HOJE' | 'SEMANA' | 'MES' | 'TRIMESTRE' | 'SEMESTRE' | 'ANO' | 'PERSONALIZADO';
 
+// 🔥 CAMPOS BRUTOS LIDOS DE QUALQUER TIPO DE DOCUMENTO FISCAL (todos opcionais: cada
+// tipo concreto só preenche o subconjunto de campos que lhe é próprio)
+interface DocumentoFiscalBruto {
+  id?: string;
+  numero?: number;
+  numeroNfse?: number;
+  serie?: number;
+  serieDPS?: number;
+  chaveAcesso?: string;
+  destinatario?: { nomeRazaoSocial?: string; documento?: string; cpfCnpj?: string };
+  tomador?: { nomeRazaoSocial?: string; documento?: string };
+  remetente?: { nomeRazaoSocial?: string; documento?: string };
+  valorTotalNota?: number;
+  valorTotalServicos?: number;
+  valorTotalFrete?: number;
+  dataHoraEmissao?: string;
+  status?: string;
+  xmlAssinado?: string;
+  itens?: unknown[];
+  servico?: { descricao?: string };
+  municipioInicio?: { nome?: string; uf?: string };
+  municipioFim?: { nome?: string; uf?: string };
+  requerente?: { nomeRazaoSocial?: string };
+  motivoEmissao?: string;
+}
+
 // 🔥 TIPO PARA DOCUMENTO UNIFICADO
 interface DocumentoUnificado {
   tipo: 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE';
@@ -194,7 +220,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
   };
 
   // 🔥 FUNÇÃO PARA CRIAR DOCUMENTO UNIFICADO COM FALLBACKS
-  const criarDocumento = (doc: any, tipo: string): DocumentoUnificado | null => {
+  const criarDocumento = (doc: DocumentoFiscalBruto, tipo: string): DocumentoUnificado | null => {
     if (!doc) return null;
 
     switch (tipo) {
@@ -215,7 +241,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: `${doc.itens?.length || 0} item(ns) faturado(s)`,
-          onView: () => onViewDanfe(doc),
+          onView: () => onViewDanfe(doc as unknown as NFeDocumento),
         };
       case 'NFSE':
         return {
@@ -234,7 +260,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: doc.servico?.descricao || 'Serviço sem descrição',
-          onView: () => onViewDanfse(doc),
+          onView: () => onViewDanfse(doc as unknown as NFSeDocumento),
         };
       case 'NFCE':
         return {
@@ -253,7 +279,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: `${doc.itens?.length || 0} item(ns) • Cupom Fiscal PDV`,
-          onView: () => onViewDanfce && onViewDanfce(doc),
+          onView: () => onViewDanfce && onViewDanfce(doc as unknown as NFCeDocumento),
         };
       case 'CTE':
         return {
@@ -272,7 +298,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: `Frete ${doc.municipioInicio?.nome || '?'}/${doc.municipioInicio?.uf || '?'} ➔ ${doc.municipioFim?.nome || '?'}/${doc.municipioFim?.uf || '?'}`,
-          onView: () => onViewDacte && onViewDacte(doc),
+          onView: () => onViewDacte && onViewDacte(doc as unknown as CTeDocumento),
         };
       case 'NFAE':
         return {
@@ -291,7 +317,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: `${doc.requerente?.nomeRazaoSocial || 'Requerente'} • ${doc.motivoEmissao || 'Sem motivo'}`,
-          onView: () => onViewDanfae && onViewDanfae(doc),
+          onView: () => onViewDanfae && onViewDanfae(doc as unknown as NFAeDocumento),
         };
       default:
         return null;
@@ -300,11 +326,11 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
 
   // 🔥 UNIFICA TODOS OS DOCUMENTOS (com fallbacks)
   const todosDocsRaw = [
-    ...nfes.map(d => criarDocumento(d, 'NFE')).filter(Boolean),
-    ...nfses.map(d => criarDocumento(d, 'NFSE')).filter(Boolean),
-    ...nfces.map(d => criarDocumento(d, 'NFCE')).filter(Boolean),
-    ...ctes.map(d => criarDocumento(d, 'CTE')).filter(Boolean),
-    ...nfaes.map(d => criarDocumento(d, 'NFAE')).filter(Boolean),
+    ...nfes.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'NFE')).filter(Boolean),
+    ...nfses.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'NFSE')).filter(Boolean),
+    ...nfces.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'NFCE')).filter(Boolean),
+    ...ctes.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'CTE')).filter(Boolean),
+    ...nfaes.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'NFAE')).filter(Boolean),
   ] as DocumentoUnificado[];
 
   // 🔥 ORDENAÇÃO E FILTRO COM useMemo
@@ -342,8 +368,8 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
 
     // 🔥 ORDENAÇÃO
     return [...filtrados].sort((a, b) => {
-      let valorA: any;
-      let valorB: any;
+      let valorA: unknown;
+      let valorB: unknown;
 
       switch (ordenacaoCampo) {
         case 'tipo':

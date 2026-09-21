@@ -38,13 +38,14 @@ import {
   Printer,
   Ticket
 } from 'lucide-react';
-import { NFCeDocumento, ItemNfe } from '../../types/fiscal';
+import { NFCeDocumento, NFeDocumento, ItemNfe } from '../../types/fiscal';
 import { Produto, ClienteFornecedor, ConfiguracaoEmpresa } from '../../types/erp';
 import { StorageService } from '../../utils/storage';
 import { formatarMoeda, formatarCpfCnpj, validarCpfOuCnpj, limparDocumento } from '../../utils/cpfCnpjValidator';
 import { gerarChaveAcessoNFe } from '../../utils/chaveAcesso';
 import { calcularTotaisNfe } from '../../utils/tributosEngine';
 import { useToast } from '../../hooks/useToast';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface NfceEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -323,7 +324,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   // ============================================================
 
   const handleFormaPagamentoChange = (codigo: string) => {
-    setFormaPagamento(codigo as any);
+    setFormaPagamento(codigo as '01' | '02' | '03' | '04' | '15' | '17' | '90' | '99');
     setTPag(codigo);
     const descricoes: Record<string, string> = {
       '01': 'Dinheiro',
@@ -488,7 +489,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         infCpl: infCpl || undefined,
       };
 
-      const xml = gerarXmlNfe400(novaNfce as any);
+      const xml = gerarXmlNfe400(novaNfce as unknown as NFeDocumento);
       novaNfce.xmlAssinado = xml;
 
       StorageService.addNfce(novaNfce);
@@ -497,10 +498,11 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
       
       toast.showSuccess(`✅ NFC-e Nº ${numero} emitida com sucesso!`);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro na transmissão:', error);
-      setErros([error.message || 'Erro ao emitir NFC-e. Tente novamente.']);
-      toast.showError(`❌ ${error.message || 'Erro ao emitir NFC-e.'}`);
+      const mensagemErro = getApiErrorMessage(error, 'Erro ao emitir NFC-e. Tente novamente.');
+      setErros([mensagemErro]);
+      toast.showError(`❌ ${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
     }
@@ -841,7 +843,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             <label className="block font-medium text-slate-600 mb-1">Presença (IndPres)</label>
             <select
               value={indPres}
-              onChange={(e) => setIndPres(parseInt(e.target.value) as any)}
+              onChange={(e) => setIndPres(parseInt(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5 | 9)}
               className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value={0}>0 - Não se aplica</option>
@@ -891,7 +893,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             <label className="block font-medium text-slate-600 mb-1">Tipo Emissão</label>
             <select
               value={tpEmis}
-              onChange={(e) => setTpEmis(parseInt(e.target.value) as any)}
+              onChange={(e) => setTpEmis(parseInt(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 9)}
               className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value={1}>1 - Normal</option>

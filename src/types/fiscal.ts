@@ -26,23 +26,27 @@ export type TCpf = string; // 11 dígitos
 
 export type TCpfVar = string; // 3-11 dígitos
 
-export type TDec_0302 = string; // Regex: 0|0\.[0-9]{2}|[1-9]{1}[0-9]{0,2}(\.[0-9]{2})?
+// 🔥 Os campos TDec_* representam valores decimais (moeda, quantidade, alíquota).
+// A especificação da NFe os serializa como string no XML, mas a aplicação (API JSON +
+// formulários) sempre os manipula como number; a conversão para string de largura fixa
+// acontece só na hora de gerar o XML (ver formatarNumero/formatarNumeroXml).
+export type TDec_0302 = number; // Regex: 0|0\.[0-9]{2}|[1-9]{1}[0-9]{0,2}(\.[0-9]{2})?
 
-export type TDec_0302Opc = string; // Regex: 0\.[0-9]{1}[1-9]{1}|0\.[1-9]{1}[0-9]{1}|[1-9]{1}[0-9]{0,2}(\.[0-9]{2})?
+export type TDec_0302Opc = number; // Regex: 0\.[0-9]{1}[1-9]{1}|0\.[1-9]{1}[0-9]{1}|[1-9]{1}[0-9]{0,2}(\.[0-9]{2})?
 
-export type TDec_0302_04 = string; // Regex: 0|0\.[0-9]{2,4}|[1-9]{1}[0-9]{0,2}(\.[0-9]{2,4})?
+export type TDec_0302_04 = number; // Regex: 0|0\.[0-9]{2,4}|[1-9]{1}[0-9]{0,2}(\.[0-9]{2,4})?
 
-export type TDec_0803 = string; // Regex: 0|0\.[0-9]{3}|[1-9]{1}[0-9]{0,7}(\.[0-9]{3})?
+export type TDec_0803 = number; // Regex: 0|0\.[0-9]{3}|[1-9]{1}[0-9]{0,7}(\.[0-9]{3})?
 
-export type TDec_0804 = string; // Regex: 0|0\.[0-9]{4}|[1-9]{1}[0-9]{0,7}(\.[0-9]{4})?
+export type TDec_0804 = number; // Regex: 0|0\.[0-9]{4}|[1-9]{1}[0-9]{0,7}(\.[0-9]{4})?
 
-export type TDec_1104v = string; // Regex: 0|0\.[0-9]{1,4}|[1-9]{1}[0-9]{0,10}|[1-9]{1}[0-9]{0,10}(\.[0-9]{1,4})?
+export type TDec_1104v = number; // Regex: 0|0\.[0-9]{1,4}|[1-9]{1}[0-9]{0,10}|[1-9]{1}[0-9]{0,10}(\.[0-9]{1,4})?
 
-export type TDec_1204 = string; // Regex: 0|0\.[0-9]{1,4}|[1-9]{1}[0-9]{0,11}|[1-9]{1}[0-9]{0,11}(\.[0-9]{1,4})?
+export type TDec_1204 = number; // Regex: 0|0\.[0-9]{1,4}|[1-9]{1}[0-9]{0,11}|[1-9]{1}[0-9]{0,11}(\.[0-9]{1,4})?
 
-export type TDec_1302 = string; // Regex: 0|0\.[0-9]{2}|[1-9]{1}[0-9]{0,12}(\.[0-9]{2})?
+export type TDec_1302 = number; // Regex: 0|0\.[0-9]{2}|[1-9]{1}[0-9]{0,12}(\.[0-9]{2})?
 
-export type TDec_1110 = string; // Regex: 0|0\.[0-9]{1,10}|[1-9]{1}[0-9]{0,10}|[1-9]{1}[0-9]{0,10}(\.[0-9]{1,10})?
+export type TDec_1110 = number; // Regex: 0|0\.[0-9]{1,10}|[1-9]{1}[0-9]{0,10}|[1-9]{1}[0-9]{0,10}(\.[0-9]{1,10})?
 
 export type TIeDest = string; // "ISENTO" ou [0-9]{0,14}
 

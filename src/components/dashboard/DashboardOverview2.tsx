@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { api } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
+import type { Produto } from '../../services/produtos.service';
 
 // ============================================================
 // TIPOS REAIS DO BACKEND (baseados nos controllers)
@@ -70,7 +72,7 @@ export const DashboardOverview: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [resumoFinanceiro, setResumoFinanceiro] = useState<ResumoFinanceiro | null>(null);
-  const [estoqueCritico, setEstoqueCritico] = useState<any[]>([]);
+  const [estoqueCritico, setEstoqueCritico] = useState<Produto[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // ============================================================
@@ -106,9 +108,9 @@ export const DashboardOverview: React.FC = () => {
           console.warn('⚠️ Estoque crítico não disponível:', e);
         }
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('❌ Erro ao carregar dashboard:', err);
-        setError(err.response?.data?.erro || 'Erro ao carregar dados do dashboard');
+        setError(getApiErrorMessage(err, 'Erro ao carregar dados do dashboard'));
       } finally {
         setLoading(false);
       }

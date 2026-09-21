@@ -71,6 +71,58 @@ export interface ConsultaCnpjResponse {
   erro?: string;
 }
 
+interface OpenCnpjRawResponse {
+  cnpj?: string;
+  razao_social?: string;
+  nome_fantasia?: string;
+  situacao_cadastral?: string;
+  data_situacao_cadastral?: string;
+  natureza_juridica?: string;
+  data_inicio_atividade?: string;
+  cnae_principal?: string;
+  cnaes?: Array<{ codigo?: string; descricao?: string; is_principal?: boolean }>;
+  tipo_logradouro?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cep?: string;
+  municipio?: string;
+  codigo_municipio?: string;
+  uf?: string;
+  pais?: { descricao?: string; codigo?: string };
+  telefones?: Array<{ ddd?: string; numero?: string }>;
+  email?: string;
+  capital_social?: string;
+  porte_empresa?: string;
+  situacao_especial?: string;
+  data_situacao_especial?: string;
+  opcao_simples?: string;
+  opcao_mei?: string;
+  QSA?: Array<{
+    nome_socio?: string;
+    nome?: string;
+    cnpj_cpf_socio?: string;
+    cpf?: string;
+    qualificacao_socio?: string;
+    qualificacao?: string;
+    data_entrada_sociedade?: string;
+    data_inclusao?: string;
+  }>;
+  rntrc?: {
+    numero_rntrc?: string;
+    numero?: string;
+    situacao?: string;
+    data_situacao?: string;
+    categoria?: string;
+    data_primeiro_cadastro?: string;
+    equiparado?: boolean;
+  };
+  qualificacao_responsavel?: { codigo?: string; descricao?: string };
+  motivo_situacao_cadastral?: { codigo?: string; descricao?: string };
+  matriz_filial?: string;
+}
+
 export async function consultarCnpjConectaGov(cnpj: string): Promise<ConsultaCnpjResponse> {
   const cnpjLimpo = limparDocumento(cnpj);
   
@@ -105,14 +157,14 @@ export async function consultarCnpjConectaGov(cnpj: string): Promise<ConsultaCnp
       };
     }
 
-    const data = await response.json();
+    const data: OpenCnpjRawResponse = await response.json();
     
         
     // 🔥 MAPEIA OS SÓCIOS
     let sociosMapeados: Array<{ nome: string; cpf?: string; qualificacao: string; dataInclusao: string }> = [];
 
     if (data.QSA && Array.isArray(data.QSA)) {
-      sociosMapeados = data.QSA.map((s: any) => ({
+      sociosMapeados = data.QSA.map((s) => ({
         nome: s.nome_socio || s.nome || '',
         cpf: s.cnpj_cpf_socio || s.cpf || '',
         qualificacao: s.qualificacao_socio || s.qualificacao || '',
@@ -145,10 +197,10 @@ rntrcMapeado = {
       naturezaJuridicaCodigo: '',
       dataAbertura: data.data_inicio_atividade || '',
       cnaePrincipal: data.cnae_principal || '',
-      cnaePrincipalDescricao: data.cnaes?.find((c: any) => c.is_principal)?.descricao || '',
+      cnaePrincipalDescricao: data.cnaes?.find((c) => c.is_principal)?.descricao || '',
       cnaeSecundarios: (data.cnaes || [])
-        .filter((c: any) => !c.is_principal)
-        .map((c: any) => ({
+        .filter((c) => !c.is_principal)
+        .map((c) => ({
           codigo: c.codigo || '',
           descricao: c.descricao || ''
         })),
@@ -165,7 +217,7 @@ rntrcMapeado = {
         pais: data.pais?.descricao || 'BRASIL',
         codigoPais: data.pais?.codigo || '1058',
       },
-      telefone: (data.telefones || []).map((t: any) => ({
+      telefone: (data.telefones || []).map((t) => ({
         ddd: t.ddd || '',
         numero: t.numero || ''
       })),
@@ -195,11 +247,11 @@ rntrcMapeado = {
       dados: resultado
     };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Erro na consulta:', error);
     return {
       sucesso: false,
-      erro: error.message || 'Erro ao consultar CNPJ'
+      erro: error instanceof Error ? error.message : 'Erro ao consultar CNPJ'
     };
   }
 }

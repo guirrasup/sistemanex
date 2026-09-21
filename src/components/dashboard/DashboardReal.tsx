@@ -39,6 +39,35 @@ import {
 } from 'lucide-react';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import api from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
+
+interface DocumentoFiscalResumo {
+  id: string;
+  numero?: number;
+  numeroNfse?: number;
+  chaveAcesso?: string;
+  dataHoraEmissao?: string;
+  valorTotalNota?: number;
+  valorTotalServicos?: number;
+  valorTotalFrete?: number;
+  status?: string;
+  destinatario?: { razaoSocial: string; documento: string };
+  tomador?: { razaoSocial: string; documento: string };
+}
+
+interface ClienteResumo {
+  tipo?: string;
+}
+
+interface ProdutoResumo {
+  ativo?: boolean;
+}
+
+interface TituloResumo {
+  tipo?: string;
+  status?: string;
+  valorOriginal?: number;
+}
 
 // ============================================================
 // RECHARTS - BIBLIOTECA DE GRÁFICOS
@@ -166,14 +195,14 @@ export const DashboardReal: React.FC = () => {
       ]);
 
       // Extrair dados
-      const clientes = clientesRes.data?.dados?.data || clientesRes.data?.dados || [];
-      const produtos = produtosRes.data?.dados?.data || produtosRes.data?.dados || [];
-      const titulos = titulosRes.data?.dados?.data || titulosRes.data?.dados || [];
-      const nfes = nfesRes.data?.dados?.data || nfesRes.data?.dados || [];
-      const nfses = nfsesRes.data?.dados?.data || nfsesRes.data?.dados || [];
-      const nfces = nfcesRes.data?.dados?.data || nfcesRes.data?.dados || [];
-      const ctes = ctesRes.data?.dados?.data || ctesRes.data?.dados || [];
-      const nfaes = nfaesRes.data?.dados?.data || nfaesRes.data?.dados || [];
+      const clientes: ClienteResumo[] = clientesRes.data?.dados?.data || clientesRes.data?.dados || [];
+      const produtos: ProdutoResumo[] = produtosRes.data?.dados?.data || produtosRes.data?.dados || [];
+      const titulos: TituloResumo[] = titulosRes.data?.dados?.data || titulosRes.data?.dados || [];
+      const nfes: DocumentoFiscalResumo[] = nfesRes.data?.dados?.data || nfesRes.data?.dados || [];
+      const nfses: DocumentoFiscalResumo[] = nfsesRes.data?.dados?.data || nfsesRes.data?.dados || [];
+      const nfces: DocumentoFiscalResumo[] = nfcesRes.data?.dados?.data || nfcesRes.data?.dados || [];
+      const ctes: DocumentoFiscalResumo[] = ctesRes.data?.dados?.data || ctesRes.data?.dados || [];
+      const nfaes: DocumentoFiscalResumo[] = nfaesRes.data?.dados?.data || nfaesRes.data?.dados || [];
       const transportadoras = transportadorasRes.data?.dados?.data || transportadorasRes.data?.dados || [];
 
       
@@ -182,11 +211,11 @@ export const DashboardReal: React.FC = () => {
       // ============================================================
 
       // 1. Faturamento total
-      const totalNfe = nfes.reduce((acc: number, n: any) => acc + (n.valorTotalNota || 0), 0);
-      const totalNfse = nfses.reduce((acc: number, n: any) => acc + (n.valorTotalServicos || 0), 0);
-      const totalNfce = nfces.reduce((acc: number, n: any) => acc + (n.valorTotalNota || 0), 0);
-      const totalCte = ctes.reduce((acc: number, n: any) => acc + (n.valorTotalFrete || 0), 0);
-      const totalNfae = nfaes.reduce((acc: number, n: any) => acc + (n.valorTotalNota || 0), 0);
+      const totalNfe = nfes.reduce((acc: number, n) => acc + (n.valorTotalNota || 0), 0);
+      const totalNfse = nfses.reduce((acc: number, n) => acc + (n.valorTotalServicos || 0), 0);
+      const totalNfce = nfces.reduce((acc: number, n) => acc + (n.valorTotalNota || 0), 0);
+      const totalCte = ctes.reduce((acc: number, n) => acc + (n.valorTotalFrete || 0), 0);
+      const totalNfae = nfaes.reduce((acc: number, n) => acc + (n.valorTotalNota || 0), 0);
       const faturamentoTotal = totalNfe + totalNfse + totalNfce + totalCte + totalNfae;
 
       // 2. Contagem por tipo
@@ -200,21 +229,21 @@ export const DashboardReal: React.FC = () => {
 
       // 3. Últimas notas
       const todasNotas = [
-        ...nfes.map((n: any) => ({ ...n, tipo: 'NFE', valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao })),
-        ...nfses.map((n: any) => ({ ...n, tipo: 'NFSE', valor: n.valorTotalServicos || 0, numero: n.numeroNfse, data: n.dataHoraEmissao })),
-        ...nfces.map((n: any) => ({ ...n, tipo: 'NFCE', valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao })),
-        ...ctes.map((n: any) => ({ ...n, tipo: 'CTE', valor: n.valorTotalFrete || 0, numero: n.numero, data: n.dataHoraEmissao })),
-        ...nfaes.map((n: any) => ({ ...n, tipo: 'NFAE', valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao }))
-      ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+        ...nfes.map((n) => ({ ...n, tipo: 'NFE' as const, valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao })),
+        ...nfses.map((n) => ({ ...n, tipo: 'NFSE' as const, valor: n.valorTotalServicos || 0, numero: n.numeroNfse, data: n.dataHoraEmissao })),
+        ...nfces.map((n) => ({ ...n, tipo: 'NFCE' as const, valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao })),
+        ...ctes.map((n) => ({ ...n, tipo: 'CTE' as const, valor: n.valorTotalFrete || 0, numero: n.numero, data: n.dataHoraEmissao })),
+        ...nfaes.map((n) => ({ ...n, tipo: 'NFAE' as const, valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao }))
+      ].sort((a, b) => new Date(b.data ?? 0).getTime() - new Date(a.data ?? 0).getTime());
 
       const totalNfes = todasNotas.length;
 
       // 4. Notas do mês
       const hoje = new Date();
       const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const notasMes = todasNotas.filter(n => new Date(n.data) >= inicioMes);
+      const notasMes = todasNotas.filter(n => new Date(n.data ?? 0) >= inicioMes);
       const nfesMes = notasMes.length;
-      const faturamentoMes = notasMes.reduce((acc: number, n: any) => acc + (n.valor || 0), 0);
+      const faturamentoMes = notasMes.reduce((acc: number, n) => acc + (n.valor || 0), 0);
 
       // 5. Status dos documentos
       const documentosPorStatus = {
@@ -225,12 +254,12 @@ export const DashboardReal: React.FC = () => {
 
       // 6. Financeiro
       const aReceber = titulos
-        .filter((t: any) => t.tipo === 'RECEBER' && (t.status === 'PENDENTE' || t.status === 'VENCIDO'))
-        .reduce((acc: number, t: any) => acc + (t.valorOriginal || 0), 0);
+        .filter((t) => t.tipo === 'RECEBER' && (t.status === 'PENDENTE' || t.status === 'VENCIDO'))
+        .reduce((acc: number, t) => acc + (t.valorOriginal || 0), 0);
 
       const aPagar = titulos
-        .filter((t: any) => t.tipo === 'PAGAR' && (t.status === 'PENDENTE' || t.status === 'VENCIDO'))
-        .reduce((acc: number, t: any) => acc + (t.valorOriginal || 0), 0);
+        .filter((t) => t.tipo === 'PAGAR' && (t.status === 'PENDENTE' || t.status === 'VENCIDO'))
+        .reduce((acc: number, t) => acc + (t.valorOriginal || 0), 0);
 
       // 7. Faturamento por mês (últimos 3 meses) - CORRIGIDO
       const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -246,7 +275,7 @@ export const DashboardReal: React.FC = () => {
           return data >= mesAtual && data <= mesFim;
         });
         
-        const valor = notasMesPeriodo.reduce((acc: number, n: any) => {
+        const valor = notasMesPeriodo.reduce((acc: number, n) => {
           const v = n.valor || n.valorTotalNota || n.valorTotalServicos || 0;
           return acc + (typeof v === 'number' ? v : 0);
         }, 0);
@@ -269,9 +298,9 @@ export const DashboardReal: React.FC = () => {
       const crescimento = mesAnterior > 0 ? ((mesAtual - mesAnterior) / mesAnterior) * 100 : 0;
 
       // 9. Cadastros
-      const totalClientes = clientes.filter((c: any) => c.tipo === 'CLIENTE' || c.tipo === 'AMBOS').length;
-      const totalFornecedores = clientes.filter((c: any) => c.tipo === 'FORNECEDOR' || c.tipo === 'AMBOS').length;
-      const totalProdutos = produtos.filter((p: any) => p.ativo !== false).length;
+      const totalClientes = clientes.filter((c) => c.tipo === 'CLIENTE' || c.tipo === 'AMBOS').length;
+      const totalFornecedores = clientes.filter((c) => c.tipo === 'FORNECEDOR' || c.tipo === 'AMBOS').length;
+      const totalProdutos = produtos.filter((p) => p.ativo !== false).length;
       const totalTransportadoras = transportadoras.length;
 
       // ============================================================
@@ -309,9 +338,9 @@ export const DashboardReal: React.FC = () => {
       });
 
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Erro:', err);
-      setError(err.message || 'Erro ao carregar dados');
+      setError(getApiErrorMessage(err, 'Erro ao carregar dados'));
     } finally {
       setLoading(false);
     }
@@ -565,7 +594,7 @@ export const DashboardReal: React.FC = () => {
           </div>
 
           <div className="h-56 w-full">
-            {faturamentoPorMes.some((item: any) => item.valor > 0) ? (
+            {faturamentoPorMes.some((item) => item.valor > 0) ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={faturamentoPorMes}
@@ -607,7 +636,7 @@ export const DashboardReal: React.FC = () => {
                     animationDuration={800}
                     animationEasing="ease-in-out"
                   >
-                    {faturamentoPorMes.map((entry: any, index: number) => (
+                    {faturamentoPorMes.map((entry, index: number) => (
                       <Cell 
                         key={`cell-${index}`} 
                         fill={entry.color || '#3b82f6'}
@@ -661,7 +690,7 @@ export const DashboardReal: React.FC = () => {
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                   >
-                    {pieData.map((entry: any, index: number) => (
+                    {pieData.map((entry, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -752,7 +781,7 @@ export const DashboardReal: React.FC = () => {
               Nenhum documento emitido ainda.
             </div>
           ) : (
-            ultimasNotas.slice(0, 6).map((doc: any) => {
+            ultimasNotas.slice(0, 6).map((doc) => {
               const cores: Record<string, string> = {
                 'NFE': 'bg-emerald-100 text-emerald-700',
                 'NFSE': 'bg-blue-100 text-blue-700',

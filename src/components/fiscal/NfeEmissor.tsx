@@ -14,6 +14,7 @@ import { validarCpfOuCnpj, formatarMoeda, limparDocumento } from '../../utils/cp
 import { gerarChaveAcessoNFe } from '../../utils/chaveAcesso';
 import { calcularTotaisNfe } from '../../utils/tributosEngine';
 import { gerarXmlNfe400 } from '../../utils/xmlNfeGenerator';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 // ============================================================
 // INTERFACE
@@ -499,8 +500,8 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         setNfeEmitidaSucesso(novaNfe);
         setSucessos(['NF-e emitida e autorizada com sucesso!']);
 
-      } catch (error: any) {
-        setErros([`Erro ao transmitir NF-e: ${error.message || 'Erro desconhecido'}`]);
+      } catch (error: unknown) {
+        setErros([`Erro ao transmitir NF-e: ${getApiErrorMessage(error, 'Erro desconhecido')}`]);
       } finally {
         setIsTransmitting(false);
       }
@@ -672,14 +673,14 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Tipo Documento <span className="text-[10px] text-slate-400">(TpNF)</span></label>
-            <select value={tipoDocumento} onChange={(e) => setTipoDocumento(Number(e.target.value) as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select value={tipoDocumento} onChange={(e) => setTipoDocumento(Number(e.target.value) as 0 | 1)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
               <option value={0}>0 - Entrada</option>
               <option value={1}>1 - Saída</option>
             </select>
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Finalidade</label>
-            <select value={finalidade} onChange={(e) => setFinalidade(Number(e.target.value) as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select value={finalidade} onChange={(e) => setFinalidade(Number(e.target.value) as 1 | 2 | 3 | 4)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
               <option value={1}>1 - Normal</option>
               <option value={2}>2 - Complementar</option>
               <option value={3}>3 - Ajuste</option>
@@ -782,7 +783,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
           <div>
             <label className="block font-medium text-slate-600 mb-1">Modalidade Frete</label>
-            <select value={modalidadeFrete} onChange={(e) => setModalidadeFrete(parseInt(e.target.value) as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select value={modalidadeFrete} onChange={(e) => setModalidadeFrete(parseInt(e.target.value) as 0 | 1 | 2 | 3 | 4 | 9)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
               <option value={0}>0 - CIF (Emitente)</option>
               <option value={1}>1 - FOB (Destinatário)</option>
               <option value={2}>2 - Terceiros</option>
@@ -881,7 +882,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div>
             <label className="block font-medium text-slate-600 mb-1">Forma de Pagamento</label>
-            <select value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value as '01' | '02' | '03' | '04' | '15' | '17' | '90' | '99')} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
               <option value="01">01 - Dinheiro</option>
               <option value="02">02 - Cheque</option>
               <option value="03">03 - Cartão Crédito</option>
@@ -898,7 +899,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Presença Comprador</label>
-            <select value={presencaComprador} onChange={(e) => setPresencaComprador(parseInt(e.target.value) as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select value={presencaComprador} onChange={(e) => setPresencaComprador(parseInt(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5 | 9)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
               <option value={0}>0 - Não se aplica</option>
               <option value={1}>1 - Presencial</option>
               <option value={2}>2 - Não presencial (Internet)</option>
@@ -910,7 +911,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Finalidade</label>
-            <select value={finalidade} onChange={(e) => setFinalidade(parseInt(e.target.value) as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select value={finalidade} onChange={(e) => setFinalidade(parseInt(e.target.value) as 1 | 2 | 3 | 4)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
               <option value={1}>1 - Normal</option>
               <option value={2}>2 - Complementar</option>
               <option value={3}>3 - Ajuste</option>

@@ -15,6 +15,7 @@ import { formatarMoeda, formatarCpfCnpj, validarCpfOuCnpj, limparDocumento } fro
 import { gerarChaveAcessoNFe } from '../../utils/chaveAcesso';
 import { nfaeService } from '../../services/nfae.service';
 import { useToast } from '../../hooks/useToast';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface NfaeEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -205,13 +206,13 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
     setItens(prev => prev.filter((_, i) => i !== index));
   };
 
-  const atualizarItem = (index: number, campo: string, valor: any) => {
+  const atualizarItem = <K extends keyof ItemNfae>(index: number, campo: K, valor: ItemNfae[K]) => {
     setItens(prev => prev.map((item, i) => {
       if (i === index) {
         const updated = { ...item, [campo]: valor };
         if (campo === 'quantidade' || campo === 'valorUnitario') {
-          const qtd = campo === 'quantidade' ? valor : item.quantidade;
-          const vUnit = campo === 'valorUnitario' ? valor : item.valorUnitario;
+          const qtd = (campo === 'quantidade' ? valor : item.quantidade) as number;
+          const vUnit = (campo === 'valorUnitario' ? valor : item.valorUnitario) as number;
           updated.valorTotal = qtd * vUnit;
           updated.valorICMS = (updated.valorTotal * updated.aliquotaICMS) / 100;
         }
@@ -276,7 +277,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
       const docDestLimpo = limparDocumento(destinatarioDoc);
       const isCnpjDest = docDestLimpo.length === 14;
 
-      const novaNfae: any = {
+      const novaNfae = {
         modelo: '63',
         serie: serie || 900,
         numero,
@@ -343,7 +344,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         destinatarioId: selectedDestinatarioId,
       };
 
-      const response = await nfaeService.emitir(novaNfae);
+      const response = await nfaeService.emitir(novaNfae as unknown as NFAeDocumento);
 
       if (response) {
         StorageService.addNfae(response);
@@ -352,10 +353,11 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         toast.showSuccess(`✅ NFA-e Nº ${numero} emitida com sucesso!`);
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao emitir NFA-e:', error);
-      setErros([error.message || 'Falha ao emitir NFA-e.']);
-      toast.showError(`❌ ${error.message || 'Falha ao emitir NFA-e'}`);
+      const mensagemErro = getApiErrorMessage(error, 'Falha ao emitir NFA-e.');
+      setErros([mensagemErro]);
+      toast.showError(`❌ ${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
     }
@@ -1013,7 +1015,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
               <label className="block font-medium text-slate-600 mb-1">Status</label>
               <select
                 value={statusPagamentoDAE}
-                onChange={(e) => setStatusPagamentoDAE(e.target.value as any)}
+                onChange={(e) => setStatusPagamentoDAE(e.target.value as 'PAGO' | 'AGUARDANDO_PAGAMENTO' | 'ISENTO')}
                 className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               >
                 <option value="AGUARDANDO_PAGAMENTO">Aguardando Pagamento</option>

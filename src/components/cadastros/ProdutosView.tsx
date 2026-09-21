@@ -23,6 +23,7 @@ import {
 import { Produto } from '../../types/erp';
 import { formatarMoeda } from '../../utils/cpfCnpjValidator';
 import { produtosService } from '../../services/produtos.service';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 
@@ -227,9 +228,9 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
       setModalOpen(false);
       onProdutosChange();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao salvar produto:', error);
-      const mensagem = error.response?.data?.erro || error.message || 'Erro ao salvar produto';
+      const mensagem = getApiErrorMessage(error, 'Erro ao salvar produto');
       setErro(mensagem);
       toast.showError(`❌ ${mensagem}`);
     } finally {
@@ -265,9 +266,9 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
       closeConfirmModal();
       onProdutosChange();
       toast.showSuccess(`✅ Produto "${descricao}" excluído com sucesso!`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao excluir produto:', error);
-      const mensagemErro = error.response?.data?.erro || error.message || 'Erro ao excluir produto';
+      const mensagemErro = getApiErrorMessage(error, 'Erro ao excluir produto');
       closeConfirmModal();
       toast.showError(`❌ ${mensagemErro}`);
       setErro(mensagemErro);
@@ -293,8 +294,8 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
     );
 
     return [...filtrados].sort((a, b) => {
-      let valorA: any = a[ordenacaoCampo];
-      let valorB: any = b[ordenacaoCampo];
+      let valorA: unknown = a[ordenacaoCampo];
+      let valorB: unknown = b[ordenacaoCampo];
 
       if (typeof valorA === 'number' && typeof valorB === 'number') {
         return ordenacaoDirecao === 'asc' ? valorA - valorB : valorB - valorA;

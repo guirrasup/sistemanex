@@ -43,6 +43,7 @@ import { calcularTributosNfse } from '../../utils/tributosEngine';
 import { gerarXmlNfseNacional } from '../../utils/xmlNfseGenerator';
 import { useToast } from '../../hooks/useToast';
 import api from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface NfseEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -479,7 +480,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           informacoesComplementares,
           numeroPedido,
         });
-              } catch (err: any) {
+              } catch (err: unknown) {
         console.error('Erro ao salvar NFS-e no backend:', err);
         StorageService.addNfse(novaNfse);
       }
@@ -489,10 +490,11 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
       setSucessoNfse(novaNfse);
       toast.showSuccess(`✅ NFS-e Nº ${numeroNfse} emitida com sucesso!`);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Erro na transmissão:', err);
-      setErrosValidacao([err.message || 'Falha ao processar emissão da NFS-e. Verifique os dados.']);
-      toast.showError(`❌ ${err.message || 'Erro ao emitir NFS-e.'}`);
+      const mensagemErro = getApiErrorMessage(err, 'Falha ao processar emissão da NFS-e. Verifique os dados.');
+      setErrosValidacao([mensagemErro]);
+      toast.showError(`❌ ${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
     }

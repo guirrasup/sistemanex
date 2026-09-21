@@ -129,7 +129,7 @@ export const nfseService = {
       
       const response = await api.post('/nfse/emitir', nfse);
       return response.data.dados || response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ NFS-e emitir erro:', error);
       throw error;
     }
@@ -146,7 +146,7 @@ export const nfseService = {
       }
       
       await api.post(`/nfse/cancelar/${id}`, { motivo: justificativa });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ NFS-e cancelar erro:', error);
       throw error;
     }

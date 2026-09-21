@@ -39,6 +39,7 @@ import { ClienteFornecedor, ConfiguracaoEmpresa } from '../../types/erp';
 import { formatarMoeda, formatarCpfCnpj, limparDocumento } from '../../utils/cpfCnpjValidator';
 import { mdfeService } from '../../services/mdfe.service';
 import { useToast } from '../../hooks/useToast';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface MdfeEmissorProps {
@@ -547,11 +548,11 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
     try {
       // Monta payload
-      const payload: any = {
+      const payload = {
         emitenteId: selectedEmitenteId || undefined,
         modal,
         tpEmit,
-        tpTransp: tpTransp as any,
+        tpTransp,
         UFIni,
         UFFim,
         dhIniViagem: dhIniViagem || undefined,
@@ -602,7 +603,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         infCpl: infCpl || undefined,
       };
 
-      const result = await mdfeService.emitir(payload);
+      const result = await mdfeService.emitir(payload as unknown as Partial<MDFeDocumento>);
 
       if (result) {
         setSucessoMdfe(result);
@@ -613,9 +614,9 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         toast.showError('❌ Erro ao emitir MDF-e.');
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro na transmissão:', error);
-      const mensagem = error.response?.data?.erro || error.message || 'Erro ao emitir MDF-e';
+      const mensagem = getApiErrorMessage(error, 'Erro ao emitir MDF-e');
       setErros([mensagem]);
       toast.showError(`❌ ${mensagem}`);
     } finally {

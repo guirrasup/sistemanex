@@ -319,7 +319,7 @@ export interface ConfiguracaoEmpresa {
   
   regimeTributario: RegimeTributario;
   
-  aliquotaSimplesNacional: TDec_0302;
+  aliquotaSimplesNacional: number;
   
   ambienteEmissao: TAmb;
   

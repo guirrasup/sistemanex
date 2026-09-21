@@ -1,6 +1,19 @@
 // src/services/nfae.service.ts
 import api from './api';
 import { NFAeDocumento } from '../types/fiscal';
+import { getApiErrorMessage } from '../utils/apiError';
+
+export interface EstatisticasNFAe {
+  total: number;
+  porStatus: Record<string, number>;
+}
+
+export interface ResumoMensalNFAe {
+  ano: number;
+  mes: number;
+  quantidade: number;
+  valorTotal: number;
+}
 
 export interface ListaNfaeResponse {
   data: NFAeDocumento[];
@@ -65,31 +78,31 @@ export const nfaeService = {
     }
   },
 
-  async emitir(nfae: any): Promise<NFAeDocumento | null> {
+  async emitir(nfae: NFAeDocumento): Promise<NFAeDocumento | null> {
     try {
       const response = await api.post('/nfae/emitir', nfae);
       return response.data.dados || response.data || null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ NFA-e emitir erro:', error);
-      throw new Error(error.response?.data?.erro || 'Erro ao emitir NFA-e');
+      throw new Error(getApiErrorMessage(error, 'Erro ao emitir NFA-e'));
     }
   },
 
   async cancelar(id: string, justificativa: string): Promise<void> {
     try {
       await api.post(`/nfae/cancelar/${id}`, { motivo: justificativa });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ NFA-e cancelar erro:', error);
-      throw new Error(error.response?.data?.erro || 'Erro ao cancelar NFA-e');
+      throw new Error(getApiErrorMessage(error, 'Erro ao cancelar NFA-e'));
     }
   },
 
   async excluir(id: string): Promise<void> {
     try {
       await api.delete(`/nfae/${id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ NFA-e excluir erro:', error);
-      throw new Error(error.response?.data?.erro || 'Erro ao excluir NFA-e');
+      throw new Error(getApiErrorMessage(error, 'Erro ao excluir NFA-e'));
     }
   },
 
@@ -99,13 +112,13 @@ export const nfaeService = {
         responseType: 'blob'
       });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ NFA-e baixarXml erro:', error);
-      throw new Error(error.response?.data?.erro || 'Erro ao baixar XML');
+      throw new Error(getApiErrorMessage(error, 'Erro ao baixar XML'));
     }
   },
 
-  async getEstatisticas(): Promise<any> {
+  async getEstatisticas(): Promise<EstatisticasNFAe | null> {
     try {
       const response = await api.get('/nfae/estatisticas');
       return response.data.dados || response.data || null;
@@ -115,7 +128,7 @@ export const nfaeService = {
     }
   },
 
-  async getTotalPeriodo(dataInicio?: string, dataFim?: string): Promise<any> {
+  async getTotalPeriodo(dataInicio?: string, dataFim?: string): Promise<{ total: number } | null> {
     try {
       const response = await api.get('/nfae/total-periodo', {
         params: { dataInicio, dataFim }
@@ -127,7 +140,7 @@ export const nfaeService = {
     }
   },
 
-  async getResumoMensal(ano: number, mes: number): Promise<any> {
+  async getResumoMensal(ano: number, mes: number): Promise<ResumoMensalNFAe | null> {
     try {
       const response = await api.get('/nfae/resumo-mensal', {
         params: { ano, mes }

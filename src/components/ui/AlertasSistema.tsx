@@ -72,28 +72,8 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
 
       // 🔥 1. Busca APENAS produtos com estoque crítico (estoqueAtual <= estoqueMinimo)
       try {
-        const response = await produtosService.buscarEstoqueCritico();
-        
-        // 🔥 CORREÇÃO: Extrai os dados corretamente
-        // A API retorna { sucesso: true, dados: [...] }
-        // O service pode retornar diretamente o array ou o objeto com dados
-        let produtos: any[] = [];
-        
-        if (Array.isArray(response)) {
-          produtos = response;
-        } else if (response?.dados && Array.isArray(response.dados)) {
-          produtos = response.dados;
-        } else if (response?.data && Array.isArray(response.data)) {
-          produtos = response.data;
-        } else if (response && typeof response === 'object') {
-          // Tenta encontrar qualquer propriedade que seja um array
-          for (const key of Object.keys(response)) {
-            if (Array.isArray(response[key])) {
-              produtos = response[key];
-              break;
-            }
-          }
-        }
+        // produtosService.buscarEstoqueCritico() já garante o retorno de um array normalizado
+        const produtos = await produtosService.buscarEstoqueCritico();
 
         // 🔥 GARANTE QUE É UM ARRAY ANTES DE USAR forEach
         if (Array.isArray(produtos) && produtos.length > 0) {

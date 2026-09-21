@@ -17,6 +17,7 @@ import {
 import { ServicoCatalogo } from '../../types/erp';
 import { formatarMoeda } from '../../utils/cpfCnpjValidator';
 import { servicosService } from '../../services/servicos.service';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 
@@ -153,9 +154,9 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
       setModalOpen(false);
       onServicosChange();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao salvar serviço:', error);
-      const mensagem = error.response?.data?.erro || error.message || 'Erro ao salvar serviço';
+      const mensagem = getApiErrorMessage(error, 'Erro ao salvar serviço');
       setErro(mensagem);
       toast.showError(`❌ ${mensagem}`);
     } finally {
@@ -199,10 +200,10 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
       
       toast.showSuccess(`✅ Serviço "${descricao}" excluído com sucesso!`);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao excluir serviço:', error);
-      
-      const mensagemErro = error.response?.data?.erro || error.message || 'Erro ao excluir serviço';
+
+      const mensagemErro = getApiErrorMessage(error, 'Erro ao excluir serviço');
       
       closeConfirmModal();
       toast.showError(`❌ ${mensagemErro}`);
@@ -230,8 +231,8 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
     );
 
     return [...filtrados].sort((a, b) => {
-      let valorA: any = a[ordenacaoCampo];
-      let valorB: any = b[ordenacaoCampo];
+      let valorA: unknown = a[ordenacaoCampo];
+      let valorB: unknown = b[ordenacaoCampo];
 
       if (typeof valorA === 'number' && typeof valorB === 'number') {
         return ordenacaoDirecao === 'asc' ? valorA - valorB : valorB - valorA;
