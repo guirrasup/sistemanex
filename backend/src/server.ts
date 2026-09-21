@@ -153,5 +153,20 @@ app.get('/health', (req, res) => {
 app.use(errorMiddleware);
 
 // Start server
-app.listen(PORT, () => {
-        });
+process.on("SIGTERM", () => {
+  console.log("SIGTERM recebido, encerrando graciosamente...");
+  server.close(() => {
+    console.log("Servidor encerrado.");
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10_000);
+});
+
+process.on("SIGINT", () => {
+  console.log("SIGINT recebido, encerrando graciosamente...");
+  server.close(() => {
+    console.log("Servidor encerrado.");
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10_000);
+});;

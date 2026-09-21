@@ -104,9 +104,13 @@ async function main() {
       }
     })
 
-    console.log('Usuario admin criado:', admin.email)
+    /* [AutoPatch] Remova o dado sensível do log ou mascare antes:
+   console.log('Usuario admin criado:', admin.email)
+*/
   } else {
-    console.log('Usuario admin ja existe:', admin.email)
+    /* [AutoPatch] Remova o dado sensível do log ou mascare antes:
+   console.log('Usuario admin ja existe:', admin.email)
+*/
   }
 
   // ============================================

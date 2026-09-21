@@ -137,11 +137,9 @@ export async function consultarCnpjConectaGov(cnpj: string): Promise<ConsultaCnp
     const url = `https://api.opencnpj.org/${cnpjLimpo}?datasets=receita,rntrc`;
     
         
-    const response = await fetch(url, {
-      headers: {
+    const response = await fetch(url, { headers: {
         'Accept': 'application/json'
-      }
-    });
+      }, signal: AbortSignal.timeout(8000) });
 
     if (response.status === 404) {
       return {

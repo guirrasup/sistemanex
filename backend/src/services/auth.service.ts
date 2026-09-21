@@ -147,7 +147,7 @@ export class AuthService {
       { expiresIn: RESET_TOKEN_EXPIRES }
     );
 
-    // TODO: Integrar provedor de e-mail transacional (ex.: SES, SendGrid, Postmark) para
+    // [AutoPatch Backlog] TODO: Integrar provedor de e-mail transacional (ex.: SES, SendGrid, Postmark) para
     // enviar o link de redefinição de senha ao usuário. Requer criar um EmailService com
     // credenciais/API key via variável de ambiente e um template de e-mail.
     // Link que o frontend deve consumir:

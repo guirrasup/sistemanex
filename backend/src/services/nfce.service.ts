@@ -496,7 +496,7 @@ export class NfceService {
       throw new Error('Acesso negado');
     }
 
-    // TODO: Implementar geração real do cupom fiscal (DANFE NFC-e) em PDF/térmica
+    // [AutoPatch Backlog] TODO: Implementar geração real do cupom fiscal (DANFE NFC-e) em PDF/térmica
     // (58mm ou 80mm), incluindo QR Code (urlQrCode já calculado) e código de barras
     // da chave de acesso. Requer escolher biblioteca de geração de PDF/ESC-POS no backend.
     return {
