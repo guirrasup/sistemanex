@@ -5,19 +5,8 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Iniciando seed completo...')
-
-  // ============================================
-  // 1. Verificar/Criar empresa padrão
-  // ============================================
-<<<<<<< HEAD
   const CNPJ_EMPRESA = '18236447000190'
 
-=======
-  // O campo "cnpj" da Empresa é @db.Char(14) — só dígitos, sem máscara.
-  const CNPJ_EMPRESA = '18236447000190'
-  
->>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   let empresa = await prisma.empresa.findUnique({
     where: { cnpj: CNPJ_EMPRESA }
   })
@@ -72,9 +61,6 @@ async function main() {
     console.log('Empresa ja existe:', empresa.id)
   }
 
-  // ============================================
-  // 2. Verificar/Criar usuário admin
-  // ============================================
   let admin = await prisma.usuario.findUnique({
     where: { email: 'admin@suptecnologia.com.br' }
   })
@@ -98,9 +84,6 @@ async function main() {
     console.log('Usuario admin ja existe:', admin.email)
   }
 
-  // ============================================
-  // 3. Criar clientes
-  // ============================================
   const clientesData = [
     {
       tipo: 'CLIENTE',
@@ -210,36 +193,40 @@ async function main() {
     }
   ]
 
-  for (const data of clientesData) {
-    let cliente = await prisma.cliente.findUnique({
-      where: { documento: data.documento }
-    })
+  const documentosClientes = clientesData.map(c => c.documento)
+  const clientesExistentes = await prisma.cliente.findMany({
+    where: { documento: { in: documentosClientes } },
+    select: { documento: true }
+  })
+  const documentosClientesExistentes = new Set(clientesExistentes.map(c => c.documento))
 
-    if (!cliente) {
-      await prisma.cliente.create({
-        data: {
-          tipo: data.tipo,
-          tipoPessoa: data.tipoPessoa,
-          documento: data.documento,
-          razaoSocial: data.razaoSocial,
-          nomeFantasia: data.nomeFantasia,
-          inscricaoEstadual: data.inscricaoEstadual,
-          inscricaoMunicipal: data.inscricaoMunicipal,
-          indicadorIE: data.indicadorIE,
-          email: data.email,
-          telefone: data.telefone,
-          empresa: { connect: { id: empresa.id } },
-          endereco: { create: data.endereco }
-        }
-      })
-    }
+  const clientesParaCriar = clientesData.filter(c => !documentosClientesExistentes.has(c.documento))
+
+  if (clientesParaCriar.length > 0) {
+    await prisma.$transaction(
+      clientesParaCriar.map(data =>
+        prisma.cliente.create({
+          data: {
+            tipo: data.tipo,
+            tipoPessoa: data.tipoPessoa,
+            documento: data.documento,
+            razaoSocial: data.razaoSocial,
+            nomeFantasia: data.nomeFantasia,
+            inscricaoEstadual: data.inscricaoEstadual,
+            inscricaoMunicipal: data.inscricaoMunicipal,
+            indicadorIE: data.indicadorIE,
+            email: data.email,
+            telefone: data.telefone,
+            empresa: { connect: { id: empresa.id } },
+            endereco: { create: data.endereco }
+          }
+        })
+      )
+    )
   }
 
   console.log('Clientes processados')
 
-  // ============================================
-  // 4. Criar fornecedores
-  // ============================================
   const fornecedoresData = [
     {
       tipo: 'FORNECEDOR',
@@ -348,35 +335,39 @@ async function main() {
     }
   ]
 
-  for (const data of fornecedoresData) {
-    let fornecedor = await prisma.cliente.findUnique({
-      where: { documento: data.documento }
-    })
+  const documentosFornecedores = fornecedoresData.map(f => f.documento)
+  const fornecedoresExistentes = await prisma.cliente.findMany({
+    where: { documento: { in: documentosFornecedores } },
+    select: { documento: true }
+  })
+  const documentosFornecedoresExistentes = new Set(fornecedoresExistentes.map(f => f.documento))
 
-    if (!fornecedor) {
-      await prisma.cliente.create({
-        data: {
-          tipo: data.tipo,
-          tipoPessoa: data.tipoPessoa,
-          documento: data.documento,
-          razaoSocial: data.razaoSocial,
-          nomeFantasia: data.nomeFantasia,
-          inscricaoEstadual: data.inscricaoEstadual,
-          indicadorIE: data.indicadorIE,
-          email: data.email,
-          telefone: data.telefone,
-          empresa: { connect: { id: empresa.id } },
-          endereco: { create: data.endereco }
-        }
-      })
-    }
+  const fornecedoresParaCriar = fornecedoresData.filter(f => !documentosFornecedoresExistentes.has(f.documento))
+
+  if (fornecedoresParaCriar.length > 0) {
+    await prisma.$transaction(
+      fornecedoresParaCriar.map(data =>
+        prisma.cliente.create({
+          data: {
+            tipo: data.tipo,
+            tipoPessoa: data.tipoPessoa,
+            documento: data.documento,
+            razaoSocial: data.razaoSocial,
+            nomeFantasia: data.nomeFantasia,
+            inscricaoEstadual: data.inscricaoEstadual,
+            indicadorIE: data.indicadorIE,
+            email: data.email,
+            telefone: data.telefone,
+            empresa: { connect: { id: empresa.id } },
+            endereco: { create: data.endereco }
+          }
+        })
+      )
+    )
   }
 
   console.log('Fornecedores processados')
 
-  // ============================================
-  // 5. Criar produtos
-  // ============================================
   const produtosData = [
     {
       codigo: 'SUP-SRV-RACK',
@@ -465,26 +456,30 @@ async function main() {
     }
   ]
 
-  for (const data of produtosData) {
-    let produto = await prisma.produto.findUnique({
-      where: { codigo: data.codigo }
-    })
+  const codigosProdutos = produtosData.map(p => p.codigo)
+  const produtosExistentes = await prisma.produto.findMany({
+    where: { codigo: { in: codigosProdutos } },
+    select: { codigo: true }
+  })
+  const codigosProdutosExistentes = new Set(produtosExistentes.map(p => p.codigo))
 
-    if (!produto) {
-      await prisma.produto.create({
-        data: {
-          ...data,
-          empresa: { connect: { id: empresa.id } }
-        }
-      })
-    }
+  const produtosParaCriar = produtosData.filter(p => !codigosProdutosExistentes.has(p.codigo))
+
+  if (produtosParaCriar.length > 0) {
+    await prisma.$transaction(
+      produtosParaCriar.map(data =>
+        prisma.produto.create({
+          data: {
+            ...data,
+            empresa: { connect: { id: empresa.id } }
+          }
+        })
+      )
+    )
   }
 
   console.log('Produtos processados')
 
-  // ============================================
-  // 6. Criar serviços
-  // ============================================
   const servicosData = [
     {
       codigoInterno: 'SRV-DEV-01',
@@ -568,26 +563,30 @@ async function main() {
     }
   ]
 
-  for (const data of servicosData) {
-    let servico = await prisma.servico.findUnique({
-      where: { codigoInterno: data.codigoInterno }
-    })
+  const codigosServicos = servicosData.map(s => s.codigoInterno)
+  const servicosExistentes = await prisma.servico.findMany({
+    where: { codigoInterno: { in: codigosServicos } },
+    select: { codigoInterno: true }
+  })
+  const codigosServicosExistentes = new Set(servicosExistentes.map(s => s.codigoInterno))
 
-    if (!servico) {
-      await prisma.servico.create({
-        data: {
-          ...data,
-          empresa: { connect: { id: empresa.id } }
-        }
-      })
-    }
+  const servicosParaCriar = servicosData.filter(s => !codigosServicosExistentes.has(s.codigoInterno))
+
+  if (servicosParaCriar.length > 0) {
+    await prisma.$transaction(
+      servicosParaCriar.map(data =>
+        prisma.servico.create({
+          data: {
+            ...data,
+            empresa: { connect: { id: empresa.id } }
+          }
+        })
+      )
+    )
   }
 
   console.log('Servicos processados')
 
-  // ============================================
-  // 7. Criar transportadoras
-  // ============================================
   const transportadorasData = [
     {
       tipoPessoa: 'PJ',
@@ -721,29 +720,33 @@ async function main() {
     }
   ]
 
-  for (const data of transportadorasData) {
-    let transportadora = await prisma.transportadora.findFirst({
-      where: {
-<<<<<<< HEAD
-        cnpj: data.cnpj,
-=======
-        cnpj: data.cnpj.replace(/\D/g, ''),
->>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
-        empresaId: empresa.id
-      }
-    })
+  const cnpjsTransportadoras = transportadorasData.map(t => t.cnpj.replace(/\D/g, ''))
+  const transportadorasExistentes = await prisma.transportadora.findMany({
+    where: {
+      cnpj: { in: cnpjsTransportadoras },
+      empresaId: empresa.id
+    },
+    select: { cnpj: true }
+  })
+  const cnpjsTransportadorasExistentes = new Set(transportadorasExistentes.map(t => t.cnpj))
 
-    if (!transportadora) {
-      await prisma.transportadora.create({
-        data: {
-          ...data,
-          // Campo é @db.Char(14) — só dígitos, sem máscara.
-          cnpj: data.cnpj.replace(/\D/g, ''),
-          empresa: { connect: { id: empresa.id } },
-          endereco: { create: data.endereco }
-        }
-      })
-    }
+  const transportadorasParaCriar = transportadorasData.filter(
+    t => !cnpjsTransportadorasExistentes.has(t.cnpj.replace(/\D/g, ''))
+  )
+
+  if (transportadorasParaCriar.length > 0) {
+    await prisma.$transaction(
+      transportadorasParaCriar.map(data =>
+        prisma.transportadora.create({
+          data: {
+            ...data,
+            cnpj: data.cnpj.replace(/\D/g, ''),
+            empresa: { connect: { id: empresa.id } },
+            endereco: { create: data.endereco }
+          }
+        })
+      )
+    )
   }
 
   console.log('Transportadoras processadas')
