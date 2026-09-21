@@ -542,7 +542,7 @@ export class NfeController {
         });
       }
 
-      // TODO: Implementar geração real do PDF do DANFE (layout retrato/paisagem conforme
+      // [AutoPatch Backlog] TODO: Implementar geração real do PDF do DANFE (layout retrato/paisagem conforme
       // manual de orientação SEFAZ, incluindo código de barras Code-128 da chave de acesso
       // e demais campos do XML autorizado). Requer escolher biblioteca de geração de PDF
       // no backend (ex.: pdf-lib ou puppeteer) e endpoint deve passar a retornar o binário
