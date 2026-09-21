@@ -32,13 +32,18 @@ function validarProtocolo(protocolo: string): boolean {
   return /^[0-9]{15}$/.test(protocolo) || /^[0-9]{17}$/.test(protocolo);
 }
 
+const TNF_MAXIMO = 999999999;
+
 function validarTNF(numero: number): boolean {
-  return numero >= 1 && numero <= 999999999;
+  return numero >= 1 && numero <= TNF_MAXIMO;
 }
 
 function validarTSerie(serie: number): boolean {
   return serie === 0 || (serie >= 1 && serie <= 999);
 }
+
+const ANO_RESUMO_MINIMO = 2000;
+const ANO_RESUMO_MAXIMO = 2100;
 
 // ============================================================
 // CONTROLLER
@@ -129,11 +134,11 @@ export class NfceController {
         dados
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro no NFC-e listar:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao listar NFC-e',
+        erro: error instanceof Error ? error.message : 'Erro ao listar NFC-e',
       });
     }
   }
@@ -178,11 +183,11 @@ export class NfceController {
         dados: nfce
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar NFC-e por ID:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFC-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFC-e'
       });
     }
   }
@@ -228,11 +233,11 @@ export class NfceController {
         dados: nfce
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar NFC-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFC-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFC-e'
       });
     }
   }
@@ -278,11 +283,11 @@ export class NfceController {
         dados: nfce
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar NFC-e por protocolo:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFC-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFC-e'
       });
     }
   }
@@ -375,11 +380,11 @@ export class NfceController {
         mensagem: 'NFC-e emitida e autorizada com sucesso'
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro no NFC-e emitir:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao emitir NFC-e',
+        erro: error instanceof Error ? error.message : 'Erro ao emitir NFC-e',
       });
     }
   }
@@ -427,11 +432,11 @@ export class NfceController {
         mensagem: 'NFC-e cancelada com sucesso'
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro no NFC-e cancelar:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao cancelar NFC-e',
+        erro: error instanceof Error ? error.message : 'Erro ao cancelar NFC-e',
       });
     }
   }
@@ -458,11 +463,11 @@ export class NfceController {
 
       return res.send(xml);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao baixar XML'
+        erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
       });
     }
   }
@@ -486,11 +491,11 @@ export class NfceController {
         dados
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao gerar DANFE NFC-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao gerar DANFE'
+        erro: error instanceof Error ? error.message : 'Erro ao gerar DANFE'
       });
     }
   }
@@ -513,11 +518,11 @@ export class NfceController {
         dados: estatisticas
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar estatísticas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
       });
     }
   }
@@ -543,11 +548,11 @@ export class NfceController {
         dados: result
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar total de vendas:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar total de vendas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar total de vendas'
       });
     }
   }
@@ -567,7 +572,7 @@ export class NfceController {
       const mes = parseInt(req.query.mes as string) || new Date().getMonth() + 1;
 
       // ✅ VALIDA ANO E MÊS
-      if (ano < 2000 || ano > 2100) {
+      if (ano < ANO_RESUMO_MINIMO || ano > ANO_RESUMO_MAXIMO) {
         return res.status(400).json({
           sucesso: false,
           erro: 'Ano inválido'
@@ -587,11 +592,11 @@ export class NfceController {
         dados: resumo
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar resumo mensal:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar resumo mensal'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar resumo mensal'
       });
     }
   }
@@ -623,11 +628,11 @@ export class NfceController {
         dados: produtos
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar produtos mais vendidos:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar produtos mais vendidos'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar produtos mais vendidos'
       });
     }
   }

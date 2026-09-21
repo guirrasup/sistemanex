@@ -12,6 +12,16 @@ interface RequestComUsuario extends Request {
   };
 }
 
+interface FiltrosListarMdfe {
+  status?: string | string[];
+  dataInicio?: Date;
+  dataFim?: Date;
+  modal?: string;
+  numero?: number;
+  serie?: number;
+  chave?: string;
+}
+
 export class MdfeController {
   private mdfeService: MdfeService;
 
@@ -32,7 +42,7 @@ export class MdfeController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
 
-      const filtros: any = {};
+      const filtros: FiltrosListarMdfe = {};
       if (req.query.status) {
         const statusList = (req.query.status as string).split(',');
         filtros.status = statusList.length === 1 ? statusList[0] : statusList;
@@ -56,11 +66,11 @@ export class MdfeController {
         dados: result
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao listar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao listar MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao listar MDF-e'
       });
     }
   }
@@ -98,11 +108,11 @@ export class MdfeController {
         dados: mdfe
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar MDF-e'
       });
     }
   }
@@ -147,11 +157,11 @@ export class MdfeController {
         dados: mdfe
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar MDF-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar MDF-e'
       });
     }
   }
@@ -194,11 +204,11 @@ export class MdfeController {
         mensagem: 'MDF-e emitido com sucesso'
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao emitir MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao emitir MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao emitir MDF-e'
       });
     }
   }
@@ -245,11 +255,11 @@ export class MdfeController {
         mensagem: 'MDF-e cancelado com sucesso'
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao cancelar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao cancelar MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao cancelar MDF-e'
       });
     }
   }
@@ -294,11 +304,11 @@ export class MdfeController {
         mensagem: 'MDF-e encerrado com sucesso'
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao encerrar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao encerrar MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao encerrar MDF-e'
       });
     }
   }
@@ -320,11 +330,11 @@ export class MdfeController {
         dados: estatisticas
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar estatísticas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
       });
     }
   }
@@ -349,11 +359,11 @@ export class MdfeController {
         dados: result
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar total de carga:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar total de carga'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar total de carga'
       });
     }
   }
@@ -401,11 +411,11 @@ export class MdfeController {
 
       return res.send(mdfe.xmlAssinado);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao baixar XML'
+        erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
       });
     }
   }

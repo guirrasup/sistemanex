@@ -21,8 +21,8 @@ export class FinanceiroController {
 
       const result = await this.financeiroService.listarTitulos(empresaId, page, limit);
       return res.json({ sucesso: true, dados: result });
-    } catch (error: any) {
-      return res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -36,8 +36,8 @@ export class FinanceiroController {
 
       const result = await this.financeiroService.listarPendentes(empresaId);
       return res.json({ sucesso: true, dados: result });
-    } catch (error: any) {
-      return res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -52,8 +52,8 @@ export class FinanceiroController {
 
       const result = await this.financeiroService.baixarTitulo(id, empresaId);
       return res.json({ sucesso: true, dados: result });
-    } catch (error: any) {
-      return res.status(400).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -67,8 +67,8 @@ export class FinanceiroController {
 
       const result = await this.financeiroService.resumo(empresaId);
       return res.json({ sucesso: true, dados: result });
-    } catch (error: any) {
-      return res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 }

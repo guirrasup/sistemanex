@@ -42,8 +42,8 @@ export class NFAeController {
       );
 
       res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -56,8 +56,8 @@ export class NFAeController {
 
       const stats = await this.service.getEstatisticas(acesso.empresaId);
       res.json(stats);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -76,8 +76,8 @@ export class NFAeController {
       );
 
       res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -96,8 +96,8 @@ export class NFAeController {
       );
 
       res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -116,8 +116,8 @@ export class NFAeController {
       }
 
       res.json(nfae);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -135,8 +135,8 @@ export class NFAeController {
       );
 
       res.json(nfae);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -155,8 +155,8 @@ export class NFAeController {
       }
 
       res.json(nfae);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -170,8 +170,8 @@ export class NFAeController {
       const data = { ...req.body, empresaId: acesso.empresaId };
       const nfae = await this.service.emitir(data);
       res.status(201).json(nfae);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -194,8 +194,8 @@ export class NFAeController {
 
       const nfae = await this.service.cancelar(id, motivo, acesso.empresaId);
       res.json(nfae);
-    } catch (error: any) {
-      const msg = error?.message || '';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
       if (msg === 'NFA-e não encontrada' || msg === 'Acesso negado') {
         return res.status(404).json({ sucesso: false, erro: 'NFA-e não encontrada' });
       }
@@ -205,7 +205,7 @@ export class NFAeController {
       ) {
         return res.status(400).json({ sucesso: false, erro: msg });
       }
-      res.status(500).json({ sucesso: false, erro: error.message });
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -219,8 +219,8 @@ export class NFAeController {
       const { id } = req.params;
       await this.service.excluir(id, acesso.empresaId);
       res.json({ sucesso: true, message: 'NFA-e excluída com sucesso' });
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -236,8 +236,8 @@ export class NFAeController {
       res.setHeader('Content-Type', 'application/xml');
       res.setHeader('Content-Disposition', `attachment; filename="NFAe-${id}.xml"`);
       res.send(xml);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 }

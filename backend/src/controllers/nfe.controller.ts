@@ -49,9 +49,14 @@ function validarTSerie(serie: number): boolean {
   return serie === 0 || (serie >= 1 && serie <= 999);
 }
 
+const TNF_MAXIMO = 999999999;
+
 function validarTNF(numero: number): boolean {
-  return numero >= 1 && numero <= 999999999;
+  return numero >= 1 && numero <= TNF_MAXIMO;
 }
+
+const ANO_RESUMO_MINIMO = 2000;
+const ANO_RESUMO_MAXIMO = 2100;
 
 // ============================================================
 // CONTROLLER
@@ -125,11 +130,11 @@ export class NfeController {
         mensagem: 'NF-e emitida e autorizada com sucesso'
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao emitir NF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao emitir NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao emitir NF-e'
       });
     }
   }
@@ -177,11 +182,11 @@ export class NfeController {
         mensagem: 'NF-e cancelada com sucesso'
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao cancelar NF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao cancelar NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao cancelar NF-e'
       });
     }
   }
@@ -263,11 +268,11 @@ export class NfeController {
         dados: result
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao listar NF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao listar NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao listar NF-e'
       });
     }
   }
@@ -305,11 +310,11 @@ export class NfeController {
         dados: nfe 
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar NF-e por ID:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NF-e'
       });
     }
   }
@@ -348,11 +353,11 @@ export class NfeController {
         dados: nfe 
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar NF-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NF-e'
       });
     }
   }
@@ -391,11 +396,11 @@ export class NfeController {
         dados: nfe 
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar NF-e por protocolo:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NF-e'
       });
     }
   }
@@ -418,11 +423,11 @@ export class NfeController {
         dados: estatisticas
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar estatísticas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
       });
     }
   }
@@ -442,7 +447,7 @@ export class NfeController {
       const mes = parseInt(req.query.mes as string) || new Date().getMonth() + 1;
 
       // ✅ VALIDA ANO E MÊS
-      if (ano < 2000 || ano > 2100) {
+      if (ano < ANO_RESUMO_MINIMO || ano > ANO_RESUMO_MAXIMO) {
         return res.status(400).json({
           sucesso: false,
           erro: 'Ano inválido'
@@ -462,11 +467,11 @@ export class NfeController {
         dados: resumo
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar resumo mensal:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar resumo mensal'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar resumo mensal'
       });
     }
   }
@@ -507,11 +512,11 @@ export class NfeController {
       
       return res.send(nfe.xmlAssinado);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao baixar XML'
+        erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
       });
     }
   }
@@ -537,7 +542,11 @@ export class NfeController {
         });
       }
 
-      // TODO: Implementar geração real de PDF do DANFE
+      // TODO: Implementar geração real do PDF do DANFE (layout retrato/paisagem conforme
+      // manual de orientação SEFAZ, incluindo código de barras Code-128 da chave de acesso
+      // e demais campos do XML autorizado). Requer escolher biblioteca de geração de PDF
+      // no backend (ex.: pdf-lib ou puppeteer) e endpoint deve passar a retornar o binário
+      // (ou base64) do PDF em vez do JSON de metadados abaixo.
       // Por enquanto, retorna um placeholder
       return res.json({
         sucesso: true,
@@ -551,11 +560,11 @@ export class NfeController {
         }
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao gerar DANFE:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao gerar DANFE'
+        erro: error instanceof Error ? error.message : 'Erro ao gerar DANFE'
       });
     }
   }
@@ -609,11 +618,11 @@ export class NfeController {
         mensagem: 'Carta de Correção enviada com sucesso'
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao enviar Carta de Correção:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao enviar Carta de Correção'
+        erro: error instanceof Error ? error.message : 'Erro ao enviar Carta de Correção'
       });
     }
   }
@@ -645,11 +654,11 @@ export class NfeController {
         dados: situacao
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao consultar situação:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao consultar situação'
+        erro: error instanceof Error ? error.message : 'Erro ao consultar situação'
       });
     }
   }

@@ -32,6 +32,9 @@ function validarProtocolo(protocolo: string): boolean {
   return /^[0-9]{15}$/.test(protocolo) || /^[0-9]{17}$/.test(protocolo);
 }
 
+const ANO_RESUMO_MINIMO = 2000;
+const ANO_RESUMO_MAXIMO = 2100;
+
 // ============================================================
 // CONTROLLER
 // ============================================================
@@ -105,11 +108,11 @@ export class NfseController {
         dados: result,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro no NFS-e listar:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao listar NFS-e',
+        erro: error instanceof Error ? error.message : 'Erro ao listar NFS-e',
       });
     }
   }
@@ -154,11 +157,11 @@ export class NfseController {
         dados: nfse,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar NFS-e por ID:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFS-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e'
       });
     }
   }
@@ -204,11 +207,11 @@ export class NfseController {
         dados: nfse,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar NFS-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFS-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e'
       });
     }
   }
@@ -254,11 +257,11 @@ export class NfseController {
         dados: nfse,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar NFS-e por protocolo:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFS-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e'
       });
     }
   }
@@ -320,11 +323,11 @@ export class NfseController {
         mensagem: 'NFS-e emitida e autorizada com sucesso'
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro no NFS-e emitir:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao emitir NFS-e',
+        erro: error instanceof Error ? error.message : 'Erro ao emitir NFS-e',
       });
     }
   }
@@ -372,11 +375,11 @@ export class NfseController {
         mensagem: 'NFS-e cancelada com sucesso'
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro no NFS-e cancelar:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao cancelar NFS-e',
+        erro: error instanceof Error ? error.message : 'Erro ao cancelar NFS-e',
       });
     }
   }
@@ -403,11 +406,11 @@ export class NfseController {
 
       return res.send(xml);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao baixar XML'
+        erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
       });
     }
   }
@@ -431,11 +434,11 @@ export class NfseController {
         dados
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao gerar DANFSe:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao gerar DANFSe'
+        erro: error instanceof Error ? error.message : 'Erro ao gerar DANFSe'
       });
     }
   }
@@ -458,11 +461,11 @@ export class NfseController {
         dados: estatisticas
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar estatísticas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
       });
     }
   }
@@ -488,11 +491,11 @@ export class NfseController {
         dados: result
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar total faturado:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar total faturado'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar total faturado'
       });
     }
   }
@@ -512,7 +515,7 @@ export class NfseController {
       const mes = parseInt(req.query.mes as string) || new Date().getMonth() + 1;
 
       // ✅ VALIDA ANO E MÊS
-      if (ano < 2000 || ano > 2100) {
+      if (ano < ANO_RESUMO_MINIMO || ano > ANO_RESUMO_MAXIMO) {
         return res.status(400).json({
           sucesso: false,
           erro: 'Ano inválido'
@@ -532,11 +535,11 @@ export class NfseController {
         dados: resumo
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar resumo mensal:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar resumo mensal'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar resumo mensal'
       });
     }
   }
@@ -568,11 +571,11 @@ export class NfseController {
         dados: servicos
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar serviços mais prestados:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar serviços mais prestados'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar serviços mais prestados'
       });
     }
   }
@@ -602,11 +605,11 @@ export class NfseController {
         dados: nfsesFiltradas
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar NFS-e por tomador:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFS-e por tomador'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e por tomador'
       });
     }
   }
@@ -636,11 +639,11 @@ export class NfseController {
         dados: nfsesFiltradas
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar NFS-e por serviço:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFS-e por serviço'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e por serviço'
       });
     }
   }
