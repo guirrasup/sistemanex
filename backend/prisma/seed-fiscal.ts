@@ -20,10 +20,10 @@ function gerarValor(min: number, max: number): number {
 
 function gerarXmlAssinado(tipo: string, numero: number, chave: string): string {
   const modelo = tipo === 'NFe' ? '55' : tipo === 'NFCe' ? '65' : tipo === 'CTe' ? '57' : ''
-  const namespace = tipo === 'NFSe' 
-    ? 'http://www.sped.fazenda.gov.br/nfse' 
+  const namespace = tipo === 'NFSe'
+    ? 'http://www.sped.fazenda.gov.br/nfse'
     : `http://www.portalfiscal.inf.br/${tipo.toLowerCase()}`
-  
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <${tipo} xmlns="${namespace}">
   <inf${tipo} Id="${tipo}${chave}" versao="4.00">
@@ -84,22 +84,22 @@ function gerarXmlAssinado(tipo: string, numero: number, chave: string): string {
 </${tipo}>`
 }
 
-// 🔥 FUNÇÃO PARA BUSCAR COM PAGINAÇÃO
-async function buscarPaginado<T>(
-  buscar: (skip: number, take: number) => Promise<T[]>,
+// 🔥 FUNÇÃO PARA BUSCAR COM PAGINAÇÃO POR CURSOR
+async function buscarPaginadoPorCursor<T extends { id: string }>(
+  buscar: (cursor: string | undefined, take: number) => Promise<T[]>,
   pageSize: number = PAGE_SIZE
 ): Promise<T[]> {
   const todos: T[] = []
-  let skip = 0
-  
+  let cursor: string | undefined = undefined
+
   while (true) {
-    const lote = await buscar(skip, pageSize)
+    const lote = await buscar(cursor, pageSize)
     todos.push(...lote)
-    
+
     if (lote.length < pageSize) break
-    skip += pageSize
+    cursor = lote[lote.length - 1].id
   }
-  
+
   return todos
 }
 
@@ -114,7 +114,7 @@ async function obterProximoNumero(
     orderBy: { numero: 'desc' },
     select: { numero: true }
   })
-  
+
   return ultimo ? Math.max(ultimo.numero + 1, base) : base
 }
 
@@ -126,8 +126,19 @@ async function main() {
   // ============================================
   const empresa = await prisma.empresa.findFirst({
     where: { cnpj: '18.236.447/0001-90' },
-    include: {
-      endereco: true
+    select: {
+      id: true,
+      razaoSocial: true,
+      cnpj: true,
+      serieNfe: true,
+      serieNfse: true,
+      serieNfce: true,
+      ambienteEmissao: true,
+      endereco: {
+        select: {
+          codigoMunicipio: true
+        }
+      }
     }
   })
 
@@ -143,22 +154,21 @@ async function main() {
     process.exit(1)
   }
 
-  // 🔥 VALIDAR CÓDIGO DO MUNICÍPIO
   const codigoMunicipio = empresa.endereco.codigoMunicipio
   if (!codigoMunicipio || codigoMunicipio.length < 2) {
     console.error('❌ Empresa sem código de município válido no endereço.')
     process.exit(1)
   }
 
-  // 🔥 BUSCAR COM PAGINAÇÃO (evita estouro de memória)
+  // 🔥 BUSCAR COM PAGINAÇÃO POR CURSOR (evita estouro de memória)
   console.log('\n🔍 Buscando dados com paginação...')
 
-  const clientes = await buscarPaginado((skip, take) =>
+  const clientes = await buscarPaginadoPorCursor((cursor, take) =>
     prisma.cliente.findMany({
       where: { empresaId: empresa.id },
       include: { endereco: true },
-      skip,
       take,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: { id: 'asc' }
     })
   )
@@ -169,11 +179,11 @@ async function main() {
   }
   console.log(`✅ ${clientes.length} clientes encontrados`)
 
-  const produtos = await buscarPaginado((skip, take) =>
+  const produtos = await buscarPaginadoPorCursor((cursor, take) =>
     prisma.produto.findMany({
       where: { empresaId: empresa.id },
-      skip,
       take,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: { id: 'asc' }
     })
   )
@@ -184,11 +194,11 @@ async function main() {
   }
   console.log(`✅ ${produtos.length} produtos encontrados`)
 
-  const servicos = await buscarPaginado((skip, take) =>
+  const servicos = await buscarPaginadoPorCursor((cursor, take) =>
     prisma.servico.findMany({
       where: { empresaId: empresa.id },
-      skip,
       take,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: { id: 'asc' }
     })
   )
@@ -199,11 +209,11 @@ async function main() {
   }
   console.log(`✅ ${servicos.length} serviços encontrados`)
 
-  const transportadoras = await buscarPaginado((skip, take) =>
+  const transportadoras = await buscarPaginadoPorCursor((cursor, take) =>
     prisma.transportadora.findMany({
       where: { empresaId: empresa.id },
-      skip,
       take,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: { id: 'asc' }
     })
   )
@@ -217,10 +227,8 @@ async function main() {
   console.log('\n📄 Gerando NF-e...')
 
   let numeroNfe = await obterProximoNumero('nFe', empresa.id, 100)
-
-  // 🔥 PREPARAR DADOS EM MEMÓRIA (evita consultas no loop)
   const nfeData: any[] = []
-  
+
   for (let i = 0; i < 10; i++) {
     const cliente = clientes[i % clientes.length]
     const numItens = Math.floor(Math.random() * 4) + 1
@@ -366,7 +374,6 @@ async function main() {
     numeroNfe++
   }
 
-  // 🔥 CRIAR EM LOTE (uma única chamada ao BD)
   await prisma.$transaction(
     nfeData.map(data => prisma.nFe.create({ data }))
   )
