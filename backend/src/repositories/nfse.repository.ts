@@ -515,6 +515,7 @@ export class NfseRepository extends BaseRepository {
       include: {
         servico: true
       },
+      take: 500,
       orderBy: { dataHoraEmissao: 'desc' }
     });
   }
@@ -539,6 +540,7 @@ export class NfseRepository extends BaseRepository {
           include: { endereco: true }
         }
       },
+      take: 500,
       orderBy: { dataHoraEmissao: 'desc' }
     });
   }

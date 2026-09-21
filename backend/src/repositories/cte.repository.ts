@@ -720,6 +720,7 @@ export class CteRepository {
 
     return prisma.cTe.findMany({
       where,
+      take: 500,
       include: {
         emitente: true,
         remetente: true,
@@ -749,6 +750,7 @@ export class CteRepository {
 
     return prisma.cTe.findMany({
       where,
+      take: 500,
       include: {
         emitente: true,
         remetente: true,
@@ -778,6 +780,7 @@ export class CteRepository {
 
     return prisma.cTe.findMany({
       where,
+      take: 500,
       include: {
         emitente: true,
         remetente: true,
@@ -803,6 +806,7 @@ export class CteRepository {
 
     return prisma.cTe.findMany({
       where,
+      take: 500,
       include: {
         emitente: true,
         remetente: true,

@@ -315,20 +315,20 @@ export class CteService {
     return this.cteRepo.getResumoMensal(empresaId, ano, mes);
   }
 
-  async findByCliente(clienteId: string, tipo: string, dataInicio?: Date, dataFim?: Date) {
-    return this.cteRepo.findByCliente(clienteId, tipo, dataInicio, dataFim);
+  async findByCliente(empresaId: string, clienteId: string, tipo: string, dataInicio?: Date, dataFim?: Date) {
+    return this.cteRepo.findByCliente(empresaId, clienteId, tipo, dataInicio, dataFim);
   }
 
-  async findByTransportadora(transportadoraId: string, dataInicio?: Date, dataFim?: Date) {
-    return this.cteRepo.findByTransportadora(transportadoraId, dataInicio, dataFim);
+  async findByTransportadora(empresaId: string, transportadoraId: string, dataInicio?: Date, dataFim?: Date) {
+    return this.cteRepo.findByTransportadora(empresaId, transportadoraId, dataInicio, dataFim);
   }
 
-  async findByModal(modal: string, dataInicio?: Date, dataFim?: Date) {
-    return this.cteRepo.findByModal(modal, dataInicio, dataFim);
+  async findByModal(empresaId: string, modal: string, dataInicio?: Date, dataFim?: Date) {
+    return this.cteRepo.findByModal(empresaId, modal, dataInicio, dataFim);
   }
 
-  async findByStatus(status: StatusDocumento, dataInicio?: Date, dataFim?: Date) {
-    return this.cteRepo.findByStatus(status, dataInicio, dataFim);
+  async findByStatus(empresaId: string, status: StatusDocumento, dataInicio?: Date, dataFim?: Date) {
+    return this.cteRepo.findByStatus(empresaId, status, dataInicio, dataFim);
   }
 
   async buscarCteSubstituido(chave: string) {

@@ -4,6 +4,9 @@ import { gerarChaveAcessoNFe, gerarChaveAcessoNFSe } from '../src/utils/chaveAce
 
 const prisma = new PrismaClient()
 
+// 🔥 CONFIGURAÇÃO DE PAGINAÇÃO
+const PAGE_SIZE = 100 // Limite de registros por consulta
+
 // 🔥 FUNÇÕES AUXILIARES
 function gerarDataAleatoria(diasAtras: number): Date {
   const data = new Date()
@@ -17,8 +20,12 @@ function gerarValor(min: number, max: number): number {
 
 function gerarXmlAssinado(tipo: string, numero: number, chave: string): string {
   const modelo = tipo === 'NFe' ? '55' : tipo === 'NFCe' ? '65' : tipo === 'CTe' ? '57' : ''
+  const namespace = tipo === 'NFSe' 
+    ? 'http://www.sped.fazenda.gov.br/nfse' 
+    : `http://www.portalfiscal.inf.br/${tipo.toLowerCase()}`
+  
   return `<?xml version="1.0" encoding="UTF-8"?>
-<${tipo} xmlns="http://www.portalfiscal.inf.br/${tipo.toLowerCase()}">
+<${tipo} xmlns="${namespace}">
   <inf${tipo} Id="${tipo}${chave}" versao="4.00">
     <ide>
       <cUF>35</cUF>
@@ -77,17 +84,50 @@ function gerarXmlAssinado(tipo: string, numero: number, chave: string): string {
 </${tipo}>`
 }
 
+// 🔥 FUNÇÃO PARA BUSCAR COM PAGINAÇÃO
+async function buscarPaginado<T>(
+  buscar: (skip: number, take: number) => Promise<T[]>,
+  pageSize: number = PAGE_SIZE
+): Promise<T[]> {
+  const todos: T[] = []
+  let skip = 0
+  
+  while (true) {
+    const lote = await buscar(skip, pageSize)
+    todos.push(...lote)
+    
+    if (lote.length < pageSize) break
+    skip += pageSize
+  }
+  
+  return todos
+}
+
+// 🔥 FUNÇÃO PARA OBTER PRÓXIMO NÚMERO DISPONÍVEL (evita colisão)
+async function obterProximoNumero(
+  model: 'nFe' | 'nFSe' | 'nFCe' | 'cTe' | 'nFAe',
+  empresaId: string,
+  base: number
+): Promise<number> {
+  const ultimo = await (prisma[model] as any).findFirst({
+    where: { empresaId },
+    orderBy: { numero: 'desc' },
+    select: { numero: true }
+  })
+  
+  return ultimo ? Math.max(ultimo.numero + 1, base) : base
+}
+
 async function main() {
   console.log('🌱 Iniciando seed fiscal...')
 
   // ============================================
   // 1. Buscar empresa e dados existentes
   // ============================================
-  // 🔥 INCLUIR ENDERECO NA BUSCA
   const empresa = await prisma.empresa.findFirst({
     where: { cnpj: '18.236.447/0001-90' },
     include: {
-      endereco: true // 🔥 ESSENCIAL!
+      endereco: true
     }
   })
 
@@ -98,57 +138,89 @@ async function main() {
 
   console.log(`✅ Empresa encontrada: ${empresa.razaoSocial} (${empresa.id})`)
 
-  // 🔥 GARANTIR QUE ENDERECO EXISTE
   if (!empresa.endereco) {
     console.error('❌ Empresa sem endereço. Execute o seed principal primeiro.')
     process.exit(1)
   }
 
-  // Buscar clientes
-  const clientes = await prisma.cliente.findMany({
-    where: { empresaId: empresa.id },
-    include: { endereco: true }
-  })
+  // 🔥 VALIDAR CÓDIGO DO MUNICÍPIO
+  const codigoMunicipio = empresa.endereco.codigoMunicipio
+  if (!codigoMunicipio || codigoMunicipio.length < 2) {
+    console.error('❌ Empresa sem código de município válido no endereço.')
+    process.exit(1)
+  }
+
+  // 🔥 BUSCAR COM PAGINAÇÃO (evita estouro de memória)
+  console.log('\n🔍 Buscando dados com paginação...')
+
+  const clientes = await buscarPaginado((skip, take) =>
+    prisma.cliente.findMany({
+      where: { empresaId: empresa.id },
+      include: { endereco: true },
+      skip,
+      take,
+      orderBy: { id: 'asc' }
+    })
+  )
 
   if (clientes.length === 0) {
     console.error('❌ Nenhum cliente encontrado. Execute o seed principal primeiro.')
     process.exit(1)
   }
-
   console.log(`✅ ${clientes.length} clientes encontrados`)
 
-  // Buscar produtos
-  const produtos = await prisma.produto.findMany({
-    where: { empresaId: empresa.id }
-  })
+  const produtos = await buscarPaginado((skip, take) =>
+    prisma.produto.findMany({
+      where: { empresaId: empresa.id },
+      skip,
+      take,
+      orderBy: { id: 'asc' }
+    })
+  )
 
+  if (produtos.length === 0) {
+    console.error('❌ Nenhum produto encontrado. Execute o seed principal primeiro.')
+    process.exit(1)
+  }
   console.log(`✅ ${produtos.length} produtos encontrados`)
 
-  // Buscar serviços
-  const servicos = await prisma.servico.findMany({
-    where: { empresaId: empresa.id }
-  })
+  const servicos = await buscarPaginado((skip, take) =>
+    prisma.servico.findMany({
+      where: { empresaId: empresa.id },
+      skip,
+      take,
+      orderBy: { id: 'asc' }
+    })
+  )
 
+  if (servicos.length === 0) {
+    console.error('❌ Nenhum serviço encontrado. Execute o seed principal primeiro.')
+    process.exit(1)
+  }
   console.log(`✅ ${servicos.length} serviços encontrados`)
 
-  // Buscar transportadoras
-  const transportadoras = await prisma.transportadora.findMany({
-    where: { empresaId: empresa.id }
-  })
-
+  const transportadoras = await buscarPaginado((skip, take) =>
+    prisma.transportadora.findMany({
+      where: { empresaId: empresa.id },
+      skip,
+      take,
+      orderBy: { id: 'asc' }
+    })
+  )
   console.log(`✅ ${transportadoras.length} transportadoras encontradas`)
 
-  // 🔥 CODIGO UF PARA CHAVES
-  const codigoUf = empresa.endereco.codigoMunicipio.slice(0, 2) || '35'
+  const codigoUf = codigoMunicipio.slice(0, 2) || '35'
 
   // ============================================
   // 2. Criar NF-e (Modelo 55) - 10 notas
   // ============================================
   console.log('\n📄 Gerando NF-e...')
 
-  const nfeCount = await prisma.nFe.count({ where: { empresaId: empresa.id } })
-  let numeroNfe = 100 + nfeCount
+  let numeroNfe = await obterProximoNumero('nFe', empresa.id, 100)
 
+  // 🔥 PREPARAR DADOS EM MEMÓRIA (evita consultas no loop)
+  const nfeData: any[] = []
+  
   for (let i = 0; i < 10; i++) {
     const cliente = clientes[i % clientes.length]
     const numItens = Math.floor(Math.random() * 4) + 1
@@ -218,7 +290,7 @@ async function main() {
     const aamm = new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0')
 
     const { chaveCompleta } = gerarChaveAcessoNFe({
-      codigoUf: codigoUf,
+      codigoUf,
       anoMes: aamm,
       cnpjEmitente: empresa.cnpj,
       modelo: '55',
@@ -229,72 +301,75 @@ async function main() {
 
     const dataEmissao = gerarDataAleatoria(90)
 
-    await prisma.nFe.create({
-      data: {
-        modelo: '55',
-        serie: empresa.serieNfe || 1,
-        numero: numeroNfe,
-        chaveAcesso: chaveCompleta,
-        dataHoraEmissao: dataEmissao,
-        dataHoraSaida: dataEmissao,
-        naturezaOperacao: i % 2 === 0 ? 'Venda de Mercadorias' : 'Venda para Consumo',
-        ambiente: empresa.ambienteEmissao || 1,
-        tipoEmissao: 1,
-        tipoDocumento: 1,
-        finalidade: 1,
-        consumidorFinal: i % 3 === 0,
-        presencaComprador: 2,
-        status: i % 8 === 0 ? 'CANCELADA' : 'AUTORIZADA',
-        valorTotalProdutos: Number(valorTotalProdutos.toFixed(2)),
-        valorTotalFrete: 0,
-        valorTotalSeguro: 0,
-        valorTotalDesconto: 0,
-        valorTotalOutrasDesp: 0,
-        baseCalculoICMS: Number(baseCalculoICMS.toFixed(2)),
-        valorTotalICMS: Number(valorTotalICMS.toFixed(2)),
-        baseCalculoICMSST: 0,
-        valorTotalICMSST: 0,
-        valorTotalIPI: Number(valorTotalIPI.toFixed(2)),
-        valorTotalPIS: Number(valorTotalPIS.toFixed(2)),
-        valorTotalCOFINS: Number(valorTotalCOFINS.toFixed(2)),
-        valorTotalIBS: Number((valorTotalProdutos * 0.01).toFixed(2)),
-        valorTotalCBS: Number((valorTotalProdutos * 0.009).toFixed(2)),
-        valorTotalTributosAprox: Number(valorTotalTributosAprox.toFixed(2)),
-        valorTotalNota: valorTotalNota,
-        formaPagamento: i % 3 === 0 ? '17' : i % 3 === 1 ? '03' : '01',
-        informacoesAdicionais: 'Emitido via SUP TECNOLOGIA ERP',
-        protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-        dataHoraAutorizacao: dataEmissao,
-        xmlAssinado: gerarXmlAssinado('NFe', numeroNfe, chaveCompleta),
-        empresaId: empresa.id,
-        destinatarioId: cliente.id,
-        itens: { create: itens },
-        duplicatas: {
-          create: [{
-            numero: `${numeroNfe}/01`,
-            dataVencimento: new Date(dataEmissao.getTime() + 30 * 24 * 60 * 60 * 1000),
-            valor: valorTotalNota,
-            status: 'PENDENTE'
-          }]
-        },
-        transporte: {
-          create: {
-            modalidadeFrete: 0,
-            transportadoraNome: transportadoras[i % transportadoras.length]?.razaoSocial || 'Transportadora Padrão',
-            transportadoraCnpj: transportadoras[i % transportadoras.length]?.cnpj || '00.000.000/0000-00',
-            veiculoPlaca: `BRA${String(1000 + i * 123).slice(0, 4)}`,
-            veiculoUf: 'SP',
-            volumesQuantidade: numItens,
-            volumesEspecie: 'VOLUMES',
-            volumesPesoLiquido: Number((Math.random() * 100 + 10).toFixed(1)),
-            volumesPesoBruto: Number((Math.random() * 120 + 15).toFixed(1))
-          }
+    nfeData.push({
+      modelo: '55',
+      serie: empresa.serieNfe || 1,
+      numero: numeroNfe,
+      chaveAcesso: chaveCompleta,
+      dataHoraEmissao: dataEmissao,
+      dataHoraSaida: dataEmissao,
+      naturezaOperacao: i % 2 === 0 ? 'Venda de Mercadorias' : 'Venda para Consumo',
+      ambiente: empresa.ambienteEmissao || 1,
+      tipoEmissao: 1,
+      tipoDocumento: 1,
+      finalidade: 1,
+      consumidorFinal: i % 3 === 0,
+      presencaComprador: 2,
+      status: i % 8 === 0 ? 'CANCELADA' : 'AUTORIZADA',
+      valorTotalProdutos: Number(valorTotalProdutos.toFixed(2)),
+      valorTotalFrete: 0,
+      valorTotalSeguro: 0,
+      valorTotalDesconto: 0,
+      valorTotalOutrasDesp: 0,
+      baseCalculoICMS: Number(baseCalculoICMS.toFixed(2)),
+      valorTotalICMS: Number(valorTotalICMS.toFixed(2)),
+      baseCalculoICMSST: 0,
+      valorTotalICMSST: 0,
+      valorTotalIPI: Number(valorTotalIPI.toFixed(2)),
+      valorTotalPIS: Number(valorTotalPIS.toFixed(2)),
+      valorTotalCOFINS: Number(valorTotalCOFINS.toFixed(2)),
+      valorTotalIBS: Number((valorTotalProdutos * 0.01).toFixed(2)),
+      valorTotalCBS: Number((valorTotalProdutos * 0.009).toFixed(2)),
+      valorTotalTributosAprox: Number(valorTotalTributosAprox.toFixed(2)),
+      valorTotalNota,
+      formaPagamento: i % 3 === 0 ? '17' : i % 3 === 1 ? '03' : '01',
+      informacoesAdicionais: 'Emitido via SUP TECNOLOGIA ERP',
+      protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
+      dataHoraAutorizacao: dataEmissao,
+      xmlAssinado: gerarXmlAssinado('NFe', numeroNfe, chaveCompleta),
+      empresaId: empresa.id,
+      destinatarioId: cliente.id,
+      itens: { create: itens },
+      duplicatas: {
+        create: [{
+          numero: `${numeroNfe}/01`,
+          dataVencimento: new Date(dataEmissao.getTime() + 30 * 24 * 60 * 60 * 1000),
+          valor: valorTotalNota,
+          status: 'PENDENTE'
+        }]
+      },
+      transporte: {
+        create: {
+          modalidadeFrete: 0,
+          transportadoraNome: transportadoras[i % transportadoras.length]?.razaoSocial || 'Transportadora Padrão',
+          transportadoraCnpj: transportadoras[i % transportadoras.length]?.cnpj || '00.000.000/0000-00',
+          veiculoPlaca: `BRA${String(1000 + i * 123).slice(0, 4)}`,
+          veiculoUf: 'SP',
+          volumesQuantidade: numItens,
+          volumesEspecie: 'VOLUMES',
+          volumesPesoLiquido: Number((Math.random() * 100 + 10).toFixed(1)),
+          volumesPesoBruto: Number((Math.random() * 120 + 15).toFixed(1))
         }
       }
     })
 
     numeroNfe++
   }
+
+  // 🔥 CRIAR EM LOTE (uma única chamada ao BD)
+  await prisma.$transaction(
+    nfeData.map(data => prisma.nFe.create({ data }))
+  )
 
   console.log(`✅ 10 NF-e criadas`)
 
@@ -303,8 +378,8 @@ async function main() {
   // ============================================
   console.log('\n📄 Gerando NFS-e...')
 
-  const nfseCount = await prisma.nFSe.count({ where: { empresaId: empresa.id } })
-  let numeroNfse = 100 + nfseCount
+  let numeroNfse = await obterProximoNumero('nFSe', empresa.id, 100)
+  const nfseData: any[] = []
 
   for (let i = 0; i < 10; i++) {
     const cliente = clientes[(i + 3) % clientes.length]
@@ -322,71 +397,73 @@ async function main() {
     const dataEmissao = gerarDataAleatoria(60)
 
     const { chaveCompleta, codigoVerificacao } = gerarChaveAcessoNFSe({
-      codigoMunicipioIBGE: empresa.endereco.codigoMunicipio,
+      codigoMunicipioIBGE: codigoMunicipio,
       ambienteGerador: 1,
       tipoInscricao: 1,
       documentoEmitente: empresa.cnpj,
-      numeroNfse: numeroNfse,
+      numeroNfse,
       anoMesDPS: new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0'),
     })
 
-    await prisma.nFSe.create({
-      data: {
-        chaveAcesso: chaveCompleta,
-        numeroNfse: numeroNfse,
-        serieDPS: empresa.serieNfse || 1,
-        numeroDPS: numeroNfse,
-        dataCompetencia: dataEmissao,
-        dataHoraEmissao: dataEmissao,
-        dataHoraProcessamento: dataEmissao,
-        codigoVerificacao: codigoVerificacao,
-        ambiente: empresa.ambienteEmissao || 1,
-        tipoEmissao: 1,
-        status: i % 8 === 0 ? 'CANCELADA' : 'AUTORIZADA',
-        valorTotalServicos: Number(valorServico.toFixed(2)),
-        valorTotalDescontos: 0,
-        valorTotalDeducoes: 0,
-        baseCalculoISS: Number(baseISS.toFixed(2)),
-        valorTotalISS: Number(valorISS.toFixed(2)),
-        valorTotalISSRetido: i % 3 === 0 ? Number(valorISS.toFixed(2)) : 0,
-        valorTotalRetencoesFed: Number((valorPIS + valorCOFINS + valorIRRF + valorCSLL).toFixed(2)),
-        valorTotalIBS: Number((valorServico * 0.01).toFixed(2)),
-        valorTotalCBS: Number((valorServico * 0.009).toFixed(2)),
-        valorLiquidoNfse: Number(valorLiquido.toFixed(2)),
-        valorTotalNotaFinal: Number(valorLiquido.toFixed(2)),
-        informacoesComplementares: 'Documento emitido via SUP TECNOLOGIA ERP - NFS-e Padrão Nacional',
-        xmlAssinado: gerarXmlAssinado('NFSe', numeroNfse, chaveCompleta),
-        urlVisualizacao: 'https://www.nfse.gov.br/consultapublica',
-        empresaId: empresa.id,
-        tomadorId: cliente.id,
-        servicoId: servico.id,
-        tributacaoISSQN: 1,
-        tipoRetencaoISS: i % 3 === 0 ? 2 : 1,
-        aliquotaISS: aliquotaISS,
-        valorISS: Number(valorISS.toFixed(2)),
-        aliquotaPIS: servico.aliquotaPIS,
-        valorPIS: Number(valorPIS.toFixed(2)),
-        retidoPIS: false,
-        aliquotaCOFINS: servico.aliquotaCOFINS,
-        valorCOFINS: Number(valorCOFINS.toFixed(2)),
-        retidoCOFINS: false,
-        aliquotaIRRF: servico.aliquotaIRRF,
-        valorIRRF: Number(valorIRRF.toFixed(2)),
-        aliquotaCSLL: servico.aliquotaCSLL,
-        valorCSLL: Number(valorCSLL.toFixed(2)),
-        aliquotaINSS: servico.aliquotaINSS || 0,
-        valorINSS: 0,
-        aliquotaIBSUF: 0.05,
-        valorIBSUF: Number((valorServico * 0.0005).toFixed(2)),
-        aliquotaIBSMun: 0.05,
-        valorIBSMun: Number((valorServico * 0.0005).toFixed(2)),
-        aliquotaCBS: 0.90,
-        valorCBS: Number((valorServico * 0.009).toFixed(2))
-      }
+    nfseData.push({
+      chaveAcesso: chaveCompleta,
+      numeroNfse,
+      serieDPS: empresa.serieNfse || 1,
+      numeroDPS: numeroNfse,
+      dataCompetencia: dataEmissao,
+      dataHoraEmissao: dataEmissao,
+      dataHoraProcessamento: dataEmissao,
+      codigoVerificacao,
+      ambiente: empresa.ambienteEmissao || 1,
+      tipoEmissao: 1,
+      status: i % 8 === 0 ? 'CANCELADA' : 'AUTORIZADA',
+      valorTotalServicos: Number(valorServico.toFixed(2)),
+      valorTotalDescontos: 0,
+      valorTotalDeducoes: 0,
+      baseCalculoISS: Number(baseISS.toFixed(2)),
+      valorTotalISS: Number(valorISS.toFixed(2)),
+      valorTotalISSRetido: i % 3 === 0 ? Number(valorISS.toFixed(2)) : 0,
+      valorTotalRetencoesFed: Number((valorPIS + valorCOFINS + valorIRRF + valorCSLL).toFixed(2)),
+      valorTotalIBS: Number((valorServico * 0.01).toFixed(2)),
+      valorTotalCBS: Number((valorServico * 0.009).toFixed(2)),
+      valorLiquidoNfse: Number(valorLiquido.toFixed(2)),
+      valorTotalNotaFinal: Number(valorLiquido.toFixed(2)),
+      informacoesComplementares: 'Documento emitido via SUP TECNOLOGIA ERP - NFS-e Padrão Nacional',
+      xmlAssinado: gerarXmlAssinado('NFSe', numeroNfse, chaveCompleta),
+      urlVisualizacao: 'https://www.nfse.gov.br/consultapublica',
+      empresaId: empresa.id,
+      tomadorId: cliente.id,
+      servicoId: servico.id,
+      tributacaoISSQN: 1,
+      tipoRetencaoISS: i % 3 === 0 ? 2 : 1,
+      aliquotaISS,
+      valorISS: Number(valorISS.toFixed(2)),
+      aliquotaPIS: servico.aliquotaPIS,
+      valorPIS: Number(valorPIS.toFixed(2)),
+      retidoPIS: false,
+      aliquotaCOFINS: servico.aliquotaCOFINS,
+      valorCOFINS: Number(valorCOFINS.toFixed(2)),
+      retidoCOFINS: false,
+      aliquotaIRRF: servico.aliquotaIRRF,
+      valorIRRF: Number(valorIRRF.toFixed(2)),
+      aliquotaCSLL: servico.aliquotaCSLL,
+      valorCSLL: Number(valorCSLL.toFixed(2)),
+      aliquotaINSS: servico.aliquotaINSS || 0,
+      valorINSS: 0,
+      aliquotaIBSUF: 0.05,
+      valorIBSUF: Number((valorServico * 0.0005).toFixed(2)),
+      aliquotaIBSMun: 0.05,
+      valorIBSMun: Number((valorServico * 0.0005).toFixed(2)),
+      aliquotaCBS: 0.90,
+      valorCBS: Number((valorServico * 0.009).toFixed(2))
     })
 
     numeroNfse++
   }
+
+  await prisma.$transaction(
+    nfseData.map(data => prisma.nFSe.create({ data }))
+  )
 
   console.log(`✅ 10 NFS-e criadas`)
 
@@ -395,8 +472,8 @@ async function main() {
   // ============================================
   console.log('\n📄 Gerando NFC-e...')
 
-  const nfceCount = await prisma.nFCe.count({ where: { empresaId: empresa.id } })
-  let numeroNfce = 100 + nfceCount
+  let numeroNfce = await obterProximoNumero('nFCe', empresa.id, 100)
+  const nfceData: any[] = []
 
   for (let i = 0; i < 5; i++) {
     const cliente = clientes[(i + 5) % clientes.length]
@@ -442,11 +519,10 @@ async function main() {
 
     const valorTotalNota = Number(valorTotalProdutos.toFixed(2))
     const dataEmissao = gerarDataAleatoria(30)
-
     const aamm = new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0')
 
     const { chaveCompleta: chaveAcesso } = gerarChaveAcessoNFe({
-      codigoUf: codigoUf,
+      codigoUf,
       anoMes: aamm,
       cnpjEmitente: empresa.cnpj,
       modelo: '65',
@@ -455,41 +531,43 @@ async function main() {
       tipoEmissao: 1,
     })
 
-    await prisma.nFCe.create({
-      data: {
-        modelo: '65',
-        serie: empresa.serieNfce || 1,
-        numero: numeroNfce,
-        chaveAcesso: chaveAcesso,
-        dataHoraEmissao: dataEmissao,
-        naturezaOperacao: 'Venda a Consumidor Final',
-        ambiente: empresa.ambienteEmissao || 1,
-        tipoEmissao: 1,
-        status: i % 5 === 0 ? 'CANCELADA' : 'AUTORIZADA',
-        consumidorIdentificado: i % 2 === 0,
-        consumidorCpfCnpj: i % 2 === 0 ? cliente.documento : null,
-        consumidorNome: i % 2 === 0 ? cliente.razaoSocial : null,
-        valorTotalProdutos: valorTotalNota,
-        valorTotalDesconto: 0,
-        valorTotalAcrescimo: 0,
-        valorTotalTributosAprox: Number(valorTotalTributosAprox.toFixed(2)),
-        valorTotalNota: valorTotalNota,
-        formaPagamento: i % 2 === 0 ? '17' : '03',
-        valorPago: valorTotalNota,
-        valorTroco: 0,
-        urlQrCode: `https://www.nfce.fazenda.gov.br/qrcode?p=${Math.random().toString(36).substring(7)}`,
-        tokenCscId: '000001',
-        protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-        dataHoraAutorizacao: dataEmissao,
-        xmlAssinado: gerarXmlAssinado('NFCe', numeroNfce, chaveAcesso),
-        empresaId: empresa.id,
-        consumidorId: i % 2 === 0 ? cliente.id : null,
-        itens: { create: itens }
-      }
+    nfceData.push({
+      modelo: '65',
+      serie: empresa.serieNfce || 1,
+      numero: numeroNfce,
+      chaveAcesso,
+      dataHoraEmissao: dataEmissao,
+      naturezaOperacao: 'Venda a Consumidor Final',
+      ambiente: empresa.ambienteEmissao || 1,
+      tipoEmissao: 1,
+      status: i % 5 === 0 ? 'CANCELADA' : 'AUTORIZADA',
+      consumidorIdentificado: i % 2 === 0,
+      consumidorCpfCnpj: i % 2 === 0 ? cliente.documento : null,
+      consumidorNome: i % 2 === 0 ? cliente.razaoSocial : null,
+      valorTotalProdutos: valorTotalNota,
+      valorTotalDesconto: 0,
+      valorTotalAcrescimo: 0,
+      valorTotalTributosAprox: Number(valorTotalTributosAprox.toFixed(2)),
+      valorTotalNota,
+      formaPagamento: i % 2 === 0 ? '17' : '03',
+      valorPago: valorTotalNota,
+      valorTroco: 0,
+      urlQrCode: `https://www.nfce.fazenda.gov.br/qrcode?p=${Math.random().toString(36).substring(7)}`,
+      tokenCscId: '000001',
+      protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
+      dataHoraAutorizacao: dataEmissao,
+      xmlAssinado: gerarXmlAssinado('NFCe', numeroNfce, chaveAcesso),
+      empresaId: empresa.id,
+      consumidorId: i % 2 === 0 ? cliente.id : null,
+      itens: { create: itens }
     })
 
     numeroNfce++
   }
+
+  await prisma.$transaction(
+    nfceData.map(data => prisma.nFCe.create({ data }))
+  )
 
   console.log(`✅ 5 NFC-e criadas`)
 
@@ -498,8 +576,8 @@ async function main() {
   // ============================================
   console.log('\n📄 Gerando CT-e...')
 
-  const cteCount = await prisma.cTe.count({ where: { empresaId: empresa.id } })
-  let numeroCte = 100 + cteCount
+  let numeroCte = await obterProximoNumero('cTe', empresa.id, 100)
+  const cteData: any[] = []
 
   for (let i = 0; i < 5; i++) {
     const remetente = clientes[(i + 2) % clientes.length]
@@ -509,11 +587,10 @@ async function main() {
     const peso = gerarValor(100, 500)
 
     const dataEmissao = gerarDataAleatoria(45)
-
     const aamm = new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0')
 
     const { chaveCompleta: chaveAcesso } = gerarChaveAcessoNFe({
-      codigoUf: codigoUf,
+      codigoUf,
       anoMes: aamm,
       cnpjEmitente: empresa.cnpj,
       modelo: '57',
@@ -522,64 +599,66 @@ async function main() {
       tipoEmissao: 1,
     })
 
-    await prisma.cTe.create({
-      data: {
-        modelo: '57',
-        serie: 1,
-        numero: numeroCte,
-        chaveAcesso: chaveAcesso,
-        dataHoraEmissao: dataEmissao,
-        naturezaOperacao: 'Prestação de Serviço de Transporte Rodoviário de Cargas',
-        cfop: '6353',
-        ambiente: empresa.ambienteEmissao || 1,
-        tipoEmissao: 1,
-        status: i % 5 === 0 ? 'CANCELADA' : 'AUTORIZADA',
-        remetenteId: remetente.id,
-        destinatarioId: destinatario.id,
-        tomadorServico: 0,
-        municipioInicioCod: '3550308',
-        municipioInicioNome: 'São Paulo',
-        municipioInicioUf: 'SP',
-        municipioFimCod: '3304557',
-        municipioFimNome: 'Rio de Janeiro',
-        municipioFimUf: 'RJ',
-        produtoPredominante: 'Equipamentos Eletrônicos',
-        valorCargaAverbada: gerarValor(10000, 50000),
-        pesoBrutoKg: Number(peso.toFixed(1)),
-        pesoLiquidoKg: Number((peso * 0.9).toFixed(1)),
-        quantidadeVolumes: Math.floor(Math.random() * 10) + 1,
-        especieVolumes: 'Caixas',
-        cubagemM3: Number((Math.random() * 5 + 1).toFixed(2)),
-        chavesNFeTransportadas: JSON.stringify(['35260818236447000190550010000010411123456784']),
-        rntrc: transportadora?.rntrc || '1234567',
-        veiculoPlaca: `BRA${String(1000 + i * 123).slice(0, 4)}`,
-        veiculoUf: 'SP',
-        motoristaNome: ['João Silva', 'Maria Santos', 'Pedro Costa', 'Ana Oliveira', 'Carlos Souza'][i],
-        motoristaCpf: ['123.456.789-00', '987.654.321-00', '456.789.123-00', '789.123.456-00', '321.654.987-00'][i],
-        valorTotalFrete: Number(valorFrete.toFixed(2)),
-        fretePeso: Number((valorFrete * 0.4).toFixed(2)),
-        freteValor: Number((valorFrete * 0.3).toFixed(2)),
-        pedagio: Number((Math.random() * 100 + 50).toFixed(2)),
-        taxaGris: Number((Math.random() * 50 + 20).toFixed(2)),
-        outrasTaxas: Number((Math.random() * 30 + 10).toFixed(2)),
-        valorReceber: Number(valorFrete.toFixed(2)),
-        cstICMS: '00',
-        baseCalculoICMS: Number(valorFrete.toFixed(2)),
-        aliquotaICMS: 12.0,
-        valorICMS: Number((valorFrete * 0.12).toFixed(2)),
-        valorPIS: Number((valorFrete * 0.0065).toFixed(2)),
-        valorCOFINS: Number((valorFrete * 0.03).toFixed(2)),
-        valorTributosAprox: Number((valorFrete * 0.1565).toFixed(2)),
-        protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-        dataHoraAutorizacao: dataEmissao,
-        xmlAssinado: gerarXmlAssinado('CTe', numeroCte, chaveAcesso),
-        empresaId: empresa.id,
-        transportadoraId: transportadora?.id || null
-      }
+    cteData.push({
+      modelo: '57',
+      serie: 1,
+      numero: numeroCte,
+      chaveAcesso,
+      dataHoraEmissao: dataEmissao,
+      naturezaOperacao: 'Prestação de Serviço de Transporte Rodoviário de Cargas',
+      cfop: '6353',
+      ambiente: empresa.ambienteEmissao || 1,
+      tipoEmissao: 1,
+      status: i % 5 === 0 ? 'CANCELADA' : 'AUTORIZADA',
+      remetenteId: remetente.id,
+      destinatarioId: destinatario.id,
+      tomadorServico: 0,
+      municipioInicioCod: codigoMunicipio,
+      municipioInicioNome: 'São Paulo',
+      municipioInicioUf: 'SP',
+      municipioFimCod: '3304557',
+      municipioFimNome: 'Rio de Janeiro',
+      municipioFimUf: 'RJ',
+      produtoPredominante: 'Equipamentos Eletrônicos',
+      valorCargaAverbada: gerarValor(10000, 50000),
+      pesoBrutoKg: Number(peso.toFixed(1)),
+      pesoLiquidoKg: Number((peso * 0.9).toFixed(1)),
+      quantidadeVolumes: Math.floor(Math.random() * 10) + 1,
+      especieVolumes: 'Caixas',
+      cubagemM3: Number((Math.random() * 5 + 1).toFixed(2)),
+      chavesNFeTransportadas: JSON.stringify(['35260818236447000190550010000010411123456784']),
+      rntrc: transportadora?.rntrc || '1234567',
+      veiculoPlaca: `BRA${String(1000 + i * 123).slice(0, 4)}`,
+      veiculoUf: 'SP',
+      motoristaNome: ['João Silva', 'Maria Santos', 'Pedro Costa', 'Ana Oliveira', 'Carlos Souza'][i],
+      motoristaCpf: ['123.456.789-00', '987.654.321-00', '456.789.123-00', '789.123.456-00', '321.654.987-00'][i],
+      valorTotalFrete: Number(valorFrete.toFixed(2)),
+      fretePeso: Number((valorFrete * 0.4).toFixed(2)),
+      freteValor: Number((valorFrete * 0.3).toFixed(2)),
+      pedagio: Number((Math.random() * 100 + 50).toFixed(2)),
+      taxaGris: Number((Math.random() * 50 + 20).toFixed(2)),
+      outrasTaxas: Number((Math.random() * 30 + 10).toFixed(2)),
+      valorReceber: Number(valorFrete.toFixed(2)),
+      cstICMS: '00',
+      baseCalculoICMS: Number(valorFrete.toFixed(2)),
+      aliquotaICMS: 12.0,
+      valorICMS: Number((valorFrete * 0.12).toFixed(2)),
+      valorPIS: Number((valorFrete * 0.0065).toFixed(2)),
+      valorCOFINS: Number((valorFrete * 0.03).toFixed(2)),
+      valorTributosAprox: Number((valorFrete * 0.1565).toFixed(2)),
+      protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
+      dataHoraAutorizacao: dataEmissao,
+      xmlAssinado: gerarXmlAssinado('CTe', numeroCte, chaveAcesso),
+      empresaId: empresa.id,
+      transportadoraId: transportadora?.id || null
     })
 
     numeroCte++
   }
+
+  await prisma.$transaction(
+    cteData.map(data => prisma.cTe.create({ data }))
+  )
 
   console.log(`✅ 5 CT-e criadas`)
 
@@ -588,61 +667,62 @@ async function main() {
   // ============================================
   console.log('\n📄 Gerando NFA-e...')
 
-  const nfaeCount = await prisma.nFAe.count({ where: { empresaId: empresa.id } })
-  let numeroNfae = 900 + nfaeCount
+  let numeroNfae = await obterProximoNumero('nFAe', empresa.id, 900)
+  const nfaeData: any[] = []
 
   for (let i = 0; i < 5; i++) {
     const cliente = clientes[(i + 6) % clientes.length]
     const dataEmissao = gerarDataAleatoria(20)
-
     const chaveAcesso = `NFAE${String(numeroNfae).padStart(10, '0')}${Date.now().toString().slice(-10)}`
 
-    await prisma.nFAe.create({
-      data: {
-        modelo: '01-AVULSA',
-        serie: 900,
-        numero: numeroNfae,
-        chaveAcesso: chaveAcesso,
-        dataHoraEmissao: dataEmissao,
-        naturezaOperacao: 'Venda Avulsa de Mercadorias',
-        motivoEmissao: i % 2 === 0 ? 'FEIRAS_EVENTOS' : 'PRODUTOR_RURAL',
-        descricaoMotivo: i % 2 === 0 ? 'Participação em Feira/Evento' : 'Produtor Rural sem Inscrição Estadual',
-        ambiente: 1,
-        status: i % 5 === 0 ? 'CANCELADA' : 'AUTORIZADA',
-        requerenteTipo: 'PF',
-        requerenteCpfCnpj: '123.456.789-00',
-        requerenteNome: ['João da Silva', 'Maria Oliveira', 'José Santos', 'Ana Pereira', 'Carlos Lima'][i],
-        requerenteInscricao: null,
-        requerenteLogradouro: 'Rua das Feiras',
-        requerenteNumero: String(100 + i * 50),
-        requerenteBairro: 'Centro',
-        requerenteMunicipio: 'São Paulo',
-        requerenteUf: 'SP',
-        requerenteCep: '01000-000',
-        requerenteTelefone: '(11) 9999-9999',
-        requerenteEmail: `requerente${i}@email.com`,
-        destinatarioId: cliente.id,
-        valorTotalProdutos: gerarValor(100, 2000),
-        baseCalculoICMS: gerarValor(100, 2000),
-        aliquotaICMSMediana: 18.0,
-        valorTotalICMS: gerarValor(18, 360),
-        valorTotalNota: gerarValor(118, 2360),
-        guiaDAENumero: `DAE${String(numeroNfae).padStart(10, '0')}`,
-        guiaDAECodigoBarras: `12345678901234567890123456789012345678901234${String(numeroNfae).padStart(5, '0')}`,
-        guiaDAEChavePix: `pix${Math.random().toString(36).substring(7)}`,
-        guiaDAEVencimento: new Date(dataEmissao.getTime() + 15 * 24 * 60 * 60 * 1000),
-        guiaDAEValor: gerarValor(18, 360),
-        guiaDAEStatus: i % 3 === 0 ? 'PAGO' : 'AGUARDANDO_PAGAMENTO',
-        orgaoEmissorSefaz: 'SEFAZ/SP - Posto Fiscal da Capital',
-        protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-        dataHoraAutorizacao: dataEmissao,
-        xmlAssinado: gerarXmlAssinado('NFAe', numeroNfae, chaveAcesso),
-        empresaId: empresa.id
-      }
+    nfaeData.push({
+      modelo: '01-AVULSA',
+      serie: 900,
+      numero: numeroNfae,
+      chaveAcesso,
+      dataHoraEmissao: dataEmissao,
+      naturezaOperacao: 'Venda Avulsa de Mercadorias',
+      motivoEmissao: i % 2 === 0 ? 'FEIRAS_EVENTOS' : 'PRODUTOR_RURAL',
+      descricaoMotivo: i % 2 === 0 ? 'Participação em Feira/Evento' : 'Produtor Rural sem Inscrição Estadual',
+      ambiente: 1,
+      status: i % 5 === 0 ? 'CANCELADA' : 'AUTORIZADA',
+      requerenteTipo: 'PF',
+      requerenteCpfCnpj: '123.456.789-00',
+      requerenteNome: ['João da Silva', 'Maria Oliveira', 'José Santos', 'Ana Pereira', 'Carlos Lima'][i],
+      requerenteInscricao: null,
+      requerenteLogradouro: 'Rua das Feiras',
+      requerenteNumero: String(100 + i * 50),
+      requerenteBairro: 'Centro',
+      requerenteMunicipio: 'São Paulo',
+      requerenteUf: 'SP',
+      requerenteCep: '01000-000',
+      requerenteTelefone: '(11) 9999-9999',
+      requerenteEmail: `requerente${i}@email.com`,
+      destinatarioId: cliente.id,
+      valorTotalProdutos: gerarValor(100, 2000),
+      baseCalculoICMS: gerarValor(100, 2000),
+      aliquotaICMSMediana: 18.0,
+      valorTotalICMS: gerarValor(18, 360),
+      valorTotalNota: gerarValor(118, 2360),
+      guiaDAENumero: `DAE${String(numeroNfae).padStart(10, '0')}`,
+      guiaDAECodigoBarras: `12345678901234567890123456789012345678901234${String(numeroNfae).padStart(5, '0')}`,
+      guiaDAEChavePix: `pix${Math.random().toString(36).substring(7)}`,
+      guiaDAEVencimento: new Date(dataEmissao.getTime() + 15 * 24 * 60 * 60 * 1000),
+      guiaDAEValor: gerarValor(18, 360),
+      guiaDAEStatus: i % 3 === 0 ? 'PAGO' : 'AGUARDANDO_PAGAMENTO',
+      orgaoEmissorSefaz: 'SEFAZ/SP - Posto Fiscal da Capital',
+      protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
+      dataHoraAutorizacao: dataEmissao,
+      xmlAssinado: gerarXmlAssinado('NFAe', numeroNfae, chaveAcesso),
+      empresaId: empresa.id
     })
 
     numeroNfae++
   }
+
+  await prisma.$transaction(
+    nfaeData.map(data => prisma.nFAe.create({ data }))
+  )
 
   console.log(`✅ 5 NFA-e criadas`)
 

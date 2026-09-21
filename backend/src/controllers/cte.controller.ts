@@ -661,7 +661,7 @@ export class CteController {
       const dataInicio = req.query.dataInicio ? new Date(req.query.dataInicio as string) : undefined;
       const dataFim = req.query.dataFim ? new Date(req.query.dataFim as string) : undefined;
 
-      const ctes = await this.cteService.findByCliente(clienteId, tipo, dataInicio, dataFim);
+      const ctes = await this.cteService.findByCliente(empresaId, clienteId, tipo, dataInicio, dataFim);
       const ctesFiltrados = ctes.filter(c => c.empresaId === empresaId);
 
       return res.json({
@@ -693,7 +693,7 @@ export class CteController {
       const dataInicio = req.query.dataInicio ? new Date(req.query.dataInicio as string) : undefined;
       const dataFim = req.query.dataFim ? new Date(req.query.dataFim as string) : undefined;
 
-      const ctes = await this.cteService.findByTransportadora(transportadoraId, dataInicio, dataFim);
+      const ctes = await this.cteService.findByTransportadora(empresaId, transportadoraId, dataInicio, dataFim);
       const ctesFiltrados = ctes.filter(c => c.empresaId === empresaId);
 
       return res.json({
@@ -733,7 +733,7 @@ export class CteController {
       const dataInicio = req.query.dataInicio ? new Date(req.query.dataInicio as string) : undefined;
       const dataFim = req.query.dataFim ? new Date(req.query.dataFim as string) : undefined;
 
-      const ctes = await this.cteService.findByModal(modal, dataInicio, dataFim);
+      const ctes = await this.cteService.findByModal(empresaId, modal, dataInicio, dataFim);
       const ctesFiltrados = ctes.filter(c => c.empresaId === empresaId);
 
       return res.json({
@@ -773,7 +773,7 @@ export class CteController {
       const dataInicio = req.query.dataInicio ? new Date(req.query.dataInicio as string) : undefined;
       const dataFim = req.query.dataFim ? new Date(req.query.dataFim as string) : undefined;
 
-      const ctes = await this.cteService.findByStatus(status as any, dataInicio, dataFim);
+      const ctes = await this.cteService.findByStatus(empresaId, status as any, dataInicio, dataFim);
       const ctesFiltrados = ctes.filter(c => c.empresaId === empresaId);
 
       return res.json({

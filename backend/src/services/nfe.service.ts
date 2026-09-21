@@ -131,12 +131,17 @@ export class NfeService {
       proximoNumeroNfe: numero + 1
     });
 
-    for (const item of (data.itens || [])) {
-      const produto = await this.produtoRepo.findById(item.produtoId);
-      if (produto) {
-        await this.produtoRepo.update(item.produtoId, {
-          estoqueAtual: Math.max(0, produto.estoqueAtual - item.quantidade)
-        });
+    const itensValidos = (data.itens || []).filter((i: any) => i.produtoId);
+    if (itensValidos.length > 0) {
+      const produtos = await this.produtoRepo.findByIds(itensValidos.map((i: any) => i.produtoId));
+      const produtoMap = new Map<string, any>(produtos.map((p: any) => [p.id, p]));
+      for (const item of itensValidos) {
+        const produto = produtoMap.get(item.produtoId);
+        if (produto) {
+          await this.produtoRepo.update(item.produtoId, {
+            estoqueAtual: Math.max(0, produto.estoqueAtual - item.quantidade)
+          });
+        }
       }
     }
 

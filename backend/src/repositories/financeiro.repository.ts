@@ -41,6 +41,7 @@ export class FinanceiroRepository extends BaseRepository {
       include: {
         cliente: true
       },
+      take: 500,
       orderBy: { dataVencimento: 'asc' }
     })
   }
@@ -66,6 +67,16 @@ export class FinanceiroRepository extends BaseRepository {
         status: 'PAGO',
         dataPagamento,
         valorPago
+      }
+    })
+  }
+
+  async cancelarTitulo(id: string, motivo: string) {
+    return this.prisma.tituloFinanceiro.update({
+      where: { id },
+      data: {
+        status: 'CANCELADO',
+        observacoes: motivo
       }
     })
   }

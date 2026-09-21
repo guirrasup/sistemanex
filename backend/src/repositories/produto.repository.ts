@@ -80,4 +80,10 @@ export class ProdutoRepository extends BaseRepository {
       },
     });
   }
+
+  async findByIds(ids: string[]) {
+    return prisma.produto.findMany({
+      where: { id: { in: ids } },
+    });
+  }
 }
