@@ -59,6 +59,7 @@ export class ClienteRepository extends BaseRepository {
         tipo: tipo as any
       },
       include: { endereco: true },
+      take: 500,
       orderBy: { razaoSocial: 'asc' }
     })
   }

@@ -52,6 +52,7 @@ export class FinanceiroRepository extends BaseRepository {
         clienteId,
         status: { in: ['PENDENTE', 'VENCIDO'] }
       },
+      take: 500,
       orderBy: { dataVencimento: 'asc' }
     })
   }

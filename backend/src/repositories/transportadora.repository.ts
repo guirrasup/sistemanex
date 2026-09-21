@@ -75,6 +75,7 @@ export class TransportadoraRepository extends BaseRepository {
       include: {
         endereco: true
       },
+      take: 500,
       orderBy: { razaoSocial: 'asc' }
     });
   }
@@ -88,6 +89,7 @@ export class TransportadoraRepository extends BaseRepository {
       include: {
         endereco: true
       },
+      take: 500,
       orderBy: { razaoSocial: 'asc' }
     });
   }

@@ -84,6 +84,7 @@ export class UsuarioRepository extends BaseRepository {
         cargo: true,
         perfil: true,
       },
+      take: 500,
       orderBy: { nome: 'asc' }
     });
   }

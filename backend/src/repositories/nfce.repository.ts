@@ -432,6 +432,7 @@ export class NfceRepository extends BaseRepository {
         itens: true,
         pagamentos: true
       },
+      take: 500,
       orderBy: { dataHoraEmissao: 'desc' }
     });
   }
@@ -454,7 +455,8 @@ export class NfceRepository extends BaseRepository {
       where,
       include: {
         itens: true
-      }
+      },
+      take: 500
     });
 
     // Agrupa por produto

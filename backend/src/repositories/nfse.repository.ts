@@ -201,6 +201,7 @@ export class NfseRepository extends BaseRepository {
         },
         servico: true
       },
+      take: 500,
       orderBy: { dataHoraEmissao: 'desc' }
     });
   }
@@ -450,7 +451,8 @@ export class NfseRepository extends BaseRepository {
       where,
       include: {
         servico: true
-      }
+      },
+      take: 500
     });
 
     // Agrupa por serviço
