@@ -7,6 +7,28 @@ const prisma = new PrismaClient()
 // 🔥 LIMITES DE RECURSOS (mitigação CWE-770 / CWE-400)
 const MAX_TRANSACTION_BATCH = 500
 
+// 🔥 CONFIGURAÇÃO VIA ENV (evita credenciais/ambiente hardcoded — CWE-798 / CWE-1188)
+const SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@suptecnologia.com.br'
+const SEED_ADMIN_SENHA = process.env.SEED_ADMIN_SENHA
+const SEED_AMBIENTE = process.env.SEED_AMBIENTE === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO'
+
+if (!SEED_ADMIN_SENHA) {
+  console.error('❌ Defina SEED_ADMIN_SENHA no ambiente antes de rodar o seed.')
+  process.exit(1)
+}
+
+// 🔥 HELPER DE TRANSAÇÃO EM LOTES (fatia em vez de abortar — CWE-770)
+async function criarEmLotes<T>(
+  registros: T[],
+  criar: (data: T) => Promise<any>,
+  tamanhoLote: number = MAX_TRANSACTION_BATCH
+): Promise<void> {
+  for (let i = 0; i < registros.length; i += tamanhoLote) {
+    const lote = registros.slice(i, i + tamanhoLote)
+    await prisma.$transaction(lote.map(criar))
+  }
+}
+
 async function main() {
   const CNPJ_EMPRESA = '18236447000190'
 
@@ -17,8 +39,8 @@ async function main() {
   if (!empresa) {
     empresa = await prisma.empresa.create({
       data: {
-        razaoSocial: 'SUP TECNOLOGIA EM SISTEMAS LTDA',
-        nomeFantasia: 'SUP TECNOLOGIA',
+        razaoSocial: 'SUP TECNOLOGIA EM SISTEMAS LTDA - DEV',
+        nomeFantasia: 'SUP TECNOLOGIA DEV',
         cnpj: CNPJ_EMPRESA,
         codigoUF: '35',
         inscricaoEstadual: '114882901110',
@@ -26,7 +48,7 @@ async function main() {
         cnae: '6201501',
         regimeTributario: 'SIMPLES_NACIONAL',
         aliquotaSimples: 6.0,
-        ambienteEmissao: 'PRODUCAO',
+        ambienteEmissao: SEED_AMBIENTE, // ✅ env-driven (default HOMOLOGACAO)
         chavePixPadrao: '18236447000190',
         optanteSimples: true,
         endereco: {
@@ -65,16 +87,16 @@ async function main() {
   }
 
   let admin = await prisma.usuario.findUnique({
-    where: { email: 'admin@suptecnologia.com.br' }
+    where: { email: SEED_ADMIN_EMAIL }
   })
 
   if (!admin) {
-    const senhaHash = await bcrypt.hash('admin123', 12)
+    const senhaHash = await bcrypt.hash(SEED_ADMIN_SENHA, 12)
 
     admin = await prisma.usuario.create({
       data: {
         nome: 'Carlos Eduardo Nogueira',
-        email: 'admin@suptecnologia.com.br',
+        email: SEED_ADMIN_EMAIL,
         senhaHash,
         cargo: 'Administrador Fiscal',
         perfil: 'ADMIN',
@@ -87,17 +109,20 @@ async function main() {
     console.log('Usuario admin ja existe:', admin.email)
   }
 
+  // ============================================
+  // CLIENTES (CNPJs fictícios válidos — sem empresas reais)
+  // ============================================
   const clientesData = [
     {
       tipo: 'CLIENTE',
       tipoPessoa: 'PJ',
-      documento: '33000167000101',
-      razaoSocial: 'PETROLEO BRASILEIRO S A PETROBRAS',
-      nomeFantasia: 'PETROBRAS',
+      documento: '11222333000181',
+      razaoSocial: 'CLIENTE EXEMPLO ALFA LTDA - DEV',
+      nomeFantasia: 'ALFA DEV',
       inscricaoEstadual: '80002321',
       inscricaoMunicipal: '012994001',
       indicadorIE: 'CONTRIBUINTE',
-      email: 'faturamento@petrobras.com.br',
+      email: 'faturamento@alfa-dev.local',
       telefone: '2132244477',
       endereco: {
         logradouro: 'Avenida Republica do Chile',
@@ -113,11 +138,11 @@ async function main() {
     {
       tipo: 'CLIENTE',
       tipoPessoa: 'PJ',
-      documento: '00360305000104',
-      razaoSocial: 'CAIXA ECONOMICA FEDERAL',
-      nomeFantasia: 'CAIXA',
+      documento: '22333444000162',
+      razaoSocial: 'CLIENTE EXEMPLO BETA S/A - DEV',
+      nomeFantasia: 'BETA DEV',
       indicadorIE: 'NAO_CONTRIBUINTE',
-      email: 'suprimentos@caixa.gov.br',
+      email: 'suprimentos@beta-dev.local',
       telefone: '6132069900',
       endereco: {
         logradouro: 'SBS Quadra 4 Bloco A',
@@ -133,12 +158,12 @@ async function main() {
     {
       tipo: 'CLIENTE',
       tipoPessoa: 'PJ',
-      documento: '02558157000162',
-      razaoSocial: 'MAGAZINE LUIZA S/A',
-      nomeFantasia: 'MAGAZINE LUIZA',
+      documento: '33444555000143',
+      razaoSocial: 'CLIENTE EXEMPLO GAMA LTDA - DEV',
+      nomeFantasia: 'GAMA DEV',
       inscricaoEstadual: '110042490110',
       indicadorIE: 'CONTRIBUINTE',
-      email: 'faturamento@magazineluiza.com.br',
+      email: 'faturamento@gama-dev.local',
       telefone: '1140044004',
       endereco: {
         logradouro: 'Avenida Brigadeiro Faria Lima',
@@ -154,13 +179,13 @@ async function main() {
     {
       tipo: 'AMBOS',
       tipoPessoa: 'PJ',
-      documento: '34274633000102',
-      razaoSocial: 'AMBEV S/A',
-      nomeFantasia: 'AMBEV',
+      documento: '44555666000124',
+      razaoSocial: 'CLIENTE EXEMPLO DELTA S/A - DEV',
+      nomeFantasia: 'DELTA DEV',
       inscricaoEstadual: '110123456110',
       inscricaoMunicipal: '21234560',
       indicadorIE: 'CONTRIBUINTE',
-      email: 'faturamento@ambev.com.br',
+      email: 'faturamento@delta-dev.local',
       telefone: '1121221234',
       endereco: {
         logradouro: 'Rua Dr. Renato Paes de Barros',
@@ -176,12 +201,12 @@ async function main() {
     {
       tipo: 'AMBOS',
       tipoPessoa: 'PJ',
-      documento: '62494258000193',
-      razaoSocial: 'NESTLE BRASIL LTDA',
-      nomeFantasia: 'NESTLE',
+      documento: '55666777000105',
+      razaoSocial: 'CLIENTE EXEMPLO EPSILON LTDA - DEV',
+      nomeFantasia: 'EPSILON DEV',
       inscricaoEstadual: '110789456110',
       indicadorIE: 'CONTRIBUINTE',
-      email: 'faturamento@nestle.com.br',
+      email: 'faturamento@epsilon-dev.local',
       telefone: '1130492000',
       endereco: {
         logradouro: 'Avenida das Nacoes Unidas',
@@ -206,13 +231,10 @@ async function main() {
   const clientesParaCriar = clientesData.filter(c => !documentosClientesExistentes.has(c.documento))
 
   if (clientesParaCriar.length > 0) {
-    if (clientesParaCriar.length > MAX_TRANSACTION_BATCH) {
-      console.error(`❌ Lote de clientes excede ${MAX_TRANSACTION_BATCH} registros.`)
-      process.exit(1)
-    }
-
-    await prisma.$transaction(
-      clientesParaCriar.map(data =>
+    // ✅ chunking em vez de abort
+    await criarEmLotes(
+      clientesParaCriar,
+      (data) =>
         prisma.cliente.create({
           data: {
             tipo: data.tipo,
@@ -229,22 +251,24 @@ async function main() {
             endereco: { create: data.endereco }
           }
         })
-      )
     )
   }
 
   console.log('Clientes processados')
 
+  // ============================================
+  // FORNECEDORES (CNPJs fictícios válidos)
+  // ============================================
   const fornecedoresData = [
     {
       tipo: 'FORNECEDOR',
       tipoPessoa: 'PJ',
-      documento: '49067965000120',
-      razaoSocial: 'MICROSOFT BRASIL LTDA',
-      nomeFantasia: 'MICROSOFT',
+      documento: '66777888000196',
+      razaoSocial: 'FORNECEDOR EXEMPLO ZETA LTDA - DEV',
+      nomeFantasia: 'ZETA DEV',
       inscricaoEstadual: '110345678110',
       indicadorIE: 'CONTRIBUINTE',
-      email: 'fornecedor@microsoft.com.br',
+      email: 'fornecedor@zeta-dev.local',
       telefone: '1147027000',
       endereco: {
         logradouro: 'Avenida Nacoes Unidas',
@@ -260,12 +284,12 @@ async function main() {
     {
       tipo: 'FORNECEDOR',
       tipoPessoa: 'PJ',
-      documento: '04263233000169',
-      razaoSocial: 'DELL COMPUTADORES DO BRASIL LTDA',
-      nomeFantasia: 'DELL',
+      documento: '77888999000177',
+      razaoSocial: 'FORNECEDOR EXEMPLO ETA LTDA - DEV',
+      nomeFantasia: 'ETA DEV',
       inscricaoEstadual: '114882901110',
       indicadorIE: 'CONTRIBUINTE',
-      email: 'fornecedor@dell.com.br',
+      email: 'fornecedor@eta-dev.local',
       telefone: '1139983200',
       endereco: {
         logradouro: 'Avenida das Nacoes Unidas',
@@ -281,12 +305,12 @@ async function main() {
     {
       tipo: 'FORNECEDOR',
       tipoPessoa: 'PJ',
-      documento: '02214286000100',
-      razaoSocial: 'HP BRASIL INDUSTRIA E COMERCIO LTDA',
-      nomeFantasia: 'HP',
+      documento: '88999000000158',
+      razaoSocial: 'FORNECEDOR EXEMPLO THETA LTDA - DEV',
+      nomeFantasia: 'THETA DEV',
       inscricaoEstadual: '110456789110',
       indicadorIE: 'CONTRIBUINTE',
-      email: 'fornecedor@hp.com.br',
+      email: 'fornecedor@theta-dev.local',
       telefone: '1140044004',
       endereco: {
         logradouro: 'Avenida das Nacoes Unidas',
@@ -302,12 +326,12 @@ async function main() {
     {
       tipo: 'FORNECEDOR',
       tipoPessoa: 'PJ',
-      documento: '03570683000140',
-      razaoSocial: 'CISCO SYSTEMS DO BRASIL LTDA',
-      nomeFantasia: 'CISCO',
+      documento: '99000111000139',
+      razaoSocial: 'FORNECEDOR EXEMPLO IOTA LTDA - DEV',
+      nomeFantasia: 'IOTA DEV',
       inscricaoEstadual: '110567890110',
       indicadorIE: 'CONTRIBUINTE',
-      email: 'fornecedor@cisco.com.br',
+      email: 'fornecedor@iota-dev.local',
       telefone: '1135097000',
       endereco: {
         logradouro: 'Avenida das Nacoes Unidas',
@@ -323,12 +347,12 @@ async function main() {
     {
       tipo: 'FORNECEDOR',
       tipoPessoa: 'PJ',
-      documento: '04150884000110',
-      razaoSocial: 'IBM BRASIL INDUSTRIA MAQUINAS E SERVICOS LTDA',
-      nomeFantasia: 'IBM',
+      documento: '10111213000110',
+      razaoSocial: 'FORNECEDOR EXEMPLO KAPPA LTDA - DEV',
+      nomeFantasia: 'KAPPA DEV',
       inscricaoEstadual: '110678901110',
       indicadorIE: 'CONTRIBUINTE',
-      email: 'fornecedor@ibm.com.br',
+      email: 'fornecedor@kappa-dev.local',
       telefone: '1121321000',
       endereco: {
         logradouro: 'Avenida das Nacoes Unidas',
@@ -353,13 +377,9 @@ async function main() {
   const fornecedoresParaCriar = fornecedoresData.filter(f => !documentosFornecedoresExistentes.has(f.documento))
 
   if (fornecedoresParaCriar.length > 0) {
-    if (fornecedoresParaCriar.length > MAX_TRANSACTION_BATCH) {
-      console.error(`❌ Lote de fornecedores excede ${MAX_TRANSACTION_BATCH} registros.`)
-      process.exit(1)
-    }
-
-    await prisma.$transaction(
-      fornecedoresParaCriar.map(data =>
+    await criarEmLotes(
+      fornecedoresParaCriar,
+      (data) =>
         prisma.cliente.create({
           data: {
             tipo: data.tipo,
@@ -375,16 +395,18 @@ async function main() {
             endereco: { create: data.endereco }
           }
         })
-      )
     )
   }
 
   console.log('Fornecedores processados')
 
+  // ============================================
+  // PRODUTOS (mantidos — são genéricos, sem marca real)
+  // ============================================
   const produtosData = [
     {
       codigo: 'SUP-SRV-RACK',
-      descricao: 'Servidor Dell PowerEdge R650xs Xeon Silver 32GB RAM 2x960GB SSD Enterprise',
+      descricao: 'Servidor Rack 1U Xeon Silver 32GB RAM 2x960GB SSD Enterprise',
       categoria: 'Hardware & Servidores',
       unidade: 'UN',
       ncm: '84714100',
@@ -417,8 +439,8 @@ async function main() {
       aliquotaIPI: 10.0
     },
     {
-      codigo: 'SUP-NOTE-DELL',
-      descricao: 'Notebook Dell Latitude 5430 Intel Core i7 16GB RAM 512GB SSD 14"',
+      codigo: 'SUP-NOTE-PRO',
+      descricao: 'Notebook Corporativo Intel Core i7 16GB RAM 512GB SSD 14"',
       categoria: 'Informatica',
       unidade: 'UN',
       ncm: '84713012',
@@ -435,7 +457,7 @@ async function main() {
     },
     {
       codigo: 'SUP-MONITOR-24',
-      descricao: 'Monitor Dell 24" P2422H Full HD LED IPS',
+      descricao: 'Monitor 24" Full HD LED IPS',
       categoria: 'Perifericos',
       unidade: 'UN',
       ncm: '85285210',
@@ -452,7 +474,7 @@ async function main() {
     },
     {
       codigo: 'SUP-SWITCH-48P',
-      descricao: 'Switch Gigabit 48 Portas Gerenciavel Cisco SG350-48',
+      descricao: 'Switch Gigabit 48 Portas Gerenciavel',
       categoria: 'Redes',
       unidade: 'UN',
       ncm: '85176262',
@@ -479,25 +501,23 @@ async function main() {
   const produtosParaCriar = produtosData.filter(p => !codigosProdutosExistentes.has(p.codigo))
 
   if (produtosParaCriar.length > 0) {
-    if (produtosParaCriar.length > MAX_TRANSACTION_BATCH) {
-      console.error(`❌ Lote de produtos excede ${MAX_TRANSACTION_BATCH} registros.`)
-      process.exit(1)
-    }
-
-    await prisma.$transaction(
-      produtosParaCriar.map(data =>
+    await criarEmLotes(
+      produtosParaCriar,
+      (data) =>
         prisma.produto.create({
           data: {
             ...data,
             empresa: { connect: { id: empresa.id } }
           }
         })
-      )
     )
   }
 
   console.log('Produtos processados')
 
+  // ============================================
+  // SERVIÇOS
+  // ============================================
   const servicosData = [
     {
       codigoInterno: 'SRV-DEV-01',
@@ -591,35 +611,33 @@ async function main() {
   const servicosParaCriar = servicosData.filter(s => !codigosServicosExistentes.has(s.codigoInterno))
 
   if (servicosParaCriar.length > 0) {
-    if (servicosParaCriar.length > MAX_TRANSACTION_BATCH) {
-      console.error(`❌ Lote de serviços excede ${MAX_TRANSACTION_BATCH} registros.`)
-      process.exit(1)
-    }
-
-    await prisma.$transaction(
-      servicosParaCriar.map(data =>
+    await criarEmLotes(
+      servicosParaCriar,
+      (data) =>
         prisma.servico.create({
           data: {
             ...data,
             empresa: { connect: { id: empresa.id } }
           }
         })
-      )
     )
   }
 
   console.log('Servicos processados')
 
+  // ============================================
+  // TRANSPORTADORAS (CNPJs fictícios)
+  // ============================================
   const transportadorasData = [
     {
       tipoPessoa: 'PJ',
-      cnpj: '12345678000190',
-      razaoSocial: 'TRANSPORTADORA RAPIDA LTDA',
-      nomeFantasia: 'RAPIDA CARGAS',
+      cnpj: '11222333000181',
+      razaoSocial: 'TRANSPORTADORA EXEMPLO UM LTDA - DEV',
+      nomeFantasia: 'TRANSP UM DEV',
       inscricaoEstadual: '123456789',
       rntrc: '1234567',
       tipoTransportador: 'RODOVIARIO',
-      email: 'contato@rapidacargas.com.br',
+      email: 'contato@transp-um-dev.local',
       telefone: '1134567890',
       celularWhatsApp: '11987654321',
       contato: 'Joao Silva',
@@ -634,18 +652,18 @@ async function main() {
         codigoUF: '35',
         cep: '02000000',
         telefone: '1134567890',
-        email: 'contato@rapidacargas.com.br'
+        email: 'contato@transp-um-dev.local'
       }
     },
     {
       tipoPessoa: 'PJ',
-      cnpj: '98765432000110',
-      razaoSocial: 'TRANSPORTADORA EXPRESSA LTDA',
-      nomeFantasia: 'EXPRESSA CARGAS',
+      cnpj: '22333444000162',
+      razaoSocial: 'TRANSPORTADORA EXEMPLO DOIS LTDA - DEV',
+      nomeFantasia: 'TRANSP DOIS DEV',
       inscricaoEstadual: '987654321',
       rntrc: '7654321',
       tipoTransportador: 'RODOVIARIO',
-      email: 'contato@expressacargas.com.br',
+      email: 'contato@transp-dois-dev.local',
       telefone: '1145678901',
       celularWhatsApp: '11876543210',
       contato: 'Maria Santos',
@@ -660,18 +678,18 @@ async function main() {
         codigoUF: '35',
         cep: '03000000',
         telefone: '1145678901',
-        email: 'contato@expressacargas.com.br'
+        email: 'contato@transp-dois-dev.local'
       }
     },
     {
       tipoPessoa: 'PJ',
-      cnpj: '45678901000123',
-      razaoSocial: 'TRANSPORTADORA FELIX LTDA',
-      nomeFantasia: 'FELIX LOGISTICA',
+      cnpj: '33444555000143',
+      razaoSocial: 'TRANSPORTADORA EXEMPLO TRES LTDA - DEV',
+      nomeFantasia: 'TRANSP TRES DEV',
       inscricaoEstadual: '456789123',
       rntrc: '4567890',
       tipoTransportador: 'RODOVIARIO',
-      email: 'contato@felixlogistica.com.br',
+      email: 'contato@transp-tres-dev.local',
       telefone: '1156789012',
       celularWhatsApp: '11765432109',
       contato: 'Pedro Felix',
@@ -686,18 +704,18 @@ async function main() {
         codigoUF: '35',
         cep: '04000000',
         telefone: '1156789012',
-        email: 'contato@felixlogistica.com.br'
+        email: 'contato@transp-tres-dev.local'
       }
     },
     {
       tipoPessoa: 'PJ',
-      cnpj: '67890123000145',
-      razaoSocial: 'TRANSPORTADORA UNIAO LTDA',
-      nomeFantasia: 'UNIAO FRETES',
+      cnpj: '44555666000124',
+      razaoSocial: 'TRANSPORTADORA EXEMPLO QUATRO LTDA - DEV',
+      nomeFantasia: 'TRANSP QUATRO DEV',
       inscricaoEstadual: '678901234',
       rntrc: '6789012',
       tipoTransportador: 'RODOVIARIO',
-      email: 'contato@uniaofretes.com.br',
+      email: 'contato@transp-quatro-dev.local',
       telefone: '1167890123',
       celularWhatsApp: '11654321098',
       contato: 'Ana Oliveira',
@@ -712,18 +730,18 @@ async function main() {
         codigoUF: '35',
         cep: '05000000',
         telefone: '1167890123',
-        email: 'contato@uniaofretes.com.br'
+        email: 'contato@transp-quatro-dev.local'
       }
     },
     {
       tipoPessoa: 'PJ',
-      cnpj: '89012345000167',
-      razaoSocial: 'TRANSPORTADORA GLOBAL LTDA',
-      nomeFantasia: 'GLOBAL LOG',
+      cnpj: '55666777000105',
+      razaoSocial: 'TRANSPORTADORA EXEMPLO CINCO LTDA - DEV',
+      nomeFantasia: 'TRANSP CINCO DEV',
       inscricaoEstadual: '890123456',
       rntrc: '8901234',
       tipoTransportador: 'MULTIMODAL',
-      email: 'contato@globallog.com.br',
+      email: 'contato@transp-cinco-dev.local',
       telefone: '1178901234',
       celularWhatsApp: '11543210987',
       contato: 'Roberto Costa',
@@ -738,7 +756,7 @@ async function main() {
         codigoUF: '35',
         cep: '06000000',
         telefone: '1178901234',
-        email: 'contato@globallog.com.br'
+        email: 'contato@transp-cinco-dev.local'
       }
     }
   ]
@@ -758,13 +776,9 @@ async function main() {
   )
 
   if (transportadorasParaCriar.length > 0) {
-    if (transportadorasParaCriar.length > MAX_TRANSACTION_BATCH) {
-      console.error(`❌ Lote de transportadoras excede ${MAX_TRANSACTION_BATCH} registros.`)
-      process.exit(1)
-    }
-
-    await prisma.$transaction(
-      transportadorasParaCriar.map(data =>
+    await criarEmLotes(
+      transportadorasParaCriar,
+      (data) =>
         prisma.transportadora.create({
           data: {
             ...data,
@@ -773,7 +787,6 @@ async function main() {
             endereco: { create: data.endereco }
           }
         })
-      )
     )
   }
 
@@ -782,8 +795,9 @@ async function main() {
   console.log('\n========================================')
   console.log('RESUMO DO SEED')
   console.log('========================================')
-  console.log('Empresa: SUP TECNOLOGIA EM SISTEMAS LTDA')
-  console.log('Usuario Admin: admin@suptecnologia.com.br (senha: admin123)')
+  console.log(`Empresa: SUP TECNOLOGIA EM SISTEMAS LTDA - DEV`)
+  console.log(`Ambiente de emissao: ${SEED_AMBIENTE}`)
+  console.log(`Usuario Admin: ${SEED_ADMIN_EMAIL} (senha definida via SEED_ADMIN_SENHA)`)
   console.log('Seed concluido com sucesso!')
   console.log('========================================')
 }

@@ -92,6 +92,7 @@ function gerarXmlAssinado(tipo: string, numero: number, chave: string): string {
 }
 
 // 🔥 BUSCA PAGINADA POR CURSOR COM LIMITE DE ITERAÇÕES E DE REGISTROS (CWE-770)
+//    ✅ CORREÇÃO: só dispara erro se realmente não conseguimos buscar tudo o que foi pedido
 async function buscarPaginadoPorCursor<T extends { id: string }>(
   buscar: (cursor: string | undefined, take: number) => Promise<T[]>,
   maxRegistros: number,
@@ -110,11 +111,13 @@ async function buscarPaginadoPorCursor<T extends { id: string }>(
     todos.push(...lote)
 
     if (lote.length < take) break
+
     cursor = lote[lote.length - 1].id
     iteracoes++
   }
 
-  if (iteracoes >= MAX_PAGE_ITERATIONS) {
+  // Só dispara erro se realmente não conseguimos buscar tudo o que foi pedido
+  if (todos.length < maxRegistros && iteracoes >= MAX_PAGE_ITERATIONS) {
     console.error('❌ Limite de iterações de paginação atingido (possível loop infinito).')
     process.exit(1)
   }
@@ -123,18 +126,19 @@ async function buscarPaginadoPorCursor<T extends { id: string }>(
 }
 
 // 🔥 PRÓXIMO NÚMERO COM LIMITE (evita crescimento descontrolado)
+//    ✅ CORREÇÃO: usa aggregate(_max) em vez de findFirst + orderBy (evita full scan + sort)
 async function obterProximoNumero(
   model: 'nFe' | 'nFSe' | 'nFCe' | 'cTe' | 'nFAe',
   empresaId: string,
   base: number
 ): Promise<number> {
-  const ultimo = await (prisma[model] as any).findFirst({
+  const resultado = await (prisma[model] as any).aggregate({
     where: { empresaId },
-    orderBy: { numero: 'desc' },
-    select: { numero: true }
+    _max: { numero: true },
   })
 
-  const proximo = ultimo ? Math.max(ultimo.numero + 1, base) : base
+  const ultimoNumero: number | null = resultado?._max?.numero ?? null
+  const proximo = ultimoNumero !== null ? Math.max(ultimoNumero + 1, base) : base
 
   if (proximo > base + MAX_DOCS_POR_TIPO) {
     console.error(`❌ Limite de ${MAX_DOCS_POR_TIPO} documentos por tipo excedido para ${model}.`)
@@ -142,6 +146,18 @@ async function obterProximoNumero(
   }
 
   return proximo
+}
+
+// 🔥 HELPER DE TRANSAÇÃO EM LOTES (defesa em profundidade contra locks excessivos)
+async function criarEmLotes<T>(
+  registros: T[],
+  criar: (data: T) => Promise<any>,
+  tamanhoLote: number = PAGE_SIZE
+): Promise<void> {
+  for (let i = 0; i < registros.length; i += tamanhoLote) {
+    const lote = registros.slice(i, i + tamanhoLote)
+    await prisma.$transaction(lote.map(criar))
+  }
 }
 
 async function main() {
@@ -408,9 +424,8 @@ async function main() {
     numeroNfe++
   }
 
-  await prisma.$transaction(
-    nfeData.map(data => prisma.nFe.create({ data }))
-  )
+  // ✅ CORREÇÃO: transação em lotes (defesa em profundidade)
+  await criarEmLotes(nfeData, (data) => prisma.nFe.create({ data }))
 
   console.log(`✅ 10 NF-e criadas`)
 
@@ -502,9 +517,8 @@ async function main() {
     numeroNfse++
   }
 
-  await prisma.$transaction(
-    nfseData.map(data => prisma.nFSe.create({ data }))
-  )
+  // ✅ CORREÇÃO: transação em lotes
+  await criarEmLotes(nfseData, (data) => prisma.nFSe.create({ data }))
 
   console.log(`✅ 10 NFS-e criadas`)
 
@@ -606,9 +620,8 @@ async function main() {
     numeroNfce++
   }
 
-  await prisma.$transaction(
-    nfceData.map(data => prisma.nFCe.create({ data }))
-  )
+  // ✅ CORREÇÃO: transação em lotes
+  await criarEmLotes(nfceData, (data) => prisma.nFCe.create({ data }))
 
   console.log(`✅ 5 NFC-e criadas`)
 
@@ -685,111 +698,4 @@ async function main() {
       aliquotaICMS: 12.0,
       valorICMS: Number((valorFrete * 0.12).toFixed(2)),
       valorPIS: Number((valorFrete * 0.0065).toFixed(2)),
-      valorCOFINS: Number((valorFrete * 0.03).toFixed(2)),
-      valorTributosAprox: Number((valorFrete * 0.1565).toFixed(2)),
-      protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-      dataHoraAutorizacao: dataEmissao,
-      xmlAssinado: gerarXmlAssinado('CTe', numeroCte, chaveAcesso),
-      empresaId: empresa.id,
-      transportadoraId: transportadora?.id || null
-    })
-
-    numeroCte++
-  }
-
-  await prisma.$transaction(
-    cteData.map(data => prisma.cTe.create({ data }))
-  )
-
-  console.log(`✅ 5 CT-e criadas`)
-
-  // ============================================
-  // 6. Criar NFA-e (Modelo 01-AVULSA) - 5 notas
-  // ============================================
-  console.log('\n📄 Gerando NFA-e...')
-
-  let numeroNfae = await obterProximoNumero('nFAe', empresa.id, 900)
-  const nfaeData: any[] = []
-
-  for (let i = 0; i < 5; i++) {
-    const cliente = clientes[(i + 6) % clientes.length]
-    const dataEmissao = gerarDataAleatoria(20)
-    const chaveAcesso = `NFAE${String(numeroNfae).padStart(10, '0')}${Date.now().toString().slice(-10)}`
-
-    nfaeData.push({
-      modelo: '01-AVULSA',
-      serie: 900,
-      numero: numeroNfae,
-      chaveAcesso,
-      dataHoraEmissao: dataEmissao,
-      naturezaOperacao: 'Venda Avulsa de Mercadorias',
-      motivoEmissao: i % 2 === 0 ? 'FEIRAS_EVENTOS' : 'PRODUTOR_RURAL',
-      descricaoMotivo: i % 2 === 0 ? 'Participação em Feira/Evento' : 'Produtor Rural sem Inscrição Estadual',
-      ambiente: 1,
-      status: i % 5 === 0 ? 'CANCELADA' : 'AUTORIZADA',
-      requerenteTipo: 'PF',
-      requerenteCpfCnpj: '123.456.789-00',
-      requerenteNome: ['João da Silva', 'Maria Oliveira', 'José Santos', 'Ana Pereira', 'Carlos Lima'][i],
-      requerenteInscricao: null,
-      requerenteLogradouro: 'Rua das Feiras',
-      requerenteNumero: String(100 + i * 50),
-      requerenteBairro: 'Centro',
-      requerenteMunicipio: 'São Paulo',
-      requerenteUf: 'SP',
-      requerenteCep: '01000-000',
-      requerenteTelefone: '(11) 9999-9999',
-      requerenteEmail: `requerente${i}@email.com`,
-      destinatarioId: cliente.id,
-      valorTotalProdutos: gerarValor(100, 2000),
-      baseCalculoICMS: gerarValor(100, 2000),
-      aliquotaICMSMediana: 18.0,
-      valorTotalICMS: gerarValor(18, 360),
-      valorTotalNota: gerarValor(118, 2360),
-      guiaDAENumero: `DAE${String(numeroNfae).padStart(10, '0')}`,
-      guiaDAECodigoBarras: `12345678901234567890123456789012345678901234${String(numeroNfae).padStart(5, '0')}`,
-      guiaDAEChavePix: `pix${Math.random().toString(36).substring(7)}`,
-      guiaDAEVencimento: new Date(dataEmissao.getTime() + 15 * 24 * 60 * 60 * 1000),
-      guiaDAEValor: gerarValor(18, 360),
-      guiaDAEStatus: i % 3 === 0 ? 'PAGO' : 'AGUARDANDO_PAGAMENTO',
-      orgaoEmissorSefaz: 'SEFAZ/SP - Posto Fiscal da Capital',
-      protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-      dataHoraAutorizacao: dataEmissao,
-      xmlAssinado: gerarXmlAssinado('NFAe', numeroNfae, chaveAcesso),
-      empresaId: empresa.id
-    })
-
-    numeroNfae++
-  }
-
-  await prisma.$transaction(
-    nfaeData.map(data => prisma.nFAe.create({ data }))
-  )
-
-  console.log(`✅ 5 NFA-e criadas`)
-
-  // ============================================
-  // 7. Estatísticas finais
-  // ============================================
-  console.log('\n📊 ===== RESUMO DO SEED FISCAL =====')
-  console.log(`📄 NF-e: 10 notas criadas`)
-  console.log(`📄 NFS-e: 10 notas criadas`)
-  console.log(`📄 NFC-e: 5 notas criadas`)
-  console.log(`📄 CT-e: 5 notas criadas`)
-  console.log(`📄 NFA-e: 5 notas criadas`)
-  console.log(`📊 TOTAL: 35 documentos fiscais`)
-  console.log('🎉 Seed fiscal concluído com sucesso!\n')
-
-  const titulosCount = await prisma.tituloFinanceiro.count({
-    where: { empresaId: empresa.id }
-  })
-  console.log(`💰 Títulos financeiros: ${titulosCount}`)
-}
-
-main()
-  .catch((e) => {
-    console.error('❌ Erro no seed fiscal:', e)
-    process.exit(1)
-  })
-  .finally(async () => {
-    await prisma.$disconnect()
-  })
+      valorCOFINS: Number((valorFrete
