@@ -25,7 +25,8 @@ import transportadoraRoutes from './routes/transportadora.routes';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3333;
+const DEFAULT_PORT = 3333;
+const PORT = process.env.PORT || DEFAULT_PORT;
 
 // Segurança (P5): atrás de 1 proxy (nginx) — habilita IP real do cliente
 // para rate limiting e logs (X-Forwarded-For).
