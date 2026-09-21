@@ -4,6 +4,9 @@ import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
+// 🔥 LIMITES DE RECURSOS (mitigação CWE-770 / CWE-400)
+const MAX_TRANSACTION_BATCH = 500
+
 async function main() {
   const CNPJ_EMPRESA = '18236447000190'
 
@@ -203,6 +206,11 @@ async function main() {
   const clientesParaCriar = clientesData.filter(c => !documentosClientesExistentes.has(c.documento))
 
   if (clientesParaCriar.length > 0) {
+    if (clientesParaCriar.length > MAX_TRANSACTION_BATCH) {
+      console.error(`❌ Lote de clientes excede ${MAX_TRANSACTION_BATCH} registros.`)
+      process.exit(1)
+    }
+
     await prisma.$transaction(
       clientesParaCriar.map(data =>
         prisma.cliente.create({
@@ -345,6 +353,11 @@ async function main() {
   const fornecedoresParaCriar = fornecedoresData.filter(f => !documentosFornecedoresExistentes.has(f.documento))
 
   if (fornecedoresParaCriar.length > 0) {
+    if (fornecedoresParaCriar.length > MAX_TRANSACTION_BATCH) {
+      console.error(`❌ Lote de fornecedores excede ${MAX_TRANSACTION_BATCH} registros.`)
+      process.exit(1)
+    }
+
     await prisma.$transaction(
       fornecedoresParaCriar.map(data =>
         prisma.cliente.create({
@@ -466,6 +479,11 @@ async function main() {
   const produtosParaCriar = produtosData.filter(p => !codigosProdutosExistentes.has(p.codigo))
 
   if (produtosParaCriar.length > 0) {
+    if (produtosParaCriar.length > MAX_TRANSACTION_BATCH) {
+      console.error(`❌ Lote de produtos excede ${MAX_TRANSACTION_BATCH} registros.`)
+      process.exit(1)
+    }
+
     await prisma.$transaction(
       produtosParaCriar.map(data =>
         prisma.produto.create({
@@ -573,6 +591,11 @@ async function main() {
   const servicosParaCriar = servicosData.filter(s => !codigosServicosExistentes.has(s.codigoInterno))
 
   if (servicosParaCriar.length > 0) {
+    if (servicosParaCriar.length > MAX_TRANSACTION_BATCH) {
+      console.error(`❌ Lote de serviços excede ${MAX_TRANSACTION_BATCH} registros.`)
+      process.exit(1)
+    }
+
     await prisma.$transaction(
       servicosParaCriar.map(data =>
         prisma.servico.create({
@@ -735,6 +758,11 @@ async function main() {
   )
 
   if (transportadorasParaCriar.length > 0) {
+    if (transportadorasParaCriar.length > MAX_TRANSACTION_BATCH) {
+      console.error(`❌ Lote de transportadoras excede ${MAX_TRANSACTION_BATCH} registros.`)
+      process.exit(1)
+    }
+
     await prisma.$transaction(
       transportadorasParaCriar.map(data =>
         prisma.transportadora.create({

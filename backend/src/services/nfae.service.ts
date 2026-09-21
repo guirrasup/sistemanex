@@ -3,49 +3,61 @@ import { PrismaClient, StatusNFAe, Prisma } from '@prisma/client';
 import { NFAeDocumento, NFAeItem } from '../types/nfae.types';
 import { gerarChaveAcessoNFe } from '../utils/chaveAcesso';
 
-// Instancia o Prisma Client
 const prisma = new PrismaClient();
 
+// 🔥 LIMITES DE RECURSOS (mitigação CWE-770 / CWE-400)
+const MAX_PAGE_SIZE = 100;
+const MAX_FIND_MANY = 500;
+const MAX_ITENS_POR_NOTA = 500;
+const MAX_STRING_FILTRO = 200;
+
+// 🔥 INCLUDE PADRONIZADO
+const NFAE_INCLUDE = {
+  itens: true,
+  destinatario: true,
+  historicoStatus: true,
+} as const;
+
+// 🔥 Helper para mesclar filtro de data sem sobrescrever gte/lte
+function buildDateFilter(dataInicio?: Date, dataFim?: Date) {
+  if (!dataInicio && !dataFim) return undefined;
+  return {
+    ...(dataInicio && { gte: dataInicio }),
+    ...(dataFim && { lte: dataFim })
+  };
+}
+
 export class NFAeService {
-  
+
   async listar(empresaId: string, page: number = 1, limit: number = 50, filtros?: any) {
-    const skip = (page - 1) * limit;
+    // 🔥 Clamp de paginação (CWE-770)
+    const pageSegura = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const limitSeguro = Number.isFinite(limit) && limit > 0
+      ? Math.min(Math.floor(limit), MAX_PAGE_SIZE)
+      : 50;
 
-    const where: any = { empresaId };
+    const skip = (pageSegura - 1) * limitSeguro;
 
-    if (filtros?.status) {
-      where.status = filtros.status;
-    }
-    if (filtros?.dataInicio) {
-      where.dataHoraEmissao = { gte: filtros.dataInicio };
-    }
-    if (filtros?.dataFim) {
-      where.dataHoraEmissao = { lte: filtros.dataFim };
-    }
-    if (filtros?.numero) {
-      where.numero = filtros.numero;
-    }
-    if (filtros?.serie) {
-      where.serie = filtros.serie;
-    }
-    if (filtros?.chave) {
-      where.chaveAcesso = filtros.chave;
-    }
-    if (filtros?.destinatarioId) {
-      where.destinatarioId = filtros.destinatarioId;
-    }
+    const dateFilter = buildDateFilter(filtros?.dataInicio, filtros?.dataFim);
+
+    const where: Prisma.NFAeWhereInput = {
+      empresaId,
+      ...(filtros?.status && { status: filtros.status }),
+      // 🔥 Corrige bug: dataInicio + dataFim no mesmo campo eram sobrescritos
+      ...(dateFilter && { dataHoraEmissao: dateFilter }),
+      ...(filtros?.numero !== undefined && { numero: filtros.numero }),
+      ...(filtros?.serie !== undefined && { serie: filtros.serie }),
+      ...(filtros?.chave && { chaveAcesso: String(filtros.chave).slice(0, MAX_STRING_FILTRO) }),
+      ...(filtros?.destinatarioId && { destinatarioId: filtros.destinatarioId }),
+    };
 
     const [data, total] = await Promise.all([
       prisma.nFAe.findMany({
         where,
         skip,
-        take: limit,
+        take: limitSeguro,
         orderBy: { createdAt: 'desc' },
-        include: {
-          itens: true,
-          destinatario: true,
-          historicoStatus: true,
-        },
+        include: NFAE_INCLUDE,
       }),
       prisma.nFAe.count({ where }),
     ]);
@@ -53,43 +65,34 @@ export class NFAeService {
     return {
       data,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      page: pageSegura,
+      limit: limitSeguro,
+      totalPages: Math.ceil(total / limitSeguro),
     };
   }
 
-  async buscarPorId(id: string, empresaId?: string) {
+  // 🔒 IDOR: empresaId agora é OBRIGATÓRIO
+  async buscarPorId(id: string, empresaId: string) {
     return prisma.nFAe.findFirst({
-      where: empresaId ? { id, empresaId } : { id },
-      include: {
-        itens: true,
-        destinatario: true,
-        historicoStatus: true,
-      },
+      where: { id, empresaId },
+      include: NFAE_INCLUDE,
     });
   }
 
-  async buscarPorChave(chave: string, empresaId?: string) {
+  // 🔒 IDOR: empresaId agora é OBRIGATÓRIO
+  async buscarPorChave(chave: string, empresaId: string) {
     return prisma.nFAe.findFirst({
-      where: empresaId ? { chaveAcesso: chave, empresaId } : { chaveAcesso: chave },
-      include: {
-        itens: true,
-        destinatario: true,
-        historicoStatus: true,
-      },
+      where: { chaveAcesso: chave, empresaId },
+      include: NFAE_INCLUDE,
     });
   }
 
   async findByDestinatario(destinatarioId: string, empresaId: string) {
     return prisma.nFAe.findMany({
       where: { destinatarioId, empresaId },
-      include: {
-        itens: true,
-        destinatario: true,
-        historicoStatus: true,
-      },
+      include: NFAE_INCLUDE,
       orderBy: { createdAt: 'desc' },
+      take: MAX_FIND_MANY,
     });
   }
 
@@ -108,6 +111,18 @@ export class NFAeService {
   }
 
   async emitir(data: any) {
+    // 🔒 Validação de entrada
+    if (!data.empresaId) {
+      throw new Error('empresaId é obrigatório');
+    }
+
+    const itens = Array.isArray(data.itens) ? data.itens : [];
+
+    // 🔥 Limite de itens por nota (CWE-770)
+    if (itens.length > MAX_ITENS_POR_NOTA) {
+      throw new Error(`Limite de ${MAX_ITENS_POR_NOTA} itens por NFA-e excedido`);
+    }
+
     // 1. Gerar chave de acesso
     const aamm = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
     const numero = data.numero || await this.getProximoNumero(data.empresaId, data.serie || 900);
@@ -123,125 +138,114 @@ export class NFAeService {
     });
 
     // 2. Calcular totais
-    const itens = data.itens || [];
-    const valorTotalProdutos = itens.reduce((acc: number, item: any) => acc + item.valorTotal, 0);
-    const valorTotalICMS = itens.reduce((acc: number, item: any) => acc + item.valorICMS, 0);
+    const valorTotalProdutos = itens.reduce((acc: number, item: any) => acc + (item.valorTotal || 0), 0);
+    const valorTotalICMS = itens.reduce((acc: number, item: any) => acc + (item.valorICMS || 0), 0);
     const baseCalculoICMS = valorTotalProdutos;
-    const aliquotaICMSMediana = itens.length > 0 
-      ? itens.reduce((acc: number, item: any) => acc + item.aliquotaICMS, 0) / itens.length 
+    const aliquotaICMSMediana = itens.length > 0
+      ? itens.reduce((acc: number, item: any) => acc + (item.aliquotaICMS || 0), 0) / itens.length
       : 0;
 
-    // 3. Criar NFA-e
-    const nfae = await prisma.nFAe.create({
-      data: {
-        modelo: '63',
-        serie: data.serie || 900,
-        numero,
-        chaveAcesso: chaveCompleta,
-        dataHoraEmissao: new Date(),
-        naturezaOperacao: data.naturezaOperacao || 'Fornecimento de Energia Elétrica',
-        motivoEmissao: data.motivoEmissao || 'PRODUTOR_RURAL',
-        descricaoMotivo: data.descricaoMotivo || data.motivoEmissao || 'Produtor Rural',
-        ambiente: data.ambiente || 1,
-        tipoEmissao: data.tipoEmissao || '1',
-        status: 'AUTORIZADA',
-        
-        // Requerente
-        requerenteTipoPessoa: data.requerente?.tipoPessoa || 'PF',
-        requerenteDocumento: data.requerente?.documento || '',
-        requerenteNome: data.requerente?.nome || '',
-        requerenteInscricaoProdutor: data.requerente?.inscricaoProdutor,
-        requerenteLogradouro: data.requerente?.logradouro || '',
-        requerenteNumero: data.requerente?.numero || 'S/N',
-        requerenteComplemento: data.requerente?.complemento,
-        requerenteBairro: data.requerente?.bairro || '',
-        requerenteMunicipio: data.requerente?.municipio || '',
-        requerenteMunicipioIbge: data.requerente?.municipioIbge || '',
-        requerenteUf: data.requerente?.uf || 'SP',
-        requerenteCep: data.requerente?.cep || '',
-        requerenteTelefone: data.requerente?.telefone,
-        requerenteEmail: data.requerente?.email,
-        
-        // Destinatário
-        destinatarioTipoPessoa: data.destinatario?.tipoPessoa || 'PJ',
-        destinatarioDocumento: data.destinatario?.documento || '',
-        destinatarioNome: data.destinatario?.nome || '',
-        destinatarioIE: data.destinatario?.ie || 'ISENTO',
-        destinatarioLogradouro: data.destinatario?.logradouro || '',
-        destinatarioNumero: data.destinatario?.numero || 'S/N',
-        destinatarioComplemento: data.destinatario?.complemento,
-        destinatarioBairro: data.destinatario?.bairro || '',
-        destinatarioMunicipio: data.destinatario?.municipio || '',
-        destinatarioMunicipioIbge: data.destinatario?.municipioIbge || '',
-        destinatarioUf: data.destinatario?.uf || 'SP',
-        destinatarioCep: data.destinatario?.cep || '',
-        destinatarioTelefone: data.destinatario?.telefone,
-        destinatarioEmail: data.destinatario?.email,
-        
-        // Valores
-        valorTotalProdutos,
-        baseCalculoICMS,
-        aliquotaICMSMediana,
-        valorTotalICMS,
-        valorTotalNota: valorTotalProdutos,
-        
-        // Guia DAE
-        guiaDAENumero: data.guiaDAE?.numero || `DAE-${Date.now()}`,
-        guiaDAECodigoBarras: data.guiaDAE?.codigoBarras || '00000000000000000000000000000000000',
-        guiaDAEChavePix: data.guiaDAE?.chavePix || '00000000000000000000000000000000000',
-        guiaDAEVencimento: data.guiaDAE?.vencimento ? new Date(data.guiaDAE.vencimento) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        guiaDAEValor: data.guiaDAE?.valor || valorTotalProdutos,
-        guiaDAEStatus: data.guiaDAE?.status || 'AGUARDANDO_PAGAMENTO',
-        
-        // Órgão emissor
-        orgaoEmissorSefaz: data.orgaoEmissorSefaz || 'SEFAZ/SP',
-        
-        // Protocolo
-        protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-        dataHoraAutorizacao: new Date(),
-        
-        // XML
-        xmlAssinado: data.xmlAssinado || this.gerarXmlMock(chaveCompleta, numero, data),
-        
-        // Informações adicionais
-        informacoesComplementares: data.informacoesComplementares || '',
-        
-        // Relacionamentos
-        empresaId: data.empresaId,
-        destinatarioId: data.destinatarioId,
-      },
-      include: {
-        itens: true,
-        destinatario: true,
-        historicoStatus: true,
-      },
+    // 3. Criar NFA-e + itens em transação única
+    const nfae = await prisma.$transaction(async (tx) => {
+      const novaNfae = await tx.nFAe.create({
+        data: {
+          modelo: '63',
+          serie: data.serie || 900,
+          numero,
+          chaveAcesso: chaveCompleta,
+          dataHoraEmissao: new Date(),
+          naturezaOperacao: data.naturezaOperacao || 'Fornecimento de Energia Elétrica',
+          motivoEmissao: data.motivoEmissao || 'PRODUTOR_RURAL',
+          descricaoMotivo: data.descricaoMotivo || data.motivoEmissao || 'Produtor Rural',
+          ambiente: data.ambiente || 1,
+          tipoEmissao: data.tipoEmissao || '1',
+          status: 'AUTORIZADA',
+
+          requerenteTipoPessoa: data.requerente?.tipoPessoa || 'PF',
+          requerenteDocumento: data.requerente?.documento || '',
+          requerenteNome: data.requerente?.nome || '',
+          requerenteInscricaoProdutor: data.requerente?.inscricaoProdutor,
+          requerenteLogradouro: data.requerente?.logradouro || '',
+          requerenteNumero: data.requerente?.numero || 'S/N',
+          requerenteComplemento: data.requerente?.complemento,
+          requerenteBairro: data.requerente?.bairro || '',
+          requerenteMunicipio: data.requerente?.municipio || '',
+          requerenteMunicipioIbge: data.requerente?.municipioIbge || '',
+          requerenteUf: data.requerente?.uf || 'SP',
+          requerenteCep: data.requerente?.cep || '',
+          requerenteTelefone: data.requerente?.telefone,
+          requerenteEmail: data.requerente?.email,
+
+          destinatarioTipoPessoa: data.destinatario?.tipoPessoa || 'PJ',
+          destinatarioDocumento: data.destinatario?.documento || '',
+          destinatarioNome: data.destinatario?.nome || '',
+          destinatarioIE: data.destinatario?.ie || 'ISENTO',
+          destinatarioLogradouro: data.destinatario?.logradouro || '',
+          destinatarioNumero: data.destinatario?.numero || 'S/N',
+          destinatarioComplemento: data.destinatario?.complemento,
+          destinatarioBairro: data.destinatario?.bairro || '',
+          destinatarioMunicipio: data.destinatario?.municipio || '',
+          destinatarioMunicipioIbge: data.destinatario?.municipioIbge || '',
+          destinatarioUf: data.destinatario?.uf || 'SP',
+          destinatarioCep: data.destinatario?.cep || '',
+          destinatarioTelefone: data.destinatario?.telefone,
+          destinatarioEmail: data.destinatario?.email,
+
+          valorTotalProdutos,
+          baseCalculoICMS,
+          aliquotaICMSMediana,
+          valorTotalICMS,
+          valorTotalNota: valorTotalProdutos,
+
+          guiaDAENumero: data.guiaDAE?.numero || `DAE-${Date.now()}`,
+          guiaDAECodigoBarras: data.guiaDAE?.codigoBarras || '00000000000000000000000000000000000',
+          guiaDAEChavePix: data.guiaDAE?.chavePix || '00000000000000000000000000000000000',
+          guiaDAEVencimento: data.guiaDAE?.vencimento ? new Date(data.guiaDAE.vencimento) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          guiaDAEValor: data.guiaDAE?.valor || valorTotalProdutos,
+          guiaDAEStatus: data.guiaDAE?.status || 'AGUARDANDO_PAGAMENTO',
+
+          orgaoEmissorSefaz: data.orgaoEmissorSefaz || 'SEFAZ/SP',
+
+          protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
+          dataHoraAutorizacao: new Date(),
+
+          xmlAssinado: data.xmlAssinado || this.gerarXmlMock(chaveCompleta, numero, data),
+
+          informacoesComplementares: data.informacoesComplementares || '',
+
+          // 🔥 Relações via connect
+          empresa: { connect: { id: data.empresaId } },
+          destinatario: data.destinatarioId
+            ? { connect: { id: data.destinatarioId } }
+            : undefined,
+        },
+        include: NFAE_INCLUDE,
+      });
+
+      // 4. Criar itens em lote (createMany)
+      if (itens.length > 0) {
+        await tx.nFAeItem.createMany({
+          data: itens.map((item: any) => ({
+            nfaeId: novaNfae.id,
+            codigo: item.codigo,
+            descricao: item.descricao,
+            ncm: item.ncm,
+            unidade: item.unidade || 'UN',
+            quantidade: item.quantidade || 1,
+            valorUnitario: item.valorUnitario || 0,
+            valorTotal: item.valorTotal || (item.quantidade * item.valorUnitario) || 0,
+            aliquotaICMS: item.aliquotaICMS || 0,
+            valorICMS: item.valorICMS || 0,
+            codigoBarrasEAN: item.codigoBarrasEAN,
+          })),
+        });
+      }
+
+      return novaNfae;
     });
 
-    // 4. Criar itens
-    if (itens.length > 0) {
-      await Promise.all(
-        itens.map((item: any) =>
-          prisma.nFAeItem.create({
-            data: {
-              nfaeId: nfae.id,
-              codigo: item.codigo,
-              descricao: item.descricao,
-              ncm: item.ncm,
-              unidade: item.unidade || 'UN',
-              quantidade: item.quantidade || 1,
-              valorUnitario: item.valorUnitario || 0,
-              valorTotal: item.valorTotal || item.quantidade * item.valorUnitario,
-              aliquotaICMS: item.aliquotaICMS || 0,
-              valorICMS: item.valorICMS || 0,
-              codigoBarrasEAN: item.codigoBarrasEAN,
-            },
-          })
-        )
-      );
-    }
-
-    // 5. Buscar NFA-e completa com itens
-    return this.buscarPorId(nfae.id);
+    // 5. Retorna NFA-e com itens já carregados
+    return this.buscarPorId(nfae.id, data.empresaId);
   }
 
   async cancelar(id: string, motivo: string, empresaId: string) {
@@ -249,10 +253,6 @@ export class NFAeService {
 
     if (!nfae) {
       throw new Error('NFA-e não encontrada');
-    }
-
-    if (nfae.empresaId !== empresaId) {
-      throw new Error('Acesso negado');
     }
 
     if (nfae.status === 'CANCELADA') {
@@ -270,11 +270,7 @@ export class NFAeService {
         motivoCancelamento: motivo,
         dataHoraCancelamento: new Date(),
       },
-      include: {
-        itens: true,
-        destinatario: true,
-        historicoStatus: true,
-      },
+      include: NFAE_INCLUDE,
     });
   }
 
@@ -285,27 +281,22 @@ export class NFAeService {
       throw new Error('NFA-e não encontrada');
     }
 
-    if (nfae.empresaId !== empresaId) {
-      throw new Error('Acesso negado');
-    }
-
     return nfae.xmlAssinado;
   }
 
   async getEstatisticas(empresaId: string) {
-    const [total, autorizadas, canceladas] = await Promise.all([
+    const [total, autorizadas, canceladas, valores] = await Promise.all([
       prisma.nFAe.count({ where: { empresaId } }),
       prisma.nFAe.count({ where: { empresaId, status: 'AUTORIZADA' } }),
       prisma.nFAe.count({ where: { empresaId, status: 'CANCELADA' } }),
+      prisma.nFAe.aggregate({
+        where: { empresaId, status: 'AUTORIZADA' },
+        _sum: {
+          valorTotalNota: true,
+          valorTotalICMS: true,
+        },
+      }),
     ]);
-
-    const valores = await prisma.nFAe.aggregate({
-      where: { empresaId, status: 'AUTORIZADA' },
-      _sum: {
-        valorTotalNota: true,
-        valorTotalICMS: true,
-      },
-    });
 
     return {
       total,
@@ -327,15 +318,27 @@ export class NFAeService {
   }
 
   private gerarXmlMock(chave: string, numero: number, data: any): string {
+    // 🔥 Escapa caracteres especiais para evitar XML injection
+    const escapeXml = (s: string): string =>
+      String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+
+    const natureza = escapeXml(data?.naturezaOperacao || 'Fornecimento de Energia Elétrica');
+    const cUF = escapeXml(data?.requerente?.municipioIbge?.slice(0, 2) || '35');
+
     return `<?xml version="1.0" encoding="UTF-8"?>
 <nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
   <NFe>
-    <infNFe Id="NFe${chave}" versao="4.00">
+    <infNFe Id="NFe${escapeXml(chave)}" versao="4.00">
       <ide>
-        <cUF>${data.requerente?.municipioIbge?.slice(0, 2) || '35'}</cUF>
+        <cUF>${cUF}</cUF>
         <mod>63</mod>
         <nNF>${numero}</nNF>
-        <natOp>${data.naturezaOperacao || 'Fornecimento de Energia Elétrica'}</natOp>
+        <natOp>${natureza}</natOp>
       </ide>
     </infNFe>
   </NFe>

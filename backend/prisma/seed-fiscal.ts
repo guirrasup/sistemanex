@@ -4,8 +4,15 @@ import { gerarChaveAcessoNFe, gerarChaveAcessoNFSe } from '../src/utils/chaveAce
 
 const prisma = new PrismaClient()
 
-// 🔥 CONFIGURAÇÃO DE PAGINAÇÃO
-const PAGE_SIZE = 100 // Limite de registros por consulta
+// 🔥 LIMITES DE SEGURANÇA (mitigação CWE-770 / CWE-400)
+const PAGE_SIZE = 100
+const MAX_PAGE_ITERATIONS = 1000
+const MAX_CLIENTES = 10000
+const MAX_PRODUTOS = 10000
+const MAX_SERVICOS = 10000
+const MAX_TRANSPORTADORAS = 10000
+const MAX_DOCS_POR_TIPO = 1000
+const MAX_ITENS_POR_NOTA = 50
 
 // 🔥 FUNÇÕES AUXILIARES
 function gerarDataAleatoria(diasAtras: number): Date {
@@ -84,26 +91,38 @@ function gerarXmlAssinado(tipo: string, numero: number, chave: string): string {
 </${tipo}>`
 }
 
-// 🔥 FUNÇÃO PARA BUSCAR COM PAGINAÇÃO POR CURSOR
+// 🔥 BUSCA PAGINADA POR CURSOR COM LIMITE DE ITERAÇÕES E DE REGISTROS (CWE-770)
 async function buscarPaginadoPorCursor<T extends { id: string }>(
   buscar: (cursor: string | undefined, take: number) => Promise<T[]>,
+  maxRegistros: number,
   pageSize: number = PAGE_SIZE
 ): Promise<T[]> {
   const todos: T[] = []
   let cursor: string | undefined = undefined
+  let iteracoes = 0
 
-  while (true) {
-    const lote = await buscar(cursor, pageSize)
+  while (iteracoes < MAX_PAGE_ITERATIONS) {
+    const restante = maxRegistros - todos.length
+    if (restante <= 0) break
+
+    const take = Math.min(pageSize, restante)
+    const lote = await buscar(cursor, take)
     todos.push(...lote)
 
-    if (lote.length < pageSize) break
+    if (lote.length < take) break
     cursor = lote[lote.length - 1].id
+    iteracoes++
+  }
+
+  if (iteracoes >= MAX_PAGE_ITERATIONS) {
+    console.error('❌ Limite de iterações de paginação atingido (possível loop infinito).')
+    process.exit(1)
   }
 
   return todos
 }
 
-// 🔥 FUNÇÃO PARA OBTER PRÓXIMO NÚMERO DISPONÍVEL (evita colisão)
+// 🔥 PRÓXIMO NÚMERO COM LIMITE (evita crescimento descontrolado)
 async function obterProximoNumero(
   model: 'nFe' | 'nFSe' | 'nFCe' | 'cTe' | 'nFAe',
   empresaId: string,
@@ -115,7 +134,14 @@ async function obterProximoNumero(
     select: { numero: true }
   })
 
-  return ultimo ? Math.max(ultimo.numero + 1, base) : base
+  const proximo = ultimo ? Math.max(ultimo.numero + 1, base) : base
+
+  if (proximo > base + MAX_DOCS_POR_TIPO) {
+    console.error(`❌ Limite de ${MAX_DOCS_POR_TIPO} documentos por tipo excedido para ${model}.`)
+    process.exit(1)
+  }
+
+  return proximo
 }
 
 async function main() {
@@ -160,17 +186,19 @@ async function main() {
     process.exit(1)
   }
 
-  // 🔥 BUSCAR COM PAGINAÇÃO POR CURSOR (evita estouro de memória)
+  // 🔥 BUSCAR COM PAGINAÇÃO + LIMITES
   console.log('\n🔍 Buscando dados com paginação...')
 
-  const clientes = await buscarPaginadoPorCursor((cursor, take) =>
-    prisma.cliente.findMany({
-      where: { empresaId: empresa.id },
-      include: { endereco: true },
-      take,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-      orderBy: { id: 'asc' }
-    })
+  const clientes = await buscarPaginadoPorCursor(
+    (cursor, take) =>
+      prisma.cliente.findMany({
+        where: { empresaId: empresa.id },
+        include: { endereco: true },
+        take,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: 'asc' }
+      }),
+    MAX_CLIENTES
   )
 
   if (clientes.length === 0) {
@@ -179,13 +207,15 @@ async function main() {
   }
   console.log(`✅ ${clientes.length} clientes encontrados`)
 
-  const produtos = await buscarPaginadoPorCursor((cursor, take) =>
-    prisma.produto.findMany({
-      where: { empresaId: empresa.id },
-      take,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-      orderBy: { id: 'asc' }
-    })
+  const produtos = await buscarPaginadoPorCursor(
+    (cursor, take) =>
+      prisma.produto.findMany({
+        where: { empresaId: empresa.id },
+        take,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: 'asc' }
+      }),
+    MAX_PRODUTOS
   )
 
   if (produtos.length === 0) {
@@ -194,13 +224,15 @@ async function main() {
   }
   console.log(`✅ ${produtos.length} produtos encontrados`)
 
-  const servicos = await buscarPaginadoPorCursor((cursor, take) =>
-    prisma.servico.findMany({
-      where: { empresaId: empresa.id },
-      take,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-      orderBy: { id: 'asc' }
-    })
+  const servicos = await buscarPaginadoPorCursor(
+    (cursor, take) =>
+      prisma.servico.findMany({
+        where: { empresaId: empresa.id },
+        take,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: 'asc' }
+      }),
+    MAX_SERVICOS
   )
 
   if (servicos.length === 0) {
@@ -209,13 +241,15 @@ async function main() {
   }
   console.log(`✅ ${servicos.length} serviços encontrados`)
 
-  const transportadoras = await buscarPaginadoPorCursor((cursor, take) =>
-    prisma.transportadora.findMany({
-      where: { empresaId: empresa.id },
-      take,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-      orderBy: { id: 'asc' }
-    })
+  const transportadoras = await buscarPaginadoPorCursor(
+    (cursor, take) =>
+      prisma.transportadora.findMany({
+        where: { empresaId: empresa.id },
+        take,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: 'asc' }
+      }),
+    MAX_TRANSPORTADORAS
   )
   console.log(`✅ ${transportadoras.length} transportadoras encontradas`)
 
@@ -231,7 +265,7 @@ async function main() {
 
   for (let i = 0; i < 10; i++) {
     const cliente = clientes[i % clientes.length]
-    const numItens = Math.floor(Math.random() * 4) + 1
+    const numItens = Math.min(Math.floor(Math.random() * 4) + 1, MAX_ITENS_POR_NOTA)
     const itens = []
 
     let valorTotalProdutos = 0
@@ -484,7 +518,7 @@ async function main() {
 
   for (let i = 0; i < 5; i++) {
     const cliente = clientes[(i + 5) % clientes.length]
-    const numItens = Math.floor(Math.random() * 3) + 1
+    const numItens = Math.min(Math.floor(Math.random() * 3) + 1, MAX_ITENS_POR_NOTA)
     const itens = []
     let valorTotalProdutos = 0
     let valorTotalTributosAprox = 0
