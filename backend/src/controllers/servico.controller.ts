@@ -22,8 +22,8 @@ export class ServicoController {
 
       const dados = await this.servicoService.listar(empresaId, page, limit, busca);
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
-      return res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -43,8 +43,8 @@ export class ServicoController {
       }
       
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
-      return res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -62,8 +62,8 @@ export class ServicoController {
       });
       
       return res.status(201).json({ sucesso: true, dados });
-    } catch (error: any) {
-      return res.status(400).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -78,8 +78,8 @@ export class ServicoController {
 
       const dados = await this.servicoService.atualizar(id, req.body, empresaId);
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
-      return res.status(400).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -94,8 +94,8 @@ export class ServicoController {
 
       await this.servicoService.excluir(id, empresaId);
       return res.json({ sucesso: true, mensagem: 'Serviço excluído com sucesso' });
-    } catch (error: any) {
-      return res.status(400).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 }

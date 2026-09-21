@@ -3,6 +3,8 @@ import forge from 'node-forge'
 import { EmpresaRepository } from '../repositories/empresa.repository'
 import { CertificadoDigital } from '@prisma/client'
 
+const BRASILAPI_TIMEOUT_MS = 5000
+
 export class CertificadoService {
   private empresaRepo: EmpresaRepository
 
@@ -14,7 +16,7 @@ export class CertificadoService {
     arquivoBase64: string,
     senha: string,
     empresaId: string
-  ): Promise<any> {
+  ) {
     try {
       // Decodifica o arquivo
       const buffer = Buffer.from(arquivoBase64, 'base64')
@@ -42,12 +44,12 @@ export class CertificadoService {
           certX509 = certBag[0].cert
           
           const cnAttr = certX509.subject.attributes.find(
-            (a: any) => a.name === 'commonName'
+            (a: forge.pki.CertificateField) => a.name === 'commonName'
           )
           if (cnAttr) subjectName = String(cnAttr.value)
 
           const issuerAttr = certX509.issuer.attributes.find(
-            (a: any) => a.name === 'commonName' || a.name === 'organizationName'
+            (a: forge.pki.CertificateField) => a.name === 'commonName' || a.name === 'organizationName'
           )
           if (issuerAttr) issuerName = String(issuerAttr.value)
         }
@@ -115,7 +117,7 @@ export class CertificadoService {
     try {
       const response = await fetch(
         `https://brasilapi.com.br/api/cnpj/v1/${cnpj.replace(/\D/g, '')}`,
-        { signal: AbortSignal.timeout(5000) }
+        { signal: AbortSignal.timeout(BRASILAPI_TIMEOUT_MS) }
       )
 
       if (response.ok) {

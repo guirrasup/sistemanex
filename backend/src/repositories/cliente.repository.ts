@@ -1,5 +1,5 @@
 // backend/src/repositories/cliente.repository.ts
-import { Prisma } from '@prisma/client'
+import { Prisma, TipoCliente } from '@prisma/client'
 import { BaseRepository } from './base.repository'
 
 export class ClienteRepository extends BaseRepository {
@@ -56,7 +56,7 @@ export class ClienteRepository extends BaseRepository {
     return this.prisma.cliente.findMany({
       where: {
         empresaId,
-        tipo: tipo as any
+        tipo: tipo as TipoCliente
       },
       include: { endereco: true },
       take: 500,
@@ -72,21 +72,21 @@ export class ClienteRepository extends BaseRepository {
   }
 
   // 🔥 CORREÇÃO: UPDATE COM ENDERECO
-  async update(id: string, data: any) {
+  async update(id: string, data: Record<string, unknown>) {
     // 🔥 SEPARA ENDERECO DO RESTO
     const { endereco, ...clienteData } = data;
 
     // 🔥 PREPARA OS DADOS DO CLIENTE
     const updateData: Prisma.ClienteUpdateInput = {
-      ...clienteData,
+      ...(clienteData as Prisma.ClienteUpdateInput),
     };
 
     // 🔥 SE TIVER ENDERECO, ATUALIZA OU CRIA
     if (endereco) {
       updateData.endereco = {
         upsert: {
-          create: endereco,
-          update: endereco
+          create: endereco as Prisma.EnderecoCreateWithoutClienteInput,
+          update: endereco as Prisma.EnderecoUpdateWithoutClienteInput
         }
       };
     }

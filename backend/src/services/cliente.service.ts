@@ -1,4 +1,5 @@
 // backend/src/services/cliente.service.ts
+import { Prisma } from '@prisma/client';
 import { ClienteRepository } from '../repositories/cliente.repository.js';
 
 export class ClienteService {
@@ -28,7 +29,7 @@ export class ClienteService {
     return this.clienteRepo.findByTipo(empresaId, tipo);
   }
 
-  async criar(data: any) {
+  async criar(data: Prisma.ClienteCreateInput) {
     // Validações
     if (!data.razaoSocial || data.razaoSocial.trim().length < 3) {
       throw new Error('Razão Social é obrigatória (mínimo 3 caracteres)');
@@ -43,7 +44,7 @@ export class ClienteService {
     return this.clienteRepo.create(data);
   }
 
-  async atualizar(id: string, data: any, empresaId: string) {
+  async atualizar(id: string, data: Record<string, unknown>, empresaId: string) {
     const cliente = await this.clienteRepo.findById(id);
     if (!cliente) {
       throw new Error('Cliente não encontrado');

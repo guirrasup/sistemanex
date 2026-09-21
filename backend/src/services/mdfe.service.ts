@@ -1,11 +1,48 @@
 // backend/src/services/mdfe.service.ts
-import { Prisma, StatusMDFe, ModalMDFe } from '@prisma/client';
+import { Prisma, StatusMDFe, ModalMDFe, TipoEmitenteMDFe, TipoTransportadorMDFe, TipoCargaMDFe } from '@prisma/client';
 import { MdfeRepository } from '../repositories/mdfe.repository';
 import { MdfeComponentRepository } from '../repositories/mdfe.component.repository';
 import { ClienteRepository } from '../repositories/cliente.repository';
 import { EmpresaRepository } from '../repositories/empresa.repository';
 import { gerarChaveAcessoMDFe } from '../utils/chaveAcessoMDFe';
 import { gerarXmlMDFe } from '../utils/xmlMdfeGenerator';
+
+interface EmitirMdfeInput {
+  empresaId: string;
+  emitenteId: string;
+  municipiosCarrega: unknown[];
+  municipiosDescarga: Array<{
+    ctes?: unknown[];
+    nfes?: unknown[];
+    mdfesTransp?: unknown[];
+  }>;
+  modal: ModalMDFe;
+  tpEmit: TipoEmitenteMDFe;
+  tpTransp?: TipoTransportadorMDFe;
+  verProc?: string;
+  dhIniViagem?: string | number | Date;
+  UFIni: string;
+  UFFim: string;
+  indCanalVerde?: boolean;
+  indCarregaPosterior?: boolean;
+  vCarga?: number;
+  cUnid?: string;
+  qCarga?: number;
+  tpCarga: TipoCargaMDFe;
+  xProd: string;
+  cEAN?: string;
+  NCM?: string;
+  infAdFisco?: string;
+  infCpl?: string;
+  percursos?: unknown[];
+  seguros?: unknown[];
+  lacres?: string[];
+  autorizadosDownload?: unknown[];
+  usuario?: string;
+  [key: string]: unknown;
+}
+
+const MAX_DOCUMENTOS_POR_MDFE = 20000;
 
 export class MdfeService {
   private mdfeRepo: MdfeRepository;
@@ -60,7 +97,7 @@ export class MdfeService {
     return mdfe;
   }
 
-  async emitirMdfe(data: any) {
+  async emitirMdfe(data: EmitirMdfeInput) {
     const empresa = await this.empresaRepo.findById(data.empresaId);
     if (!empresa) throw new Error('Empresa não encontrada');
 
@@ -94,18 +131,18 @@ export class MdfeService {
 
     // Valida documentos
     const totalCTe = data.municipiosDescarga.reduce(
-      (acc: number, m: any) => acc + (m.ctes?.length || 0), 0
+      (acc, m) => acc + (m.ctes?.length || 0), 0
     );
     const totalNFe = data.municipiosDescarga.reduce(
-      (acc: number, m: any) => acc + (m.nfes?.length || 0), 0
+      (acc, m) => acc + (m.nfes?.length || 0), 0
     );
     const totalMDFe = data.municipiosDescarga.reduce(
-      (acc: number, m: any) => acc + (m.mdfesTransp?.length || 0), 0
+      (acc, m) => acc + (m.mdfesTransp?.length || 0), 0
     );
 
-    if (totalCTe > 20000) throw new Error('Máximo de 20000 CT-e por MDF-e');
-    if (totalNFe > 20000) throw new Error('Máximo de 20000 NF-e por MDF-e');
-    if (totalMDFe > 20000) throw new Error('Máximo de 20000 MDF-e por MDF-e (Aquaviário)');
+    if (totalCTe > MAX_DOCUMENTOS_POR_MDFE) throw new Error(`Máximo de ${MAX_DOCUMENTOS_POR_MDFE} CT-e por MDF-e`);
+    if (totalNFe > MAX_DOCUMENTOS_POR_MDFE) throw new Error(`Máximo de ${MAX_DOCUMENTOS_POR_MDFE} NF-e por MDF-e`);
+    if (totalMDFe > MAX_DOCUMENTOS_POR_MDFE) throw new Error(`Máximo de ${MAX_DOCUMENTOS_POR_MDFE} MDF-e por MDF-e (Aquaviário)`);
 
     // Gera número e série
     const numero = await this.getProximoNumero(data.empresaId);

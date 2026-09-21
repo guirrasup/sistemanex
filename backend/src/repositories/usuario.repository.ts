@@ -140,7 +140,7 @@ export class UsuarioRepository extends BaseRepository {
   }
 
   async emailExists(email: string, excludeId?: string) {
-    const where: any = { email };
+    const where: Prisma.UsuarioWhereInput = { email };
     if (excludeId) {
       where.id = { not: excludeId };
     }

@@ -43,7 +43,7 @@ export async function authMiddleware(
     }
 
     const decoded = await authService.verificarToken(token);
-    req.user = decoded as any;
+    req.user = decoded;
 
     next();
   } catch (error) {

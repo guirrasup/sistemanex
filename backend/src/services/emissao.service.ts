@@ -26,24 +26,24 @@ export class EmissaoService {
     this.financeiroService = new FinanceiroService();
   }
 
-  async emitirDocumento(tipo: 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE', data: any) {
+  async emitirDocumento(tipo: 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE', data: unknown) {
     let resultado;
 
     switch (tipo) {
       case 'NFE':
-        resultado = await this.nfeService.emitirNfe(data);
+        resultado = await this.nfeService.emitirNfe(data as Parameters<typeof this.nfeService.emitirNfe>[0]);
         break;
       case 'NFSE':
-        resultado = await this.nfseService.emitirNfse(data);
+        resultado = await this.nfseService.emitirNfse(data as Parameters<typeof this.nfseService.emitirNfse>[0]);
         break;
       case 'NFCE':
-        resultado = await this.nfceService.emitirNfce(data);
+        resultado = await this.nfceService.emitirNfce(data as Parameters<typeof this.nfceService.emitirNfce>[0]);
         break;
       case 'CTE':
-        resultado = await this.cteService.emitirCte(data);
+        resultado = await this.cteService.emitirCte(data as Parameters<typeof this.cteService.emitirCte>[0]);
         break;
       case 'NFAE':
-        resultado = await this.nfaeService.emitirNfae(data);
+        resultado = await this.nfaeService.emitirNfae(data as Parameters<typeof this.nfaeService.emitirNfae>[0]);
         break;
       default:
         throw new Error('Tipo de documento fiscal inválido');

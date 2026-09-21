@@ -97,14 +97,14 @@ export class NFAeRepository {
     });
   }
 
-  async create(data: any) {
+  async create(data: Record<string, unknown>) {
     // 🔒 IDOR: garante que empresaId está sempre presente
     if (!data.empresaId) {
       throw new Error('empresaId é obrigatório');
     }
 
     // 🔥 Payload explícito com connect nas relações (Prisma exige connect em create)
-    const payload: Prisma.NFAeCreateInput = {
+    const payload = {
       modelo: data.modelo || '63',
       serie: data.serie || 900,
       numero: data.numero,
@@ -195,7 +195,7 @@ export class NFAeRepository {
     };
 
     return prisma.nFAe.create({
-      data: payload,
+      data: payload as unknown as Prisma.NFAeCreateInput,
       include: NFAE_INCLUDE,
     });
   }

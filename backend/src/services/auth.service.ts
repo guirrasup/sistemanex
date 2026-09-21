@@ -1,6 +1,7 @@
 // backend/src/services/auth.service.ts
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { PerfilUsuario } from '@prisma/client';
 import { UsuarioRepository } from '../repositories/usuario.repository';
 
 // Segurança (P1): fail-fast — a API nunca deve subir com segredo conhecido/padrão.
@@ -86,7 +87,7 @@ export class AuthService {
       email: data.email.toLowerCase().trim(),
       senhaHash,
       cargo: data.cargo || null,
-      perfil: (data.perfil as any) || 'OPERADOR',
+      perfil: (data.perfil as PerfilUsuario) || 'OPERADOR',
       ativo: true,
       empresa: { connect: { id: data.empresaId } },
     });
@@ -146,10 +147,12 @@ export class AuthService {
       { expiresIn: RESET_TOKEN_EXPIRES }
     );
 
-    // TODO: Enviar e-mail real
-    // Exemplo de link que o frontend deve consumir:
+    // TODO: Integrar provedor de e-mail transacional (ex.: SES, SendGrid, Postmark) para
+    // enviar o link de redefinição de senha ao usuário. Requer criar um EmailService com
+    // credenciais/API key via variável de ambiente e um template de e-mail.
+    // Link que o frontend deve consumir:
     // `${process.env.FRONTEND_URL}/redefinir-senha?token=${resetToken}`
-                        
+
     // Em produção você faria algo como:
     // await emailService.enviarRecuperacaoSenha(usuario.email, resetToken);
   }
@@ -159,9 +162,9 @@ export class AuthService {
       throw new Error('Nova senha deve ter pelo menos 6 caracteres');
     }
 
-    let payload: any;
+    let payload: { id: string; email: string; type: string };
     try {
-      payload = jwt.verify(token, JWT_SECRET);
+      payload = jwt.verify(token, JWT_SECRET) as { id: string; email: string; type: string };
     } catch {
       throw new Error('Token inválido ou expirado');
     }

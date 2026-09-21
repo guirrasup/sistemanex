@@ -1,4 +1,5 @@
 // backend/src/repositories/mdfe.component.repository.ts
+import { Prisma } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 
 export class MdfeComponentRepository extends BaseRepository {
@@ -7,11 +8,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // MUNICÍPIOS DE CARREGAMENTO
   // ============================================================
 
-  async createMunCarrega(data: any) {
+  async createMunCarrega(data: Prisma.MunCarregaMDFeCreateInput) {
     return this.prisma.munCarregaMDFe.create({ data });
   }
 
-  async createManyMunCarrega(data: any[]) {
+  async createManyMunCarrega(data: Prisma.MunCarregaMDFeCreateManyInput[]) {
     return this.prisma.munCarregaMDFe.createMany({ data });
   }
 
@@ -23,11 +24,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // PERCURSOS
   // ============================================================
 
-  async createPercurso(data: any) {
+  async createPercurso(data: Prisma.PercursoMDFeCreateInput) {
     return this.prisma.percursoMDFe.create({ data });
   }
 
-  async createManyPercurso(data: any[]) {
+  async createManyPercurso(data: Prisma.PercursoMDFeCreateManyInput[]) {
     return this.prisma.percursoMDFe.createMany({ data });
   }
 
@@ -39,7 +40,7 @@ export class MdfeComponentRepository extends BaseRepository {
   // MUNICÍPIOS DE DESCARGA
   // ============================================================
 
-  async createMunDescarga(data: any) {
+  async createMunDescarga(data: Prisma.MunDescargaMDFeCreateInput) {
     return this.prisma.munDescargaMDFe.create({ data });
   }
 
@@ -51,11 +52,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // CT-e NO MDF-e
   // ============================================================
 
-  async createCTe(data: any) {
+  async createCTe(data: Prisma.MDFeCTeCreateInput) {
     return this.prisma.mDFeCTe.create({ data });
   }
 
-  async createManyCTe(data: any[]) {
+  async createManyCTe(data: Prisma.MDFeCTeCreateManyInput[]) {
     return this.prisma.mDFeCTe.createMany({ data });
   }
 
@@ -67,11 +68,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // NF-e NO MDF-e
   // ============================================================
 
-  async createNFe(data: any) {
+  async createNFe(data: Prisma.MDFeNFeCreateInput) {
     return this.prisma.mDFeNFe.create({ data });
   }
 
-  async createManyNFe(data: any[]) {
+  async createManyNFe(data: Prisma.MDFeNFeCreateManyInput[]) {
     return this.prisma.mDFeNFe.createMany({ data });
   }
 
@@ -83,11 +84,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // MDF-e NO MDF-e (Aquaviário)
   // ============================================================
 
-  async createMDFeTransp(data: any) {
+  async createMDFeTransp(data: Prisma.MDFeMDFeTranspCreateInput) {
     return this.prisma.mDFeMDFeTransp.create({ data });
   }
 
-  async createManyMDFeTransp(data: any[]) {
+  async createManyMDFeTransp(data: Prisma.MDFeMDFeTranspCreateManyInput[]) {
     return this.prisma.mDFeMDFeTransp.createMany({ data });
   }
 
@@ -99,11 +100,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // UNIDADES DE TRANSPORTE
   // ============================================================
 
-  async createUnidadeTransp(data: any) {
+  async createUnidadeTransp(data: Prisma.MDFeUnidadeTranspCreateInput) {
     return this.prisma.mDFeUnidadeTransp.create({ data });
   }
 
-  async createManyUnidadeTransp(data: any[]) {
+  async createManyUnidadeTransp(data: Prisma.MDFeUnidadeTranspCreateManyInput[]) {
     return this.prisma.mDFeUnidadeTransp.createMany({ data });
   }
 
@@ -123,11 +124,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // UNIDADES DE CARGA
   // ============================================================
 
-  async createUnidadeCarga(data: any) {
+  async createUnidadeCarga(data: Prisma.MDFeUnidadeCargaCreateInput) {
     return this.prisma.mDFeUnidadeCarga.create({ data });
   }
 
-  async createManyUnidadeCarga(data: any[]) {
+  async createManyUnidadeCarga(data: Prisma.MDFeUnidadeCargaCreateManyInput[]) {
     return this.prisma.mDFeUnidadeCarga.createMany({ data });
   }
 
@@ -139,11 +140,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // LACRES
   // ============================================================
 
-  async createLacreUnidade(data: any) {
+  async createLacreUnidade(data: Prisma.MDFeLacreUnidadeCreateInput) {
     return this.prisma.mDFeLacreUnidade.create({ data });
   }
 
-  async createManyLacreUnidade(data: any[]) {
+  async createManyLacreUnidade(data: Prisma.MDFeLacreUnidadeCreateManyInput[]) {
     return this.prisma.mDFeLacreUnidade.createMany({ data });
   }
 
@@ -151,11 +152,11 @@ export class MdfeComponentRepository extends BaseRepository {
     return this.prisma.mDFeLacreUnidade.deleteMany({ where: { unidadeTranspId } });
   }
 
-  async createLacreUnidadeCarga(data: any) {
+  async createLacreUnidadeCarga(data: Prisma.MDFeLacreUnidadeCargaCreateInput) {
     return this.prisma.mDFeLacreUnidadeCarga.create({ data });
   }
 
-  async createManyLacreUnidadeCarga(data: any[]) {
+  async createManyLacreUnidadeCarga(data: Prisma.MDFeLacreUnidadeCargaCreateManyInput[]) {
     return this.prisma.mDFeLacreUnidadeCarga.createMany({ data });
   }
 
@@ -167,11 +168,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // PRODUTOS PERIGOSOS
   // ============================================================
 
-  async createPerigoso(data: any) {
+  async createPerigoso(data: Prisma.MDFePerigosoCreateInput) {
     return this.prisma.mDFePerigoso.create({ data });
   }
 
-  async createManyPerigoso(data: any[]) {
+  async createManyPerigoso(data: Prisma.MDFePerigosoCreateManyInput[]) {
     return this.prisma.mDFePerigoso.createMany({ data });
   }
 
@@ -191,11 +192,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // NF-e PRESTAÇÃO PARCIAL
   // ============================================================
 
-  async createNFePrestParcial(data: any) {
+  async createNFePrestParcial(data: Prisma.MDFeNFePrestParcialCreateInput) {
     return this.prisma.mDFeNFePrestParcial.create({ data });
   }
 
-  async createManyNFePrestParcial(data: any[]) {
+  async createManyNFePrestParcial(data: Prisma.MDFeNFePrestParcialCreateManyInput[]) {
     return this.prisma.mDFeNFePrestParcial.createMany({ data });
   }
 
@@ -207,11 +208,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // SEGUROS
   // ============================================================
 
-  async createSeguro(data: any) {
+  async createSeguro(data: Prisma.SeguroMDFeCreateInput) {
     return this.prisma.seguroMDFe.create({ data });
   }
 
-  async createManySeguro(data: any[]) {
+  async createManySeguro(data: Prisma.SeguroMDFeCreateManyInput[]) {
     return this.prisma.seguroMDFe.createMany({ data });
   }
 
@@ -223,11 +224,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // LACRES DO MDF-e
   // ============================================================
 
-  async createLacre(data: any) {
+  async createLacre(data: Prisma.LacreMDFeCreateInput) {
     return this.prisma.lacreMDFe.create({ data });
   }
 
-  async createManyLacre(data: any[]) {
+  async createManyLacre(data: Prisma.LacreMDFeCreateManyInput[]) {
     return this.prisma.lacreMDFe.createMany({ data });
   }
 
@@ -239,11 +240,11 @@ export class MdfeComponentRepository extends BaseRepository {
   // AUTORIZADOS DOWNLOAD
   // ============================================================
 
-  async createAutXML(data: any) {
+  async createAutXML(data: Prisma.AutXMLMDFeCreateInput) {
     return this.prisma.autXMLMDFe.create({ data });
   }
 
-  async createManyAutXML(data: any[]) {
+  async createManyAutXML(data: Prisma.AutXMLMDFeCreateManyInput[]) {
     return this.prisma.autXMLMDFe.createMany({ data });
   }
 
@@ -255,7 +256,7 @@ export class MdfeComponentRepository extends BaseRepository {
   // HISTÓRICO DE STATUS
   // ============================================================
 
-  async createHistoricoStatus(data: any) {
+  async createHistoricoStatus(data: Prisma.HistoricoStatusMDFeCreateInput) {
     return this.prisma.historicoStatusMDFe.create({ data });
   }
 
@@ -263,7 +264,7 @@ export class MdfeComponentRepository extends BaseRepository {
   // ENCERRAMENTO
   // ============================================================
 
-  async createEncerramento(data: any) {
+  async createEncerramento(data: Prisma.EncerramentoMDFeCreateInput) {
     return this.prisma.encerramentoMDFe.create({ data });
   }
 

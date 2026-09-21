@@ -1,5 +1,5 @@
 // backend/src/repositories/mdfe.repository.ts
-import { Prisma, StatusMDFe } from '@prisma/client';
+import { Prisma, StatusMDFe, ModalMDFe } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 
 // ============================================================
@@ -201,7 +201,7 @@ export class MdfeRepository extends BaseRepository {
 
     // ✅ Filtro por modal
     if (modal) {
-      where.modal = modal as any;
+      where.modal = modal as ModalMDFe;
     }
 
     // ✅ Filtro por número

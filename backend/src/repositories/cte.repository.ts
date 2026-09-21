@@ -131,12 +131,12 @@ export class CteRepository {
     });
   }
 
-  async create(data: any) {
+  async create(data: Record<string, unknown>) {
     if (!data.empresaId) {
       throw new Error('empresaId é obrigatório');
     }
 
-    const payload: Prisma.CTeCreateInput = {
+    const payload = {
       versao: data.versao || '4.00',
       cUF: data.cUF,
       cCT: data.cCT,
@@ -354,7 +354,7 @@ export class CteRepository {
     };
 
     return prisma.cTe.create({
-      data: payload,
+      data: payload as unknown as Prisma.CTeCreateInput,
       include: CTE_INCLUDE_COMPLETO
     });
   }

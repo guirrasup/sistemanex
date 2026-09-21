@@ -3,6 +3,31 @@ import { CteRepository, FiltroCte } from '../repositories/cte.repository';
 import { StatusDocumento } from '@prisma/client';
 import { gerarChaveAcessoNFe, calcularDVMod11NFe } from '../utils/chaveAcesso';
 
+interface EmitirCteInput {
+  cUF?: string;
+  cMunIni?: string;
+  emitenteCNPJ?: string;
+  serie?: number;
+  nCT?: number;
+  tpEmis?: number;
+  vTPrest?: number;
+  vRec?: number;
+  aliquotaICMS?: number;
+  empresaId: string;
+  xmlAssinado?: string;
+  componentesValor?: {
+    fretePeso?: number;
+    freteValor?: number;
+    pedagio?: number;
+    taxaGris?: number;
+    outrasTaxas?: number;
+  };
+  [key: string]: unknown;
+}
+
+const PROTOCOLO_MOCK_SUFIXO_BASE = 1000000;
+const PROTOCOLO_MOCK_SUFIXO_RANGE = 9000000;
+
 export class CteService {
   private cteRepo: CteRepository;
 
@@ -35,7 +60,7 @@ export class CteService {
     return this.cteRepo.findByProtocolo(protocolo);
   }
 
-  async emitirCte(data: any) {
+  async emitirCte(data: EmitirCteInput) {
     // 1. Gerar chave de acesso
     const cUF = data.cUF || data.cMunIni?.slice(0, 2) || '35';
     const aamm = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
@@ -169,7 +194,7 @@ export class CteService {
       // STATUS
       status: 'AUTORIZADA',
       chaveAcesso: chaveCompleta,
-      protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
+      protocoloAutorizacao: `1352600${Math.floor(PROTOCOLO_MOCK_SUFIXO_BASE + Math.random() * PROTOCOLO_MOCK_SUFIXO_RANGE)}`,
       dataHoraAutorizacao: new Date(),
       xmlAssinado: data.xmlAssinado || this.gerarXmlMock(chaveCompleta, numero, data),
 
@@ -339,7 +364,7 @@ export class CteService {
     return this.cteRepo.buscarCteComplementado(chave);
   }
 
-  private calcularTotalFrete(data: any): number {
+  private calcularTotalFrete(data: EmitirCteInput): number {
     let total = 0;
 
     if (data.componentesValor) {
@@ -353,7 +378,7 @@ export class CteService {
     return total || 0;
   }
 
-  private gerarXmlMock(chave: string, numero: number, data: any): string {
+  private gerarXmlMock(chave: string, numero: number, data: EmitirCteInput): string {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <cteProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/cte">
   <CTe>
