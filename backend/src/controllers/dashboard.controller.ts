@@ -88,8 +88,8 @@ export class DashboardController {
         }
       });
 
-    } catch (error: any) {
-      return res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 }

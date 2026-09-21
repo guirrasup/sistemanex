@@ -71,8 +71,8 @@ export class AuthController {
         sucesso: true,
         dados: resultado,
       });
-    } catch (error: any) {
-      const msg = error?.message || '';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
 
       // ✅ Erros de credencial → 401 (esperado)
       if (msg === 'Credenciais inválidas' || msg === 'Usuário inativo. Contate o administrador.') {
@@ -156,8 +156,8 @@ export class AuthController {
         sucesso: true,
         dados: usuario,
       });
-    } catch (error: any) {
-      const msg = error?.message || '';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
 
       // ✅ Erros de negócio → 400
       if (msg === 'E-mail já cadastrado') {
@@ -206,7 +206,7 @@ export class AuthController {
         sucesso: true,
         dados: usuario,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao buscar usuário logado:', error);
       return res.status(500).json({
         sucesso: false,
@@ -241,8 +241,8 @@ export class AuthController {
         sucesso: true,
         mensagem: 'Senha alterada com sucesso',
       });
-    } catch (error: any) {
-      const msg = error?.message || '';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
 
       if (
         msg === 'Senha atual incorreta' ||
@@ -286,9 +286,9 @@ export class AuthController {
       // ✅ Capturamos erro de "inativo" para não vazar via 400.
       try {
         await this.authService.solicitarRecuperacaoSenha(email);
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Log interno, mas resposta genérica pro cliente
-        console.warn('⚠️ Falha silenciosa em recuperar-senha:', err?.message);
+        console.warn('⚠️ Falha silenciosa em recuperar-senha:', err instanceof Error ? err.message : err);
       }
 
       return res.json({
@@ -296,7 +296,7 @@ export class AuthController {
         mensagem:
           'Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro inesperado em recuperar-senha:', error);
       // Mesmo em erro inesperado, resposta genérica
       return res.json({
@@ -325,8 +325,8 @@ export class AuthController {
         sucesso: true,
         mensagem: 'Senha redefinida com sucesso',
       });
-    } catch (error: any) {
-      const msg = error?.message || '';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
 
       if (
         msg === 'Token inválido ou expirado' ||

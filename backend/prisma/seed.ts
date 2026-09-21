@@ -1,5 +1,5 @@
 // prisma/seed.ts
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -20,7 +20,7 @@ if (!SEED_ADMIN_SENHA) {
 // 🔥 HELPER DE TRANSAÇÃO EM LOTES (fatia em vez de abortar — CWE-770)
 async function criarEmLotes<T>(
   registros: T[],
-  criar: (data: T) => Promise<any>,
+  criar: (data: T) => Prisma.PrismaPromise<unknown>,
   tamanhoLote: number = MAX_TRANSACTION_BATCH
 ): Promise<void> {
   for (let i = 0; i < registros.length; i += tamanhoLote) {

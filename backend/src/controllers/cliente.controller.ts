@@ -22,9 +22,9 @@ export class ClienteController {
 
       const dados = await this.clienteService.listar(empresaId, page, limit, busca);
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao listar clientes:', error);
-      return res.status(500).json({ sucesso: false, erro: error.message });
+      return res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -44,8 +44,8 @@ export class ClienteController {
       }
       
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
-      return res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -65,8 +65,8 @@ export class ClienteController {
       }
       
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
-      return res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -81,8 +81,8 @@ export class ClienteController {
 
       const dados = await this.clienteService.buscarPorTipo(empresaId, tipo);
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
-      return res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -100,9 +100,9 @@ export class ClienteController {
       });
       
       return res.status(201).json({ sucesso: true, dados });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao criar cliente:', error);
-      return res.status(400).json({ sucesso: false, erro: error.message });
+      return res.status(400).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -117,8 +117,8 @@ export class ClienteController {
 
       const dados = await this.clienteService.atualizar(id, req.body, empresaId);
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
-      return res.status(400).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -133,8 +133,8 @@ export class ClienteController {
 
       await this.clienteService.excluir(id, empresaId);
       return res.json({ sucesso: true, mensagem: 'Cliente excluído com sucesso' });
-    } catch (error: any) {
-      return res.status(400).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      return res.status(400).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 }
