@@ -1,5 +1,5 @@
 // backend/src/services/nfae.service.ts
-import { PrismaClient, StatusNFAe, Prisma } from '@prisma/client';
+import { PrismaClient, StatusNFAe, Prisma, MotivoEmissaoNFAe, TipoPessoaNFAe } from '@prisma/client';
 import { NFAeDocumento, NFAeItem } from '../types/nfae.types';
 import { gerarChaveAcessoNFe } from '../utils/chaveAcesso';
 
@@ -18,6 +18,95 @@ const NFAE_INCLUDE = {
   historicoStatus: true,
 } as const;
 
+interface FiltrosNFAe {
+  dataInicio?: Date;
+  dataFim?: Date;
+  status?: StatusNFAe;
+  numero?: number;
+  serie?: number;
+  chave?: string;
+  destinatarioId?: string;
+}
+
+interface RequerenteNFAe {
+  tipoPessoa?: TipoPessoaNFAe;
+  documento?: string;
+  nome?: string;
+  inscricaoProdutor?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  municipio?: string;
+  municipioIbge?: string;
+  uf?: string;
+  cep?: string;
+  telefone?: string;
+  email?: string;
+}
+
+interface DestinatarioNFAe {
+  tipoPessoa?: TipoPessoaNFAe;
+  documento?: string;
+  nome?: string;
+  ie?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  municipio?: string;
+  municipioIbge?: string;
+  uf?: string;
+  cep?: string;
+  telefone?: string;
+  email?: string;
+}
+
+interface GuiaDaeInput {
+  numero?: string;
+  codigoBarras?: string;
+  chavePix?: string;
+  vencimento?: string | number | Date;
+  valor?: number;
+  status?: string;
+}
+
+interface ItemNFAeInput {
+  codigo: string;
+  descricao: string;
+  ncm: string;
+  unidade?: string;
+  quantidade?: number;
+  valorUnitario?: number;
+  valorTotal?: number;
+  aliquotaICMS?: number;
+  valorICMS?: number;
+  codigoBarrasEAN?: string;
+}
+
+interface EmitirNFAeInput {
+  empresaId: string;
+  itens?: ItemNFAeInput[];
+  numero?: number;
+  serie?: number;
+  requerente?: RequerenteNFAe;
+  destinatario?: DestinatarioNFAe;
+  destinatarioId?: string;
+  naturezaOperacao?: string;
+  motivoEmissao?: MotivoEmissaoNFAe;
+  descricaoMotivo?: string;
+  ambiente?: number;
+  tipoEmissao?: string;
+  guiaDAE?: GuiaDaeInput;
+  orgaoEmissorSefaz?: string;
+  xmlAssinado?: string;
+  informacoesComplementares?: string;
+  [key: string]: unknown;
+}
+
+const PROTOCOLO_MOCK_SUFIXO_BASE = 1000000;
+const PROTOCOLO_MOCK_SUFIXO_RANGE = 9000000;
+
 // 🔥 Helper para mesclar filtro de data sem sobrescrever gte/lte
 function buildDateFilter(dataInicio?: Date, dataFim?: Date) {
   if (!dataInicio && !dataFim) return undefined;
@@ -29,7 +118,7 @@ function buildDateFilter(dataInicio?: Date, dataFim?: Date) {
 
 export class NFAeService {
 
-  async listar(empresaId: string, page: number = 1, limit: number = 50, filtros?: any) {
+  async listar(empresaId: string, page: number = 1, limit: number = 50, filtros?: FiltrosNFAe) {
     // 🔥 Clamp de paginação (CWE-770)
     const pageSegura = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
     const limitSeguro = Number.isFinite(limit) && limit > 0
@@ -110,7 +199,7 @@ export class NFAeService {
     return prisma.nFAe.delete({ where: { id } });
   }
 
-  async emitir(data: any) {
+  async emitir(data: EmitirNFAeInput) {
     // 🔒 Validação de entrada
     if (!data.empresaId) {
       throw new Error('empresaId é obrigatório');
@@ -138,11 +227,11 @@ export class NFAeService {
     });
 
     // 2. Calcular totais
-    const valorTotalProdutos = itens.reduce((acc: number, item: any) => acc + (item.valorTotal || 0), 0);
-    const valorTotalICMS = itens.reduce((acc: number, item: any) => acc + (item.valorICMS || 0), 0);
+    const valorTotalProdutos = itens.reduce((acc, item) => acc + (item.valorTotal || 0), 0);
+    const valorTotalICMS = itens.reduce((acc, item) => acc + (item.valorICMS || 0), 0);
     const baseCalculoICMS = valorTotalProdutos;
     const aliquotaICMSMediana = itens.length > 0
-      ? itens.reduce((acc: number, item: any) => acc + (item.aliquotaICMS || 0), 0) / itens.length
+      ? itens.reduce((acc, item) => acc + (item.aliquotaICMS || 0), 0) / itens.length
       : 0;
 
     // 3. Criar NFA-e + itens em transação única
@@ -206,7 +295,7 @@ export class NFAeService {
 
           orgaoEmissorSefaz: data.orgaoEmissorSefaz || 'SEFAZ/SP',
 
-          protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
+          protocoloAutorizacao: `1352600${Math.floor(PROTOCOLO_MOCK_SUFIXO_BASE + Math.random() * PROTOCOLO_MOCK_SUFIXO_RANGE)}`,
           dataHoraAutorizacao: new Date(),
 
           xmlAssinado: data.xmlAssinado || this.gerarXmlMock(chaveCompleta, numero, data),
@@ -225,7 +314,7 @@ export class NFAeService {
       // 4. Criar itens em lote (createMany)
       if (itens.length > 0) {
         await tx.nFAeItem.createMany({
-          data: itens.map((item: any) => ({
+          data: itens.map((item) => ({
             nfaeId: novaNfae.id,
             codigo: item.codigo,
             descricao: item.descricao,
@@ -233,7 +322,7 @@ export class NFAeService {
             unidade: item.unidade || 'UN',
             quantidade: item.quantidade || 1,
             valorUnitario: item.valorUnitario || 0,
-            valorTotal: item.valorTotal || (item.quantidade * item.valorUnitario) || 0,
+            valorTotal: item.valorTotal || ((item.quantidade || 0) * (item.valorUnitario || 0)) || 0,
             aliquotaICMS: item.aliquotaICMS || 0,
             valorICMS: item.valorICMS || 0,
             codigoBarrasEAN: item.codigoBarrasEAN,
@@ -317,7 +406,7 @@ export class NFAeService {
     return (last?.numero || 0) + 1;
   }
 
-  private gerarXmlMock(chave: string, numero: number, data: any): string {
+  private gerarXmlMock(chave: string, numero: number, data: EmitirNFAeInput): string {
     // 🔥 Escapa caracteres especiais para evitar XML injection
     const escapeXml = (s: string): string =>
       String(s)

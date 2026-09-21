@@ -8,6 +8,28 @@ import { FinanceiroRepository } from '../repositories/financeiro.repository.js';
 import { gerarChaveAcessoNFe } from '../utils/chaveAcesso.js';
 import { calcularTotaisNfe } from '../utils/tributosEngine.js';
 import { gerarXmlNfe400 } from '../utils/xmlNfeGenerator.js';
+import type { ItemNfe } from '../types/fiscal.js';
+
+interface ItemNfeRequestInput {
+  produtoId: string;
+  quantidade?: number;
+  valorUnitario?: number;
+}
+
+interface ProdutoEstoqueRef {
+  id: string;
+  estoqueAtual: number;
+}
+
+interface EmitirNfeInput {
+  empresaId: string;
+  destinatarioId: string;
+  itens?: ItemNfeRequestInput[];
+  naturezaOperacao?: string;
+  formaPagamento?: string;
+  informacoesAdicionais?: string;
+  [key: string]: unknown;
+}
 
 export class NfeService {
   private nfeRepo: NfeRepository;
@@ -24,7 +46,7 @@ export class NfeService {
     this.financeiroRepo = new FinanceiroRepository();
   }
 
-  async emitirNfe(data: any) {
+  async emitirNfe(data: EmitirNfeInput) {
     const empresa = await this.empresaRepo.findById(data.empresaId);
     if (!empresa) throw new Error('Empresa não encontrada');
 
@@ -36,7 +58,7 @@ export class NfeService {
     }
 
     const itensCompletos = await Promise.all(
-      (data.itens || []).map(async (item: any) => {
+      (data.itens || []).map(async (item) => {
         const produto = await this.produtoRepo.findById(item.produtoId);
         if (!produto) throw new Error(`Produto ${item.produtoId} não encontrado`);
 
@@ -69,7 +91,7 @@ export class NfeService {
       })
     );
 
-    const totais = calcularTotaisNfe(itensCompletos, 0, 0, 0, 0);
+    const totais = calcularTotaisNfe(itensCompletos as unknown as ItemNfe[], 0, 0, 0, 0);
     const numero = await this.getProximoNumero(data.empresaId);
     const aamm = new Date().toISOString().slice(2, 4) +
                  (new Date().getMonth() + 1).toString().padStart(2, '0');
@@ -131,15 +153,15 @@ export class NfeService {
       proximoNumeroNfe: numero + 1
     });
 
-    const itensValidos = (data.itens || []).filter((i: any) => i.produtoId);
+    const itensValidos = (data.itens || []).filter((i) => i.produtoId);
     if (itensValidos.length > 0) {
-      const produtos = await this.produtoRepo.findByIds(itensValidos.map((i: any) => i.produtoId));
-      const produtoMap = new Map<string, any>(produtos.map((p: any) => [p.id, p]));
+      const produtos = await this.produtoRepo.findByIds(itensValidos.map((i) => i.produtoId)) as unknown as ProdutoEstoqueRef[];
+      const produtoMap = new Map(produtos.map((p) => [p.id, p]));
       for (const item of itensValidos) {
         const produto = produtoMap.get(item.produtoId);
         if (produto) {
           await this.produtoRepo.update(item.produtoId, {
-            estoqueAtual: Math.max(0, produto.estoqueAtual - item.quantidade)
+            estoqueAtual: Math.max(0, produto.estoqueAtual - (item.quantidade || 0))
           });
         }
       }

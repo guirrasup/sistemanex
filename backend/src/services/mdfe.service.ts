@@ -7,14 +7,89 @@ import { EmpresaRepository } from '../repositories/empresa.repository';
 import { gerarChaveAcessoMDFe } from '../utils/chaveAcessoMDFe';
 import { gerarXmlMDFe } from '../utils/xmlMdfeGenerator';
 
+interface PerigosoInput {
+  numeroONU?: string;
+  nomeApropriado?: string;
+  classeRisco?: string;
+  grupoEmbalagem?: string;
+  quantidadeTotal?: number;
+  quantidadeVolumes?: number;
+}
+
+interface UnidadeCargaInput {
+  tipo?: string;
+  identificacao?: string;
+  quantidadeRateada?: number;
+  lacres?: string[];
+}
+
+interface UnidadeTransporteInput {
+  tipo?: string;
+  identificacao?: string;
+  quantidadeRateada?: number;
+  lacres?: string[];
+  unidadesCarga?: UnidadeCargaInput[];
+}
+
+interface CteNoMdfeInput {
+  chave?: string;
+  segundoCodigoBarras?: string;
+  indReentrega?: boolean;
+  entregaParcial?: { quantidadeTotal?: number; quantidadeParcial?: number };
+  prestacaoParcial?: { indicador?: boolean; nfes?: string[] };
+  unidadesTransporte?: UnidadeTransporteInput[];
+  perigosos?: PerigosoInput[];
+}
+
+interface NfeNoMdfeInput {
+  chave?: string;
+  segundoCodigoBarras?: string;
+  indReentrega?: boolean;
+  unidadesTransporte?: UnidadeTransporteInput[];
+  perigosos?: PerigosoInput[];
+}
+
+interface MdfeTranspNoMdfeInput {
+  chave?: string;
+  indReentrega?: boolean;
+  unidadesTransporte?: UnidadeTransporteInput[];
+  perigosos?: PerigosoInput[];
+}
+
+interface SeguroInput {
+  responsavel?: string;
+  responsavelCNPJ?: string;
+  responsavelCPF?: string;
+  seguradoraNome?: string;
+  seguradoraCNPJ?: string;
+  apolice?: string;
+  averbacoes?: unknown;
+}
+
+interface AutorizadoDownloadInput {
+  cnpj?: string;
+  cpf?: string;
+}
+
+interface MunicipioCarregaInput {
+  codigo?: string;
+  nome?: string;
+}
+
+interface PercursoInput {
+  uf?: string;
+}
+
 interface EmitirMdfeInput {
   empresaId: string;
   emitenteId: string;
-  municipiosCarrega: unknown[];
+  municipiosCarrega: MunicipioCarregaInput[];
   municipiosDescarga: Array<{
-    ctes?: unknown[];
-    nfes?: unknown[];
-    mdfesTransp?: unknown[];
+    codigo?: string;
+    nome?: string;
+    ctes?: CteNoMdfeInput[];
+    nfes?: NfeNoMdfeInput[];
+    mdfesTransp?: MdfeTranspNoMdfeInput[];
   }>;
   modal: ModalMDFe;
   tpEmit: TipoEmitenteMDFe;
@@ -34,10 +109,10 @@ interface EmitirMdfeInput {
   NCM?: string;
   infAdFisco?: string;
   infCpl?: string;
-  percursos?: unknown[];
-  seguros?: unknown[];
+  percursos?: PercursoInput[];
+  seguros?: SeguroInput[];
   lacres?: string[];
-  autorizadosDownload?: unknown[];
+  autorizadosDownload?: AutorizadoDownloadInput[];
   usuario?: string;
   [key: string]: unknown;
 }
@@ -263,11 +338,11 @@ export class MdfeService {
     return { ...mdfeAtualizado, xml };
   }
 
-  private async criarComponentesMDFe(mdfeId: string, data: any) {
+  private async criarComponentesMDFe(mdfeId: string, data: EmitirMdfeInput) {
     // 1. Municípios de Carregamento
     if (data.municipiosCarrega?.length > 0) {
       await this.componentRepo.createManyMunCarrega(
-        data.municipiosCarrega.map((m: any) => ({
+        data.municipiosCarrega.map((m) => ({
           mdfeId,
           cMunCarrega: m.codigo,
           xMunCarrega: m.nome
@@ -276,9 +351,9 @@ export class MdfeService {
     }
 
     // 2. Percursos
-    if (data.percursos?.length > 0) {
+    if (data.percursos && data.percursos.length > 0) {
       await this.componentRepo.createManyPercurso(
-        data.percursos.map((p: any, index: number) => ({
+        data.percursos.map((p, index: number) => ({
           mdfeId,
           UFPer: p.uf,
           ordem: index + 1
@@ -295,7 +370,7 @@ export class MdfeService {
       });
 
       // 3.1 CT-e
-      if (munDescarga.ctes?.length > 0) {
+      if (munDescarga.ctes && munDescarga.ctes.length > 0) {
         for (const cte of munDescarga.ctes) {
           const cteCriado = await this.componentRepo.createCTe({
             munDescargaId: munDescargaCriado.id,
@@ -308,14 +383,14 @@ export class MdfeService {
           });
 
           // Unidades de Transporte do CT-e
-          if (cte.unidadesTransporte?.length > 0) {
+          if (cte.unidadesTransporte && cte.unidadesTransporte.length > 0) {
             await this.criarUnidadesTransporte(cteCriado.id, cte.unidadesTransporte, 'cte');
           }
 
           // Produtos Perigosos do CT-e
-          if (cte.perigosos?.length > 0) {
+          if (cte.perigosos && cte.perigosos.length > 0) {
             await this.componentRepo.createManyPerigoso(
-              cte.perigosos.map((p: any) => ({
+              cte.perigosos.map((p) => ({
                 cteId: cteCriado.id,
                 nONU: p.numeroONU,
                 xNomeAE: p.nomeApropriado,
@@ -328,7 +403,7 @@ export class MdfeService {
           }
 
           // NF-e Prestação Parcial
-          if (cte.prestacaoParcial?.nfes?.length > 0) {
+          if (cte.prestacaoParcial?.nfes && cte.prestacaoParcial.nfes.length > 0) {
             await this.componentRepo.createManyNFePrestParcial(
               cte.prestacaoParcial.nfes.map((chNFe: string) => ({
                 cteId: cteCriado.id,
@@ -340,7 +415,7 @@ export class MdfeService {
       }
 
       // 3.2 NF-e
-      if (munDescarga.nfes?.length > 0) {
+      if (munDescarga.nfes && munDescarga.nfes.length > 0) {
         for (const nfe of munDescarga.nfes) {
           const nfeCriado = await this.componentRepo.createNFe({
             munDescargaId: munDescargaCriado.id,
@@ -350,14 +425,14 @@ export class MdfeService {
           });
 
           // Unidades de Transporte da NF-e
-          if (nfe.unidadesTransporte?.length > 0) {
+          if (nfe.unidadesTransporte && nfe.unidadesTransporte.length > 0) {
             await this.criarUnidadesTransporte(nfeCriado.id, nfe.unidadesTransporte, 'nfe');
           }
 
           // Produtos Perigosos da NF-e
-          if (nfe.perigosos?.length > 0) {
+          if (nfe.perigosos && nfe.perigosos.length > 0) {
             await this.componentRepo.createManyPerigoso(
-              nfe.perigosos.map((p: any) => ({
+              nfe.perigosos.map((p) => ({
                 nfeId: nfeCriado.id,
                 nONU: p.numeroONU,
                 xNomeAE: p.nomeApropriado,
@@ -372,7 +447,7 @@ export class MdfeService {
       }
 
       // 3.3 MDF-e Transportado (Aquaviário)
-      if (munDescarga.mdfesTransp?.length > 0) {
+      if (munDescarga.mdfesTransp && munDescarga.mdfesTransp.length > 0) {
         for (const mdfeTransp of munDescarga.mdfesTransp) {
           const mdfeTranspCriado = await this.componentRepo.createMDFeTransp({
             munDescargaId: munDescargaCriado.id,
@@ -381,14 +456,14 @@ export class MdfeService {
           });
 
           // Unidades de Transporte do MDF-e
-          if (mdfeTransp.unidadesTransporte?.length > 0) {
+          if (mdfeTransp.unidadesTransporte && mdfeTransp.unidadesTransporte.length > 0) {
             await this.criarUnidadesTransporte(mdfeTranspCriado.id, mdfeTransp.unidadesTransporte, 'mdfeTransp');
           }
 
           // Produtos Perigosos do MDF-e
-          if (mdfeTransp.perigosos?.length > 0) {
+          if (mdfeTransp.perigosos && mdfeTransp.perigosos.length > 0) {
             await this.componentRepo.createManyPerigoso(
-              mdfeTransp.perigosos.map((p: any) => ({
+              mdfeTransp.perigosos.map((p) => ({
                 mdfeTranspId: mdfeTranspCriado.id,
                 nONU: p.numeroONU,
                 xNomeAE: p.nomeApropriado,
@@ -404,9 +479,9 @@ export class MdfeService {
     }
 
     // 4. Seguros
-    if (data.seguros?.length > 0) {
+    if (data.seguros && data.seguros.length > 0) {
       await this.componentRepo.createManySeguro(
-        data.seguros.map((s: any) => ({
+        data.seguros.map((s) => ({
           mdfeId,
           respSeg: s.responsavel,
           respCNPJ: s.responsavelCNPJ,
@@ -420,7 +495,7 @@ export class MdfeService {
     }
 
     // 5. Lacres do MDF-e
-    if (data.lacres?.length > 0) {
+    if (data.lacres && data.lacres.length > 0) {
       await this.componentRepo.createManyLacre(
         data.lacres.map((l: string) => ({
           mdfeId,
@@ -430,9 +505,9 @@ export class MdfeService {
     }
 
     // 6. Autorizados para Download
-    if (data.autorizadosDownload?.length > 0) {
+    if (data.autorizadosDownload && data.autorizadosDownload.length > 0) {
       await this.componentRepo.createManyAutXML(
-        data.autorizadosDownload.map((a: any) => ({
+        data.autorizadosDownload.map((a) => ({
           mdfeId,
           CNPJ: a.cnpj,
           CPF: a.cpf
@@ -443,7 +518,7 @@ export class MdfeService {
 
   private async criarUnidadesTransporte(
     parentId: string,
-    unidades: any[],
+    unidades: UnidadeTransporteInput[],
     parentType: 'cte' | 'nfe' | 'mdfeTransp'
   ) {
     for (const unidade of unidades) {
@@ -455,7 +530,7 @@ export class MdfeService {
       });
 
       // Lacres da unidade de transporte
-      if (unidade.lacres?.length > 0) {
+      if (unidade.lacres && unidade.lacres.length > 0) {
         await this.componentRepo.createManyLacreUnidade(
           unidade.lacres.map((l: string) => ({
             unidadeTranspId: unidadeCriada.id,
@@ -465,7 +540,7 @@ export class MdfeService {
       }
 
       // Unidades de carga
-      if (unidade.unidadesCarga?.length > 0) {
+      if (unidade.unidadesCarga && unidade.unidadesCarga.length > 0) {
         for (const uc of unidade.unidadesCarga) {
           const ucCriada = await this.componentRepo.createUnidadeCarga({
             unidadeTranspId: unidadeCriada.id,
@@ -475,7 +550,7 @@ export class MdfeService {
           });
 
           // Lacres da unidade de carga
-          if (uc.lacres?.length > 0) {
+          if (uc.lacres && uc.lacres.length > 0) {
             await this.componentRepo.createManyLacreUnidadeCarga(
               uc.lacres.map((l: string) => ({
                 unidadeCargaId: ucCriada.id,

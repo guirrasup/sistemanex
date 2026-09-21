@@ -67,6 +67,7 @@ interface CacheData {
 }
 
 const CACHE_TTL = 30000; // 30 segundos
+const REFRESH_DEBOUNCE_MS = 2000;
 
 export default function App() {
   // 🔥 Autenticação e Sessão
@@ -151,7 +152,7 @@ export default function App() {
     }
 
     const now = Date.now();
-    if (now - lastRefreshTime.current < 2000) {
+    if (now - lastRefreshTime.current < REFRESH_DEBOUNCE_MS) {
             return;
     }
     lastRefreshTime.current = now;
@@ -219,7 +220,7 @@ export default function App() {
         console.warn('⚠️ Algumas requisições falharam, mas continuando...');
       }
 
-      const getData = (result: PromiseSettledResult<any>, index: number) => {
+      const getData = (result: PromiseSettledResult<{ dados?: { data?: unknown[] }; data?: unknown[] }>, index: number) => {
         if (result.status === 'fulfilled') {
           const value = result.value;
           const data = value?.dados?.data || value?.data || [];
@@ -285,9 +286,9 @@ export default function App() {
       
                                                                          // 🔥 NOVO
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ ERRO GLOBAL no refreshData:');
-      console.error('   Mensagem:', error.message);
+      console.error('   Mensagem:', error instanceof Error ? error.message : error);
       
       console.warn('⚠️ Usando fallback para cache local');
       setProdutos(StorageService.getProdutos());

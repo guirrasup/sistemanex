@@ -1,4 +1,5 @@
 // backend/src/services/produto.service.ts
+import { Prisma } from '@prisma/client';
 import { ProdutoRepository } from '../repositories/produto.repository.js';
 
 export class ProdutoService {
@@ -16,11 +17,11 @@ export class ProdutoService {
     return this.produtoRepo.findById(id, empresaId);
   }
 
-  async criar(data: any) {
+  async criar(data: Prisma.ProdutoCreateInput) {
     if (!data.descricao || data.descricao.trim().length < 3) {
       throw new Error('Descrição do produto é obrigatória (mínimo 3 caracteres)');
     }
-    if (!data.precoVenda || data.precoVenda <= 0) {
+    if (!data.precoVenda || Number(data.precoVenda) <= 0) {
       throw new Error('Preço de venda deve ser maior que zero');
     }
     if (!data.ncm || data.ncm.length !== 8) {
@@ -30,7 +31,7 @@ export class ProdutoService {
     return this.produtoRepo.create(data);
   }
 
-  async atualizar(id: string, data: any, empresaId: string) {
+  async atualizar(id: string, data: Prisma.ProdutoUpdateInput, empresaId: string) {
     const produto = await this.produtoRepo.findById(id);
     if (!produto) {
       throw new Error('Produto não encontrado');

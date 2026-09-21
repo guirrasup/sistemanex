@@ -8,6 +8,45 @@ import { ServicoRepository } from '../repositories/servico.repository.js';
 import { gerarChaveAcessoNFSe } from '../utils/chaveAcesso.js';
 import { calcularTributosNfse } from '../utils/tributosEngine.js';
 import { gerarXmlNfseNacional } from '../utils/xmlNfseGenerator.js';
+import type { NFSeDocumento } from '../types/fiscal.js';
+
+interface ServicoOverrideInput {
+  valorServico?: number;
+  aliquotaISS?: number;
+  codigoTributacaoNacional?: string;
+  codigoTributacaoMunicipal?: string;
+  codigoNBS?: string;
+  descricao?: string;
+  descontoIncondicionado?: number;
+  deducoesMateriais?: number;
+  tipoRetencaoISS?: 1 | 2 | 3;
+  tributacaoISSQN?: 1 | 2 | 3 | 4;
+  aliquotaPIS?: number;
+  retidoPIS?: boolean;
+  aliquotaCOFINS?: number;
+  retidoCOFINS?: boolean;
+  aliquotaIRRF?: number;
+  aliquotaCSLL?: number;
+  aliquotaINSS?: number;
+}
+
+interface EmitirNfseInput {
+  empresaId: string;
+  tomadorId: string;
+  servicoId?: string;
+  servico?: ServicoOverrideInput;
+  formaPagamento?: string;
+  tipoEmissao?: string;
+  pagamentoNumero?: number;
+  pagamentoIdTransacao?: string;
+  informacoesComplementares?: string;
+  numeroPedido?: string;
+  usuario?: string;
+  [key: string]: unknown;
+}
+
+const PROTOCOLO_MOCK_SUFIXO_BASE = 1000000;
+const PROTOCOLO_MOCK_SUFIXO_RANGE = 9000000;
 
 export class NfseService {
   private nfseRepo: NfseRepository;
@@ -71,7 +110,7 @@ export class NfseService {
     return this.nfseRepo.findByProtocolo(protocolo);
   }
 
-  async emitirNfse(data: any) {
+  async emitirNfse(data: EmitirNfseInput) {
     const empresa = await this.empresaRepo.findById(data.empresaId);
     if (!empresa) throw new Error('Empresa não encontrada');
 
@@ -268,10 +307,10 @@ export class NfseService {
     const nfseCriada = await this.nfseRepo.create(nfseData);
 
     // Gera XML
-    const xml = gerarXmlNfseNacional(nfseCriada as any);
+    const xml = gerarXmlNfseNacional(nfseCriada as unknown as NFSeDocumento);
 
     // Atualiza com XML e autoriza
-    await this.nfseRepo.updateStatus(nfseCriada.id, 'AUTORIZADA', `1352600${Math.floor(1000000 + Math.random() * 9000000)}`);
+    await this.nfseRepo.updateStatus(nfseCriada.id, 'AUTORIZADA', `1352600${Math.floor(PROTOCOLO_MOCK_SUFIXO_BASE + Math.random() * PROTOCOLO_MOCK_SUFIXO_RANGE)}`);
 
     // Atualiza número
     await this.empresaRepo.update(data.empresaId, {
@@ -400,7 +439,9 @@ export class NfseService {
       throw new Error('Acesso negado');
     }
 
-    // TODO: Implementar geração do DANFSe
+    // TODO: Implementar geração real do PDF do DANFSe (layout conforme padrão nacional
+    // NFS-e, incluindo QR Code com código de verificação). Requer escolher biblioteca de
+    // geração de PDF no backend (ex.: pdf-lib ou puppeteer).
     return {
       chaveAcesso: nfse.chaveAcesso,
       numeroNfse: nfse.numeroNfse,

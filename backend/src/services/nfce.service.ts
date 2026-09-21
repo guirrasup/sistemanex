@@ -8,6 +8,90 @@ import { FinanceiroRepository } from '../repositories/financeiro.repository';
 import { gerarChaveAcessoNFe } from '../utils/chaveAcesso';
 import { calcularTotaisNfe } from '../utils/tributosEngine';
 import { gerarXmlNfe400 } from '../utils/xmlNfeGenerator';
+import type { ItemNfe, NFeDocumento } from '../types/fiscal.js';
+
+interface ItemNfceInput {
+  produtoId?: string;
+  codigoProduto?: string;
+  descricao?: string;
+  ncm?: string;
+  cest?: string;
+  cfop?: string;
+  unidadeMedida?: string;
+  quantidade?: number;
+  valorUnitario?: number;
+  valorTotalBruto?: number;
+  cstICMS?: string;
+  aliquotaICMS?: number;
+  baseCalculoICMS?: number;
+  valorICMS?: number;
+  cstPIS?: string;
+  aliquotaPIS?: number;
+  valorPIS?: number;
+  cstCOFINS?: string;
+  aliquotaCOFINS?: number;
+  valorCOFINS?: number;
+  valorTributosAproximados?: number;
+}
+
+interface PagamentoNfceInput {
+  indPag?: string;
+  tPag?: string;
+  xPag?: string;
+  vPag?: number;
+  dPag?: string | Date;
+  tpIntegra?: string;
+  CNPJPag?: string;
+  UFPag?: string;
+  CNPJInstPag?: string;
+  tBand?: string;
+  cAut?: string;
+  CNPJReceb?: string;
+  idTermPag?: string;
+}
+
+interface EmitirNfceInput {
+  empresaId: string;
+  itens: ItemNfceInput[];
+  consumidorIdentificado?: boolean;
+  consumidorDoc?: string;
+  consumidorNome?: string;
+  valorDesconto?: number;
+  valorAcrescimo?: number;
+  naturezaOperacao?: string;
+  tpEmis?: number;
+  tpNF?: number;
+  idDest?: number;
+  finNFe?: number;
+  indFinal?: number;
+  indPres?: number;
+  procEmi?: string;
+  verProc?: string;
+  formaPagamento?: string;
+  valorPago?: number;
+  valorRecebido?: number;
+  tokenCscId?: string;
+  infAdFisco?: string;
+  infCpl?: string;
+  pagamentos?: PagamentoNfceInput[];
+  xPag?: string;
+  dPag?: string | Date;
+  tpIntegra?: string;
+  CNPJInstPag?: string;
+  tBand?: string;
+  cAut?: string;
+  CNPJReceb?: string;
+  idTermPag?: string;
+  [key: string]: unknown;
+}
+
+interface ProdutoEstoqueRef {
+  id: string;
+  estoqueAtual: number;
+}
+
+const PROTOCOLO_MOCK_SUFIXO_BASE = 1000000;
+const PROTOCOLO_MOCK_SUFIXO_RANGE = 9000000;
 
 export class NfceService {
   private nfceRepo: NfceRepository;
@@ -68,7 +152,7 @@ export class NfceService {
     return this.nfceRepo.findByProtocolo(protocolo);
   }
 
-  async emitirNfce(data: any) {
+  async emitirNfce(data: EmitirNfceInput) {
     const empresa = await this.empresaRepo.findById(data.empresaId);
     if (!empresa) throw new Error('Empresa não encontrada');
 
@@ -112,7 +196,7 @@ export class NfceService {
 
     // Calcula totais com desconto e acréscimo
     const totais = calcularTotaisNfe(
-      data.itens,
+      data.itens as unknown as ItemNfe[],
       0, // frete
       0, // seguro
       0, // outras despesas
@@ -130,7 +214,7 @@ export class NfceService {
       dataHoraEmissao: new Date(),
       naturezaOperacao: data.naturezaOperacao || 'Venda a Consumidor Final',
       ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2,
-      tipoEmissao: data.tpEmis || 1,
+      tipoEmissao: String(data.tpEmis || 1),
       status: 'PROCESSANDO',
       consumidorIdentificado: data.consumidorIdentificado || false,
       
@@ -180,7 +264,7 @@ export class NfceService {
     }
 
     // Cria pagamentos
-    if (data.pagamentos?.length > 0) {
+    if (data.pagamentos && data.pagamentos.length > 0) {
       for (const pag of data.pagamentos) {
         await this.createPagamento(nfce.id, pag);
       }
@@ -207,21 +291,23 @@ export class NfceService {
 
     // Gera XML e autoriza
     const nfceCompleto = await this.nfceRepo.findById(nfce.id);
-    const xml = gerarXmlNfe400(nfceCompleto as any);
-    const protocolo = `1352600${Math.floor(1000000 + Math.random() * 9000000)}`;
+    const xml = gerarXmlNfe400(nfceCompleto as unknown as NFeDocumento);
+    const protocolo = `1352600${Math.floor(PROTOCOLO_MOCK_SUFIXO_BASE + Math.random() * PROTOCOLO_MOCK_SUFIXO_RANGE)}`;
     
     await this.nfceRepo.updateStatus(nfce.id, 'AUTORIZADA', protocolo);
 
     // Baixa estoque
-    const itensValidos = data.itens.filter((i: any) => i.produtoId);
+    const itensValidos = data.itens.filter(
+      (i): i is ItemNfceInput & { produtoId: string } => Boolean(i.produtoId)
+    );
     if (itensValidos.length > 0) {
-      const produtos = await this.produtoRepo.findByIds(itensValidos.map((i: any) => i.produtoId));
-      const produtoMap = new Map<string, any>(produtos.map((p: any) => [p.id, p]));
+      const produtos = await this.produtoRepo.findByIds(itensValidos.map((i) => i.produtoId)) as ProdutoEstoqueRef[];
+      const produtoMap = new Map(produtos.map((p) => [p.id, p]));
       for (const item of itensValidos) {
         const produto = produtoMap.get(item.produtoId);
         if (produto) {
           await this.produtoRepo.update(item.produtoId, {
-            estoqueAtual: Math.max(0, produto.estoqueAtual - item.quantidade)
+            estoqueAtual: Math.max(0, produto.estoqueAtual - (item.quantidade || 0))
           });
         }
       }
@@ -257,7 +343,9 @@ export class NfceService {
     };
   }
 
-  private async createItem(nfceId: string, item: any) {
+  private async createItem(nfceId: string, item: ItemNfceInput) {
+    const totalBruto = (item.quantidade || 0) * (item.valorUnitario || 0);
+
     return this.prisma.itemNFCe.create({
       data: {
         codigoProduto: item.codigoProduto,
@@ -268,24 +356,24 @@ export class NfceService {
         unidadeMedida: item.unidadeMedida || 'UN',
         quantidade: item.quantidade,
         valorUnitario: item.valorUnitario,
-        valorTotalBruto: item.valorTotalBruto || (item.quantidade * item.valorUnitario),
+        valorTotalBruto: item.valorTotalBruto || totalBruto,
         cstICMS: item.cstICMS || '00',
         aliquotaICMS: item.aliquotaICMS || 18,
-        baseCalculoICMS: item.baseCalculoICMS || (item.quantidade * item.valorUnitario),
-        valorICMS: item.valorICMS || ((item.quantidade * item.valorUnitario) * (item.aliquotaICMS || 18) / 100),
+        baseCalculoICMS: item.baseCalculoICMS || totalBruto,
+        valorICMS: item.valorICMS || (totalBruto * (item.aliquotaICMS || 18) / 100),
         cstPIS: item.cstPIS || '01',
         aliquotaPIS: item.aliquotaPIS || 1.65,
-        valorPIS: item.valorPIS || ((item.quantidade * item.valorUnitario) * 1.65 / 100),
+        valorPIS: item.valorPIS || (totalBruto * 1.65 / 100),
         cstCOFINS: item.cstCOFINS || '01',
         aliquotaCOFINS: item.aliquotaCOFINS || 7.6,
-        valorCOFINS: item.valorCOFINS || ((item.quantidade * item.valorUnitario) * 7.6 / 100),
-        valorTributosAproximados: item.valorTributosAproximados || ((item.quantidade * item.valorUnitario) * 0.314),
+        valorCOFINS: item.valorCOFINS || (totalBruto * 7.6 / 100),
+        valorTributosAproximados: item.valorTributosAproximados || (totalBruto * 0.314),
         nfce: { connect: { id: nfceId } }
       }
     });
   }
 
-  private async createPagamento(nfceId: string, pag: any) {
+  private async createPagamento(nfceId: string, pag: PagamentoNfceInput) {
     return this.prisma.pagamentoNFCe.create({
       data: {
         indPag: pag.indPag || '0',
@@ -408,7 +496,9 @@ export class NfceService {
       throw new Error('Acesso negado');
     }
 
-    // TODO: Implementar geração do DANFE NFC-e (cupom fiscal)
+    // TODO: Implementar geração real do cupom fiscal (DANFE NFC-e) em PDF/térmica
+    // (58mm ou 80mm), incluindo QR Code (urlQrCode já calculado) e código de barras
+    // da chave de acesso. Requer escolher biblioteca de geração de PDF/ESC-POS no backend.
     return {
       chaveAcesso: nfce.chaveAcesso,
       numero: nfce.numero,
