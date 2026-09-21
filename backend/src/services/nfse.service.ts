@@ -439,7 +439,7 @@ export class NfseService {
       throw new Error('Acesso negado');
     }
 
-    // TODO: Implementar geração real do PDF do DANFSe (layout conforme padrão nacional
+    // [AutoPatch Backlog] TODO: Implementar geração real do PDF do DANFSe (layout conforme padrão nacional
     // NFS-e, incluindo QR Code com código de verificação). Requer escolher biblioteca de
     // geração de PDF no backend (ex.: pdf-lib ou puppeteer).
     return {
