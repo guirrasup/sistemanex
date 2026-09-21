@@ -79,7 +79,7 @@ export function truncate(texto: string, maxLength: number = 100, suffix: string 
   return texto.substring(0, maxLength - suffix.length) + suffix;
 }
 
-export function isNumero(valor: any): boolean {
+export function isNumero(valor: unknown): boolean {
   return !isNaN(parseFloat(valor)) && isFinite(valor);
 }
 
