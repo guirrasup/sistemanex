@@ -13,7 +13,7 @@ export class ProdutoService {
     return this.produtoRepo.findAll(empresaId, page, limit, busca);
   }
 
-  async buscarPorId(id: string, empresaId?: string) {
+  async buscarPorId(id: string, empresaId: string) {
     return this.produtoRepo.findById(id, empresaId);
   }
 
@@ -32,27 +32,21 @@ export class ProdutoService {
   }
 
   async atualizar(id: string, data: Prisma.ProdutoUpdateInput, empresaId: string) {
-    const produto = await this.produtoRepo.findById(id);
+    const produto = await this.produtoRepo.findById(id, empresaId);
     if (!produto) {
       throw new Error('Produto não encontrado');
     }
-    if (produto.empresaId !== empresaId) {
-      throw new Error('Acesso negado');
-    }
 
-    return this.produtoRepo.update(id, data);
+    return this.produtoRepo.update(id, empresaId, data);
   }
 
   async excluir(id: string, empresaId: string) {
-    const produto = await this.produtoRepo.findById(id);
+    const produto = await this.produtoRepo.findById(id, empresaId);
     if (!produto) {
       throw new Error('Produto não encontrado');
     }
-    if (produto.empresaId !== empresaId) {
-      throw new Error('Acesso negado');
-    }
 
-    return this.produtoRepo.delete(id);
+    return this.produtoRepo.delete(id, empresaId);
   }
 
   // 🔥 CORRIGIDO: MÉTODO QUE RETORNA APENAS PRODUTOS CRÍTICOS

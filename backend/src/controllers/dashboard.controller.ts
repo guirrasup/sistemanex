@@ -1,10 +1,10 @@
 // backend/src/controllers/dashboard.controller.ts
 import { Request, Response } from 'express';
-import { NfeService } from '../services/nfe.service';
-import { NfseService } from '../services/nfse.service';
-import { FinanceiroService } from '../services/financeiro.service';
-import { ProdutoService } from '../services/produto.service';
-import { ClienteService } from '../services/cliente.service';
+import { NfeService } from '../services/nfe.service.js';
+import { NfseService } from '../services/nfse.service.js';
+import { FinanceiroService } from '../services/financeiro.service.js';
+import { ProdutoService } from '../services/produto.service.js';
+import { ClienteService } from '../services/cliente.service.js';
 
 export class DashboardController {
   private nfeService: NfeService;
@@ -48,7 +48,7 @@ export class DashboardController {
         this.financeiroService.resumo(empresaId),
         this.produtoService.listar(empresaId, 1, 5),
         this.clienteService.listar(empresaId, 1, 5),
-        this.nfeService.listarNfes(empresaId, 1, 100),
+        this.nfeService.listarNfes({ empresaId, page: 1, limit: 100 }),
         this.nfseService.listarNfses(empresaId, 1, 100),
       ]);
 
@@ -82,9 +82,11 @@ export class DashboardController {
           ultimasNotas: [
             ...nfesMes.data.slice(0, 3),
             ...nfsesMes.data.slice(0, 3)
-          ].sort((a, b) => 
-            new Date(b.dataHoraEmissao).getTime() - new Date(a.dataHoraEmissao).getTime()
-          ).slice(0, 5)
+          ].sort((a, b) => {
+            const dataA = 'dhEmi' in a ? a.dhEmi : a.dataHoraEmissao;
+            const dataB = 'dhEmi' in b ? b.dhEmi : b.dataHoraEmissao;
+            return new Date(dataB).getTime() - new Date(dataA).getTime();
+          }).slice(0, 5)
         }
       });
 

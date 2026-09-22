@@ -1,6 +1,6 @@
 // backend/src/repositories/base.repository.ts
-import { PrismaClient } from '@prisma/client';
-import { prisma } from '../lib/prisma';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma.js';
 
 export abstract class BaseRepository {
   protected prisma: PrismaClient;
@@ -10,7 +10,7 @@ export abstract class BaseRepository {
     this.prisma = prisma;
   }
 
-  async transaction<T>(fn: (prisma: PrismaClient) => Promise<T>): Promise<T> {
+  async transaction<T>(fn: (prisma: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return this.prisma.$transaction(fn);
   }
 

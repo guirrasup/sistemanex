@@ -1,8 +1,8 @@
 // src/routes/nfae.routes.ts
 
 import { Router } from 'express';
-import { NFAeController } from '../controllers/nfae.controller';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { NFAeController } from '../controllers/nfae.controller.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 const nfaeController = new NFAeController();

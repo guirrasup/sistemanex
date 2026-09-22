@@ -1,7 +1,7 @@
 // backend/src/routes/cte.routes.ts
 import { Router } from 'express';
-import { CteController } from '../controllers/cte.controller';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { CteController } from '../controllers/cte.controller.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 const cteController = new CteController();

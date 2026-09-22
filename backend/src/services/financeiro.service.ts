@@ -23,9 +23,9 @@ export class FinanceiroService {
     if (titulo.status === 'PAGO') throw new Error('Título já está pago');
 
     return this.financeiroRepo.baixarTitulo(
-      id, 
-      new Date(), 
-      titulo.valorOriginal
+      id,
+      new Date(),
+      Number(titulo.valorOriginal)
     );
   }
 

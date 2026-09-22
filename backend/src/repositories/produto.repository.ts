@@ -1,6 +1,6 @@
 // backend/src/repositories/produto.repository.ts
 import { Prisma, PrismaClient } from '@prisma/client';
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 
 const prisma = new PrismaClient();
 

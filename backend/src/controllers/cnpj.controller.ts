@@ -1,6 +1,6 @@
 // backend/src/controllers/cnpj.controller.ts
 import { Request, Response } from 'express';
-import { ConectaGovService } from '../services/conectagov.service';
+import { ConectaGovService } from '../services/conectagov.service.js';
 
 interface CnaeSecundarioConectaGov {
   codigo?: string;
@@ -31,7 +31,7 @@ export class CnpjController {
     try {
       const { cnpj } = req.params;
       const datasets = (req.query.datasets as string)?.split(',') || ['receita'];
-      const cpfUsuario = req.headers['x-cpf-usuario'] as string || req.user?.cpf;
+      const cpfUsuario = req.headers['x-cpf-usuario'] as string || (req.user as { cpf?: string } | undefined)?.cpf;
 
       // 🔥 VALIDA CNPJ
       const cnpjLimpo = cnpj.replace(/\D/g, '');
@@ -135,7 +135,7 @@ export class CnpjController {
   async consultarCompleto(req: Request, res: Response) {
     try {
       const { cnpj } = req.params;
-      const cpfUsuario = req.headers['x-cpf-usuario'] as string || req.user?.cpf;
+      const cpfUsuario = req.headers['x-cpf-usuario'] as string || (req.user as { cpf?: string } | undefined)?.cpf;
 
       const cnpjLimpo = cnpj.replace(/\D/g, '');
       if (cnpjLimpo.length !== 14) {
@@ -146,7 +146,7 @@ export class CnpjController {
       }
 
       // Busca dados com todos os datasets
-      const data = await this.conectaGovService.consultarCnpjCompleto(cnpjLimpo, cpfUsuario);
+      const data = await this.conectaGovService.consultarCnpj(cnpjLimpo, cpfUsuario);
 
       return res.json({
         sucesso: true,

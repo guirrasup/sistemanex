@@ -24,7 +24,7 @@ export function isBetween(value: number, min: number, max: number): boolean {
 }
 
 export function hasMinLength(value: string, min: number): boolean {
-  return value && value.trim().length >= min;
+  return Boolean(value) && value.trim().length >= min;
 }
 
 export function hasMaxLength(value: string, max: number): boolean {
@@ -32,7 +32,7 @@ export function hasMaxLength(value: string, max: number): boolean {
 }
 
 export function hasExactLength(value: string, length: number): boolean {
-  return value && value.trim().length === length;
+  return Boolean(value) && value.trim().length === length;
 }
 
 export function isEmail(email: string): boolean {

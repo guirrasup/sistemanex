@@ -1,6 +1,6 @@
 // backend/src/repositories/financeiro.repository.ts
 import { Prisma } from '@prisma/client'
-import { BaseRepository } from './base.repository'
+import { BaseRepository } from './base.repository.js'
 
 export class FinanceiroRepository extends BaseRepository {
   async findTituloById(id: string) {
@@ -57,8 +57,20 @@ export class FinanceiroRepository extends BaseRepository {
     })
   }
 
-  async create(data: Prisma.TituloFinanceiroCreateInput) {
+  async create(data: Prisma.TituloFinanceiroUncheckedCreateInput) {
     return this.prisma.tituloFinanceiro.create({ data })
+  }
+
+  async findByDocumentoOrigem(chave: string) {
+    return this.prisma.tituloFinanceiro.findFirst({
+      where: { documentoOrigemChave: chave }
+    })
+  }
+
+  async findManyByDocumentoOrigem(chave: string) {
+    return this.prisma.tituloFinanceiro.findMany({
+      where: { documentoOrigemChave: chave }
+    })
   }
 
   async baixarTitulo(id: string, dataPagamento: Date, valorPago: number) {

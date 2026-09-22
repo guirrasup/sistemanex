@@ -1,7 +1,7 @@
 // backend/src/services/certificado.service.ts
 import forge from 'node-forge'
-import { EmpresaRepository } from '../repositories/empresa.repository'
-import { CertificadoDigital } from '@prisma/client'
+import { EmpresaRepository } from '../repositories/empresa.repository.js'
+import { encryptSecret, decryptSecret } from '../utils/crypto.js'
 
 const BRASILAPI_TIMEOUT_MS = 5000
 
@@ -74,7 +74,7 @@ export class CertificadoService {
       // Busca dados da empresa pela BrasilAPI
       const dadosEmpresa = await this.buscarDadosCnpj(cnpj)
 
-      // Salva o certificado
+      // Salva o certificado (arquivo e senha sempre criptografados em repouso)
       const certificadoData = {
         tipo: 'A1',
         nomeTitular: subjectName,
@@ -85,7 +85,8 @@ export class CertificadoService {
         diasRestantes,
         arquivoCarregadoNome: 'certificado.pfx',
         status: diasRestantes > 0 ? 'VALIDO' : 'EXPIRADO',
-        arquivoBase64: arquivoBase64 // Em produção, criptografar!
+        arquivoBase64: encryptSecret(arquivoBase64),
+        senha: encryptSecret(senha)
       }
 
       // Atualiza a empresa com os dados do certificado
@@ -102,15 +103,42 @@ export class CertificadoService {
       return {
         sucesso: true,
         mensagem: 'Certificado processado com sucesso!',
-        certificado: empresa.certificado,
+        certificado: this.sanitizarCertificado(empresa.certificado),
         empresa
       }
     } catch (error) {
       return {
         sucesso: false,
-        mensagem: error.message || 'Erro ao processar certificado'
+        mensagem: error instanceof Error ? error.message : 'Erro ao processar certificado'
       }
     }
+  }
+
+  /**
+   * Remove os segredos criptografados (arquivo PFX e senha) antes de devolver
+   * o certificado para a API — o cliente nunca precisa desses valores.
+   */
+  private sanitizarCertificado<T extends { arquivoBase64?: string | null; senha?: string | null } | null | undefined>(
+    certificado: T
+  ) {
+    if (!certificado) return certificado;
+    const { arquivoBase64: _arquivoBase64, senha: _senha, ...resto } = certificado;
+    return resto;
+  }
+
+  /**
+   * Descriptografa o PFX e a senha do certificado de uma empresa, para uso
+   * pelo módulo de assinatura de XML (SEFAZ). Nunca expor o retorno via API.
+   */
+  async obterCertificadoDecriptado(empresaId: string): Promise<{ pfxBuffer: Buffer; senha: string } | null> {
+    const empresa = await this.empresaRepo.findById(empresaId);
+    const certificado = empresa?.certificado;
+    if (!certificado?.arquivoBase64 || !certificado.senha) return null;
+
+    return {
+      pfxBuffer: Buffer.from(decryptSecret(certificado.arquivoBase64), 'base64'),
+      senha: decryptSecret(certificado.senha)
+    };
   }
 
   private async buscarDadosCnpj(cnpj: string) {
@@ -121,7 +149,7 @@ export class CertificadoService {
       )
 
       if (response.ok) {
-        const data = await response.json()
+        const data = await response.json() as Record<string, any>
         return {
           razaoSocial: data.razao_social || data.nome_empresarial,
           nomeFantasia: data.nome_fantasia,
@@ -150,5 +178,11 @@ export class CertificadoService {
 
   async renovarCertificado(empresaId: string, novoArquivoBase64: string, senha: string) {
     return this.processarCertificado(novoArquivoBase64, senha, empresaId)
+  }
+
+  async buscarStatus(empresaId: string) {
+    const empresa = await this.empresaRepo.findById(empresaId)
+    if (!empresa) throw new Error('Empresa não encontrada')
+    return this.sanitizarCertificado(empresa.certificado)
   }
 }

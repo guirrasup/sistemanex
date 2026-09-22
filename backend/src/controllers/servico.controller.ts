@@ -1,6 +1,6 @@
 // backend/src/controllers/servico.controller.ts
 import { Request, Response } from 'express';
-import { ServicoService } from '../services/servico.service';
+import { ServicoService } from '../services/servico.service.js';
 
 export class ServicoController {
   private servicoService: ServicoService;

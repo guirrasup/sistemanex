@@ -1,6 +1,6 @@
 // backend/src/controllers/transportadora.controller.ts
 import { Request, Response } from 'express';
-import { TransportadoraService } from '../services/transportadora.service';
+import { TransportadoraService } from '../services/transportadora.service.js';
 
 export class TransportadoraController {
   private transportadoraService: TransportadoraService;

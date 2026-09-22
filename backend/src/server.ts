@@ -5,22 +5,23 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
-import authRoutes from './routes/auth.routes';
-import nfseRoutes from './routes/nfse.routes';
-import nfeRoutes from './routes/nfe.routes';
-import financeiroRoutes from './routes/financeiro.routes';
-import cnpjRoutes from './routes/cnpj.routes';
-import produtoRoutes from './routes/produto.routes';
-import clienteRoutes from './routes/cliente.routes';
-import servicoRoutes from './routes/servico.routes';
-import nfceRoutes from './routes/nfce.routes';
-import cteRoutes from './routes/cte.routes';
-import nfaeRoutes from './routes/nfae.routes';
-import mdfeRoutes from './routes/mdfe.routes';
+import authRoutes from './routes/auth.routes.js';
+import nfseRoutes from './routes/nfse.routes.js';
+import nfeRoutes from './routes/nfe.routes.js';
+import financeiroRoutes from './routes/financeiro.routes.js';
+import cnpjRoutes from './routes/cnpj.routes.js';
+import produtoRoutes from './routes/produto.routes.js';
+import clienteRoutes from './routes/cliente.routes.js';
+import servicoRoutes from './routes/servico.routes.js';
+import nfceRoutes from './routes/nfce.routes.js';
+import cteRoutes from './routes/cte.routes.js';
+import nfaeRoutes from './routes/nfae.routes.js';
+import mdfeRoutes from './routes/mdfe.routes.js';
 
-import dashboardRoutes from './routes/dashboard.routes'; 
-import { errorMiddleware } from './middlewares/error.middleware';
-import transportadoraRoutes from './routes/transportadora.routes';
+import dashboardRoutes from './routes/dashboard.routes.js';
+import { errorMiddleware } from './middlewares/error.middleware.js';
+import transportadoraRoutes from './routes/transportadora.routes.js';
+import certificadoRoutes from './routes/certificado.routes.js';
 
 dotenv.config();
 
@@ -103,6 +104,7 @@ app.use('/api/nfse', nfseRoutes);
 app.use('/api/nfe', nfeRoutes);
 app.use('/api/financeiro', financeiroRoutes);
 app.use('/api/cnpj', cnpjRoutes);
+app.use('/api/certificado', certificadoRoutes);
 
 app.use('/api/produtos', dataLimiter, produtoRoutes);
 app.use('/api/clientes', dataLimiter, clienteRoutes);
@@ -153,6 +155,10 @@ app.get('/health', (req, res) => {
 app.use(errorMiddleware);
 
 // Start server
+const server = app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
+
 process.on("SIGTERM", () => {
   console.log("SIGTERM recebido, encerrando graciosamente...");
   server.close(() => {

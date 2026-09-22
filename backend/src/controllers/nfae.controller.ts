@@ -1,6 +1,6 @@
 // backend/src/controllers/nfae.controller.ts
 import { Request, Response } from 'express';
-import { NFAeService } from '../services/nfae.service';
+import { NFAeService } from '../services/nfae.service.js';
 
 interface RequestComUsuario extends Request {
   user?: {

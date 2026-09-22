@@ -2,7 +2,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PerfilUsuario } from '@prisma/client';
-import { UsuarioRepository } from '../repositories/usuario.repository';
+import { UsuarioRepository } from '../repositories/usuario.repository.js';
 
 // Segurança (P1): fail-fast — a API nunca deve subir com segredo conhecido/padrão.
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {

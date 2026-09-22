@@ -1,6 +1,6 @@
 // backend/src/controllers/cliente.controller.ts
 import { Request, Response } from 'express';
-import { ClienteService } from '../services/cliente.service';
+import { ClienteService } from '../services/cliente.service.js';
 
 export class ClienteController {
   private clienteService: ClienteService;

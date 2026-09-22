@@ -1,6 +1,6 @@
 // backend/src/controllers/mdfe.controller.ts
 import { Request, Response } from 'express';
-import { MdfeService } from '../services/mdfe.service';
+import { MdfeService } from '../services/mdfe.service.js';
 import { StatusMDFe } from '@prisma/client';
 
 interface RequestComUsuario extends Request {
@@ -13,7 +13,7 @@ interface RequestComUsuario extends Request {
 }
 
 interface FiltrosListarMdfe {
-  status?: string | string[];
+  status?: StatusMDFe | StatusMDFe[];
   dataInicio?: Date;
   dataFim?: Date;
   modal?: string;
@@ -44,7 +44,7 @@ export class MdfeController {
 
       const filtros: FiltrosListarMdfe = {};
       if (req.query.status) {
-        const statusList = (req.query.status as string).split(',');
+        const statusList = (req.query.status as string).split(',') as StatusMDFe[];
         filtros.status = statusList.length === 1 ? statusList[0] : statusList;
       }
       if (req.query.dataInicio) filtros.dataInicio = new Date(req.query.dataInicio as string);

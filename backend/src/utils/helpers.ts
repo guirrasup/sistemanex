@@ -80,7 +80,7 @@ export function truncate(texto: string, maxLength: number = 100, suffix: string 
 }
 
 export function isNumero(valor: unknown): boolean {
-  return !isNaN(parseFloat(valor)) && isFinite(valor);
+  return !isNaN(parseFloat(valor as string)) && isFinite(valor as number);
 }
 
 export function paraNumero(valor: any, fallback: number = 0): number {

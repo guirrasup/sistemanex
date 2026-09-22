@@ -1,6 +1,6 @@
 // backend/src/repositories/cliente.repository.ts
 import { Prisma, TipoCliente } from '@prisma/client'
-import { BaseRepository } from './base.repository'
+import { BaseRepository } from './base.repository.js'
 
 export class ClienteRepository extends BaseRepository {
   async findById(id: string, empresaId?: string) {

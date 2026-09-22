@@ -42,7 +42,10 @@ async function main() {
         razaoSocial: 'SUP TECNOLOGIA EM SISTEMAS LTDA - DEV',
         nomeFantasia: 'SUP TECNOLOGIA DEV',
         cnpj: CNPJ_EMPRESA,
+        uf: 'SP',
         codigoUF: '35',
+        codigoMunicipio: '3550308',
+        nomeMunicipio: 'Sao Paulo',
         inscricaoEstadual: '114882901110',
         inscricaoMunicipal: '48829012',
         cnae: '6201501',
@@ -125,7 +128,7 @@ async function main() {
       nomeFantasia: 'ALFA DEV',
       inscricaoEstadual: '80002321',
       inscricaoMunicipal: '012994001',
-      indicadorIE: 'CONTRIBUINTE',
+      indIEDest: '1',
       email: 'faturamento@alfa-dev.local',
       telefone: '2132244477',
       endereco: {
@@ -145,7 +148,7 @@ async function main() {
       documento: '22333444000162',
       razaoSocial: 'CLIENTE EXEMPLO BETA S/A - DEV',
       nomeFantasia: 'BETA DEV',
-      indicadorIE: 'NAO_CONTRIBUINTE',
+      indIEDest: '9',
       email: 'suprimentos@beta-dev.local',
       telefone: '6132069900',
       endereco: {
@@ -166,7 +169,7 @@ async function main() {
       razaoSocial: 'CLIENTE EXEMPLO GAMA LTDA - DEV',
       nomeFantasia: 'GAMA DEV',
       inscricaoEstadual: '110042490110',
-      indicadorIE: 'CONTRIBUINTE',
+      indIEDest: '1',
       email: 'faturamento@gama-dev.local',
       telefone: '1140044004',
       endereco: {
@@ -188,7 +191,7 @@ async function main() {
       nomeFantasia: 'DELTA DEV',
       inscricaoEstadual: '110123456110',
       inscricaoMunicipal: '21234560',
-      indicadorIE: 'CONTRIBUINTE',
+      indIEDest: '1',
       email: 'faturamento@delta-dev.local',
       telefone: '1121221234',
       endereco: {
@@ -209,7 +212,7 @@ async function main() {
       razaoSocial: 'CLIENTE EXEMPLO EPSILON LTDA - DEV',
       nomeFantasia: 'EPSILON DEV',
       inscricaoEstadual: '110789456110',
-      indicadorIE: 'CONTRIBUINTE',
+      indIEDest: '1',
       email: 'faturamento@epsilon-dev.local',
       telefone: '1130492000',
       endereco: {
@@ -248,7 +251,7 @@ async function main() {
             nomeFantasia: data.nomeFantasia,
             inscricaoEstadual: data.inscricaoEstadual,
             inscricaoMunicipal: data.inscricaoMunicipal,
-            indicadorIE: data.indicadorIE,
+            indIEDest: data.indIEDest,
             email: data.email,
             telefone: data.telefone,
             empresa: { connect: { id: empresa.id } },
@@ -271,7 +274,7 @@ async function main() {
       razaoSocial: 'FORNECEDOR EXEMPLO ZETA LTDA - DEV',
       nomeFantasia: 'ZETA DEV',
       inscricaoEstadual: '110345678110',
-      indicadorIE: 'CONTRIBUINTE',
+      indIEDest: '1',
       email: 'fornecedor@zeta-dev.local',
       telefone: '1147027000',
       endereco: {
@@ -292,7 +295,7 @@ async function main() {
       razaoSocial: 'FORNECEDOR EXEMPLO ETA LTDA - DEV',
       nomeFantasia: 'ETA DEV',
       inscricaoEstadual: '114882901110',
-      indicadorIE: 'CONTRIBUINTE',
+      indIEDest: '1',
       email: 'fornecedor@eta-dev.local',
       telefone: '1139983200',
       endereco: {
@@ -313,7 +316,7 @@ async function main() {
       razaoSocial: 'FORNECEDOR EXEMPLO THETA LTDA - DEV',
       nomeFantasia: 'THETA DEV',
       inscricaoEstadual: '110456789110',
-      indicadorIE: 'CONTRIBUINTE',
+      indIEDest: '1',
       email: 'fornecedor@theta-dev.local',
       telefone: '1140044004',
       endereco: {
@@ -334,7 +337,7 @@ async function main() {
       razaoSocial: 'FORNECEDOR EXEMPLO IOTA LTDA - DEV',
       nomeFantasia: 'IOTA DEV',
       inscricaoEstadual: '110567890110',
-      indicadorIE: 'CONTRIBUINTE',
+      indIEDest: '1',
       email: 'fornecedor@iota-dev.local',
       telefone: '1135097000',
       endereco: {
@@ -355,7 +358,7 @@ async function main() {
       razaoSocial: 'FORNECEDOR EXEMPLO KAPPA LTDA - DEV',
       nomeFantasia: 'KAPPA DEV',
       inscricaoEstadual: '110678901110',
-      indicadorIE: 'CONTRIBUINTE',
+      indIEDest: '1',
       email: 'fornecedor@kappa-dev.local',
       telefone: '1121321000',
       endereco: {
@@ -392,7 +395,7 @@ async function main() {
             razaoSocial: data.razaoSocial,
             nomeFantasia: data.nomeFantasia,
             inscricaoEstadual: data.inscricaoEstadual,
-            indicadorIE: data.indicadorIE,
+            indIEDest: data.indIEDest,
             email: data.email,
             telefone: data.telefone,
             empresa: { connect: { id: empresa.id } },

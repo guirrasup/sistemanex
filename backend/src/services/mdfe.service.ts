@@ -1,11 +1,14 @@
 // backend/src/services/mdfe.service.ts
 import { Prisma, StatusMDFe, ModalMDFe, TipoEmitenteMDFe, TipoTransportadorMDFe, TipoCargaMDFe } from '@prisma/client';
-import { MdfeRepository } from '../repositories/mdfe.repository';
-import { MdfeComponentRepository } from '../repositories/mdfe.component.repository';
-import { ClienteRepository } from '../repositories/cliente.repository';
-import { EmpresaRepository } from '../repositories/empresa.repository';
-import { gerarChaveAcessoMDFe } from '../utils/chaveAcessoMDFe';
-import { gerarXmlMDFe } from '../utils/xmlMdfeGenerator';
+import { MdfeRepository } from '../repositories/mdfe.repository.js';
+import { MdfeComponentRepository } from '../repositories/mdfe.component.repository.js';
+import { ClienteRepository } from '../repositories/cliente.repository.js';
+import { EmpresaRepository } from '../repositories/empresa.repository.js';
+import { gerarChaveAcessoMDFe } from '../utils/chaveAcessoMDFe.js';
+import { gerarXmlMDFe } from '../utils/xmlMdfeGenerator.js';
+import { CertificadoService } from './certificado.service.js';
+import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
+import { autorizarMdfe } from './mdfeSefazClient.js';
 
 interface PerigosoInput {
   numeroONU?: string;
@@ -119,17 +122,26 @@ interface EmitirMdfeInput {
 
 const MAX_DOCUMENTOS_POR_MDFE = 20000;
 
+function obrigatorio<T>(valor: T | undefined | null, campo: string): T {
+  if (valor === undefined || valor === null || valor === '') {
+    throw new Error(`Campo obrigatório ausente: ${campo}`);
+  }
+  return valor;
+}
+
 export class MdfeService {
   private mdfeRepo: MdfeRepository;
   private componentRepo: MdfeComponentRepository;
   private clienteRepo: ClienteRepository;
   private empresaRepo: EmpresaRepository;
+  private certificadoService: CertificadoService;
 
   constructor() {
     this.mdfeRepo = new MdfeRepository();
     this.componentRepo = new MdfeComponentRepository();
     this.clienteRepo = new ClienteRepository();
     this.empresaRepo = new EmpresaRepository();
+    this.certificadoService = new CertificadoService();
   }
 
   async listarMdfes(
@@ -238,14 +250,14 @@ export class MdfeService {
     });
 
     // Prepara dados do MDF-e
-    const mdfeData: Prisma.MDFeCreateInput = {
+    const mdfeData: Prisma.MDFeUncheckedCreateInput = {
       chaveAcesso: chaveCompleta,
       modelo: '58',
       serie,
       numero,
-      cUF: empresa.endereco?.codigoMunicipio?.slice(0, 2) || '35',
+      cUF: empresa.codigoUF,
       cMDF,
-      cDV,
+      cDV: cDV.toString(),
       modal: data.modal,
       tpAmb: empresa.ambienteEmissao === 'PRODUCAO' ? '1' : '2',
       tpEmit: data.tpEmit,
@@ -281,8 +293,11 @@ export class MdfeService {
       infCpl: data.infCpl,
 
       // Relacionamentos
-      empresa: { connect: { id: data.empresaId } },
-      emitente: { connect: { id: data.emitenteId } },
+      empresaId: data.empresaId,
+      emitenteId: data.emitenteId,
+
+      // Preenchido após a geração do XML, logo abaixo
+      xmlAssinado: '',
     };
 
     // Cria MDF-e
@@ -297,7 +312,7 @@ export class MdfeService {
     });
 
     // Gera XML
-    const xml = gerarXmlMDFe({
+    const xmlSemAssinatura = gerarXmlMDFe({
       mdfe,
       emitente,
       municipiosCarrega: data.municipiosCarrega,
@@ -322,18 +337,55 @@ export class MdfeService {
       }
     });
 
-    // Atualiza com XML
-    const mdfeAtualizado = await this.mdfeRepo.updateStatus(mdfe.id, 'ASSINADA');
-    await this.mdfeRepo.update(id, { xmlAssinado: xml });
+    const certificado = await this.certificadoService.obterCertificadoDecriptado(data.empresaId);
+    if (!certificado) {
+      throw new Error('Certificado digital não configurado para esta empresa');
+    }
+    const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+    const xml = assinarXmlEnvelopado(xmlSemAssinatura, 'infMDFe', chaveECertPem);
+
+    // Transmissão real à SEFAZ (autorizador único nacional: SVRS/RS), controlada
+    // por SEFAZ_TRANSMISSAO_REAL (ver nfe.service.ts). Sem ela, o MDF-e fica
+    // assinado mas não autorizado — mesmo comportamento de antes desta mudança.
+    const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
+    let statusFinal: 'ASSINADA' | 'AUTORIZADA' | 'REJEITADA' = 'ASSINADA';
+    let protocoloFinal: string | undefined;
+    let motivoRejeicaoFinal: string | undefined;
+
+    if (transmissaoReal) {
+      const resultado = await autorizarMdfe({
+        uf: empresa.uf,
+        ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 'producao' : 'homologacao',
+        xmlAssinado: xml,
+        mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
+      });
+
+      if (resultado.autorizado && resultado.nProt) {
+        statusFinal = 'AUTORIZADA';
+        protocoloFinal = resultado.nProt;
+      } else {
+        statusFinal = 'REJEITADA';
+        motivoRejeicaoFinal = resultado.xMotivo || 'Rejeitado pela SEFAZ sem motivo informado';
+      }
+    } else {
+      console.warn('[MDFe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (assinado, mas não transmitido).');
+    }
+
+    // Atualiza com XML e o resultado real (ou mock) da transmissão
+    const mdfeAtualizado = await this.mdfeRepo.updateStatus(mdfe.id, statusFinal, protocoloFinal, xml, motivoRejeicaoFinal);
 
     // Registra histórico
     await this.componentRepo.createHistoricoStatus({
       mdfeId: mdfe.id,
       statusAnterior: 'RASCUNHO',
-      statusNovo: 'ASSINADA',
+      statusNovo: statusFinal,
       usuario: data.usuario || 'SISTEMA',
-      motivo: 'Emissão realizada'
+      motivo: statusFinal === 'REJEITADA' ? motivoRejeicaoFinal || 'Rejeitado pela SEFAZ' : 'Emissão realizada'
     });
+
+    if (statusFinal === 'REJEITADA') {
+      throw new Error(`SEFAZ rejeitou o MDF-e: ${motivoRejeicaoFinal}`);
+    }
 
     return { ...mdfeAtualizado, xml };
   }
@@ -344,8 +396,8 @@ export class MdfeService {
       await this.componentRepo.createManyMunCarrega(
         data.municipiosCarrega.map((m) => ({
           mdfeId,
-          cMunCarrega: m.codigo,
-          xMunCarrega: m.nome
+          cMunCarrega: obrigatorio(m.codigo, 'código do município de carregamento'),
+          xMunCarrega: obrigatorio(m.nome, 'nome do município de carregamento')
         }))
       );
     }
@@ -355,7 +407,7 @@ export class MdfeService {
       await this.componentRepo.createManyPercurso(
         data.percursos.map((p, index: number) => ({
           mdfeId,
-          UFPer: p.uf,
+          UFPer: obrigatorio(p.uf, 'UF do percurso'),
           ordem: index + 1
         }))
       );
@@ -365,8 +417,8 @@ export class MdfeService {
     for (const munDescarga of data.municipiosDescarga) {
       const munDescargaCriado = await this.componentRepo.createMunDescarga({
         mdfeId,
-        cMunDescarga: munDescarga.codigo,
-        xMunDescarga: munDescarga.nome
+        cMunDescarga: obrigatorio(munDescarga.codigo, 'código do município de descarga'),
+        xMunDescarga: obrigatorio(munDescarga.nome, 'nome do município de descarga')
       });
 
       // 3.1 CT-e
@@ -374,7 +426,7 @@ export class MdfeService {
         for (const cte of munDescarga.ctes) {
           const cteCriado = await this.componentRepo.createCTe({
             munDescargaId: munDescargaCriado.id,
-            chCTe: cte.chave,
+            chCTe: obrigatorio(cte.chave, 'chave do CT-e'),
             SegCodBarra: cte.segundoCodigoBarras,
             indReentrega: cte.indReentrega || false,
             qtdTotal: cte.entregaParcial?.quantidadeTotal,
@@ -392,12 +444,12 @@ export class MdfeService {
             await this.componentRepo.createManyPerigoso(
               cte.perigosos.map((p) => ({
                 cteId: cteCriado.id,
-                nONU: p.numeroONU,
+                nONU: obrigatorio(p.numeroONU, 'número ONU do produto perigoso'),
                 xNomeAE: p.nomeApropriado,
                 xClaRisco: p.classeRisco,
                 grEmb: p.grupoEmbalagem,
-                qTotProd: p.quantidadeTotal,
-                qVolTipo: p.quantidadeVolumes
+                qTotProd: obrigatorio(p.quantidadeTotal, 'quantidade total do produto perigoso').toString(),
+                qVolTipo: p.quantidadeVolumes?.toString()
               }))
             );
           }
@@ -419,7 +471,7 @@ export class MdfeService {
         for (const nfe of munDescarga.nfes) {
           const nfeCriado = await this.componentRepo.createNFe({
             munDescargaId: munDescargaCriado.id,
-            chNFe: nfe.chave,
+            chNFe: obrigatorio(nfe.chave, 'chave da NF-e'),
             SegCodBarra: nfe.segundoCodigoBarras,
             indReentrega: nfe.indReentrega || false
           });
@@ -434,12 +486,12 @@ export class MdfeService {
             await this.componentRepo.createManyPerigoso(
               nfe.perigosos.map((p) => ({
                 nfeId: nfeCriado.id,
-                nONU: p.numeroONU,
+                nONU: obrigatorio(p.numeroONU, 'número ONU do produto perigoso'),
                 xNomeAE: p.nomeApropriado,
                 xClaRisco: p.classeRisco,
                 grEmb: p.grupoEmbalagem,
-                qTotProd: p.quantidadeTotal,
-                qVolTipo: p.quantidadeVolumes
+                qTotProd: obrigatorio(p.quantidadeTotal, 'quantidade total do produto perigoso').toString(),
+                qVolTipo: p.quantidadeVolumes?.toString()
               }))
             );
           }
@@ -451,7 +503,7 @@ export class MdfeService {
         for (const mdfeTransp of munDescarga.mdfesTransp) {
           const mdfeTranspCriado = await this.componentRepo.createMDFeTransp({
             munDescargaId: munDescargaCriado.id,
-            chMDFe: mdfeTransp.chave,
+            chMDFe: obrigatorio(mdfeTransp.chave, 'chave do MDF-e transportado'),
             indReentrega: mdfeTransp.indReentrega || false
           });
 
@@ -465,12 +517,12 @@ export class MdfeService {
             await this.componentRepo.createManyPerigoso(
               mdfeTransp.perigosos.map((p) => ({
                 mdfeTranspId: mdfeTranspCriado.id,
-                nONU: p.numeroONU,
+                nONU: obrigatorio(p.numeroONU, 'número ONU do produto perigoso'),
                 xNomeAE: p.nomeApropriado,
                 xClaRisco: p.classeRisco,
                 grEmb: p.grupoEmbalagem,
-                qTotProd: p.quantidadeTotal,
-                qVolTipo: p.quantidadeVolumes
+                qTotProd: obrigatorio(p.quantidadeTotal, 'quantidade total do produto perigoso').toString(),
+                qVolTipo: p.quantidadeVolumes?.toString()
               }))
             );
           }
@@ -483,13 +535,15 @@ export class MdfeService {
       await this.componentRepo.createManySeguro(
         data.seguros.map((s) => ({
           mdfeId,
-          respSeg: s.responsavel,
+          respSeg: obrigatorio(s.responsavel, 'responsável pelo seguro (respSeg)'),
           respCNPJ: s.responsavelCNPJ,
           respCPF: s.responsavelCPF,
           xSeg: s.seguradoraNome,
           CNPJSeg: s.seguradoraCNPJ,
           nApol: s.apolice,
-          nAver: s.averbacoes ? JSON.stringify(s.averbacoes) : null
+          nAver: Array.isArray(s.averbacoes)
+            ? s.averbacoes.map(String)
+            : (s.averbacoes !== undefined ? [String(s.averbacoes)] : [])
         }))
       );
     }
@@ -522,10 +576,15 @@ export class MdfeService {
     parentType: 'cte' | 'nfe' | 'mdfeTransp'
   ) {
     for (const unidade of unidades) {
+      const vinculo =
+        parentType === 'cte' ? { cteId: parentId } :
+        parentType === 'nfe' ? { nfeId: parentId } :
+        { mdfeTranspId: parentId };
+
       const unidadeCriada = await this.componentRepo.createUnidadeTransp({
-        tpUnidTransp: unidade.tipo,
-        idUnidTransp: unidade.identificacao,
-        [`${parentType}Id`]: parentId,
+        tpUnidTransp: obrigatorio(unidade.tipo, 'tipo da unidade de transporte'),
+        idUnidTransp: obrigatorio(unidade.identificacao, 'identificação da unidade de transporte'),
+        ...vinculo,
         qtdRat: unidade.quantidadeRateada
       });
 
@@ -544,8 +603,8 @@ export class MdfeService {
         for (const uc of unidade.unidadesCarga) {
           const ucCriada = await this.componentRepo.createUnidadeCarga({
             unidadeTranspId: unidadeCriada.id,
-            tpUnidCarga: uc.tipo,
-            idUnidCarga: uc.identificacao,
+            tpUnidCarga: obrigatorio(uc.tipo, 'tipo da unidade de carga'),
+            idUnidCarga: obrigatorio(uc.identificacao, 'identificação da unidade de carga'),
             qtdRat: uc.quantidadeRateada
           });
 

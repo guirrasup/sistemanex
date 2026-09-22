@@ -1,14 +1,18 @@
 // backend/src/services/nfce.service.ts
 import { Prisma, StatusDocumento } from '@prisma/client';
-import { NfceRepository } from '../repositories/nfce.repository';
-import { ClienteRepository } from '../repositories/cliente.repository';
-import { EmpresaRepository } from '../repositories/empresa.repository';
-import { ProdutoRepository } from '../repositories/produto.repository';
-import { FinanceiroRepository } from '../repositories/financeiro.repository';
-import { gerarChaveAcessoNFe } from '../utils/chaveAcesso';
-import { calcularTotaisNfe } from '../utils/tributosEngine';
-import { gerarXmlNfe400 } from '../utils/xmlNfeGenerator';
-import type { ItemNfe, NFeDocumento } from '../types/fiscal.js';
+import { NfceRepository } from '../repositories/nfce.repository.js';
+import { ClienteRepository } from '../repositories/cliente.repository.js';
+import { EmpresaRepository } from '../repositories/empresa.repository.js';
+import { ProdutoRepository } from '../repositories/produto.repository.js';
+import { FinanceiroRepository } from '../repositories/financeiro.repository.js';
+import { gerarChaveAcessoNFe } from '../utils/chaveAcesso.js';
+import { calcularTotaisNfe } from '../utils/tributosEngine.js';
+import { gerarXmlNfce400 } from '../utils/xmlNfeGenerator.js';
+import type { ItemNfe, NFCeDocumento } from '../types/fiscal.js';
+import { mapEmpresaParaEmitente } from '../utils/fiscalMappers.js';
+import { CertificadoService } from './certificado.service.js';
+import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
+import { autorizarNfe } from './nfeSefazClient.js';
 
 interface ItemNfceInput {
   produtoId?: string;
@@ -99,6 +103,7 @@ export class NfceService {
   private produtoRepo: ProdutoRepository;
   private empresaRepo: EmpresaRepository;
   private financeiroRepo: FinanceiroRepository;
+  private certificadoService: CertificadoService;
 
   constructor() {
     this.nfceRepo = new NfceRepository();
@@ -106,6 +111,7 @@ export class NfceService {
     this.produtoRepo = new ProdutoRepository();
     this.empresaRepo = new EmpresaRepository();
     this.financeiroRepo = new FinanceiroRepository();
+    this.certificadoService = new CertificadoService();
   }
 
   async listarNfces(
@@ -185,13 +191,13 @@ export class NfceService {
       (new Date().getMonth() + 1).toString().padStart(2, '0');
 
     const { chaveCompleta } = gerarChaveAcessoNFe({
-      cUF: empresa.endereco?.codigoMunicipio?.slice(0, 2) || '35',
-      aamm,
-      cnpj: empresa.cnpj,
+      codigoUf: empresa.codigoUF,
+      anoMes: aamm,
+      cnpjEmitente: empresa.cnpj,
       modelo: '65',
       serie,
       numero,
-      tpEmis: 1
+      tipoEmissao: 1
     });
 
     // Calcula totais com desconto e acréscimo
@@ -206,18 +212,18 @@ export class NfceService {
     const valorTotalFinal = totais.valorTotalNota + (data.valorAcrescimo || 0);
 
     // Prepara dados da NFC-e
-    const nfceData: Prisma.NFCeCreateInput = {
+    const nfceData: Prisma.NFCeUncheckedCreateInput = {
       modelo: '65',
       serie,
       numero,
       chaveAcesso: chaveCompleta,
       dataHoraEmissao: new Date(),
       naturezaOperacao: data.naturezaOperacao || 'Venda a Consumidor Final',
-      ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2,
+      ambiente: empresa.ambienteEmissao,
       tipoEmissao: String(data.tpEmis || 1),
       status: 'PROCESSANDO',
       consumidorIdentificado: data.consumidorIdentificado || false,
-      
+
       // Campos do leiaute 4.00
       tpNF: data.tpNF || 1,
       idDest: data.idDest || 1,
@@ -226,20 +232,19 @@ export class NfceService {
       indPres: data.indPres || 2,
       procEmi: data.procEmi || '0',
       verProc: data.verProc || 'SUP-TECNOLOGIA-4.00',
-      tpEmis: data.tpEmis || 1,
 
       // Valores
       valorTotalProdutos: totais.valorTotalProdutos,
       valorTotalDesconto: data.valorDesconto || 0,
       valorTotalAcrescimo: data.valorAcrescimo || 0,
-      valorTotalTributosAproximados: totais.valorTotalTributosAproximados,
+      valorTotalTributosAprox: totais.valorTotalTributosAproximados,
       valorTotalNota: valorTotalFinal,
-      
+
       // Pagamento
       formaPagamento: data.formaPagamento || '17',
       valorPago: data.valorPago || valorTotalFinal,
       valorTroco: data.formaPagamento === '01' ? Math.max(0, (data.valorRecebido || 0) - valorTotalFinal) : 0,
-      
+
       // QR Code
       urlQrCode: `https://www.nfce.fazenda.gov.br/portal/qrCode/${chaveCompleta}`,
       tokenCscId: data.tokenCscId || '000001',
@@ -249,28 +254,32 @@ export class NfceService {
       infCpl: data.infCpl,
 
       // Relacionamentos
-      empresa: { connect: { id: data.empresaId } },
-      consumidor: consumidorId ? { connect: { id: consumidorId } } : undefined,
+      empresaId: data.empresaId,
+      consumidorId: consumidorId || undefined,
+
+      // Preenchido após a geração do XML, logo abaixo
+      xmlAssinado: '',
     };
 
     // Cria NFC-e
     const nfce = await this.nfceRepo.create(nfceData);
 
     // Cria itens
+    const itensCriados = [];
     if (data.itens?.length > 0) {
       for (const item of data.itens) {
-        await this.createItem(nfce.id, item);
+        itensCriados.push(await this.criarItem(nfce.id, item));
       }
     }
 
     // Cria pagamentos
     if (data.pagamentos && data.pagamentos.length > 0) {
       for (const pag of data.pagamentos) {
-        await this.createPagamento(nfce.id, pag);
+        await this.criarPagamento(nfce.id, pag);
       }
     } else {
       // Pagamento padrão
-      await this.createPagamento(nfce.id, {
+      await this.criarPagamento(nfce.id, {
         tPag: data.formaPagamento || '17',
         xPag: data.xPag || this.getDescricaoPagamento(data.formaPagamento || '17'),
         vPag: data.valorPago || valorTotalFinal,
@@ -289,25 +298,127 @@ export class NfceService {
       proximoNumeroNfce: numero + 1
     });
 
-    // Gera XML e autoriza
-    const nfceCompleto = await this.nfceRepo.findById(nfce.id);
-    const xml = gerarXmlNfe400(nfceCompleto as unknown as NFeDocumento);
-    const protocolo = `1352600${Math.floor(PROTOCOLO_MOCK_SUFIXO_BASE + Math.random() * PROTOCOLO_MOCK_SUFIXO_RANGE)}`;
-    
-    await this.nfceRepo.updateStatus(nfce.id, 'AUTORIZADA', protocolo);
+    // Monta o DTO fiscal e gera o XML (ainda não transmitido à SEFAZ)
+    const itensParaXml: ItemNfe[] = itensCriados.map((item) => ({
+      id: item.id,
+      codigoProduto: item.codigoProduto,
+      descricao: item.descricao,
+      ncm: item.ncm,
+      cest: item.cest || undefined,
+      cfop: item.cfop,
+      unidadeMedida: item.unidadeMedida,
+      quantidade: Number(item.quantidade),
+      valorUnitario: Number(item.valorUnitario),
+      valorTotalBruto: Number(item.valorTotalBruto),
+      origemMercadoria: 0,
+      cstICMS: item.cstICMS,
+      aliquotaICMS: Number(item.aliquotaICMS),
+      baseCalculoICMS: Number(item.baseCalculoICMS),
+      valorICMS: Number(item.valorICMS),
+      cstPIS: item.cstPIS,
+      aliquotaPIS: Number(item.aliquotaPIS ?? 0),
+      valorPIS: Number(item.valorPIS ?? 0),
+      cstCOFINS: item.cstCOFINS,
+      aliquotaCOFINS: Number(item.aliquotaCOFINS ?? 0),
+      valorCOFINS: Number(item.valorCOFINS ?? 0),
+      valorTributosAproximados: Number(item.valorTributosAprox ?? 0),
+    }));
+
+    const nfceDocumento: NFCeDocumento = {
+      id: nfce.id,
+      modelo: '65',
+      serie,
+      numero,
+      chaveAcesso: chaveCompleta,
+      dataHoraEmissao: nfce.dataHoraEmissao.toISOString(),
+      naturezaOperacao: data.naturezaOperacao || 'Venda a Consumidor Final',
+      ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2,
+      tipoEmissao: 1,
+      status: 'AUTORIZADA',
+      emitente: mapEmpresaParaEmitente(empresa),
+      consumidorIdentificado: data.consumidorIdentificado || false,
+      consumidorCpf: data.consumidorDoc,
+      consumidorNome: data.consumidorNome,
+      itens: itensParaXml,
+      valorTotalProdutos: totais.valorTotalProdutos,
+      valorTotalDesconto: data.valorDesconto || 0,
+      valorTotalAcrescimo: data.valorAcrescimo || 0,
+      valorTotalTributosAproximados: totais.valorTotalTributosAproximados,
+      valorTotalNota: valorTotalFinal,
+      formaPagamento: (nfceData.formaPagamento as NFCeDocumento['formaPagamento']) || '17',
+      valorPago: Number(nfceData.valorPago),
+      valorTroco: Number(nfceData.valorTroco),
+      urlQrCode: nfceData.urlQrCode as string,
+      tokenCscId: nfceData.tokenCscId as string,
+      tpNF: data.tpNF as 0 | 1 | undefined,
+      idDest: data.idDest as 1 | 2 | 3 | undefined,
+      finNFe: data.finNFe as 1 | 2 | 3 | 4 | undefined,
+      indFinal: data.indFinal as 0 | 1 | undefined,
+      indPres: data.indPres as 0 | 1 | 2 | 3 | 4 | 5 | 9 | undefined,
+      procEmi: nfceData.procEmi as string,
+      verProc: nfceData.verProc as string,
+      tpEmis: 1,
+      infAdFisco: data.infAdFisco,
+      infCpl: data.infCpl,
+      protocoloAutorizacao: '',
+      dataHoraAutorizacao: new Date().toISOString(),
+      xmlAssinado: '',
+    };
+
+    const xmlSemAssinatura = gerarXmlNfce400(nfceDocumento);
+
+    const certificado = await this.certificadoService.obterCertificadoDecriptado(data.empresaId);
+    if (!certificado) {
+      throw new Error('Certificado digital não configurado para esta empresa');
+    }
+    const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+    const xml = assinarXmlEnvelopado(xmlSemAssinatura, 'infNFe', chaveECertPem);
+
+    // Transmissão real à SEFAZ (mesmo webservice da NFe — NFC-e é o modelo 65 da
+    // mesma família), controlada por SEFAZ_TRANSMISSAO_REAL (ver nfe.service.ts).
+    const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
+    let statusFinal: 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO' = 'AUTORIZADA';
+    let protocolo = `1352600${Math.floor(PROTOCOLO_MOCK_SUFIXO_BASE + Math.random() * PROTOCOLO_MOCK_SUFIXO_RANGE)}`;
+
+    if (transmissaoReal) {
+      const resultado = await autorizarNfe({
+        uf: empresa.uf,
+        ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 'producao' : 'homologacao',
+        cUF: empresa.codigoUF,
+        xmlAssinado: xml,
+        mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
+        modelo: '65',
+      });
+
+      if (resultado.autorizado && resultado.nProt) {
+        statusFinal = 'AUTORIZADA';
+        protocolo = resultado.nProt;
+      } else if (resultado.nRec) {
+        statusFinal = 'PROCESSANDO';
+      } else {
+        statusFinal = 'REJEITADA';
+        const motivo = resultado.xMotivo || 'motivo não informado';
+        await this.nfceRepo.updateStatus(nfce.id, 'REJEITADA', undefined, xml, motivo);
+        throw new Error(`SEFAZ rejeitou a NFC-e: ${motivo} (cStat ${resultado.cStat})`);
+      }
+    } else {
+      console.warn('[NFCe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
+    }
+
+    await this.nfceRepo.updateStatus(nfce.id, statusFinal, protocolo, xml);
 
     // Baixa estoque
     const itensValidos = data.itens.filter(
       (i): i is ItemNfceInput & { produtoId: string } => Boolean(i.produtoId)
     );
     if (itensValidos.length > 0) {
-      const produtos = await this.produtoRepo.findByIds(itensValidos.map((i) => i.produtoId)) as ProdutoEstoqueRef[];
+      const produtos = await this.produtoRepo.findByIds(itensValidos.map((i) => i.produtoId), data.empresaId) as unknown as ProdutoEstoqueRef[];
       const produtoMap = new Map(produtos.map((p) => [p.id, p]));
       for (const item of itensValidos) {
         const produto = produtoMap.get(item.produtoId);
         if (produto) {
-          await this.produtoRepo.update(item.produtoId, {
-            estoqueAtual: Math.max(0, produto.estoqueAtual - (item.quantidade || 0))
+          await this.produtoRepo.update(item.produtoId, data.empresaId, {
+            estoqueAtual: Math.max(0, Number(produto.estoqueAtual) - (item.quantidade || 0))
           });
         }
       }
@@ -343,54 +454,48 @@ export class NfceService {
     };
   }
 
-  private async createItem(nfceId: string, item: ItemNfceInput) {
+  private async criarItem(nfceId: string, item: ItemNfceInput) {
     const totalBruto = (item.quantidade || 0) * (item.valorUnitario || 0);
 
-    return this.prisma.itemNFCe.create({
-      data: {
-        codigoProduto: item.codigoProduto,
-        descricao: item.descricao,
-        ncm: item.ncm,
-        cest: item.cest,
-        cfop: item.cfop || '5102',
-        unidadeMedida: item.unidadeMedida || 'UN',
-        quantidade: item.quantidade,
-        valorUnitario: item.valorUnitario,
-        valorTotalBruto: item.valorTotalBruto || totalBruto,
-        cstICMS: item.cstICMS || '00',
-        aliquotaICMS: item.aliquotaICMS || 18,
-        baseCalculoICMS: item.baseCalculoICMS || totalBruto,
-        valorICMS: item.valorICMS || (totalBruto * (item.aliquotaICMS || 18) / 100),
-        cstPIS: item.cstPIS || '01',
-        aliquotaPIS: item.aliquotaPIS || 1.65,
-        valorPIS: item.valorPIS || (totalBruto * 1.65 / 100),
-        cstCOFINS: item.cstCOFINS || '01',
-        aliquotaCOFINS: item.aliquotaCOFINS || 7.6,
-        valorCOFINS: item.valorCOFINS || (totalBruto * 7.6 / 100),
-        valorTributosAproximados: item.valorTributosAproximados || (totalBruto * 0.314),
-        nfce: { connect: { id: nfceId } }
-      }
+    return this.nfceRepo.createItem(nfceId, {
+      codigoProduto: item.codigoProduto || '',
+      descricao: item.descricao || '',
+      ncm: item.ncm || '',
+      cest: item.cest,
+      cfop: item.cfop || '5102',
+      unidadeMedida: item.unidadeMedida || 'UN',
+      quantidade: item.quantidade || 0,
+      valorUnitario: item.valorUnitario || 0,
+      valorTotalBruto: item.valorTotalBruto || totalBruto,
+      cstICMS: item.cstICMS || '00',
+      aliquotaICMS: item.aliquotaICMS || 18,
+      baseCalculoICMS: item.baseCalculoICMS || totalBruto,
+      valorICMS: item.valorICMS || (totalBruto * (item.aliquotaICMS || 18) / 100),
+      cstPIS: item.cstPIS || '01',
+      aliquotaPIS: item.aliquotaPIS || 1.65,
+      valorPIS: item.valorPIS || (totalBruto * 1.65 / 100),
+      cstCOFINS: item.cstCOFINS || '01',
+      aliquotaCOFINS: item.aliquotaCOFINS || 7.6,
+      valorCOFINS: item.valorCOFINS || (totalBruto * 7.6 / 100),
+      valorTributosAprox: item.valorTributosAproximados || (totalBruto * 0.314),
     });
   }
 
-  private async createPagamento(nfceId: string, pag: PagamentoNfceInput) {
-    return this.prisma.pagamentoNFCe.create({
-      data: {
-        indPag: pag.indPag || '0',
-        tPag: pag.tPag || '17',
-        xPag: pag.xPag || this.getDescricaoPagamento(pag.tPag || '17'),
-        vPag: pag.vPag || 0,
-        dPag: pag.dPag,
-        tpIntegra: pag.tpIntegra || '1',
-        CNPJPag: pag.CNPJPag,
-        UFPag: pag.UFPag,
-        CNPJInstPag: pag.CNPJInstPag,
-        tBand: pag.tBand,
-        cAut: pag.cAut,
-        CNPJReceb: pag.CNPJReceb,
-        idTermPag: pag.idTermPag,
-        nfce: { connect: { id: nfceId } }
-      }
+  private async criarPagamento(nfceId: string, pag: PagamentoNfceInput) {
+    return this.nfceRepo.createPagamento(nfceId, {
+      indPag: pag.indPag || '0',
+      tPag: pag.tPag || '17',
+      xPag: pag.xPag || this.getDescricaoPagamento(pag.tPag || '17'),
+      vPag: pag.vPag || 0,
+      dPag: pag.dPag,
+      tpIntegra: pag.tpIntegra || '1',
+      CNPJPag: pag.CNPJPag,
+      UFPag: pag.UFPag,
+      CNPJInstPag: pag.CNPJInstPag,
+      tBand: pag.tBand,
+      cAut: pag.cAut,
+      CNPJReceb: pag.CNPJReceb,
+      idTermPag: pag.idTermPag,
     });
   }
 
@@ -444,7 +549,7 @@ export class NfceService {
 
     // Cancela título financeiro se existir
     try {
-      const titulos = await this.financeiroRepo.findByDocumentoOrigem(nfce.chaveAcesso);
+      const titulos = await this.financeiroRepo.findManyByDocumentoOrigem(nfce.chaveAcesso);
       for (const titulo of titulos) {
         await this.financeiroRepo.cancelarTitulo(titulo.id, motivo);
       }
@@ -504,7 +609,7 @@ export class NfceService {
       numero: nfce.numero,
       serie: nfce.serie,
       valorTotal: nfce.valorTotalNota,
-      consumidor: nfce.consumidor?.nomeRazaoSocial || 'Consumidor Não Identificado',
+      consumidor: nfce.consumidor?.razaoSocial || 'Consumidor Não Identificado',
       urlQrCode: nfce.urlQrCode
     };
   }

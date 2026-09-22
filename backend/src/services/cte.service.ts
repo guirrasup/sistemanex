@@ -1,7 +1,12 @@
 // backend/src/services/cte.service.ts
-import { CteRepository, FiltroCte } from '../repositories/cte.repository';
-import { StatusDocumento } from '@prisma/client';
-import { gerarChaveAcessoNFe, calcularDVMod11NFe } from '../utils/chaveAcesso';
+import { CteRepository, FiltroCte } from '../repositories/cte.repository.js';
+import { StatusCTe } from '@prisma/client';
+import { gerarChaveAcessoNFe, calcularDVMod11NFe } from '../utils/chaveAcesso.js';
+import { gerarXmlCte400 } from '../utils/xmlCteGenerator.js';
+import { CertificadoService } from './certificado.service.js';
+import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
+import { EmpresaRepository } from '../repositories/empresa.repository.js';
+import { autorizarCte } from './cteSefazClient.js';
 
 interface EmitirCteInput {
   cUF?: string;
@@ -30,9 +35,13 @@ const PROTOCOLO_MOCK_SUFIXO_RANGE = 9000000;
 
 export class CteService {
   private cteRepo: CteRepository;
+  private empresaRepo: EmpresaRepository;
+  private certificadoService: CertificadoService;
 
   constructor() {
     this.cteRepo = new CteRepository();
+    this.empresaRepo = new EmpresaRepository();
+    this.certificadoService = new CertificadoService();
   }
 
   async listarCtes(
@@ -44,23 +53,26 @@ export class CteService {
     return this.cteRepo.findAll(empresaId, page, limit, filtros);
   }
 
-  async buscarPorId(id: string, empresaId?: string) {
-    const cte = await this.cteRepo.findById(id);
-    if (empresaId && cte && cte.empresaId !== empresaId) return null;
-    return cte;
+  async buscarPorId(id: string, empresaId: string) {
+    return this.cteRepo.findById(id, empresaId);
   }
 
-  async buscarPorChave(chave: string, empresaId?: string) {
-    const cte = await this.cteRepo.findByChave(chave);
-    if (empresaId && cte && cte.empresaId !== empresaId) return null;
-    return cte;
+  async buscarPorChave(chave: string, empresaId: string) {
+    return this.cteRepo.findByChave(chave, empresaId);
   }
 
-  async buscarPorProtocolo(protocolo: string) {
-    return this.cteRepo.findByProtocolo(protocolo);
+  async buscarPorProtocolo(protocolo: string, empresaId: string) {
+    return this.cteRepo.findByProtocolo(protocolo, empresaId);
   }
 
   async emitirCte(data: EmitirCteInput) {
+    const empresa = await this.empresaRepo.findById(data.empresaId);
+    if (!empresa) throw new Error('Empresa não encontrada');
+
+    if (!empresa.certificado || empresa.certificado.status !== 'VALIDO') {
+      throw new Error('Certificado digital inválido ou não configurado');
+    }
+
     // 1. Gerar chave de acesso
     const cUF = data.cUF || data.cMunIni?.slice(0, 2) || '35';
     const aamm = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
@@ -191,12 +203,10 @@ export class CteService {
       // CT-e GLOBALIZADO
       xObsGlobalizado: data.xObsGlobalizado,
 
-      // STATUS
-      status: 'AUTORIZADA',
+      // STATUS (preenchido de verdade após a transmissão à SEFAZ, logo abaixo)
+      status: 'PROCESSANDO',
       chaveAcesso: chaveCompleta,
-      protocoloAutorizacao: `1352600${Math.floor(PROTOCOLO_MOCK_SUFIXO_BASE + Math.random() * PROTOCOLO_MOCK_SUFIXO_RANGE)}`,
-      dataHoraAutorizacao: new Date(),
-      xmlAssinado: data.xmlAssinado || this.gerarXmlMock(chaveCompleta, numero, data),
+      xmlAssinado: '', // preenchido após a criação, quando os relacionamentos já estão disponíveis
 
       // RELACIONAMENTOS
       empresaId: data.empresaId,
@@ -219,20 +229,64 @@ export class CteService {
       globalizados: data.globalizados,
       servicosVinculados: data.servicosVinculados,
       documentos: data.documentos,
+      ordensColeta: data.ordensColeta,
+      lacresRodo: data.lacresRodo,
     });
 
-    return cte;
+    // Gera o XML a partir do registro já persistido (com emitente/remetente/destinatario/
+    // componentes/quantidades/documentos/duplicatas carregados) e assina digitalmente.
+    const xmlSemAssinatura = gerarXmlCte400(cte);
+    const certificado = await this.certificadoService.obterCertificadoDecriptado(data.empresaId);
+    if (!certificado) {
+      throw new Error('Certificado digital não configurado para esta empresa');
+    }
+    const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+    const xml = assinarXmlEnvelopado(xmlSemAssinatura, 'infCte', chaveECertPem);
+
+    const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
+    let statusFinal: 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO' = 'AUTORIZADA';
+    let protocoloFinal = `1352600${Math.floor(PROTOCOLO_MOCK_SUFIXO_BASE + Math.random() * PROTOCOLO_MOCK_SUFIXO_RANGE)}`;
+    let motivoRejeicaoFinal: string | undefined;
+
+    if (transmissaoReal) {
+      const resultado = await autorizarCte({
+        uf: empresa.uf,
+        ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 'producao' : 'homologacao',
+        xmlAssinado: xml,
+        mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
+      });
+
+      if (resultado.autorizado && resultado.nProt) {
+        statusFinal = 'AUTORIZADA';
+        protocoloFinal = resultado.nProt;
+      } else {
+        statusFinal = 'REJEITADA';
+        motivoRejeicaoFinal = resultado.xMotivo || 'Rejeitado pela SEFAZ sem motivo informado';
+      }
+    } else {
+      console.warn('[CTe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
+    }
+
+    const cteAtualizado = await this.cteRepo.update(cte.id, data.empresaId, {
+      xmlAssinado: xml,
+      status: statusFinal,
+      protocoloAutorizacao: statusFinal === 'AUTORIZADA' ? protocoloFinal : undefined,
+      dataHoraAutorizacao: statusFinal === 'AUTORIZADA' ? new Date() : undefined,
+      motivoRejeicao: motivoRejeicaoFinal,
+    });
+
+    if (statusFinal === 'REJEITADA') {
+      throw new Error(`SEFAZ rejeitou o CT-e: ${motivoRejeicaoFinal}`);
+    }
+
+    return cteAtualizado;
   }
 
   async cancelarCte(id: string, motivo: string, empresaId: string) {
-    const cte = await this.cteRepo.findById(id);
+    const cte = await this.cteRepo.findById(id, empresaId);
 
     if (!cte) {
       throw new Error('CT-e não encontrado');
-    }
-
-    if (cte.empresaId !== empresaId) {
-      throw new Error('Acesso negado');
     }
 
     if (cte.status === 'CANCELADA') {
@@ -243,25 +297,21 @@ export class CteService {
       throw new Error('Apenas CT-e autorizados podem ser cancelados');
     }
 
-    return this.cteRepo.updateStatus(id, 'CANCELADA', motivo);
+    return this.cteRepo.updateStatus(id, empresaId, 'CANCELADA', motivo);
   }
 
   async baixarXml(id: string, empresaId: string) {
-    const cte = await this.cteRepo.findById(id);
+    const cte = await this.cteRepo.findById(id, empresaId);
 
     if (!cte) {
       throw new Error('CT-e não encontrado');
-    }
-
-    if (cte.empresaId !== empresaId) {
-      throw new Error('Acesso negado');
     }
 
     return cte.xmlAssinado;
   }
 
   async gerarDacte(id: string, empresaId: string) {
-    const cte = await this.cteRepo.findById(id);
+    const cte = await this.cteRepo.findById(id, empresaId);
 
     if (!cte) {
       throw new Error('CT-e não encontrado');
@@ -352,16 +402,16 @@ export class CteService {
     return this.cteRepo.findByModal(empresaId, modal, dataInicio, dataFim);
   }
 
-  async findByStatus(empresaId: string, status: StatusDocumento, dataInicio?: Date, dataFim?: Date) {
+  async findByStatus(empresaId: string, status: StatusCTe, dataInicio?: Date, dataFim?: Date) {
     return this.cteRepo.findByStatus(empresaId, status, dataInicio, dataFim);
   }
 
-  async buscarCteSubstituido(chave: string) {
-    return this.cteRepo.buscarCteSubstituido(chave);
+  async buscarCteSubstituido(chave: string, empresaId: string) {
+    return this.cteRepo.buscarCteSubstituido(chave, empresaId);
   }
 
-  async buscarCteComplementado(chave: string) {
-    return this.cteRepo.buscarCteComplementado(chave);
+  async buscarCteComplementado(chave: string, empresaId: string) {
+    return this.cteRepo.buscarCteComplementado(chave, empresaId);
   }
 
   private calcularTotalFrete(data: EmitirCteInput): number {
@@ -378,18 +428,4 @@ export class CteService {
     return total || 0;
   }
 
-  private gerarXmlMock(chave: string, numero: number, data: EmitirCteInput): string {
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<cteProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/cte">
-  <CTe>
-    <infCte Id="CTe${chave}" versao="4.00">
-      <ide>
-        <cUF>${data.cUF || '35'}</cUF>
-        <mod>57</mod>
-        <nCT>${numero}</nCT>
-      </ide>
-    </infCte>
-  </CTe>
-</cteProc>`;
-  }
 }

@@ -1,6 +1,6 @@
 // backend/src/middlewares/auth.middleware.ts
 import { Request, Response, NextFunction } from 'express';
-import { AuthService } from '../services/auth.service';
+import { AuthService } from '../services/auth.service.js';
 
 declare global {
   namespace Express {

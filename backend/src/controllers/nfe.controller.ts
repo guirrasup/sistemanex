@@ -1,6 +1,6 @@
 // backend/src/controllers/nfe.controller.ts
 import { Request, Response } from 'express';
-import { NfeService } from '../services/nfe.service';
+import { NfeService } from '../services/nfe.service.js';
 import { StatusDocumento } from '@prisma/client';
 import { 
   TChNFe, 
@@ -10,7 +10,7 @@ import {
   TSerie, 
   TNF,
   TDateTimeUTC 
-} from '../types/fiscal';
+} from '../types/fiscal.js';
 
 // ============================================================
 // INTERFACES
@@ -260,7 +260,7 @@ export class NfeController {
         destinatarioId,
         numero,
         serie,
-        chave
+        chaveAcesso: chave
       });
 
       return res.json({
@@ -555,8 +555,8 @@ export class NfeController {
           chaveAcesso: nfe.chaveAcesso,
           numero: nfe.numero,
           serie: nfe.serie,
-          valorTotal: nfe.valorTotalNota,
-          destinatario: nfe.destinatario.nomeRazaoSocial
+          valorTotal: nfe.vNF,
+          destinatario: nfe.destinatario.razaoSocial
         }
       });
 

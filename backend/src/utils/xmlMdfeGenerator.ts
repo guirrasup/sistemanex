@@ -1,5 +1,5 @@
 // backend/src/utils/xmlMdfeGenerator.ts
-import { limparDocumento } from './cpfCnpjValidator';
+import { limparDocumento } from './cpfCnpjValidator.js';
 
 function escapeXml(str: string | undefined | null): string {
   if (!str) return '';
@@ -18,9 +18,6 @@ function formatarNumero(val: number | string | undefined | null, decimais: numbe
   return num.toFixed(decimais);
 }
 
-function base64Encode(str: string): string {
-  return Buffer.from(str).toString('base64');
-}
 
 export function gerarXmlMDFe(params: {
   mdfe: any;
@@ -306,27 +303,9 @@ export function gerarXmlMDFe(params: {
     </infAdic>` : ''}
 
   </infMDFe>
-  
-  <!-- ========================================== -->
-  <!-- ASSINATURA DIGITAL                         -->
-  <!-- ========================================== -->
-  <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
-    <SignedInfo>
-      <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
-      <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
-      <Reference URI="#MDFe${mdfe.chaveAcesso}">
-        <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
-        <DigestValue>${base64Encode(`MDFE-DIGEST-${mdfe.chaveAcesso}`).slice(0, 28)}</DigestValue>
-      </Reference>
-    </SignedInfo>
-    <SignatureValue>${base64Encode(`MDFE-SIGNATURE-${mdfe.chaveAcesso}`)}</SignatureValue>
-    <KeyInfo>
-      <X509Data>
-        <X509Certificate>${base64Encode(`MII...CERT-SEFAZ-MDFE-${cnpjEmit}`)}</X509Certificate>
-      </X509Data>
-    </KeyInfo>
-  </Signature>
 </MDFe>`;
+
+  // ⚠️ XML sem assinatura digital. A assinatura real é aplicada por assinarXmlEnvelopado().
 
   return xml.trim();
 }

@@ -1,7 +1,11 @@
 // backend/src/services/nfae.service.ts
 import { PrismaClient, StatusNFAe, Prisma, MotivoEmissaoNFAe, TipoPessoaNFAe } from '@prisma/client';
-import { NFAeDocumento, NFAeItem } from '../types/nfae.types';
-import { gerarChaveAcessoNFe } from '../utils/chaveAcesso';
+import { NFAeDocumento, NFAeItem } from '../types/nfae.types.js';
+import { gerarChaveAcessoNFe } from '../utils/chaveAcesso.js';
+import { gerarXmlNfae, type NfaeParaXml } from '../utils/xmlNfaeGenerator.js';
+import { CertificadoService } from './certificado.service.js';
+import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
+import { EmpresaRepository } from '../repositories/empresa.repository.js';
 
 const prisma = new PrismaClient();
 
@@ -117,6 +121,13 @@ function buildDateFilter(dataInicio?: Date, dataFim?: Date) {
 }
 
 export class NFAeService {
+  private certificadoService: CertificadoService;
+  private empresaRepo: EmpresaRepository;
+
+  constructor() {
+    this.certificadoService = new CertificadoService();
+    this.empresaRepo = new EmpresaRepository();
+  }
 
   async listar(empresaId: string, page: number = 1, limit: number = 50, filtros?: FiltrosNFAe) {
     // 🔥 Clamp de paginação (CWE-770)
@@ -205,6 +216,13 @@ export class NFAeService {
       throw new Error('empresaId é obrigatório');
     }
 
+    const empresa = await this.empresaRepo.findById(data.empresaId);
+    if (!empresa) throw new Error('Empresa não encontrada');
+
+    if (!empresa.certificado || empresa.certificado.status !== 'VALIDO') {
+      throw new Error('Certificado digital inválido ou não configurado');
+    }
+
     const itens = Array.isArray(data.itens) ? data.itens : [];
 
     // 🔥 Limite de itens por nota (CWE-770)
@@ -233,6 +251,85 @@ export class NFAeService {
     const aliquotaICMSMediana = itens.length > 0
       ? itens.reduce((acc, item) => acc + (item.aliquotaICMS || 0), 0) / itens.length
       : 0;
+
+    // 2.1 Monta o DTO fiscal, gera e assina o XML (antes da transação, pois o
+    // arquivo assinado precisa estar pronto para ser gravado junto com a NFA-e)
+    const nfaeParaXml: NfaeParaXml = {
+      chaveAcesso: chaveCompleta,
+      numero,
+      serie: data.serie || 900,
+      dataHoraEmissao: new Date().toISOString(),
+      naturezaOperacao: data.naturezaOperacao || 'Fornecimento de Energia Elétrica',
+      motivoEmissao: data.motivoEmissao || 'PRODUTOR_RURAL',
+      descricaoMotivo: data.descricaoMotivo || data.motivoEmissao || 'Produtor Rural',
+      ambiente: data.ambiente || 1,
+      orgaoEmissorSefaz: data.orgaoEmissorSefaz || 'SEFAZ/SP',
+      requerente: {
+        tipoPessoa: data.requerente?.tipoPessoa || 'PF',
+        documento: data.requerente?.documento || '',
+        nome: data.requerente?.nome || '',
+        endereco: {
+          logradouro: data.requerente?.logradouro || '',
+          numero: data.requerente?.numero || 'S/N',
+          complemento: data.requerente?.complemento,
+          bairro: data.requerente?.bairro || '',
+          municipio: data.requerente?.municipio || '',
+          municipioIbge: data.requerente?.municipioIbge,
+          uf: data.requerente?.uf || 'SP',
+          cep: data.requerente?.cep || '',
+          telefone: data.requerente?.telefone,
+        },
+      },
+      destinatario: {
+        tipoPessoa: data.destinatario?.tipoPessoa || 'PJ',
+        documento: data.destinatario?.documento || '',
+        nome: data.destinatario?.nome || '',
+        inscricaoEstadual: data.destinatario?.ie || 'ISENTO',
+        endereco: {
+          logradouro: data.destinatario?.logradouro || '',
+          numero: data.destinatario?.numero || 'S/N',
+          complemento: data.destinatario?.complemento,
+          bairro: data.destinatario?.bairro || '',
+          municipio: data.destinatario?.municipio || '',
+          municipioIbge: data.destinatario?.municipioIbge,
+          uf: data.destinatario?.uf || 'SP',
+          cep: data.destinatario?.cep || '',
+          telefone: data.destinatario?.telefone,
+        },
+      },
+      itens: itens.map((item) => ({
+        codigo: item.codigo,
+        descricao: item.descricao,
+        ncm: item.ncm,
+        unidade: item.unidade || 'UN',
+        quantidade: item.quantidade || 1,
+        valorUnitario: item.valorUnitario || 0,
+        valorTotal: item.valorTotal || ((item.quantidade || 0) * (item.valorUnitario || 0)) || 0,
+        aliquotaICMS: item.aliquotaICMS || 0,
+        valorICMS: item.valorICMS || 0,
+        codigoBarrasEAN: item.codigoBarrasEAN,
+      })),
+      valorTotalProdutos,
+      baseCalculoICMS,
+      aliquotaICMSMediana,
+      valorTotalICMS,
+      valorTotalNota: valorTotalProdutos,
+      guiaDAE: {
+        numero: data.guiaDAE?.numero || `DAE-${Date.now()}`,
+        codigoBarras: data.guiaDAE?.codigoBarras,
+        vencimento: (data.guiaDAE?.vencimento ? new Date(data.guiaDAE.vencimento) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).toISOString(),
+        valor: data.guiaDAE?.valor || valorTotalProdutos,
+      },
+      informacoesComplementares: data.informacoesComplementares,
+    };
+
+    const xmlSemAssinatura = gerarXmlNfae(nfaeParaXml);
+    const certificado = await this.certificadoService.obterCertificadoDecriptado(data.empresaId);
+    if (!certificado) {
+      throw new Error('Certificado digital não configurado para esta empresa');
+    }
+    const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+    const xmlAssinadoFinal = assinarXmlEnvelopado(xmlSemAssinatura, 'infNFAe', chaveECertPem);
 
     // 3. Criar NFA-e + itens em transação única
     const nfae = await prisma.$transaction(async (tx) => {
@@ -298,7 +395,7 @@ export class NFAeService {
           protocoloAutorizacao: `1352600${Math.floor(PROTOCOLO_MOCK_SUFIXO_BASE + Math.random() * PROTOCOLO_MOCK_SUFIXO_RANGE)}`,
           dataHoraAutorizacao: new Date(),
 
-          xmlAssinado: data.xmlAssinado || this.gerarXmlMock(chaveCompleta, numero, data),
+          xmlAssinado: xmlAssinadoFinal,
 
           informacoesComplementares: data.informacoesComplementares || '',
 
@@ -396,6 +493,62 @@ export class NFAeService {
     };
   }
 
+  async getTotalPeriodo(empresaId: string, dataInicio?: Date, dataFim?: Date) {
+    const where: Prisma.NFAeWhereInput = {
+      empresaId,
+      status: 'AUTORIZADA',
+      ...((dataInicio || dataFim) && {
+        dataHoraEmissao: {
+          ...(dataInicio && { gte: dataInicio }),
+          ...(dataFim && { lte: dataFim }),
+        },
+      }),
+    };
+
+    const result = await prisma.nFAe.aggregate({
+      where,
+      _sum: { valorTotalNota: true, valorTotalICMS: true },
+      _count: true,
+    });
+
+    return {
+      totalFaturamento: Number(result._sum.valorTotalNota) || 0,
+      totalICMS: Number(result._sum.valorTotalICMS) || 0,
+      quantidade: result._count,
+    };
+  }
+
+  async getResumoMensal(empresaId: string, ano: number, mes: number) {
+    if (mes < 1 || mes > 12) {
+      throw new Error('Mês inválido');
+    }
+
+    const dataInicio = new Date(ano, mes - 1, 1);
+    const dataFim = new Date(ano, mes, 0, 23, 59, 59, 999);
+
+    const where: Prisma.NFAeWhereInput = {
+      empresaId,
+      status: 'AUTORIZADA',
+      dataHoraEmissao: { gte: dataInicio, lte: dataFim },
+    };
+
+    const [agregado, quantidade] = await Promise.all([
+      prisma.nFAe.aggregate({
+        where,
+        _sum: { valorTotalNota: true, valorTotalICMS: true }
+      }),
+      prisma.nFAe.count({ where })
+    ]);
+
+    return {
+      mes,
+      ano,
+      quantidade,
+      totalFaturamento: Number(agregado._sum.valorTotalNota) || 0,
+      totalICMS: Number(agregado._sum.valorTotalICMS) || 0,
+    };
+  }
+
   async getProximoNumero(empresaId: string, serie: number = 900): Promise<number> {
     const last = await prisma.nFAe.findFirst({
       where: { empresaId, serie },
@@ -406,31 +559,4 @@ export class NFAeService {
     return (last?.numero || 0) + 1;
   }
 
-  private gerarXmlMock(chave: string, numero: number, data: EmitirNFAeInput): string {
-    // 🔥 Escapa caracteres especiais para evitar XML injection
-    const escapeXml = (s: string): string =>
-      String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
-
-    const natureza = escapeXml(data?.naturezaOperacao || 'Fornecimento de Energia Elétrica');
-    const cUF = escapeXml(data?.requerente?.municipioIbge?.slice(0, 2) || '35');
-
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
-  <NFe>
-    <infNFe Id="NFe${escapeXml(chave)}" versao="4.00">
-      <ide>
-        <cUF>${cUF}</cUF>
-        <mod>63</mod>
-        <nNF>${numero}</nNF>
-        <natOp>${natureza}</natOp>
-      </ide>
-    </infNFe>
-  </NFe>
-</nfeProc>`;
-  }
 }

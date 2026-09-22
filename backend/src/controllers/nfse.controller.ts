@@ -1,6 +1,6 @@
 // backend/src/controllers/nfse.controller.ts
 import { Request, Response } from 'express';
-import { NfseService } from '../services/nfse.service';
+import { NfseService } from '../services/nfse.service.js';
 import { StatusDocumento } from '@prisma/client';
 
 // ============================================================

@@ -126,7 +126,7 @@ export function gerarXmlNfseNacional(nfse: NFSeDocumento): string {
           <xNome>${escapeXml(nfse.emitente.razaoSocial)}</xNome>
           <regTrib>
             <opSimpNac>${nfse.emitente.optanteSimplesNacional ? '3' : '1'}</opSimpNac>
-            <regEspTrib>${nfse.emitente.regimeEspecial || '0'}</regEspTrib>
+            <regEspTrib>0</regEspTrib>
           </regTrib>
         </prest>
 
@@ -225,30 +225,12 @@ export function gerarXmlNfseNacional(nfse: NFSeDocumento): string {
       </infDPS>
     </DPS>
   </infNFSe>
-
-  <!-- ASSINATURA DIGITAL XMLDSIG (ICP-BRASIL) -->
-  <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
-    <SignedInfo>
-      <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
-      <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
-      <Reference URI="#${escapeXml(nfse.chaveAcesso ? `NFS${nfse.chaveAcesso}` : nfse.id)}">
-        <Transforms>
-          <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
-          <Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
-        </Transforms>
-        <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
-        <DigestValue>${btoa(`SUP-DIGEST-${nfse.chaveAcesso}`).slice(0, 28)}</DigestValue>
-      </Reference>
-    </SignedInfo>
-    <SignatureValue>${btoa(`SUP-SIG-VAL-${nfse.chaveAcesso}-${Date.now()}`)}</SignatureValue>
-    <KeyInfo>
-      <X509Data>
-        <X509Certificate>${btoa(`MIIE...SUP-TECNOLOGIA-ICP-BRASIL-CERT-${cnpjEmit}`)}</X509Certificate>
-      </X509Data>
-    </KeyInfo>
-  </Signature>
 </NFSe>`;
 
+  // ⚠️ XML sem assinatura digital. A assinatura real é aplicada por assinarXmlEnvelopado()
+  // (elemento assinado: infNFSe). Esta função representa a NFS-e apenas para uso local/mock —
+  // a transmissão real usa gerarXmlDps() (xmlDpsGenerator.ts), que é o documento efetivamente
+  // exigido pela API do Sistema Nacional NFS-e (SefinNacional/ADN).
   return xml.trim();
 }
 

@@ -351,8 +351,8 @@ export class NFAeRepository {
       prisma.nFAe.count({ where })
     ]);
 
-    const totalFaturamento = agregado._sum.valorTotalNota || 0;
-    const totalICMS = agregado._sum.valorTotalICMS || 0;
+    const totalFaturamento = Number(agregado._sum.valorTotalNota) || 0;
+    const totalICMS = Number(agregado._sum.valorTotalICMS) || 0;
 
     return {
       mes,

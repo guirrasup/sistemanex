@@ -12,6 +12,9 @@ export type TipoRetencaoISS = 1 | 2 | 3;
 // ============================================================
 
 export type TChNFe = string; // 44 dígitos
+export type TCnpj = string; // 14 dígitos
+export type TSerie = number; // 0 ou 1-999
+export type TNF = number; // 1-999999999
 export type TProt = string; // 15 ou 17 dígitos
 export type TDec_1104v = number; // até 15 dígitos, 4 decimais
 export type TData = string; // YYYY-MM-DD
@@ -51,6 +54,40 @@ export interface EmitenteFiscal {
   optanteMEI: boolean;
   endereco: EnderecoFiscal;
   aliquotaSimplesNacional?: number;
+}
+
+export type ModalidadeFrete = 0 | 1 | 2 | 3 | 4 | 9; // 0=Emitente (CIF), 1=Destinatário (FOB), 2=Terceiros, 3=Sem Frete, 4=Próprio, 9=Sem Frete
+
+export interface TransporteNfe {
+  modalidadeFrete: ModalidadeFrete;
+  transportadora?: {
+    cnpjCpf?: string;
+    razaoSocial: string;
+    inscricaoEstadual?: string;
+    enderecoCompleto?: string;
+    municipio?: string;
+    uf?: string;
+  };
+  veiculo?: {
+    placa: string;
+    uf: string;
+    rntc?: string;
+  };
+  volumes?: {
+    quantidade: number;
+    especie: string;
+    marca?: string;
+    numero?: string;
+    pesoLiquidoKg: number;
+    pesoBrutoKg: number;
+  };
+}
+
+export interface FaturaDuplicata {
+  numero: string;
+  dataVencimento: TData;
+  valor: TDec_1104v;
+  status: 'PENDENTE' | 'PAGO' | 'VENCIDO';
 }
 
 export interface TomadorFiscal {
@@ -227,6 +264,8 @@ export interface NFeDocumento {
   emitente: EmitenteFiscal;
   destinatario: TomadorFiscal;
   itens: ItemNfe[];
+  transporte: TransporteNfe;
+  duplicatas: FaturaDuplicata[];
   valorTotalProdutos: TDec_1104v;
   valorTotalFrete: TDec_1104v;
   valorTotalSeguro: TDec_1104v;

@@ -1,7 +1,7 @@
 // backend/src/routes/mdfe.routes.ts
 import { Router } from 'express';
-import { MdfeController } from '../controllers/mdfe.controller';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { MdfeController } from '../controllers/mdfe.controller.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { rateLimit } from 'express-rate-limit';
 
 // ============================================================

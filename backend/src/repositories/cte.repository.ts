@@ -1,5 +1,5 @@
 // backend/src/repositories/cte.repository.ts
-import { Prisma, PrismaClient, StatusDocumento } from '@prisma/client';
+import { Prisma, PrismaClient, StatusCTe } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -9,10 +9,10 @@ const MAX_FIND_MANY_LIMIT = 500;
 
 // 🔥 INCLUDES PADRONIZADOS
 const CTE_INCLUDE_BASICO = {
-  emitente: true,
-  remetente: true,
-  destinatario: true,
-  transportadora: true,
+  emitente: { include: { endereco: true } },
+  remetente: { include: { endereco: true } },
+  destinatario: { include: { endereco: true } },
+  transportadora: { include: { endereco: true } },
   componentes: true,
   quantidades: true,
 } as const;
@@ -38,6 +38,8 @@ const CTE_INCLUDE_COMPLETO = {
   globalizados: true,
   servicosVinculados: true,
   historicoStatus: true,
+  ordensColeta: true,
+  lacresRodo: true,
 } as const;
 
 // 🔥 Helper para mesclar filtro de data sem sobrescrever gte/lte
@@ -50,7 +52,7 @@ function buildDateFilter(dataInicio?: Date, dataFim?: Date) {
 }
 
 export interface FiltroCte {
-  status?: StatusDocumento | StatusDocumento[];
+  status?: StatusCTe | StatusCTe[];
   dataInicio?: Date;
   dataFim?: Date;
   remetenteId?: string;
@@ -79,15 +81,15 @@ export class CteRepository {
           : filtros.status
       }),
       ...(buildDateFilter(filtros?.dataInicio, filtros?.dataFim) && {
-        dataHoraEmissao: buildDateFilter(filtros?.dataInicio, filtros?.dataFim)
+        dhEmi: buildDateFilter(filtros?.dataInicio, filtros?.dataFim)
       }),
       ...(filtros?.remetenteId && { remetenteId: filtros.remetenteId }),
       ...(filtros?.destinatarioId && { destinatarioId: filtros.destinatarioId }),
-      ...(filtros?.numero !== undefined && { numero: filtros.numero }),
+      ...(filtros?.numero !== undefined && { nCT: filtros.numero }),
       ...(filtros?.serie !== undefined && { serie: filtros.serie }),
       ...(filtros?.chave && { chaveAcesso: filtros.chave }),
-      ...(filtros?.modal && { modal: filtros.modal }),
-      ...(filtros?.tpCTe && { tpCTe: filtros.tpCTe }),
+      ...(filtros?.modal && { modal: filtros.modal as Prisma.CTeWhereInput['modal'] }),
+      ...(filtros?.tpCTe && { tpCTe: filtros.tpCTe as Prisma.CTeWhereInput['tpCTe'] }),
     };
 
     const [data, total] = await Promise.all([
@@ -108,6 +110,15 @@ export class CteRepository {
       limit: limitSeguro,
       totalPages: Math.ceil(total / limitSeguro)
     };
+  }
+
+  async getProximoNumero(empresaId: string, _serie: number): Promise<number> {
+    const empresa = await prisma.empresa.findUnique({
+      where: { id: empresaId },
+      select: { proximoNumeroCte: true }
+    });
+    if (!empresa) throw new Error('Empresa não encontrada');
+    return empresa.proximoNumeroCte || 1;
   }
 
   async findById(id: string, empresaId: string) {
@@ -351,6 +362,8 @@ export class CteRepository {
       globalizados: data.globalizados ? { create: data.globalizados } : undefined,
       servicosVinculados: data.servicosVinculados ? { create: data.servicosVinculados } : undefined,
       documentos: data.documentos ? { create: data.documentos } : undefined,
+      ordensColeta: data.ordensColeta ? { create: data.ordensColeta } : undefined,
+      lacresRodo: data.lacresRodo ? { create: data.lacresRodo } : undefined,
     };
 
     return prisma.cTe.create({
@@ -359,7 +372,7 @@ export class CteRepository {
     });
   }
 
-  async updateStatus(id: string, empresaId: string, status: StatusDocumento, motivo?: string) {
+  async updateStatus(id: string, empresaId: string, status: StatusCTe, motivo?: string) {
     const existente = await prisma.cTe.findFirst({
       where: { id, empresaId },
       select: { id: true }
@@ -459,7 +472,7 @@ export class CteRepository {
     const where: Prisma.CTeWhereInput = {
       empresaId,
       status: 'AUTORIZADA',
-      ...(dateFilter && { dataHoraEmissao: dateFilter })
+      ...(dateFilter && { dhEmi: dateFilter })
     };
 
     const result = await prisma.cTe.aggregate({
@@ -485,7 +498,7 @@ export class CteRepository {
     const where: Prisma.CTeWhereInput = {
       empresaId,
       status: 'AUTORIZADA',
-      dataHoraEmissao: {
+      dhEmi: {
         gte: dataInicio,
         lte: dataFim
       }
@@ -499,8 +512,8 @@ export class CteRepository {
       prisma.cTe.count({ where })
     ]);
 
-    const totalFrete = agregado._sum.vTPrest || 0;
-    const totalCarga = agregado._sum.vCarga || 0;
+    const totalFrete = Number(agregado._sum.vTPrest) || 0;
+    const totalCarga = Number(agregado._sum.vCarga) || 0;
 
     return {
       mes,
@@ -518,7 +531,7 @@ export class CteRepository {
     const where: Prisma.CTeWhereInput = {
       empresaId,
       status: 'AUTORIZADA',
-      ...(dateFilter && { dataHoraEmissao: dateFilter })
+      ...(dateFilter && { dhEmi: dateFilter })
     };
 
     if (tipo === 'AMBOS') {
@@ -536,7 +549,7 @@ export class CteRepository {
       where,
       take: MAX_FIND_MANY_LIMIT,
       include: CTE_INCLUDE_BASICO,
-      orderBy: { dataHoraEmissao: 'desc' }
+      orderBy: { dhEmi: 'desc' }
     });
   }
 
@@ -547,14 +560,14 @@ export class CteRepository {
       empresaId,
       transportadoraId,
       status: 'AUTORIZADA',
-      ...(dateFilter && { dataHoraEmissao: dateFilter })
+      ...(dateFilter && { dhEmi: dateFilter })
     };
 
     return prisma.cTe.findMany({
       where,
       take: MAX_FIND_MANY_LIMIT,
       include: CTE_INCLUDE_BASICO,
-      orderBy: { dataHoraEmissao: 'desc' }
+      orderBy: { dhEmi: 'desc' }
     });
   }
 
@@ -563,33 +576,33 @@ export class CteRepository {
 
     const where: Prisma.CTeWhereInput = {
       empresaId,
-      modal,
+      modal: modal as Prisma.CTeWhereInput['modal'],
       status: 'AUTORIZADA',
-      ...(dateFilter && { dataHoraEmissao: dateFilter })
+      ...(dateFilter && { dhEmi: dateFilter })
     };
 
     return prisma.cTe.findMany({
       where,
       take: MAX_FIND_MANY_LIMIT,
       include: CTE_INCLUDE_BASICO,
-      orderBy: { dataHoraEmissao: 'desc' }
+      orderBy: { dhEmi: 'desc' }
     });
   }
 
-  async findByStatus(empresaId: string, status: StatusDocumento, dataInicio?: Date, dataFim?: Date) {
+  async findByStatus(empresaId: string, status: StatusCTe, dataInicio?: Date, dataFim?: Date) {
     const dateFilter = buildDateFilter(dataInicio, dataFim);
 
     const where: Prisma.CTeWhereInput = {
       empresaId,
       status,
-      ...(dateFilter && { dataHoraEmissao: dateFilter })
+      ...(dateFilter && { dhEmi: dateFilter })
     };
 
     return prisma.cTe.findMany({
       where,
       take: MAX_FIND_MANY_LIMIT,
       include: CTE_INCLUDE_BASICO,
-      orderBy: { dataHoraEmissao: 'desc' }
+      orderBy: { dhEmi: 'desc' }
     });
   }
 

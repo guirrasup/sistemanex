@@ -1,6 +1,6 @@
 // backend/src/repositories/nfce.repository.ts
 import { Prisma, StatusDocumento } from '@prisma/client';
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 
 // ============================================================
 // INTERFACES
@@ -22,9 +22,6 @@ export interface FiltroNFCe {
 export interface TotalVendasNFCeResult {
   totalProdutos: number;
   totalNota: number;
-  totalICMS: number;
-  totalPIS: number;
-  totalCOFINS: number;
   totalTributosAprox: number;
   quantidade: number;
 }
@@ -187,7 +184,7 @@ export class NfceRepository extends BaseRepository {
     };
   }
 
-  async create(data: Prisma.NFCeCreateInput) {
+  async create(data: Prisma.NFCeUncheckedCreateInput) {
     // ✅ VALIDA DADOS OBRIGATÓRIOS
     if (!data.chaveAcesso) {
       throw new Error('Chave de acesso é obrigatória');
@@ -214,7 +211,19 @@ export class NfceRepository extends BaseRepository {
     });
   }
 
-  async updateStatus(id: string, status: StatusDocumento, protocolo?: string) {
+  async createItem(nfceId: string, data: Omit<Prisma.ItemNFCeUncheckedCreateInput, 'nfceId'>) {
+    return this.prisma.itemNFCe.create({
+      data: { ...data, nfceId }
+    });
+  }
+
+  async createPagamento(nfceId: string, data: Omit<Prisma.PagamentoNFCeUncheckedCreateInput, 'nfceId'>) {
+    return this.prisma.pagamentoNFCe.create({
+      data: { ...data, nfceId }
+    });
+  }
+
+  async updateStatus(id: string, status: StatusDocumento, protocolo?: string, xmlAssinado?: string, motivoRejeicao?: string) {
     if (!id) {
       throw new Error('ID da NFC-e é obrigatório');
     }
@@ -226,6 +235,15 @@ export class NfceRepository extends BaseRepository {
     if (protocolo) {
       data.protocoloAutorizacao = protocolo;
       data.dataHoraAutorizacao = new Date();
+    }
+
+    if (xmlAssinado) {
+      data.xmlAssinado = xmlAssinado;
+    }
+
+    if (motivoRejeicao) {
+      data.motivoRejeicao = motivoRejeicao;
+      data.dataHoraRejeicao = new Date();
     }
 
     return this.prisma.nFCe.update({
@@ -310,10 +328,7 @@ export class NfceRepository extends BaseRepository {
         _sum: {
           valorTotalProdutos: true,
           valorTotalNota: true,
-          valorTotalICMS: true,
-          valorTotalPIS: true,
-          valorTotalCOFINS: true,
-          valorTotalTributosAproximados: true
+          valorTotalTributosAprox: true
         }
       }),
       this.prisma.nFCe.count({ where })
@@ -322,10 +337,7 @@ export class NfceRepository extends BaseRepository {
     return {
       totalProdutos: Number(result._sum.valorTotalProdutos) || 0,
       totalNota: Number(result._sum.valorTotalNota) || 0,
-      totalICMS: Number(result._sum.valorTotalICMS) || 0,
-      totalPIS: Number(result._sum.valorTotalPIS) || 0,
-      totalCOFINS: Number(result._sum.valorTotalCOFINS) || 0,
-      totalTributosAprox: Number(result._sum.valorTotalTributosAproximados) || 0,
+      totalTributosAprox: Number(result._sum.valorTotalTributosAprox) || 0,
       quantidade: count
     };
   }
@@ -368,10 +380,7 @@ export class NfceRepository extends BaseRepository {
         where,
         _sum: {
           valorTotalNota: true,
-          valorTotalICMS: true,
-          valorTotalPIS: true,
-          valorTotalCOFINS: true,
-          valorTotalTributosAproximados: true
+          valorTotalTributosAprox: true
         }
       }),
       this.prisma.nFCe.count({ where })
@@ -382,10 +391,7 @@ export class NfceRepository extends BaseRepository {
       ano,
       totalNotas: count,
       valorTotal: Number(result._sum.valorTotalNota) || 0,
-      totalICMS: Number(result._sum.valorTotalICMS) || 0,
-      totalPIS: Number(result._sum.valorTotalPIS) || 0,
-      totalCOFINS: Number(result._sum.valorTotalCOFINS) || 0,
-      totalTributosAprox: Number(result._sum.valorTotalTributosAproximados) || 0
+      totalTributosAprox: Number(result._sum.valorTotalTributosAprox) || 0
     };
   }
 
@@ -472,8 +478,8 @@ export class NfceRepository extends BaseRepository {
             valor: 0
           };
         }
-        produtoMap[item.codigoProduto].quantidade += item.quantidade;
-        produtoMap[item.codigoProduto].valor += item.valorTotalBruto;
+        produtoMap[item.codigoProduto].quantidade += Number(item.quantidade);
+        produtoMap[item.codigoProduto].valor += Number(item.valorTotalBruto);
       }
     }
 

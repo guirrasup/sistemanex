@@ -1,6 +1,6 @@
 // backend/src/repositories/transportadora.repository.ts
 import { Prisma } from '@prisma/client';
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 
 export class TransportadoraRepository extends BaseRepository {
   async findById(id: string, empresaId?: string) {

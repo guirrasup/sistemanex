@@ -1,6 +1,6 @@
 // backend/src/repositories/servico.repository.ts
 import { Prisma } from '@prisma/client'
-import { BaseRepository } from './base.repository'
+import { BaseRepository } from './base.repository.js'
 
 export class ServicoRepository extends BaseRepository {
   async findById(id: string, empresaId?: string) {

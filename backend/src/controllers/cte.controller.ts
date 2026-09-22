@@ -1,7 +1,7 @@
 // backend/src/controllers/cte.controller.ts
 import { Request, Response } from 'express';
-import { CteService } from '../services/cte.service';
-import { StatusDocumento } from '@prisma/client';
+import { CteService } from '../services/cte.service.js';
+import { StatusCTe } from '@prisma/client';
 
 // ============================================================
 // INTERFACES
@@ -102,13 +102,13 @@ export class CteController {
         });
       }
 
-      let statusEnum: StatusDocumento | StatusDocumento[] | undefined;
+      let statusEnum: StatusCTe | StatusCTe[] | undefined;
       if (status) {
         const statusList = status.split(',');
         if (statusList.length === 1) {
-          statusEnum = statusList[0] as StatusDocumento;
+          statusEnum = statusList[0] as StatusCTe;
         } else {
-          statusEnum = statusList as StatusDocumento[];
+          statusEnum = statusList as StatusCTe[];
         }
       }
 
@@ -261,7 +261,7 @@ export class CteController {
         });
       }
 
-      const cte = await this.cteService.buscarPorProtocolo(protocolo);
+      const cte = await this.cteService.buscarPorProtocolo(protocolo, empresaId);
 
       if (!cte) {
         return res.status(404).json({
@@ -778,7 +778,7 @@ export class CteController {
       const dataInicio = req.query.dataInicio ? new Date(req.query.dataInicio as string) : undefined;
       const dataFim = req.query.dataFim ? new Date(req.query.dataFim as string) : undefined;
 
-      const ctes = await this.cteService.findByStatus(empresaId, status as StatusDocumento, dataInicio, dataFim);
+      const ctes = await this.cteService.findByStatus(empresaId, status as StatusCTe, dataInicio, dataFim);
       const ctesFiltrados = ctes.filter(c => c.empresaId === empresaId);
 
       return res.json({
@@ -814,7 +814,7 @@ export class CteController {
         });
       }
 
-      const cte = await this.cteService.buscarCteSubstituido(chave);
+      const cte = await this.cteService.buscarCteSubstituido(chave, empresaId);
 
       if (!cte) {
         return res.status(404).json({
@@ -863,7 +863,7 @@ export class CteController {
         });
       }
 
-      const cte = await this.cteService.buscarCteComplementado(chave);
+      const cte = await this.cteService.buscarCteComplementado(chave, empresaId);
 
       if (!cte) {
         return res.status(404).json({

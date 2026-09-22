@@ -1,6 +1,7 @@
 // backend/src/services/transportadora.service.ts
-import { TransportadoraRepository } from '../repositories/transportadora.repository';
-import { EmpresaRepository } from '../repositories/empresa.repository';
+import { TransportadoraRepository } from '../repositories/transportadora.repository.js';
+import { EmpresaRepository } from '../repositories/empresa.repository.js';
+import { codigoUfPorSigla } from '../utils/ufCodigos.js';
 
 export class TransportadoraService {
   private transportadoraRepo: TransportadoraRepository;
@@ -98,6 +99,7 @@ export class TransportadoraService {
           codigoMunicipio: data.endereco.codigoMunicipio || '',
           nomeMunicipio: data.endereco.nomeMunicipio || '',
           uf: data.endereco.uf || '',
+          codigoUF: codigoUfPorSigla(data.endereco.uf),
           cep: data.endereco.cep || '',
           telefone: data.endereco.telefone || data.telefone || '',
           email: data.endereco.email || data.email || ''

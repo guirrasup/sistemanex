@@ -1,7 +1,7 @@
 // backend/src/repositories/nfe.repository.ts
 import { Prisma, StatusDocumento } from '@prisma/client';
-import { BaseRepository } from './base.repository';
-import { TChNFe, TProt, TJust } from '../../src/types/fiscal';
+import { BaseRepository } from './base.repository.js';
+import { TChNFe, TProt, TJust } from '../../src/types/fiscal.js';
 
 // ============================================================
 // INTERFACES
@@ -122,12 +122,12 @@ export class NfeRepository extends BaseRepository {
 
     // ✅ Filtro por período
     if (dataInicio || dataFim) {
-      where.dataHoraEmissao = {};
+      where.dhEmi = {};
       if (dataInicio) {
-        where.dataHoraEmissao.gte = dataInicio;
+        where.dhEmi.gte = dataInicio;
       }
       if (dataFim) {
-        where.dataHoraEmissao.lte = dataFim;
+        where.dhEmi.lte = dataFim;
       }
     }
 
@@ -174,7 +174,7 @@ export class NfeRepository extends BaseRepository {
         },
         skip,
         take: limit,
-        orderBy: { dataHoraEmissao: 'desc' }
+        orderBy: { dhEmi: 'desc' }
       }),
       this.prisma.nFe.count({ where })
     ]);
@@ -188,7 +188,7 @@ export class NfeRepository extends BaseRepository {
     };
   }
 
-  async create(data: Prisma.NFeCreateInput) {
+  async create(data: Prisma.NFeUncheckedCreateInput) {
     // ✅ VALIDA DADOS OBRIGATÓRIOS
     if (!data.chaveAcesso) {
       throw new Error('Chave de acesso é obrigatória (TChNFe)');
@@ -328,7 +328,7 @@ export class NfeRepository extends BaseRepository {
     };
 
     if (startDate && endDate) {
-      where.dataHoraEmissao = {
+      where.dhEmi = {
         gte: startDate,
         lte: endDate
       };
@@ -338,26 +338,26 @@ export class NfeRepository extends BaseRepository {
       this.prisma.nFe.aggregate({
         where,
         _sum: {
-          valorTotalProdutos: true,
-          valorTotalNota: true,
-          valorTotalICMS: true,
-          valorTotalPIS: true,
-          valorTotalCOFINS: true,
-          valorTotalIBS: true,
-          valorTotalCBS: true
+          vProd: true,
+          vNF: true,
+          vICMS: true,
+          vPIS: true,
+          vCOFINS: true,
+          vIBS: true,
+          vCBS: true
         }
       }),
       this.prisma.nFe.count({ where })
     ]);
 
     return {
-      totalProdutos: Number(result._sum.valorTotalProdutos) || 0,
-      totalNota: Number(result._sum.valorTotalNota) || 0,
-      totalICMS: Number(result._sum.valorTotalICMS) || 0,
-      totalPIS: Number(result._sum.valorTotalPIS) || 0,
-      totalCOFINS: Number(result._sum.valorTotalCOFINS) || 0,
-      totalIBS: Number(result._sum.valorTotalIBS) || 0,
-      totalCBS: Number(result._sum.valorTotalCBS) || 0,
+      totalProdutos: Number(result._sum.vProd) || 0,
+      totalNota: Number(result._sum.vNF) || 0,
+      totalICMS: Number(result._sum.vICMS) || 0,
+      totalPIS: Number(result._sum.vPIS) || 0,
+      totalCOFINS: Number(result._sum.vCOFINS) || 0,
+      totalIBS: Number(result._sum.vIBS) || 0,
+      totalCBS: Number(result._sum.vCBS) || 0,
       quantidade: count
     };
   }
@@ -389,7 +389,7 @@ export class NfeRepository extends BaseRepository {
     const where: Prisma.NFeWhereInput = {
       empresaId,
       status: StatusDocumento.AUTORIZADA,
-      dataHoraEmissao: {
+      dhEmi: {
         gte: inicio,
         lte: fim
       }
@@ -399,12 +399,12 @@ export class NfeRepository extends BaseRepository {
       this.prisma.nFe.aggregate({
         where,
         _sum: {
-          valorTotalNota: true,
-          valorTotalICMS: true,
-          valorTotalPIS: true,
-          valorTotalCOFINS: true,
-          valorTotalIBS: true,
-          valorTotalCBS: true
+          vNF: true,
+          vICMS: true,
+          vPIS: true,
+          vCOFINS: true,
+          vIBS: true,
+          vCBS: true
         }
       }),
       this.prisma.nFe.count({ where })
@@ -414,12 +414,12 @@ export class NfeRepository extends BaseRepository {
       mes,
       ano,
       totalNotas: count,
-      valorTotal: Number(result._sum.valorTotalNota) || 0,
-      totalICMS: Number(result._sum.valorTotalICMS) || 0,
-      totalPIS: Number(result._sum.valorTotalPIS) || 0,
-      totalCOFINS: Number(result._sum.valorTotalCOFINS) || 0,
-      totalIBS: Number(result._sum.valorTotalIBS) || 0,
-      totalCBS: Number(result._sum.valorTotalCBS) || 0
+      valorTotal: Number(result._sum.vNF) || 0,
+      totalICMS: Number(result._sum.vICMS) || 0,
+      totalPIS: Number(result._sum.vPIS) || 0,
+      totalCOFINS: Number(result._sum.vCOFINS) || 0,
+      totalIBS: Number(result._sum.vIBS) || 0,
+      totalCBS: Number(result._sum.vCBS) || 0
     };
   }
 
@@ -444,10 +444,18 @@ export class NfeRepository extends BaseRepository {
         numero: true,
         serie: true,
         chaveAcesso: true,
-        dataHoraEmissao: true,
+        dhEmi: true,
         status: true
       }
     });
+  }
+
+  async criarEvento(data: Prisma.EventoNFeUncheckedCreateInput) {
+    return this.prisma.eventoNFe.create({ data });
+  }
+
+  async contarEventosPorTipo(nfeId: string, tpEvento: string) {
+    return this.prisma.eventoNFe.count({ where: { nfeId, tpEvento } });
   }
 
   async findByProtocolo(protocolo: string) {
