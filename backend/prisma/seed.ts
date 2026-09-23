@@ -512,6 +512,13 @@ async function main() {
       (data) =>
         prisma.produto.create({
           data: {
+            // csosnICMS não tem default no schema (cstICMS tem, "00") — sem isso,
+            // a emissão de NF-e/NFC-e rejeita todo item desse produto ("sem CSOSN
+            // informado, obrigatório para emitente do Simples Nacional, CRT=1").
+            // A empresa seedada aqui é Simples Nacional, então todo produto
+            // precisa de um CSOSN; 102 (tributada, sem crédito) é o padrão mais
+            // comum pra revenda de mercadoria.
+            csosnICMS: '102',
             ...data,
             empresa: { connect: { id: empresa.id } }
           }

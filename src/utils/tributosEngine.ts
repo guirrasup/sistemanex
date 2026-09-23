@@ -189,21 +189,32 @@ export function calcularTotaisNfe(itens: ItemNfe[], frete = 0, seguro = 0, outra
   let valorTotalTributosAproximados = 0;
   let totalDescontosItens = 0;
 
-  itens.forEach((item) => {
-    const totalBruto = item.quantidade * item.valorUnitario;
-    valorTotalProdutos += totalBruto;
-    totalDescontosItens += item.descontoItem || 0;
+  // 🔥 Campos Decimal do Prisma chegam como string no JSON (ex.: "150.00") —
+  // itens montados a partir de dados vindos da API (produto, item salvo etc.)
+  // podem carregar algum campo assim sem coerção. `+=` com um operando string
+  // vira concatenação de texto em vez de soma, e o `.toFixed()` no retorno
+  // desta função quebra assim que isso acontece. `Number(x) || 0` neutraliza
+  // string/undefined/null/NaN independentemente de quem montou o item.
+  const num = (v: unknown): number => {
+    const n = Number(v);
+    return isNaN(n) ? 0 : n;
+  };
 
-    baseCalculoICMS += item.baseCalculoICMS || 0;
-    valorTotalICMS += item.valorICMS || 0;
+  itens.forEach((item) => {
+    const totalBruto = num(item.quantidade) * num(item.valorUnitario);
+    valorTotalProdutos += totalBruto;
+    totalDescontosItens += num(item.descontoItem);
+
+    baseCalculoICMS += num(item.baseCalculoICMS);
+    valorTotalICMS += num(item.valorICMS);
     baseCalculoICMSST += 0;
-    valorTotalICMSST += item.valorICMSST || 0;
-    valorTotalIPI += item.valorIPI || 0;
-    valorTotalPIS += item.valorPIS || 0;
-    valorTotalCOFINS += item.valorCOFINS || 0;
-    valorTotalIBS += (item.valorIBSUF || 0) + (item.valorIBSMun || 0);
-    valorTotalCBS += item.valorCBS || 0;
-    valorTotalTributosAproximados += item.valorTributosAproximados || 0;
+    valorTotalICMSST += num(item.valorICMSST);
+    valorTotalIPI += num(item.valorIPI);
+    valorTotalPIS += num(item.valorPIS);
+    valorTotalCOFINS += num(item.valorCOFINS);
+    valorTotalIBS += num(item.valorIBSUF) + num(item.valorIBSMun);
+    valorTotalCBS += num(item.valorCBS);
+    valorTotalTributosAproximados += num(item.valorTributosAproximados);
   });
 
   const totalDesconto = totalDescontosItens + descontoGeral;

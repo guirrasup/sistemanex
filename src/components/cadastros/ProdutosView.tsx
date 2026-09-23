@@ -83,6 +83,11 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
   const [cest, setCest] = useState('');
   const [cfop, setCfop] = useState('5102');
   const [origem, setOrigem] = useState(0);
+  // 🔥 Sem CSOSN, a emissão de NF-e/NFC-e rejeita o item na hora de transmitir
+  // pra SEFAZ ("sem CSOSN informado, obrigatório para emitente do Simples
+  // Nacional") — mas até agora não existia campo nenhum pra defini-lo aqui,
+  // então não tinha como corrigir um produto cadastrado sem ele pela UI.
+  const [csosnICMS, setCsosnICMS] = useState('102');
   const [precoCusto, setPrecoCusto] = useState<number>(0);
   const [precoVenda, setPrecoVenda] = useState<number>(0);
   const [estoqueAtual, setEstoqueAtual] = useState<number>(10);
@@ -112,6 +117,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
     setCest('');
     setCfop('5102');
     setOrigem(0);
+    setCsosnICMS('102');
     setPrecoCusto(0);
     setPrecoVenda(0);
     setEstoqueAtual(10);
@@ -137,6 +143,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
     setCest(p.cest || '');
     setCfop(p.cfopPadrao);
     setOrigem(p.origem || 0);
+    setCsosnICMS(p.csosnICMS || '102');
     setPrecoCusto(p.precoCusto);
     setPrecoVenda(p.precoVenda);
     setEstoqueAtual(p.estoqueAtual);
@@ -204,6 +211,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         cest: cestLimpo || undefined,
         cfopPadrao: cfop,
         origem,
+        csosnICMS,
         precoCusto,
         precoVenda,
         estoqueAtual,
@@ -630,6 +638,27 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                       className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
                       required
                     />
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block font-medium text-slate-600 mb-1">
+                      CSOSN * <span className="text-[10px] text-slate-400">(obrigatório p/ Simples Nacional)</span>
+                    </label>
+                    <select
+                      value={csosnICMS}
+                      onChange={(e) => setCsosnICMS(e.target.value)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+                    >
+                      <option value="101">101 - Tributada com permissão de crédito</option>
+                      <option value="102">102 - Tributada sem permissão de crédito</option>
+                      <option value="103">103 - Isenção (faixa de receita bruta)</option>
+                      <option value="201">201 - Tributada com crédito e cobrança de ICMS por ST</option>
+                      <option value="202">202 - Tributada sem crédito e cobrança de ICMS por ST</option>
+                      <option value="203">203 - Isenção (faixa de receita) e cobrança de ICMS por ST</option>
+                      <option value="300">300 - Imune</option>
+                      <option value="400">400 - Não tributada pelo Simples Nacional</option>
+                      <option value="500">500 - ICMS cobrado anteriormente por ST/antecipação</option>
+                      <option value="900">900 - Outros</option>
+                    </select>
                   </div>
                 </div>
               </div>

@@ -46,6 +46,7 @@ import { nfaeService } from './services/nfae.service';
 // 🔥 NOVO - MDF-e service
 import { mdfeService } from './services/mdfe.service';
 import { transportadoraService, Transportadora } from './services/transportadora.service';
+import { empresaService } from './services/empresa.service';
 import { LoadingDinamico } from './components/ui/LoadingDinamico';
 import api from './services/api';
 
@@ -63,6 +64,7 @@ interface CacheData {
   // 🔥 NOVO - MDF-e
   mdfes: MDFeDocumento[];
   transportadoras: Transportadora[];
+  empresa: ConfiguracaoEmpresa;
   timestamp: number;
 }
 
@@ -147,6 +149,7 @@ export default function App() {
         // 🔥 NOVO - MDF-e
         setMdfes(cache.mdfes || []);
         setTransportadoras(cache.transportadoras || []);
+        if (cache.empresa) setEmpresa(cache.empresa);
                 return;
       }
     }
@@ -201,8 +204,19 @@ export default function App() {
         transportadoraService.listar(1, 100),
       ];
 
-            
-      const results = await Promise.allSettled(servicePromises);
+      // 🔥 empresa nunca era buscada da API real em lugar nenhum do app — o
+      // estado `empresa` ficava travado no fallback local (StorageService,
+      // dados fictícios do protótipo) pra sempre, mesmo logado e com token
+      // válido. Buscada à parte porque devolve um objeto único, não uma lista
+      // paginada como os outros serviços acima (getData() abaixo espera
+      // {data: [...]} em todos os itens de servicePromises).
+      const [results, empresaReal] = await Promise.all([
+        Promise.allSettled(servicePromises),
+        empresaService.obterMinhaEmpresa().catch((err) => {
+          console.warn('⚠️ Falha ao buscar dados reais da empresa, usando fallback local:', err);
+          return null;
+        }),
+      ]);
 
             let hasError = false;
       
@@ -249,7 +263,7 @@ export default function App() {
         transportadorasResult
       ] = results.map((r, i) => getData(r, i));
 
-      const empresaConfig = StorageService.getConfiguracao();
+      const empresaConfig = empresaReal || StorageService.getConfiguracao();
 
       const cacheData: CacheData = {
         produtos: produtosResult.data || [],
@@ -264,6 +278,7 @@ export default function App() {
         // 🔥 NOVO - MDF-e
         mdfes: mdfesResult.data || [],
         transportadoras: transportadorasResult.data || [],
+        empresa: empresaConfig,
         timestamp: Date.now()
       };
 

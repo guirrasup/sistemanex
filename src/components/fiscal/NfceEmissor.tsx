@@ -250,6 +250,15 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
     // no leiaute — a empresa aqui é Simples Nacional (CRT=1), então o csosnICMS
     // do produto (quando cadastrado) prevalece sobre o CST.
     const semBasePropria = !!prod.csosnICMS && CSOSN_SEM_BASE_PROPRIA.includes(prod.csosnICMS);
+
+    // 🔥 Decimal do Prisma (precoVenda/aliquota*) chega como string no JSON —
+    // atribuição direta (sem Number()) contamina o item e quebra calcularTotaisNfe
+    // (mesmo bug já corrigido no NfeEmissor: TypeError x.toFixed is not a function).
+    const precoVenda = Number(prod.precoVenda);
+    const aliquotaICMS = Number(prod.aliquotaICMS);
+    const aliquotaPIS = Number(prod.aliquotaPIS);
+    const aliquotaCOFINS = Number(prod.aliquotaCOFINS);
+
     const novoItem: ItemNfe = {
       id: `item-nfce-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       codigoProduto: prod.codigo,
@@ -259,23 +268,23 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
       cfop: '5102',
       unidadeMedida: prod.unidade,
       quantidade: 1,
-      valorUnitario: prod.precoVenda,
-      valorTotalBruto: prod.precoVenda,
+      valorUnitario: precoVenda,
+      valorTotalBruto: precoVenda,
       origemMercadoria: prod.origem || 0,
       cstICMS: (prod.cstICMS || '00') as ItemNfe['cstICMS'],
       csosnICMS: prod.csosnICMS as ItemNfe['csosnICMS'],
-      aliquotaICMS: prod.aliquotaICMS,
-      baseCalculoICMS: semBasePropria ? 0 : prod.precoVenda,
-      valorICMS: semBasePropria ? 0 : (prod.precoVenda * prod.aliquotaICMS) / 100,
+      aliquotaICMS,
+      baseCalculoICMS: semBasePropria ? 0 : precoVenda,
+      valorICMS: semBasePropria ? 0 : (precoVenda * aliquotaICMS) / 100,
       cstPIS: '01',
-      aliquotaPIS: prod.aliquotaPIS,
-      valorPIS: (prod.precoVenda * prod.aliquotaPIS) / 100,
+      aliquotaPIS,
+      valorPIS: (precoVenda * aliquotaPIS) / 100,
       cstCOFINS: '01',
-      aliquotaCOFINS: prod.aliquotaCOFINS,
-      valorCOFINS: (prod.precoVenda * prod.aliquotaCOFINS) / 100,
+      aliquotaCOFINS,
+      valorCOFINS: (precoVenda * aliquotaCOFINS) / 100,
       codigoEAN: prod.codigoBarrasEAN || undefined,
       codigoEANTrib: prod.codigoBarrasEAN || undefined,
-      valorTributosAproximados: prod.precoVenda * 0.314,
+      valorTributosAproximados: precoVenda * 0.314,
     };
 
     setItens([...itens, novoItem]);

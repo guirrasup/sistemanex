@@ -180,9 +180,14 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
     const prod = produtos.find(p => p.id === selectedProdutoId);
     if (!prod) return;
 
-    const valorUnit = valorUnitarioItem > 0 ? valorUnitarioItem : prod.precoVenda;
+    // 🔥 Decimal do Prisma (precoVenda/aliquotaICMS) chega como string no JSON —
+    // valorTotal/valorICMS já são seguros aqui (via multiplicação, que sempre
+    // coage pra número), mas valorUnitario/aliquotaICMS do item eram gravados
+    // crus, sem Number() (mesmo bug corrigido no NfeEmissor/NfceEmissor).
+    const valorUnit = valorUnitarioItem > 0 ? valorUnitarioItem : Number(prod.precoVenda);
     const total = quantidadeItem * valorUnit;
-    const icms = (total * (aliquotaICMS || prod.aliquotaICMS || 0)) / 100;
+    const aliquotaICMSItem = aliquotaICMS || Number(prod.aliquotaICMS) || 0;
+    const icms = (total * aliquotaICMSItem) / 100;
 
     const novoItem: ItemNfae = {
       id: `item-${Date.now()}`,
@@ -193,7 +198,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
       quantidade: quantidadeItem,
       valorUnitario: valorUnit,
       valorTotal: total,
-      aliquotaICMS: aliquotaICMS || prod.aliquotaICMS || 0,
+      aliquotaICMS: aliquotaICMSItem,
       valorICMS: icms,
     };
 

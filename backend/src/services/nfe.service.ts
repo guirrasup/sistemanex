@@ -66,10 +66,22 @@ export class NfeService {
       throw new Error('Certificado digital inválido ou não configurado');
     }
 
+    // 🔥 CFOP depende de UF emitente x UF destinatário (mesmo estado = família 5xxx,
+    // interestadual = 6xxx, exterior = 7xxx) — não é um atributo fixo do produto.
+    // Calculado aqui (antes dos itens) porque idDest também precisa disso; usar o
+    // cfopPadrao do produto sem ajustar causava rejeição real da SEFAZ ("CFOP de
+    // operacao interna e idDest <> 1") sempre que o cliente era de outro estado.
+    const idDestPreCalc: 1 | 2 | 3 =
+      destinatario.tipoPessoa === 'EXTERIOR' ? 3 :
+      empresa.uf === destinatario.endereco.uf ? 1 : 2;
+    const prefixoCfopSaida = idDestPreCalc === 1 ? '5' : idDestPreCalc === 2 ? '6' : '7';
+
     const itensCompletos: ItemNfe[] = await Promise.all(
       (data.itens || []).map(async (item, idx) => {
         const produto = await this.produtoRepo.findById(item.produtoId, data.empresaId);
         if (!produto) throw new Error(`Produto ${item.produtoId} não encontrado`);
+
+        const cfopAjustado = prefixoCfopSaida + (produto.cfopPadrao || '5102').slice(1);
 
         const quantidade = item.quantidade || 1;
         const valorUnitario = item.valorUnitario || Number(produto.precoVenda);
@@ -92,7 +104,7 @@ export class NfeService {
           descricao: produto.descricao,
           ncm: produto.ncm,
           cest: produto.cest || undefined,
-          cfop: produto.cfopPadrao || '5102',
+          cfop: cfopAjustado,
           unidadeMedida: produto.unidade,
           quantidade,
           valorUnitario,
@@ -131,9 +143,7 @@ export class NfeService {
       tipoEmissao: 1,
     });
 
-    const idDest: 1 | 2 | 3 =
-      destinatario.tipoPessoa === 'EXTERIOR' ? 3 :
-      empresa.uf === destinatario.endereco.uf ? 1 : 2;
+    const idDest = idDestPreCalc;
 
     const emitenteFiscal = mapEmpresaParaEmitente(empresa);
     const destinatarioFiscal = mapClienteParaTomador(destinatario);
