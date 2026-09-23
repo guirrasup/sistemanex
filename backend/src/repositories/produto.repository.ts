@@ -109,7 +109,7 @@ export class ProdutoRepository extends BaseRepository {
     // O objeto `prisma.produto.fields` não existe na API do Prisma Client.
     // Solução: usar query raw parametrizada.
     const produtos = await prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM "Produto"
+      SELECT id FROM "produtos"
       WHERE "empresaId" = ${empresaId}
         AND "ativo" = true
         AND "estoqueAtual" <= "estoqueMinimo"

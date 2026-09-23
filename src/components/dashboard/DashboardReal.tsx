@@ -53,6 +53,22 @@ interface DocumentoFiscalResumo {
   status?: string;
   destinatario?: { razaoSocial: string; documento: string };
   tomador?: { razaoSocial: string; documento: string };
+  // NFe e CTe devolvem os campos crus do Prisma (schema segue o leiaute SEFAZ
+  // à risca pra esses dois, ao contrário de NFSe/NFCe/NFAe, que usam nomes
+  // amigáveis) — vNF/vTPrest/dhEmi, não valorTotalNota/valorTotalFrete/
+  // dataHoraEmissao. Sem isso, Faturamento Total e Faturamento por Mês
+  // ficavam sempre R$ 0,00 pra esses 2 tipos.
+  vNF?: number | string;
+  vTPrest?: number | string;
+  dhEmi?: string;
+}
+
+// Decimal do Prisma chega como string no JSON (ex.: "1450.00") — somar direto
+// com `+` sem converter faz concatenação de string em vez de soma (é a causa
+// do texto tipo "014501450145..." que apareceu em "A Receber").
+function paraNumero(v: unknown): number {
+  const n = typeof v === 'string' ? parseFloat(v) : v;
+  return typeof n === 'number' && !isNaN(n) ? n : 0;
 }
 
 interface ClienteResumo {
@@ -66,7 +82,7 @@ interface ProdutoResumo {
 interface TituloResumo {
   tipo?: string;
   status?: string;
-  valorOriginal?: number;
+  valorOriginal?: number | string;
 }
 
 // ============================================================
@@ -211,11 +227,11 @@ export const DashboardReal: React.FC = () => {
       // ============================================================
 
       // 1. Faturamento total
-      const totalNfe = nfes.reduce((acc: number, n) => acc + (n.valorTotalNota || 0), 0);
-      const totalNfse = nfses.reduce((acc: number, n) => acc + (n.valorTotalServicos || 0), 0);
-      const totalNfce = nfces.reduce((acc: number, n) => acc + (n.valorTotalNota || 0), 0);
-      const totalCte = ctes.reduce((acc: number, n) => acc + (n.valorTotalFrete || 0), 0);
-      const totalNfae = nfaes.reduce((acc: number, n) => acc + (n.valorTotalNota || 0), 0);
+      const totalNfe = nfes.reduce((acc: number, n) => acc + paraNumero(n.vNF), 0);
+      const totalNfse = nfses.reduce((acc: number, n) => acc + paraNumero(n.valorTotalServicos), 0);
+      const totalNfce = nfces.reduce((acc: number, n) => acc + paraNumero(n.valorTotalNota), 0);
+      const totalCte = ctes.reduce((acc: number, n) => acc + paraNumero(n.vTPrest), 0);
+      const totalNfae = nfaes.reduce((acc: number, n) => acc + paraNumero(n.valorTotalNota), 0);
       const faturamentoTotal = totalNfe + totalNfse + totalNfce + totalCte + totalNfae;
 
       // 2. Contagem por tipo
@@ -229,11 +245,11 @@ export const DashboardReal: React.FC = () => {
 
       // 3. Últimas notas
       const todasNotas = [
-        ...nfes.map((n) => ({ ...n, tipo: 'NFE' as const, valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao })),
-        ...nfses.map((n) => ({ ...n, tipo: 'NFSE' as const, valor: n.valorTotalServicos || 0, numero: n.numeroNfse, data: n.dataHoraEmissao })),
-        ...nfces.map((n) => ({ ...n, tipo: 'NFCE' as const, valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao })),
-        ...ctes.map((n) => ({ ...n, tipo: 'CTE' as const, valor: n.valorTotalFrete || 0, numero: n.numero, data: n.dataHoraEmissao })),
-        ...nfaes.map((n) => ({ ...n, tipo: 'NFAE' as const, valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao }))
+        ...nfes.map((n) => ({ ...n, tipo: 'NFE' as const, valor: paraNumero(n.vNF), numero: n.numero, data: n.dhEmi || n.dataHoraEmissao })),
+        ...nfses.map((n) => ({ ...n, tipo: 'NFSE' as const, valor: paraNumero(n.valorTotalServicos), numero: n.numeroNfse, data: n.dataHoraEmissao })),
+        ...nfces.map((n) => ({ ...n, tipo: 'NFCE' as const, valor: paraNumero(n.valorTotalNota), numero: n.numero, data: n.dataHoraEmissao })),
+        ...ctes.map((n) => ({ ...n, tipo: 'CTE' as const, valor: paraNumero(n.vTPrest), numero: n.numero, data: n.dhEmi || n.dataHoraEmissao })),
+        ...nfaes.map((n) => ({ ...n, tipo: 'NFAE' as const, valor: paraNumero(n.valorTotalNota), numero: n.numero, data: n.dataHoraEmissao }))
       ].sort((a, b) => new Date(b.data ?? 0).getTime() - new Date(a.data ?? 0).getTime());
 
       const totalNfes = todasNotas.length;
@@ -255,11 +271,11 @@ export const DashboardReal: React.FC = () => {
       // 6. Financeiro
       const aReceber = titulos
         .filter((t) => t.tipo === 'RECEBER' && (t.status === 'PENDENTE' || t.status === 'VENCIDO'))
-        .reduce((acc: number, t) => acc + (t.valorOriginal || 0), 0);
+        .reduce((acc: number, t) => acc + paraNumero(t.valorOriginal), 0);
 
       const aPagar = titulos
         .filter((t) => t.tipo === 'PAGAR' && (t.status === 'PENDENTE' || t.status === 'VENCIDO'))
-        .reduce((acc: number, t) => acc + (t.valorOriginal || 0), 0);
+        .reduce((acc: number, t) => acc + paraNumero(t.valorOriginal), 0);
 
       // 7. Faturamento por mês (últimos 3 meses) - CORRIGIDO
       const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
