@@ -1,4 +1,9 @@
 // prisma/seed-fiscal.ts
+// Precisa vir antes de tudo: rodando via `npx tsx prisma/seed-fiscal.ts`
+// diretamente (em vez de `npx prisma db seed`), o Prisma CLI não carrega o
+// .env sozinho — sem isso, DATABASE_URL fica undefined e o PrismaClient falha
+// ao inicializar.
+import 'dotenv/config'
 import { PrismaClient, Prisma } from '@prisma/client'
 import { gerarChaveAcessoNFe, gerarChaveAcessoNFSe } from '../src/utils/chaveAcesso.js'
 
