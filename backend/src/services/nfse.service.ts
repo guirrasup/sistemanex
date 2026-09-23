@@ -14,6 +14,7 @@ import { mapEmpresaParaEmitente, mapClienteParaTomador } from '../utils/fiscalMa
 import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
 import { enviarDps, enviarEventoNfse } from './adnNfseClient.js';
+import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
 
 interface ServicoOverrideInput {
   valorServico?: number;
@@ -105,8 +106,8 @@ export class NfseService {
   }
 
   async buscarPorChave(chave: string, empresaId?: string) {
-    if (!/^[0-9]{53}$/.test(chave)) {
-      throw new Error('Chave de acesso inválida: deve ter 53 dígitos');
+    if (!/^[0-9]{50}$/.test(chave)) {
+      throw new Error('Chave de acesso inválida: deve ter 50 dígitos');
     }
     const nfse = await this.nfseRepo.findByChave(chave);
     if (empresaId && nfse && nfse.empresaId !== empresaId) return null;
@@ -139,7 +140,15 @@ export class NfseService {
     const valorServico = data.servico?.valorServico || Number(servico?.valorUnitario) || 0;
     const aliquotaISS = data.servico?.aliquotaISS || Number(servico?.aliquotaISS) || 5;
     const codigoTributacaoNacional = data.servico?.codigoTributacaoNacional || servico?.codigoTributacaoNacional || '010701';
-    const codigoTributacaoMunicipal = data.servico?.codigoTributacaoMunicipal || servico?.codigoTributacaoMunicipal || '0107';
+    const codigoTributacaoMunicipalInformado = data.servico?.codigoTributacaoMunicipal || servico?.codigoTributacaoMunicipal;
+    // Para persistência (coluna NOT NULL), mantém um valor de preenchimento.
+    const codigoTributacaoMunicipal = codigoTributacaoMunicipalInformado || '107';
+    // cTribMun é opcional no layout da DPS (cada município tem sua própria
+    // tabela de códigos, com formato/tamanho próprios) — um valor "chutado"
+    // quando não informado é sempre inválido para algum município (confirmado
+    // via rejeição real do ADN: E0314), então é melhor omitir a tag no XML do
+    // que arriscar um código de tributação errado.
+    const codigoTributacaoMunicipalParaXml = codigoTributacaoMunicipalInformado || undefined;
     const codigoNBS = data.servico?.codigoNBS || servico?.codigoNBS || '1.1403.21.10';
     const descricaoServico = data.servico?.descricao || servico?.descricao || 'Serviços prestados';
 
@@ -317,7 +326,7 @@ export class NfseService {
     // Monta o DTO fiscal e gera o XML (ainda não transmitido ao ADN/SEFAZ)
     const servicoDto: ServicoItemNfse = {
       codigoTributacaoNacional,
-      codigoTributacaoMunicipal,
+      codigoTributacaoMunicipal: codigoTributacaoMunicipalParaXml,
       descricao: descricaoServico,
       codigoNBS,
       localPrestacao: {
@@ -354,7 +363,7 @@ export class NfseService {
       percentualTotalTributos: calc.percentualTotalTributos,
     };
 
-    const dataHoraISO = new Date().toISOString();
+    const dataHoraISO = formatarDataHoraSefaz();
     const nfseDocumento: NFSeDocumento = {
       id: '',
       chaveAcesso: chaveCompleta,

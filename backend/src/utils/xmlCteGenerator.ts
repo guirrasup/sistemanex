@@ -7,6 +7,8 @@
 // (CST00, vBC00, cUF, etc.), dispensando uma camada extra de DTO — mesmo padrão usado
 // pelo gerador de XML do MDF-e neste projeto.
 import { limparDocumento } from './cpfCnpjValidator.js';
+import { formatarDataHoraSefaz } from './dataHoraSefaz.js';
+import { CRT_POR_REGIME } from './fiscalMappers.js';
 
 function escapeXml(str: unknown): string {
   if (str === undefined || str === null) return '';
@@ -34,7 +36,22 @@ const TIPO_CTE_CODIGO: Record<string, string> = { NORMAL: '0', COMPLEMENTO_VALOR
 const TOMADOR_CODIGO: Record<string, string> = { REMETENTE: '0', EXPEDIDOR: '1', RECEBEDOR: '2', DESTINATARIO: '3', OUTROS: '4' };
 const IND_IE_CODIGO: Record<string, string> = { CONTRIBUINTE: '1', ISENTO: '2', NAO_CONTRIBUINTE: '9' };
 
-function enderecoXml(tag: string, endereco: any): string {
+// Nomes reais dos elementos de endereço por tipo de pessoa (não seguem o padrão
+// simples "ender"+Tag — em especial "rem" -> "enderReme", confirmado via
+// rejeição real da SEFAZ).
+const TAG_ENDERECO: Record<string, string> = {
+  emit: 'enderEmit',
+  rem: 'enderReme',
+  exped: 'enderExped',
+  receb: 'enderReceb',
+  dest: 'enderDest',
+};
+
+// `enderEmit` usa o tipo TEndeEmi (diferente de TEndereco, usado por
+// rem/exped/receb/dest): sem <cPais>/<xPais>, e com <fone> opcional no final —
+// confirmado via rejeição real da SEFAZ (schema XML: "invalid child element
+// 'cPais'... expected 'fone'").
+function enderecoXml(tag: string, endereco: any, isEmit = false): string {
   if (!endereco) return '';
   return `<${tag}>
         <xLgr>${escapeXml(endereco.logradouro)}</xLgr>
@@ -45,8 +62,10 @@ function enderecoXml(tag: string, endereco: any): string {
         <xMun>${escapeXml(endereco.nomeMunicipio)}</xMun>
         <CEP>${limparDocumento(endereco.cep || '')}</CEP>
         <UF>${escapeXml(endereco.uf)}</UF>
-        ${endereco.codigoPais ? `<cPais>${escapeXml(endereco.codigoPais)}</cPais>` : ''}
-        ${endereco.nomePais ? `<xPais>${escapeXml(endereco.nomePais)}</xPais>` : ''}
+        ${isEmit
+          ? (endereco.telefone ? `<fone>${limparDocumento(endereco.telefone)}</fone>` : '')
+          : `${endereco.codigoPais ? `<cPais>${escapeXml(endereco.codigoPais)}</cPais>` : ''}
+        ${endereco.nomePais ? `<xPais>${escapeXml(endereco.nomePais)}</xPais>` : ''}`}
       </${tag}>`;
 }
 
@@ -54,14 +73,23 @@ function pessoaXml(tag: string, pessoa: any, tagIE = 'IE'): string {
   if (!pessoa) return '';
   const doc = limparDocumento(pessoa.cnpj || pessoa.documento || '');
   const isCnpj = doc.length === 14;
+  // O grupo <emit> do CT-e 4.00 (diferente de rem/exped/receb/dest) não tem
+  // <fone>/<email> e exige <CRT> logo após o endereço — confirmado via rejeição
+  // real da SEFAZ (schema XML: "invalid child element 'fone'... expected 'enderEmit'").
+  const isEmit = tag === 'emit';
+  // Só o grupo <rem> tem <xFant>; exped/receb/dest não têm — confirmado via
+  // rejeição real da SEFAZ. <dest> ainda tem um <ISUF> opcional (SUFRAMA) entre
+  // fone e o endereço, que este sistema não coleta (por isso sempre omitido).
+  const temXFant = tag === 'rem';
   return `<${tag}>
       ${isCnpj ? `<CNPJ>${doc}</CNPJ>` : `<CPF>${doc}</CPF>`}
       ${pessoa.inscricaoEstadual ? `<${tagIE}>${escapeXml(pessoa.inscricaoEstadual)}</${tagIE}>` : ''}
       <xNome>${escapeXml(pessoa.razaoSocial)}</xNome>
-      ${pessoa.nomeFantasia ? `<xFant>${escapeXml(pessoa.nomeFantasia)}</xFant>` : ''}
-      ${pessoa.endereco?.telefone ? `<fone>${limparDocumento(pessoa.endereco.telefone)}</fone>` : ''}
-      ${enderecoXml(tag === 'emit' ? 'enderEmit' : `ender${tag[0].toUpperCase()}${tag.slice(1)}`, pessoa.endereco)}
-      ${pessoa.endereco?.email ? `<email>${escapeXml(pessoa.endereco.email)}</email>` : ''}
+      ${temXFant && pessoa.nomeFantasia ? `<xFant>${escapeXml(pessoa.nomeFantasia)}</xFant>` : ''}
+      ${!isEmit && pessoa.endereco?.telefone ? `<fone>${limparDocumento(pessoa.endereco.telefone)}</fone>` : ''}
+      ${enderecoXml(TAG_ENDERECO[tag] ?? `ender${tag[0].toUpperCase()}${tag.slice(1)}`, pessoa.endereco, isEmit)}
+      ${isEmit ? `<CRT>${CRT_POR_REGIME[pessoa.regimeTributario] ?? 3}</CRT>` : ''}
+      ${!isEmit && pessoa.endereco?.email ? `<email>${escapeXml(pessoa.endereco.email)}</email>` : ''}
     </${tag}>`;
 }
 
@@ -226,7 +254,7 @@ export function gerarXmlCte400(cte: any): string {
       <mod>${escapeXml(cte.mod || '57')}</mod>
       <serie>${cte.serie}</serie>
       <nCT>${cte.nCT}</nCT>
-      <dhEmi>${cte.dhEmi instanceof Date ? cte.dhEmi.toISOString() : cte.dhEmi}</dhEmi>
+      <dhEmi>${cte.dhEmi instanceof Date ? formatarDataHoraSefaz(cte.dhEmi) : cte.dhEmi}</dhEmi>
       <tpImp>${escapeXml(cte.tpImp || '1')}</tpImp>
       <tpEmis>${escapeXml(cte.tpEmis || '1')}</tpEmis>
       <cDV>${escapeXml(cte.cDV)}</cDV>
@@ -250,9 +278,8 @@ export function gerarXmlCte400(cte: any): string {
       <retira>${escapeXml(cte.retira ?? '1')}</retira>
       ${cte.xDetRetira ? `<xDetRetira>${escapeXml(cte.xDetRetira)}</xDetRetira>` : ''}
       <indIEToma>${IND_IE_CODIGO[cte.indIEToma] ?? '9'}</indIEToma>
-      <toma>
-        <toma>${TOMADOR_CODIGO[cte.toma] ?? '0'}</toma>
-        ${cte.toma === 'OUTROS' ? `
+      ${cte.toma === 'OUTROS' ? `<toma4>
+        <toma>4</toma>
         ${cte.tomadorCNPJ ? `<CNPJ>${limparDocumento(cte.tomadorCNPJ)}</CNPJ>` : ''}
         ${cte.tomadorCPF ? `<CPF>${limparDocumento(cte.tomadorCPF)}</CPF>` : ''}
         ${cte.tomadorIE ? `<IE>${escapeXml(cte.tomadorIE)}</IE>` : ''}
@@ -271,8 +298,10 @@ export function gerarXmlCte400(cte: any): string {
           ${cte.tomadorcPais ? `<cPais>${escapeXml(cte.tomadorcPais)}</cPais>` : ''}
           ${cte.tomadorxPais ? `<xPais>${escapeXml(cte.tomadorxPais)}</xPais>` : ''}
         </enderToma>
-        ${cte.tomadorEmail ? `<email>${escapeXml(cte.tomadorEmail)}</email>` : ''}` : ''}
-      </toma>
+        ${cte.tomadorEmail ? `<email>${escapeXml(cte.tomadorEmail)}</email>` : ''}
+      </toma4>` : `<toma3>
+        <toma>${TOMADOR_CODIGO[cte.toma] ?? '0'}</toma>
+      </toma3>`}
     </ide>
 
     <!-- COMPLEMENTO -->
@@ -291,6 +320,7 @@ export function gerarXmlCte400(cte: any): string {
       razaoSocial: emitente?.razaoSocial,
       nomeFantasia: emitente?.nomeFantasia,
       endereco: emitente?.endereco,
+      regimeTributario: emitente?.regimeTributario,
     })}
 
     <!-- REMETENTE -->
@@ -332,7 +362,6 @@ export function gerarXmlCte400(cte: any): string {
         ${cte.vCarga ? `<vCarga>${fmt(cte.vCarga)}</vCarga>` : ''}
         <proPred>${escapeXml(cte.proPred)}</proPred>
         ${cte.xOutCat ? `<xOutCat>${escapeXml(cte.xOutCat)}</xOutCat>` : ''}
-        ${cte.vCargaAverb ? `<vCargaAverb>${fmt(cte.vCargaAverb)}</vCargaAverb>` : ''}
         ${quantidades.map((q) => `
         <infQ>
           <cUnid>${escapeXml(q.cUnid)}</cUnid>
@@ -340,7 +369,7 @@ export function gerarXmlCte400(cte: any): string {
           <qCarga>${fmt(q.qCarga, 4)}</qCarga>
         </infQ>`).join('')}
       </infCarga>
-      <infDoc>
+      ${documentos.length > 0 ? `<infDoc>
         ${documentos.map((doc) => {
           if (doc.tipo === 'NFe') {
             return `
@@ -374,27 +403,26 @@ export function gerarXmlCte400(cte: any): string {
           ${doc.vDocFisc ? `<vDocFisc>${fmt(doc.vDocFisc)}</vDocFisc>` : ''}
         </infOutros>`;
         }).join('')}
-      </infDoc>
+      </infDoc>` : ''}
       ${blocoInfModal(cte)}
+      <!-- COBRANCA (dentro de infCTeNorm, não é irmã dele) -->
+      ${duplicatas.length > 0 || cte.nFat ? `
+      <cobr>
+        ${cte.nFat ? `
+        <fat>
+          <nFat>${escapeXml(cte.nFat)}</nFat>
+          ${cte.vOrig ? `<vOrig>${fmt(cte.vOrig)}</vOrig>` : ''}
+          ${cte.vDesc ? `<vDesc>${fmt(cte.vDesc)}</vDesc>` : ''}
+          ${cte.vLiq ? `<vLiq>${fmt(cte.vLiq)}</vLiq>` : ''}
+        </fat>` : ''}
+        ${duplicatas.map((d) => `
+        <dup>
+          <nDup>${escapeXml(d.nDup)}</nDup>
+          <dVenc>${d.dVenc instanceof Date ? d.dVenc.toISOString().slice(0, 10) : d.dVenc}</dVenc>
+          <vDup>${fmt(d.vDup)}</vDup>
+        </dup>`).join('')}
+      </cobr>` : ''}
     </infCTeNorm>
-
-    <!-- COBRANCA -->
-    ${duplicatas.length > 0 || cte.nFat ? `
-    <cobr>
-      ${cte.nFat ? `
-      <fat>
-        <nFat>${escapeXml(cte.nFat)}</nFat>
-        ${cte.vOrig ? `<vOrig>${fmt(cte.vOrig)}</vOrig>` : ''}
-        ${cte.vDesc ? `<vDesc>${fmt(cte.vDesc)}</vDesc>` : ''}
-        ${cte.vLiq ? `<vLiq>${fmt(cte.vLiq)}</vLiq>` : ''}
-      </fat>` : ''}
-      ${duplicatas.map((d) => `
-      <dup>
-        <nDup>${escapeXml(d.nDup)}</nDup>
-        <dVenc>${d.dVenc instanceof Date ? d.dVenc.toISOString().slice(0, 10) : d.dVenc}</dVenc>
-        <vDup>${fmt(d.vDup)}</vDup>
-      </dup>`).join('')}
-    </cobr>` : ''}
 
     ${autXML.length > 0 ? autXML.map((a) => `
     <autXML>
@@ -407,4 +435,55 @@ export function gerarXmlCte400(cte: any): string {
   // ⚠️ XML sem assinatura digital. A assinatura real é aplicada por assinarXmlEnvelopado()
   // (elemento assinado: infCte). O bloco infModal ainda é um placeholder (ver comentário acima).
   return xml.trim();
+}
+
+// ============================================================
+// EVENTO DE CANCELAMENTO (CTeRecepcaoEventoV4)
+// ============================================================
+
+export function gerarXmlCancelamentoCte(params: {
+  chaveAcessoCte: string;
+  cnpjAutor: string;
+  sequencialEvento: number;
+  justificativa: string;
+  protocoloAutorizacao: string;
+  ambiente?: 1 | 2;
+}): string {
+  if (!/^[0-9]{44}$/.test(params.chaveAcessoCte)) {
+    throw new Error('Chave de acesso do CT-e inválida: deve ter 44 dígitos');
+  }
+  if (params.justificativa.length < 15 || params.justificativa.length > 255) {
+    throw new Error('Justificativa deve ter entre 15 e 255 caracteres (TJust)');
+  }
+  if (!/^[0-9]{15}$/.test(params.protocoloAutorizacao) && !/^[0-9]{17}$/.test(params.protocoloAutorizacao)) {
+    throw new Error('Protocolo inválido: deve ter 15 ou 17 dígitos (TProt)');
+  }
+
+  const dhEvento = formatarDataHoraSefaz();
+  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const nSeq = params.sequencialEvento.toString().padStart(2, '0');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<envEvento xmlns="http://www.portalfiscal.inf.br/cte" versao="4.00">
+  <idLote>1</idLote>
+  <evento versao="4.00">
+    <infEvento Id="ID110111${params.chaveAcessoCte}${nSeq}">
+      <cOrgao>${params.chaveAcessoCte.slice(0, 2)}</cOrgao>
+      <tpAmb>${params.ambiente ?? 2}</tpAmb>
+      <CNPJ>${cnpjLimpo}</CNPJ>
+      <chCTe>${params.chaveAcessoCte}</chCTe>
+      <dhEvento>${dhEvento}</dhEvento>
+      <tpEvento>110111</tpEvento>
+      <nSeqEvento>${params.sequencialEvento}</nSeqEvento>
+      <verEvento>4.00</verEvento>
+      <detEvento versao="4.00">
+        <evCancCTe>
+          <descEvento>Cancelamento</descEvento>
+          <nProt>${params.protocoloAutorizacao}</nProt>
+          <xJust>${escapeXml(params.justificativa)}</xJust>
+        </evCancCTe>
+      </detEvento>
+    </infEvento>
+  </evento>
+</envEvento>`;
 }

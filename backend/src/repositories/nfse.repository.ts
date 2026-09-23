@@ -55,8 +55,8 @@ export class NfseRepository extends BaseRepository {
   }
 
   async findByChave(chaveAcesso: string) {
-    if (!/^[0-9]{53}$/.test(chaveAcesso)) {
-      throw new Error('Chave de acesso inválida: deve ter 53 dígitos');
+    if (!/^[0-9]{50}$/.test(chaveAcesso)) {
+      throw new Error('Chave de acesso inválida: deve ter 50 dígitos');
     }
 
     return this.prisma.nFSe.findUnique({
@@ -148,10 +148,10 @@ export class NfseRepository extends BaseRepository {
       where.serieDPS = serieDPS;
     }
 
-    // ✅ Filtro por chave de acesso (53 dígitos)
+    // ✅ Filtro por chave de acesso (50 dígitos)
     if (chaveAcesso) {
-      if (!/^[0-9]{53}$/.test(chaveAcesso)) {
-        throw new Error('Chave de acesso inválida: deve ter 53 dígitos');
+      if (!/^[0-9]{50}$/.test(chaveAcesso)) {
+        throw new Error('Chave de acesso inválida: deve ter 50 dígitos');
       }
       where.chaveAcesso = chaveAcesso;
     }
@@ -211,8 +211,8 @@ export class NfseRepository extends BaseRepository {
     if (!data.chaveAcesso) {
       throw new Error('Chave de acesso é obrigatória');
     }
-    if (!/^[0-9]{53}$/.test(data.chaveAcesso)) {
-      throw new Error('Chave de acesso inválida: deve ter 53 dígitos');
+    if (!/^[0-9]{50}$/.test(data.chaveAcesso)) {
+      throw new Error('Chave de acesso inválida: deve ter 50 dígitos');
     }
     if (!data.empresaId) {
       throw new Error('Empresa é obrigatória');

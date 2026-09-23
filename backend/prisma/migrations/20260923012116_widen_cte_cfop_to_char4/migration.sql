@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "cte_documentos" ALTER COLUMN "nCFOP" SET DATA TYPE CHAR(4);
+
+-- AlterTable
+ALTER TABLE "ctes" ALTER COLUMN "CFOP" SET DATA TYPE CHAR(4);

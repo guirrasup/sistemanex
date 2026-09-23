@@ -7,13 +7,14 @@ import { EmpresaRepository } from '../repositories/empresa.repository.js';
 import { FinanceiroRepository } from '../repositories/financeiro.repository.js';
 import { gerarChaveAcessoNFe } from '../utils/chaveAcesso.js';
 import { calcularTotaisNfe } from '../utils/tributosEngine.js';
-import { gerarXmlNfe400, gerarXmlCartaCorrecao, gerarXmlCancelamentoNFe } from '../utils/xmlNfeGenerator.js';
+import { gerarXmlNfe400, gerarXmlCartaCorrecao, gerarXmlCancelamentoNFe, gerarXmlInutilizacaoNFe } from '../utils/xmlNfeGenerator.js';
 import type { ItemNfe, NFeDocumento, FormaPagamento } from '../types/fiscal.js';
 import type { FiltroNFe } from '../repositories/nfe.repository.js';
 import { mapEmpresaParaEmitente, mapClienteParaTomador } from '../utils/fiscalMappers.js';
 import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
-import { autorizarNfe, enviarEvento } from './nfeSefazClient.js';
+import { autorizarNfe, enviarEvento, inutilizarNfe } from './nfeSefazClient.js';
+import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
 
 interface ItemNfeRequestInput {
   produtoId: string;
@@ -33,6 +34,7 @@ interface EmitirNfeInput {
   naturezaOperacao?: string;
   formaPagamento?: string;
   informacoesAdicionais?: string;
+  consumidorFinal?: boolean;
   [key: string]: unknown;
 }
 
@@ -76,6 +78,14 @@ export class NfeService {
         const aliquotaPIS = Number(produto.aliquotaPIS);
         const aliquotaCOFINS = Number(produto.aliquotaCOFINS);
 
+        // CSOSN 102/103/300/400/500 não têm vBC/vICMS próprios (ICMSSN102/ICMSSN500
+        // não declaram esses campos) — a SEFAZ rejeita ("Total da BC ICMS difere do
+        // somatorio dos itens") se o total do documento contabilizar um valor que
+        // nenhum item realmente declarou. calcularTotaisNfe() soma o que estiver
+        // aqui, então zerar na origem mantém item e total consistentes.
+        const csosnSemBasePropria = ['102', '103', '300', '400', '500'];
+        const semIcmsPropriaBase = !!produto.csosnICMS && csosnSemBasePropria.includes(produto.csosnICMS);
+
         return {
           id: produto.id || `item-${idx}`,
           codigoProduto: produto.codigo,
@@ -88,10 +98,11 @@ export class NfeService {
           valorUnitario,
           valorTotalBruto: valorTotal,
           origemMercadoria: Number(produto.origem ?? '0') as ItemNfe['origemMercadoria'],
-          cstICMS: '00',
+          cstICMS: produto.cstICMS || '00',
+          csosnICMS: produto.csosnICMS || undefined,
           aliquotaICMS,
-          baseCalculoICMS: valorTotal,
-          valorICMS: (valorTotal * aliquotaICMS) / 100,
+          baseCalculoICMS: semIcmsPropriaBase ? 0 : valorTotal,
+          valorICMS: semIcmsPropriaBase ? 0 : (valorTotal * aliquotaICMS) / 100,
           cstPIS: '01',
           aliquotaPIS,
           valorPIS: (valorTotal * aliquotaPIS) / 100,
@@ -127,7 +138,7 @@ export class NfeService {
     const emitenteFiscal = mapEmpresaParaEmitente(empresa);
     const destinatarioFiscal = mapClienteParaTomador(destinatario);
 
-    const dataHoraEmissaoISO = new Date().toISOString();
+    const dataHoraEmissaoISO = formatarDataHoraSefaz();
 
     const nfeDocumento: NFeDocumento = {
       id: '',
@@ -142,7 +153,11 @@ export class NfeService {
       tipoEmissao: 1,
       tipoDocumento: 1,
       finalidade: 1,
-      consumidorFinal: false,
+      // A SEFAZ rejeita ("Operacao com nao contribuinte deve indicar operacao
+      // com consumidor final") quando o destinatário é não contribuinte
+      // (indIEDest=9) e indFinal não é 1 — então nesse caso o padrão é sempre
+      // consumidor final, a menos que o chamador informe explicitamente o contrário.
+      consumidorFinal: data.consumidorFinal ?? destinatarioFiscal.indicadorIEDestinatario === '9',
       presencaComprador: 2,
       status: 'AUTORIZADA',
       idDest,
@@ -444,10 +459,9 @@ export class NfeService {
   }
 
   /**
-   * Gera e registra o evento de Carta de Correção (CC-e) localmente.
-   * Ainda não transmite ao SEFAZ — isso depende da integração real com o
-   * webservice de recepção de eventos (RecepcaoEvento4), prevista para a
-   * fase de integração SEFAZ homologação/produção.
+   * Gera, assina e transmite (quando SEFAZ_TRANSMISSAO_REAL=true) o evento de
+   * Carta de Correção (CC-e, 110110) via RecepcaoEvento4. Em modo mock, apenas
+   * registra o evento localmente, como antes.
    */
   async enviarCartaCorrecao(params: {
     empresaId: string;
@@ -459,26 +473,158 @@ export class NfeService {
     if (!nfe) throw new Error('NF-e não encontrada');
     if (nfe.empresaId !== params.empresaId) throw new Error('Acesso negado');
 
+    const empresa = await this.empresaRepo.findById(params.empresaId);
+    if (!empresa) throw new Error('Empresa não encontrada');
+
     const nSeqEvento = (await this.nfeRepo.contarEventosPorTipo(nfe.id, '110110')) + 1;
+    const ambiente: 1 | 2 = empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2;
 
     const xmlEvento = gerarXmlCartaCorrecao({
       chaveAcessoNFe: params.chaveAcesso,
       cnpjAutor: params.cnpjAutor,
       sequencialEvento: nSeqEvento,
       textoCorrecao: params.textoCorrecao,
+      ambiente,
     });
+
+    const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
+    let xmlEventoFinal = xmlEvento;
+    let cStat = '000';
+    let xMotivo = 'Evento registrado localmente - aguardando integração com o webservice de eventos da SEFAZ';
+    let nProt: string | undefined;
+    let xmlRetorno: string | undefined;
+
+    if (transmissaoReal) {
+      const certificado = await this.certificadoService.obterCertificadoDecriptado(params.empresaId);
+      if (!certificado) throw new Error('Certificado digital não configurado para esta empresa');
+      const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+      xmlEventoFinal = assinarXmlEnvelopado(xmlEvento, 'infEvento', chaveECertPem);
+
+      const resultado = await enviarEvento({
+        uf: empresa.uf,
+        ambiente: ambiente === 1 ? 'producao' : 'homologacao',
+        xmlEventoAssinado: xmlEventoFinal,
+        mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
+      });
+
+      cStat = resultado.cStat || '999';
+      xMotivo = resultado.xMotivo || 'Rejeitado pela SEFAZ sem motivo informado';
+      nProt = resultado.nProt;
+      xmlRetorno = resultado.xmlRetorno;
+
+      if (!resultado.sucesso) {
+        throw new Error(`SEFAZ rejeitou a carta de correção: ${xMotivo} (cStat ${cStat})`);
+      }
+    } else {
+      console.warn('[NFe] SEFAZ_TRANSMISSAO_REAL não está ativo — CC-e registrada em modo mock (não transmitida).');
+    }
 
     return this.nfeRepo.criarEvento({
       chaveNFe: params.chaveAcesso,
       tpEvento: '110110',
       nSeqEvento,
       dhEvento: new Date(),
-      cStat: '000',
-      xMotivo: 'Evento registrado localmente - aguardando integração com o webservice de eventos da SEFAZ',
-      xmlEvento,
+      cStat,
+      xMotivo,
+      nProt,
+      xmlEvento: xmlEventoFinal,
+      xmlRetorno,
       empresaId: params.empresaId,
       nfeId: nfe.id,
     });
+  }
+
+  /**
+   * Inutiliza uma faixa de numeração de NF-e/NFC-e que nunca chegou a ser
+   * transmitida (NFeInutilizacao4). Em modo mock (SEFAZ_TRANSMISSAO_REAL
+   * desligado), apenas registra a solicitação localmente como PROCESSANDO.
+   */
+  async inutilizarNumeracao(params: {
+    empresaId: string;
+    modelo: '55' | '65';
+    serie: number;
+    numeroInicial: number;
+    numeroFinal: number;
+    justificativa: string;
+  }) {
+    const empresa = await this.empresaRepo.findById(params.empresaId);
+    if (!empresa) throw new Error('Empresa não encontrada');
+
+    if (!empresa.certificado || empresa.certificado.status !== 'VALIDO') {
+      throw new Error('Certificado digital inválido ou não configurado');
+    }
+
+    const ambiente: 1 | 2 = empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2;
+    const ano = new Date().getFullYear().toString().slice(2, 4);
+
+    const xmlInutilizacao = gerarXmlInutilizacaoNFe({
+      cUF: empresa.codigoUF,
+      cnpjAutor: empresa.cnpj,
+      ano,
+      modelo: params.modelo,
+      serie: params.serie,
+      numeroInicial: params.numeroInicial,
+      numeroFinal: params.numeroFinal,
+      justificativa: params.justificativa,
+      ambiente,
+    });
+
+    const certificado = await this.certificadoService.obterCertificadoDecriptado(params.empresaId);
+    if (!certificado) throw new Error('Certificado digital não configurado para esta empresa');
+    const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+    const xmlAssinado = assinarXmlEnvelopado(xmlInutilizacao, 'infInut', chaveECertPem);
+
+    const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
+    let status = 'PROCESSANDO';
+    let protocolo: string | undefined;
+    let motivoRejeicao: string | undefined;
+    let xmlRetorno: string | undefined;
+    let dataHoraAutorizacao: Date | undefined;
+
+    if (transmissaoReal) {
+      const resultado = await inutilizarNfe({
+        uf: empresa.uf,
+        ambiente: ambiente === 1 ? 'producao' : 'homologacao',
+        xmlInutilizacaoAssinado: xmlAssinado,
+        mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
+        modelo: params.modelo,
+      });
+
+      xmlRetorno = resultado.xmlRetorno;
+      if (resultado.sucesso) {
+        status = 'HOMOLOGADA';
+        protocolo = resultado.nProt;
+        dataHoraAutorizacao = new Date();
+      } else {
+        status = 'REJEITADA';
+        motivoRejeicao = resultado.xMotivo || 'Rejeitado pela SEFAZ sem motivo informado';
+      }
+    } else {
+      console.warn('[NFe] SEFAZ_TRANSMISSAO_REAL não está ativo — inutilização registrada em modo mock (não transmitida).');
+    }
+
+    const inutilizacaoCriada = await this.nfeRepo.criarInutilizacao({
+      empresaId: params.empresaId,
+      serie: params.serie,
+      numeroInicial: params.numeroInicial,
+      numeroFinal: params.numeroFinal,
+      ano: Number(`20${ano}`),
+      cUF: empresa.codigoUF,
+      cnpj: empresa.cnpj.replace(/\D/g, ''),
+      justificativa: params.justificativa,
+      protocolo,
+      status,
+      xmlEnvio: xmlAssinado,
+      xmlRetorno,
+      dataHoraAutorizacao,
+      motivoRejeicao,
+    });
+
+    if (status === 'REJEITADA') {
+      throw new Error(`SEFAZ rejeitou a inutilização: ${motivoRejeicao}`);
+    }
+
+    return inutilizacaoCriada;
   }
 
   /**

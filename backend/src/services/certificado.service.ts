@@ -104,7 +104,10 @@ export class CertificadoService {
         sucesso: true,
         mensagem: 'Certificado processado com sucesso!',
         certificado: this.sanitizarCertificado(empresa.certificado),
-        empresa
+        // ⚠️ empresa.certificado ainda carrega arquivoBase64/senha criptografados
+        // (vindos do include do repositório) — nunca devolver isso pela API,
+        // mesmo cifrado. Reaproveita o mesmo certificado já sanitizado acima.
+        empresa: { ...empresa, certificado: this.sanitizarCertificado(empresa.certificado) }
       }
     } catch (error) {
       return {
@@ -150,17 +153,27 @@ export class CertificadoService {
 
       if (response.ok) {
         const data = await response.json() as Record<string, any>
+        const codigoMunicipio = data.codigo_municipio_ibge ? String(data.codigo_municipio_ibge) : undefined
+
         return {
           razaoSocial: data.razao_social || data.nome_empresarial,
           nomeFantasia: data.nome_fantasia,
           cnae: data.cnae_fiscal ? `${data.cnae_fiscal} - ${data.cnae_fiscal_descricao}` : undefined,
+          // Empresa também guarda uf/codigoUF/codigoMunicipio/nomeMunicipio direto
+          // (fora do relacionamento Endereco) — são esses campos "operacionais" que
+          // nfe/nfce/cte/mdfe.service.ts usam para rotear a emissão ao autorizador
+          // certo da SEFAZ. Sem espelhar aqui, uma empresa de outra UF continuaria
+          // roteando para a UF antiga mesmo depois de atualizar o endereço.
+          ...(data.uf && { uf: data.uf }),
+          ...(codigoMunicipio && { codigoUF: codigoMunicipio.slice(0, 2), codigoMunicipio }),
+          ...(data.municipio && { nomeMunicipio: data.municipio }),
           endereco: {
             update: {
               logradouro: data.logradouro ? `${data.descricao_tipo_de_logradouro || ''} ${data.logradouro}`.trim() : undefined,
               numero: data.numero || 'S/N',
               complemento: data.complemento || '',
               bairro: data.bairro || '',
-              codigoMunicipio: data.codigo_municipio_ibge ? String(data.codigo_municipio_ibge) : undefined,
+              codigoMunicipio,
               nomeMunicipio: data.municipio || '',
               uf: data.uf || '',
               cep: data.cep || '',

@@ -21,7 +21,7 @@ interface RequestComUsuario extends Request {
 // ============================================================
 
 function validarChaveAcesso(chave: string): boolean {
-  return /^[0-9]{53}$/.test(chave);
+  return /^[0-9]{50}$/.test(chave);
 }
 
 function validarTJust(texto: string): boolean {
@@ -80,11 +80,11 @@ export class NfseController {
         }
       }
 
-      // ✅ VALIDA TChNFSe (53 dígitos) - se fornecida
+      // ✅ VALIDA TChNFSe (50 dígitos) - se fornecida
       if (chave && !validarChaveAcesso(chave)) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'Chave de acesso inválida: deve ter 53 dígitos (TChNFSe)'
+          erro: 'Chave de acesso inválida: deve ter 50 dígitos (TChNFSe)'
         });
       }
 
@@ -178,11 +178,11 @@ export class NfseController {
         });
       }
 
-      // ✅ VALIDA TChNFSe (53 dígitos)
+      // ✅ VALIDA TChNFSe (50 dígitos)
       if (!validarChaveAcesso(chave)) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'Chave de acesso inválida: deve ter 53 dígitos (TChNFSe)'
+          erro: 'Chave de acesso inválida: deve ter 50 dígitos (TChNFSe)'
         });
       }
 

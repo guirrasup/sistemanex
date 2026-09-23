@@ -1,6 +1,7 @@
 // backend/src/utils/xmlNfseGenerator.ts
 import { NFSeDocumento } from '../types/fiscal.js';
 import { limparDocumento } from './cpfCnpjValidator.js';
+import { formatarDataHoraSefaz } from './dataHoraSefaz.js';
 
 function formatarNumeroXml(num: number | undefined | null, decimais = 2): string {
   if (num === undefined || num === null || isNaN(num)) return '0.00';
@@ -268,7 +269,7 @@ export function gerarXmlCancelamentoNfse(params: {
   justificativa: string;
   sequencial?: number;
 }): string {
-  const dhEvento = new Date().toISOString();
+  const dhEvento = formatarDataHoraSefaz();
   return `<?xml version="1.0" encoding="UTF-8"?>
 <pedRegEvento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01">
   <infPedReg Id="PRE${params.chaveNFSe}101101">

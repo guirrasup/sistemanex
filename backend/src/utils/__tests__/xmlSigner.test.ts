@@ -81,6 +81,31 @@ describe('assinarXmlEnvelopado', () => {
     expect(match?.[1]).toBe(`#NFe${chave}`);
   });
 
+  it('com `inserirApos` informado (caso da NFC-e: infNFeSupl antes de Signature), insere a assinatura após esse elemento — não após o elemento assinado', () => {
+    const xmlComSupl = `<?xml version="1.0" encoding="UTF-8"?>
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe Id="NFe${chave}" versao="4.00">
+    <ide><cUF>35</cUF><nNF>1</nNF></ide>
+  </infNFe>
+  <infNFeSupl><qrCode>teste</qrCode></infNFeSupl>
+</NFe>`;
+
+    const xmlAssinado = assinarXmlEnvelopado(xmlComSupl, 'infNFe', chaveECertificado, 'infNFeSupl');
+
+    const posInfNFeSuplFim = xmlAssinado.indexOf('</infNFeSupl>');
+    const posSignature = xmlAssinado.indexOf('<Signature');
+
+    expect(posInfNFeSuplFim).toBeGreaterThan(0);
+    expect(posSignature).toBeGreaterThan(posInfNFeSuplFim);
+
+    // A assinatura continua válida — ainda cobre infNFe, não infNFeSupl.
+    const doc = new DOMParser().parseFromString(xmlAssinado);
+    const signatureNode = doc.getElementsByTagNameNS('http://www.w3.org/2000/09/xmldsig#', 'Signature')[0];
+    const verificador = new SignedXml({ publicCert: chaveECertificado.certPem });
+    verificador.loadSignature(signatureNode);
+    expect(verificador.checkSignature(xmlAssinado)).toBe(true);
+  });
+
   it('produz uma assinatura criptograficamente válida (verificável com a chave pública do certificado)', () => {
     const xmlAssinado = assinarXmlEnvelopado(xmlSemAssinatura, 'infNFe', chaveECertificado);
 

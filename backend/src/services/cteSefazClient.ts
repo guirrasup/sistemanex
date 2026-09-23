@@ -4,6 +4,7 @@
 // Diferença importante em relação à NFe: o CT-e usa recepção SÍNCRONA
 // (CTeRecepcaoSincV4) — a resposta já traz o protocolo de autorização (ou rejeição)
 // na mesma chamada, sem o ciclo de lote assíncrono + NFeRetAutorizacao4 da NFe.
+import { gzipSync } from 'zlib';
 import { postSoap, extrairTag, extrairTags, type CredenciaisMtls } from './sefazSoapClient.js';
 import { obterEnderecosCte, type AmbienteSefaz } from '../config/cteEndpoints.js';
 
@@ -68,11 +69,15 @@ export async function consultarStatusServicoCte(params: {
       <xServ>STATUS</xServ>
     </consStatServCTe>`;
 
-  const soapEnvelope = envelope('http://www.portalfiscal.inf.br/cte/wsdl/CTeStatusServico4', corpo);
+  // Confirmado contra a SEFAZ homologação real (SVRS/DF): o nome do serviço é
+  // "CTeStatusServicoV4" (com o "V"), diferente de "CTeStatusServico4" usado nos
+  // demais serviços do CT-e — usar o nome errado faz o servidor recusar a
+  // requisição com "The action ... was not recognized" (SOAP Fault).
+  const soapEnvelope = envelope('http://www.portalfiscal.inf.br/cte/wsdl/CTeStatusServicoV4', corpo);
 
   const resposta = await postSoap({
     url: enderecos.statusServico,
-    soapAction: 'http://www.portalfiscal.inf.br/cte/wsdl/CTeStatusServico4/cteStatusServicoCT',
+    soapAction: 'http://www.portalfiscal.inf.br/cte/wsdl/CTeStatusServicoV4/cteStatusServicoCT',
     envelope: soapEnvelope,
     mtls: params.mtls,
   });
@@ -83,6 +88,15 @@ export async function consultarStatusServicoCte(params: {
 
 /**
  * CTeRecepcaoSincV4 — envia o XML assinado do CT-e para autorização síncrona.
+ *
+ * Diferença crítica confirmada via WSDL real e testes ao vivo contra a SVRS:
+ * ao contrário de CTeStatusServicoV4/CTeRecepcaoEventoV4 (cujo `cteDadosMsg` é
+ * um `complexType mixed` que aceita XML literal), o `cteDadosMsg` desta operação
+ * é tipado como `xs:string` puro — e o conteúdo esperado não é sequer o XML em
+ * texto simples, mas sim o documento `<CTe>` assinado (sem wrapper `enviCTe`/
+ * `idLote`, que não existe no layout 4.00 síncrono), compactado com gzip e
+ * codificado em base64 (mesmo padrão do sped-cte). Enviar XML literal aqui
+ * resulta em HTTP 400 com corpo vazio (exceção não tratada na desserialização).
  */
 export async function autorizarCte(params: {
   uf: string;
@@ -91,20 +105,22 @@ export async function autorizarCte(params: {
   mtls: CredenciaisMtls;
 }): Promise<ResultadoAutorizacaoCte> {
   const enderecos = obterEnderecosCte(params.uf, params.ambiente);
-  const idLote = Date.now().toString().slice(-15);
 
-  const corpo = `<cteDadosMsg xmlns="${NS_CTE}">
-      <enviCTe versao="4.00">
-        <idLote>${idLote}</idLote>
-        ${params.xmlAssinado.replace(/^<\?xml[^>]*\?>/, '')}
-      </enviCTe>
-    </cteDadosMsg>`;
+  const cteSemDeclaracaoXml = params.xmlAssinado.replace(/^<\?xml[^>]*\?>/, '');
+  const cteGzipBase64 = gzipSync(cteSemDeclaracaoXml).toString('base64');
 
-  const soapEnvelope = envelope('http://www.portalfiscal.inf.br/cte/wsdl/CTeRecepcaoSincV4', corpo);
+  const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="${XMLNS_SOAP12}">
+  <soap12:Body>
+    <cteDadosMsg xmlns="http://www.portalfiscal.inf.br/cte/wsdl/CTeRecepcaoSincV4">${cteGzipBase64}</cteDadosMsg>
+  </soap12:Body>
+</soap12:Envelope>`;
 
   const resposta = await postSoap({
     url: enderecos.recepcao,
-    soapAction: 'http://www.portalfiscal.inf.br/cte/wsdl/CTeRecepcaoSincV4/cteRecepcaoSinc',
+    // Confirmado contra o WSDL real da SVRS: o "method" do SOAPAction é
+    // "cteRecepcao", não "cteRecepcaoSinc".
+    soapAction: 'http://www.portalfiscal.inf.br/cte/wsdl/CTeRecepcaoSincV4/cteRecepcao',
     envelope: soapEnvelope,
     mtls: params.mtls,
   });

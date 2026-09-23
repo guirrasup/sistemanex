@@ -6,6 +6,7 @@ import {
   gerarXmlNfce400,
   gerarXmlCartaCorrecao,
   gerarXmlCancelamentoNFe,
+  gerarXmlInutilizacaoNFe,
 } from '../xmlNfeGenerator.js';
 import { gerarChaveAcessoNFe } from '../chaveAcesso.js';
 import type { NFeDocumento, NFCeDocumento, EnderecoFiscal, ItemNfe } from '../../types/fiscal.js';
@@ -243,9 +244,76 @@ describe('gerarXmlNfe400', () => {
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
     expect(doc.getElementsByTagName('vNF')[0].textContent).toBe('100.00');
   });
+
+  it('inclui indIntermed=0 logo após indPres (NT 2020.006 — evita a rejeição 434)', () => {
+    const xml = gerarXmlNfe400(criarNfe());
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    expect(doc.getElementsByTagName('indIntermed')[0].textContent).toBe('0');
+    expect(xml.indexOf('<indPres>')).toBeLessThan(xml.indexOf('<indIntermed>'));
+    expect(xml.indexOf('<indIntermed>')).toBeLessThan(xml.indexOf('<procEmi>'));
+  });
+
+  it('usa o grupo ICMS00 (CST) quando o emitente é do regime Normal (CRT=3)', () => {
+    const xml = gerarXmlNfe400(criarNfe());
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    expect(doc.getElementsByTagName('ICMS00').length).toBe(1);
+    expect(doc.getElementsByTagName('CST')[0].textContent).toBe('00');
+  });
+
+  it('usa o grupo CSOSN (não CST) quando o emitente é do Simples Nacional (CRT=1) — confirmado contra rejeição real da SEFAZ', () => {
+    const nfe = criarNfe({
+      emitente: { ...criarNfe().emitente, regimeTributario: 1 },
+      itens: [criarItem({ csosnICMS: '102' })],
+    });
+    const xml = gerarXmlNfe400(nfe);
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    expect(doc.getElementsByTagName('ICMSSN102').length).toBe(1);
+    expect(doc.getElementsByTagName('CSOSN')[0].textContent).toBe('102');
+    expect(doc.getElementsByTagName('ICMS00').length).toBe(0);
+    // <CST> ainda aparece para PIS/COFINS (conceito à parte); o que não pode
+    // existir é um <CST> dentro do grupo <ICMS> quando o emitente é do Simples.
+    const grupoIcms = doc.getElementsByTagName('ICMS')[0];
+    expect(grupoIcms.getElementsByTagName('CST').length).toBe(0);
+  });
+
+  it('lança erro quando o emitente é do Simples Nacional e o item não tem CSOSN', () => {
+    const nfe = criarNfe({
+      emitente: { ...criarNfe().emitente, regimeTributario: 1 },
+      itens: [criarItem({ csosnICMS: undefined })],
+    });
+    expect(() => gerarXmlNfe400(nfe)).toThrow(/sem csosn informado/i);
+  });
+
+  it('monta o grupo ICMSSN101 (com crédito) para CSOSN 101', () => {
+    const nfe = criarNfe({
+      emitente: { ...criarNfe().emitente, regimeTributario: 1 },
+      itens: [criarItem({ csosnICMS: '101' })],
+    });
+    const xml = gerarXmlNfe400(nfe);
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    expect(doc.getElementsByTagName('ICMSSN101').length).toBe(1);
+    expect(doc.getElementsByTagName('vCredICMSSN').length).toBe(1);
+  });
+
+  it('lança erro para um CSOSN desconhecido/não suportado', () => {
+    const nfe = criarNfe({
+      emitente: { ...criarNfe().emitente, regimeTributario: 1 },
+      itens: [criarItem({ csosnICMS: '999' })],
+    });
+    expect(() => gerarXmlNfe400(nfe)).toThrow(/não suportado/i);
+  });
 });
 
 describe('gerarXmlNfce400', () => {
+  it('inclui o bloco <transp> com modFrete=9 — obrigatório pelo schema mesmo na NFC-e (confirmado contra rejeição real da SEFAZ)', () => {
+    const xml = gerarXmlNfce400(criarNfce());
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    expect(doc.getElementsByTagName('transp').length).toBe(1);
+    expect(doc.getElementsByTagName('modFrete')[0].textContent).toBe('9');
+    expect(xml.indexOf('</total>')).toBeLessThan(xml.indexOf('<transp>'));
+    expect(xml.indexOf('</transp>')).toBeLessThan(xml.indexOf('<pag>'));
+  });
+
   it('gera um XML com mod=65 e inclui o bloco infNFeSupl com o QR Code', () => {
     const xml = gerarXmlNfce400(criarNfce());
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
@@ -268,6 +336,17 @@ describe('gerarXmlNfce400', () => {
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
     expect(doc.getElementsByTagName('ICMSTot')[0].getElementsByTagName('vBC')[0].textContent).toBe('150.00');
     expect(doc.getElementsByTagName('ICMSTot')[0].getElementsByTagName('vICMS')[0].textContent).toBe('27.00');
+  });
+
+  it('soma vPIS e vCOFINS totais a partir dos itens (rejeição real: "Total do PIS difere do somatorio dos itens")', () => {
+    const itens = [
+      criarItem({ id: 'i1', valorPIS: 1.65, valorCOFINS: 7.6 }),
+      criarItem({ id: 'i2', valorPIS: 2.35, valorCOFINS: 10.8 }),
+    ];
+    const xml = gerarXmlNfce400(criarNfce({ itens }));
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    expect(doc.getElementsByTagName('ICMSTot')[0].getElementsByTagName('vPIS')[0].textContent).toBe('4.00');
+    expect(doc.getElementsByTagName('ICMSTot')[0].getElementsByTagName('vCOFINS')[0].textContent).toBe('18.40');
   });
 
   it('omite o bloco <dest> quando o consumidor não é identificado', () => {
@@ -350,5 +429,71 @@ describe('gerarXmlCancelamentoNFe', () => {
       justificativa: 'a'.repeat(256),
       protocoloAutorizacao: '135260000012345',
     })).toThrow(/15 e 255/);
+  });
+
+  it('usa tpAmb=2 (homologação) por padrão, e respeita o ambiente informado', () => {
+    const xmlPadrao = gerarXmlCancelamentoNFe({
+      chaveAcessoNFe: chaveValida,
+      cnpjAutor: '18236447000190',
+      sequencialEvento: 1,
+      justificativa: 'Cancelamento solicitado pelo cliente',
+      protocoloAutorizacao: '135260000012345',
+    });
+    expect(xmlPadrao).toContain('<tpAmb>2</tpAmb>');
+
+    const xmlProducao = gerarXmlCancelamentoNFe({
+      chaveAcessoNFe: chaveValida,
+      cnpjAutor: '18236447000190',
+      sequencialEvento: 1,
+      justificativa: 'Cancelamento solicitado pelo cliente',
+      protocoloAutorizacao: '135260000012345',
+      ambiente: 1,
+    });
+    expect(xmlProducao).toContain('<tpAmb>1</tpAmb>');
+  });
+});
+
+describe('gerarXmlInutilizacaoNFe', () => {
+  const paramsBase = {
+    cUF: '35',
+    cnpjAutor: '18236447000190',
+    ano: '26',
+    modelo: '55' as const,
+    serie: 1,
+    numeroInicial: 10,
+    numeroFinal: 15,
+    justificativa: 'Pulo de numeração por erro de sequência no sistema',
+  };
+
+  it('gera um XML bem-formado com a raiz <inutNFe> e o Id no formato oficial', () => {
+    const xml = gerarXmlInutilizacaoNFe(paramsBase);
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+
+    expect(doc.getElementsByTagName('inutNFe').length).toBe(1);
+    const id = doc.getElementsByTagName('infInut')[0].getAttribute('Id');
+    // ID + cUF(2) + ano(2) + CNPJ(14) + mod(2) + serie(3) + nNFIni(9) + nNFFin(9)
+    expect(id).toBe('ID35261823644700019055001000000010000000015');
+  });
+
+  it('lança erro quando a justificativa tem menos de 15 caracteres', () => {
+    expect(() => gerarXmlInutilizacaoNFe({ ...paramsBase, justificativa: 'curta' })).toThrow(/15 e 255/);
+  });
+
+  it('lança erro quando o número inicial é maior que o final', () => {
+    expect(() => gerarXmlInutilizacaoNFe({ ...paramsBase, numeroInicial: 20, numeroFinal: 10 })).toThrow(/menor ou igual/i);
+  });
+
+  it('usa tpAmb=2 (homologação) por padrão', () => {
+    const xml = gerarXmlInutilizacaoNFe(paramsBase);
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    expect(doc.getElementsByTagName('tpAmb')[0].textContent).toBe('2');
+  });
+
+  it('inclui a faixa de numeração e o serviço INUTILIZAR', () => {
+    const xml = gerarXmlInutilizacaoNFe(paramsBase);
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    expect(doc.getElementsByTagName('xServ')[0].textContent).toBe('INUTILIZAR');
+    expect(doc.getElementsByTagName('nNFIni')[0].textContent).toBe('10');
+    expect(doc.getElementsByTagName('nNFFin')[0].textContent).toBe('15');
   });
 });

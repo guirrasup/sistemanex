@@ -522,7 +522,7 @@ model NFSe {
   id String @id @default(cuid())
 
   // === IDENTIFICAÇÃO DA NFS-e ===
-  chaveAcesso       String @unique @db.Char(53)
+  chaveAcesso       String @unique @db.Char(50)
   numeroNfse        Int
   serieDPS          Int    @default(1)
   numeroDPS         Int
@@ -1994,7 +1994,7 @@ model CTe {
   Id             String?        @unique @db.VarChar(47)
   cUF            String         @db.Char(2)
   cCT            String         @db.Char(8)
-  CFOP           String         @db.Char(3)
+  CFOP           String         @db.Char(4)
   natOp          String         @db.VarChar(60)
   mod            String         @default("57") @db.Char(2)
   serie          Int
@@ -2404,7 +2404,7 @@ model DocumentoCTe {
   vST   Decimal? @db.Decimal(15, 2)
   vProd Decimal? @db.Decimal(15, 2)
   vNF   Decimal? @db.Decimal(15, 2)
-  nCFOP String?  @db.Char(3)
+  nCFOP String?  @db.Char(4)
   nPeso Decimal? @db.Decimal(12, 3)
   PIN   String?  @db.VarChar(9)
 
@@ -3153,6 +3153,15 @@ model MDFe {
   enviadoPor String?
   ipEnvio    String?   @db.VarChar(45)
 
+  // === MODAL RODOVIÁRIO (rodo/infANTT/veicTracao) ===
+  rntrc            String? @db.VarChar(8) // Registro Nacional de Transportadores Rodoviários de Carga
+  veicTracaoPlaca  String? @db.VarChar(8)
+  veicTracaoRenavam String? @db.VarChar(11)
+  veicTracaoTara   String? @db.VarChar(6)
+  veicTracaoTpRod  String? @db.Char(2) // 01-06
+  veicTracaoTpCar  String? @db.Char(2) // 00-05
+  veicTracaoUF     String? @db.Char(2)
+
   // === RELACIONAMENTOS ===
   empresaId  String
   empresa    Empresa   @relation(fields: [empresaId], references: [id])
@@ -3170,6 +3179,7 @@ model MDFe {
   autorizadosDownload AutXMLMDFe[]
   historicoStatus     HistoricoStatusMDFe[]
   encerramento        EncerramentoMDFe?
+  condutores          CondutorMDFe[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3180,6 +3190,21 @@ model MDFe {
   @@index([modal])
   @@index([loteId])
   @@map("mdfes")
+}
+
+// ============================================
+// CONDUTOR(ES) DO VEÍCULO DE TRAÇÃO (rodo/veicTracao/condutor)
+// ============================================
+
+model CondutorMDFe {
+  id     String @id @default(cuid())
+  mdfeId String
+  mdfe   MDFe   @relation(fields: [mdfeId], references: [id])
+  xNome  String @db.VarChar(60)
+  CPF    String @db.Char(11)
+
+  @@index([mdfeId])
+  @@map("mdfe_condutores")
 }
 
 // ============================================

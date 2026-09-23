@@ -166,6 +166,8 @@ export interface NFCeDocumento {
   // QR Code
   urlQrCode: string;
   tokenCscId: string;
+  /** URL de consulta pública da NFC-e por chave de acesso — <urlChave> em infNFeSupl (obrigatório pelo schema). */
+  urlConsultaChave?: string;
   
   // Identificação (leiaute 4.00)
   tpNF?: 0 | 1;
@@ -319,7 +321,7 @@ export interface InformacoesIBSCBS {
 
 export interface ServicoItemNfse {
   codigoTributacaoNacional: string;
-  codigoTributacaoMunicipal: string;
+  codigoTributacaoMunicipal?: string;
   descricao: string;
   codigoNBS?: string;
   localPrestacao: {

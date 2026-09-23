@@ -192,6 +192,23 @@ export class MdfeController {
         }
       }
 
+      // Modal rodoviário exige dados do veículo de tração e ao menos um condutor
+      // (grupo <rodo>/<veicTracao>/<condutor> do layout SEFAZ).
+      if (req.body.modal === 'RODOVIARIO') {
+        if (!req.body.veiculo?.placa || !req.body.veiculo?.tara || !req.body.veiculo?.tpRod || !req.body.veiculo?.tpCar) {
+          return res.status(400).json({
+            sucesso: false,
+            erro: 'Para modal rodoviário, informe veiculo.{placa, tara, tpRod, tpCar}'
+          });
+        }
+        if (!req.body.condutores || req.body.condutores.length === 0) {
+          return res.status(400).json({
+            sucesso: false,
+            erro: 'Para modal rodoviário, informe ao menos um condutor {nome, cpf}'
+          });
+        }
+      }
+
       const mdfe = await this.mdfeService.emitirMdfe({
         empresaId,
         usuario: req.user?.email || 'SISTEMA',
@@ -268,7 +285,7 @@ export class MdfeController {
     try {
       const empresaId = req.user?.empresaId;
       const { id } = req.params;
-      const { protocolo, municipioEncerramento } = req.body;
+      const { protocolo, municipioEncerramento, codigoMunicipioEncerramento } = req.body;
 
       if (!empresaId) {
         return res.status(401).json({
@@ -295,7 +312,8 @@ export class MdfeController {
         id,
         protocolo,
         municipioEncerramento,
-        empresaId
+        empresaId,
+        codigoMunicipioEncerramento
       );
 
       return res.json({

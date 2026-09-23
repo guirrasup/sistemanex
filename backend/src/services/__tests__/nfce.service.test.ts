@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   extrairChaveECertificadoDoPfx: vi.fn(),
   assinarXmlEnvelopado: vi.fn(),
   autorizarNfe: vi.fn(),
+  enviarEvento: vi.fn(),
 }));
 
 vi.mock('../../repositories/nfce.repository.js', () => ({
@@ -70,6 +71,7 @@ vi.mock('../../utils/xmlSigner.js', () => ({
 }));
 vi.mock('../nfeSefazClient.js', () => ({
   autorizarNfe: mocks.autorizarNfe,
+  enviarEvento: mocks.enviarEvento,
 }));
 
 const { NfceService } = await import('../nfce.service.js');
@@ -282,6 +284,46 @@ describe('NfceService.cancelarNfce', () => {
     const resultado = await service.cancelarNfce('nfce-1', 'motivo com mais de 15 caracteres', 'empresa-1');
 
     expect(mocks.financeiroCancelarTitulo).toHaveBeenCalledTimes(2);
+    expect(mocks.nfceCancelar).toHaveBeenCalledWith('nfce-1', 'motivo com mais de 15 caracteres');
+    expect(resultado.status).toBe('CANCELADA');
+  });
+
+  it('em modo real, exige que a NFC-e esteja AUTORIZADA com protocolo antes de cancelar', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.nfceFindById.mockResolvedValue({ id: 'nfce-1', empresaId: 'empresa-1', status: 'PROCESSANDO', protocoloAutorizacao: null });
+
+    const service = new NfceService();
+    await expect(service.cancelarNfce('nfce-1', 'motivo com mais de 15 caracteres', 'empresa-1')).rejects.toThrow(/apenas nfc-e autorizadas/i);
+    expect(mocks.enviarEvento).not.toHaveBeenCalled();
+  });
+
+  it('em modo real, lança erro quando a SEFAZ rejeita o cancelamento e não cancela localmente', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.nfceFindById.mockResolvedValue({
+      id: 'nfce-1', empresaId: 'empresa-1', status: 'AUTORIZADA',
+      protocoloAutorizacao: '135260000012345', chaveAcesso: '35260118236447000190650010000000011123456789',
+    });
+    mocks.enviarEvento.mockResolvedValue({ sucesso: false, cStat: '573', xMotivo: 'Duplicidade de evento', xmlRetorno: '<retEvento/>' });
+
+    const service = new NfceService();
+    await expect(service.cancelarNfce('nfce-1', 'motivo com mais de 15 caracteres', 'empresa-1')).rejects.toThrow(/duplicidade de evento/i);
+    expect(mocks.nfceCancelar).not.toHaveBeenCalled();
+  });
+
+  it('em modo real, chama a SEFAZ (modelo 65) e cancela localmente após a confirmação', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.nfceFindById.mockResolvedValue({
+      id: 'nfce-1', empresaId: 'empresa-1', status: 'AUTORIZADA',
+      protocoloAutorizacao: '135260000012345', chaveAcesso: '35260118236447000190650010000000011123456789',
+    });
+    mocks.enviarEvento.mockResolvedValue({ sucesso: true, cStat: '135', xMotivo: 'Evento registrado', xmlRetorno: '<retEvento/>' });
+    mocks.nfceCancelar.mockResolvedValue({ id: 'nfce-1', status: 'CANCELADA' });
+    mocks.financeiroFindManyByDocumentoOrigem.mockResolvedValue([]);
+
+    const service = new NfceService();
+    const resultado = await service.cancelarNfce('nfce-1', 'motivo com mais de 15 caracteres', 'empresa-1');
+
+    expect(mocks.enviarEvento).toHaveBeenCalledWith(expect.objectContaining({ modelo: '65' }));
     expect(mocks.nfceCancelar).toHaveBeenCalledWith('nfce-1', 'motivo com mais de 15 caracteres');
     expect(resultado.status).toBe('CANCELADA');
   });

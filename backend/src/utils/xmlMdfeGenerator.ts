@@ -1,5 +1,6 @@
 // backend/src/utils/xmlMdfeGenerator.ts
 import { limparDocumento } from './cpfCnpjValidator.js';
+import { formatarDataHoraSefaz } from './dataHoraSefaz.js';
 
 function escapeXml(str: string | undefined | null): string {
   if (!str) return '';
@@ -17,6 +18,20 @@ function formatarNumero(val: number | string | undefined | null, decimais: numbe
   if (isNaN(num)) return '0.00';
   return num.toFixed(decimais);
 }
+
+// Códigos numéricos do layout SEFAZ para os enums do Prisma — confirmado contra
+// o XSD oficial (mdfeTiposBasico_v3.00.xsd). Sem este mapeamento, o gerador
+// emitia o nome do enum (ex. "RODOVIARIO") em vez do código esperado, causando
+// rejeição real de schema XML.
+const MODAL_CODIGO: Record<string, string> = { RODOVIARIO: '1', AEREO: '2', AQUAVIARIO: '3', FERROVIARIO: '4' };
+const TP_EMIT_CODIGO: Record<string, string> = { PRESTADOR_SERVICO: '1', TRANSPORTADOR_CARGA_PROPRIA: '2', CTE_GLOBALIZADO: '3' };
+const TP_TRANSP_CODIGO: Record<string, string> = { ETC: '1', TAC: '2', CTC: '3' };
+const TP_CARGA_CODIGO: Record<string, string> = {
+  GRANEL_SOLIDO: '01', GRANEL_LIQUIDO: '02', FRIGORIFICADA: '03', CONTEINERIZADA: '04',
+  CARGA_GERAL: '05', NEOGRANEL: '06', PERIGOSA_GRANEL_SOLIDO: '07', PERIGOSA_GRANEL_LIQUIDO: '08',
+  PERIGOSA_FRIGORIFICADA: '09', PERIGOSA_CONTEINERIZADA: '10', PERIGOSA_CARGA_GERAL: '11',
+  GRANEL_PRESSURIZADA: '12',
+};
 
 
 export function gerarXmlMDFe(params: {
@@ -37,7 +52,7 @@ export function gerarXmlMDFe(params: {
   const isCnpj = cnpjEmit.length === 14;
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<MDFe xmlns="http://www.portalfiscal.inf.br/mdfe" versao="3.00">
+<MDFe xmlns="http://www.portalfiscal.inf.br/mdfe">
   <infMDFe versao="3.00" Id="MDFe${mdfe.chaveAcesso}">
     
     <!-- ========================================== -->
@@ -46,15 +61,15 @@ export function gerarXmlMDFe(params: {
     <ide>
       <cUF>${mdfe.cUF}</cUF>
       <tpAmb>${mdfe.tpAmb}</tpAmb>
-      <tpEmit>${mdfe.tpEmit}</tpEmit>
-      ${mdfe.tpTransp ? `<tpTransp>${mdfe.tpTransp}</tpTransp>` : ''}
+      <tpEmit>${TP_EMIT_CODIGO[mdfe.tpEmit] ?? mdfe.tpEmit}</tpEmit>
+      ${mdfe.tpTransp ? `<tpTransp>${TP_TRANSP_CODIGO[mdfe.tpTransp] ?? mdfe.tpTransp}</tpTransp>` : ''}
       <mod>${mdfe.modelo}</mod>
       <serie>${mdfe.serie}</serie>
       <nMDF>${mdfe.numero}</nMDF>
       <cMDF>${mdfe.cMDF}</cMDF>
       <cDV>${mdfe.cDV}</cDV>
-      <modal>${mdfe.modal}</modal>
-      <dhEmi>${mdfe.dhEmi.toISOString()}</dhEmi>
+      <modal>${MODAL_CODIGO[mdfe.modal] ?? mdfe.modal}</modal>
+      <dhEmi>${formatarDataHoraSefaz(mdfe.dhEmi)}</dhEmi>
       <tpEmis>${mdfe.tpEmis}</tpEmis>
       <procEmi>${mdfe.procEmi}</procEmi>
       <verProc>${escapeXml(mdfe.verProc)}</verProc>
@@ -72,7 +87,7 @@ export function gerarXmlMDFe(params: {
         <UFPer>${p.UFPer}</UFPer>
       </infPercurso>`).join('')}
       
-      ${mdfe.dhIniViagem ? `<dhIniViagem>${new Date(mdfe.dhIniViagem).toISOString()}</dhIniViagem>` : ''}
+      ${mdfe.dhIniViagem ? `<dhIniViagem>${formatarDataHoraSefaz(new Date(mdfe.dhIniViagem))}</dhIniViagem>` : ''}
       ${mdfe.indCanalVerde ? `<indCanalVerde>1</indCanalVerde>` : ''}
       ${mdfe.indCarregaPosterior ? `<indCarregaPosterior>1</indCarregaPosterior>` : ''}
     </ide>
@@ -92,27 +107,36 @@ export function gerarXmlMDFe(params: {
         <xBairro>${escapeXml(emitente.endereco.bairro)}</xBairro>
         <cMun>${emitente.endereco.codigoMunicipio}</cMun>
         <xMun>${escapeXml(emitente.endereco.nomeMunicipio)}</xMun>
-        <UF>${emitente.endereco.uf}</UF>
         <CEP>${limparDocumento(emitente.endereco.cep)}</CEP>
+        <UF>${emitente.endereco.uf}</UF>
         ${emitente.endereco.telefone ? `<fone>${limparDocumento(emitente.endereco.telefone)}</fone>` : ''}
         ${emitente.endereco.email ? `<email>${escapeXml(emitente.endereco.email)}</email>` : ''}
       </enderEmit>
     </emit>
 
     <!-- ========================================== -->
-    <!-- MODAL (ESPECÍFICO - AQUI VAI O XML DO MODAL) -->
+    <!-- MODAL RODOVIÁRIO (rodo/infANTT/veicTracao)  -->
+    <!-- Somente aéreo/aquaviário/ferroviário ainda não implementados. -->
     <!-- ========================================== -->
     <infModal versaoModal="3.00">
-      <!-- 
-        ATENÇÃO: Este é um placeholder. 
-        O XML específico do modal (rodoviário, aéreo, aquaviário ou ferroviário)
-        deve ser inserido aqui.
-      -->
-      <modalRodoviario>
-        <veic>
-          <!-- Dados do veículo principal -->
-        </veic>
-      </modalRodoviario>
+      <rodo>
+        ${mdfe.rntrc ? `<infANTT>
+          <RNTRC>${escapeXml(mdfe.rntrc)}</RNTRC>
+        </infANTT>` : ''}
+        <veicTracao>
+          <placa>${escapeXml(mdfe.veicTracaoPlaca)}</placa>
+          ${mdfe.veicTracaoRenavam ? `<RENAVAM>${escapeXml(mdfe.veicTracaoRenavam)}</RENAVAM>` : ''}
+          <tara>${escapeXml(mdfe.veicTracaoTara)}</tara>
+          ${(mdfe.condutores || []).map((c: any) => `
+          <condutor>
+            <xNome>${escapeXml(c.xNome)}</xNome>
+            <CPF>${limparDocumento(c.CPF)}</CPF>
+          </condutor>`).join('')}
+          <tpRod>${escapeXml(mdfe.veicTracaoTpRod)}</tpRod>
+          <tpCar>${escapeXml(mdfe.veicTracaoTpCar)}</tpCar>
+          ${mdfe.veicTracaoUF ? `<UF>${escapeXml(mdfe.veicTracaoUF)}</UF>` : ''}
+        </veicTracao>
+      </rodo>
     </infModal>
 
     <!-- ========================================== -->
@@ -124,28 +148,28 @@ export function gerarXmlMDFe(params: {
         <cMunDescarga>${mun.cMunDescarga}</cMunDescarga>
         <xMunDescarga>${escapeXml(mun.xMunDescarga)}</xMunDescarga>
         
-        ${mun.ctes?.map((cte: any) => `
+        ${(mun.ctes || []).map((cte: any) => `
         <infCTe>
           <chCTe>${cte.chCTe}</chCTe>
           ${cte.SegCodBarra ? `<SegCodBarra>${escapeXml(cte.SegCodBarra)}</SegCodBarra>` : ''}
           ${cte.indReentrega ? `<indReentrega>1</indReentrega>` : ''}
           
-          ${cte.unidadesTransporte?.map((ut: any) => `
+          ${(cte.unidadesTransporte || []).map((ut: any) => `
           <infUnidTransp>
             <tpUnidTransp>${ut.tpUnidTransp}</tpUnidTransp>
             <idUnidTransp>${escapeXml(ut.idUnidTransp)}</idUnidTransp>
-            ${ut.lacres?.map((l: string) => `<lacUnidTransp><nLacre>${escapeXml(l)}</nLacre></lacUnidTransp>`).join('')}
-            ${ut.unidadesCarga?.map((uc: any) => `
+            ${(ut.lacres || []).map((l: string) => `<lacUnidTransp><nLacre>${escapeXml(l)}</nLacre></lacUnidTransp>`).join('')}
+            ${(ut.unidadesCarga || []).map((uc: any) => `
             <infUnidCarga>
               <tpUnidCarga>${uc.tpUnidCarga}</tpUnidCarga>
               <idUnidCarga>${escapeXml(uc.idUnidCarga)}</idUnidCarga>
-              ${uc.lacres?.map((l: string) => `<lacUnidCarga><nLacre>${escapeXml(l)}</nLacre></lacUnidCarga>`).join('')}
+              ${(uc.lacres || []).map((l: string) => `<lacUnidCarga><nLacre>${escapeXml(l)}</nLacre></lacUnidCarga>`).join('')}
               ${uc.qtdRat ? `<qtdRat>${formatarNumero(uc.qtdRat, 4)}</qtdRat>` : ''}
             </infUnidCarga>`).join('')}
             ${ut.qtdRat ? `<qtdRat>${formatarNumero(ut.qtdRat, 4)}</qtdRat>` : ''}
           </infUnidTransp>`).join('')}
           
-          ${cte.perigosos?.map((p: any) => `
+          ${(cte.perigosos || []).map((p: any) => `
           <peri>
             <nONU>${p.nONU}</nONU>
             ${p.xNomeAE ? `<xNomeAE>${escapeXml(p.xNomeAE)}</xNomeAE>` : ''}
@@ -163,34 +187,34 @@ export function gerarXmlMDFe(params: {
           
           ${cte.indPrestacaoParcial ? `
           <indPrestacaoParcial>1</indPrestacaoParcial>
-          ${cte.nfesParciais?.map((nfe: any) => `
+          ${(cte.nfesParciais || []).map((nfe: any) => `
           <infNFePrestParcial>
             <chNFe>${nfe.chNFe}</chNFe>
           </infNFePrestParcial>`).join('')}` : ''}
         </infCTe>`).join('')}
         
-        ${mun.nfes?.map((nfe: any) => `
+        ${(mun.nfes || []).map((nfe: any) => `
         <infNFe>
           <chNFe>${nfe.chNFe}</chNFe>
           ${nfe.SegCodBarra ? `<SegCodBarra>${escapeXml(nfe.SegCodBarra)}</SegCodBarra>` : ''}
           ${nfe.indReentrega ? `<indReentrega>1</indReentrega>` : ''}
           
-          ${nfe.unidadesTransporte?.map((ut: any) => `
+          ${(nfe.unidadesTransporte || []).map((ut: any) => `
           <infUnidTransp>
             <tpUnidTransp>${ut.tpUnidTransp}</tpUnidTransp>
             <idUnidTransp>${escapeXml(ut.idUnidTransp)}</idUnidTransp>
-            ${ut.lacres?.map((l: string) => `<lacUnidTransp><nLacre>${escapeXml(l)}</nLacre></lacUnidTransp>`).join('')}
-            ${ut.unidadesCarga?.map((uc: any) => `
+            ${(ut.lacres || []).map((l: string) => `<lacUnidTransp><nLacre>${escapeXml(l)}</nLacre></lacUnidTransp>`).join('')}
+            ${(ut.unidadesCarga || []).map((uc: any) => `
             <infUnidCarga>
               <tpUnidCarga>${uc.tpUnidCarga}</tpUnidCarga>
               <idUnidCarga>${escapeXml(uc.idUnidCarga)}</idUnidCarga>
-              ${uc.lacres?.map((l: string) => `<lacUnidCarga><nLacre>${escapeXml(l)}</nLacre></lacUnidCarga>`).join('')}
+              ${(uc.lacres || []).map((l: string) => `<lacUnidCarga><nLacre>${escapeXml(l)}</nLacre></lacUnidCarga>`).join('')}
               ${uc.qtdRat ? `<qtdRat>${formatarNumero(uc.qtdRat, 4)}</qtdRat>` : ''}
             </infUnidCarga>`).join('')}
             ${ut.qtdRat ? `<qtdRat>${formatarNumero(ut.qtdRat, 4)}</qtdRat>` : ''}
           </infUnidTransp>`).join('')}
           
-          ${nfe.perigosos?.map((p: any) => `
+          ${(nfe.perigosos || []).map((p: any) => `
           <peri>
             <nONU>${p.nONU}</nONU>
             ${p.xNomeAE ? `<xNomeAE>${escapeXml(p.xNomeAE)}</xNomeAE>` : ''}
@@ -201,27 +225,27 @@ export function gerarXmlMDFe(params: {
           </peri>`).join('')}
         </infNFe>`).join('')}
         
-        ${mun.mdfesTransp?.map((mdfeTransp: any) => `
+        ${(mun.mdfesTransp || []).map((mdfeTransp: any) => `
         <infMDFeTransp>
           <chMDFe>${mdfeTransp.chMDFe}</chMDFe>
           ${mdfeTransp.indReentrega ? `<indReentrega>1</indReentrega>` : ''}
           
-          ${mdfeTransp.unidadesTransporte?.map((ut: any) => `
+          ${(mdfeTransp.unidadesTransporte || []).map((ut: any) => `
           <infUnidTransp>
             <tpUnidTransp>${ut.tpUnidTransp}</tpUnidTransp>
             <idUnidTransp>${escapeXml(ut.idUnidTransp)}</idUnidTransp>
-            ${ut.lacres?.map((l: string) => `<lacUnidTransp><nLacre>${escapeXml(l)}</nLacre></lacUnidTransp>`).join('')}
-            ${ut.unidadesCarga?.map((uc: any) => `
+            ${(ut.lacres || []).map((l: string) => `<lacUnidTransp><nLacre>${escapeXml(l)}</nLacre></lacUnidTransp>`).join('')}
+            ${(ut.unidadesCarga || []).map((uc: any) => `
             <infUnidCarga>
               <tpUnidCarga>${uc.tpUnidCarga}</tpUnidCarga>
               <idUnidCarga>${escapeXml(uc.idUnidCarga)}</idUnidCarga>
-              ${uc.lacres?.map((l: string) => `<lacUnidCarga><nLacre>${escapeXml(l)}</nLacre></lacUnidCarga>`).join('')}
+              ${(uc.lacres || []).map((l: string) => `<lacUnidCarga><nLacre>${escapeXml(l)}</nLacre></lacUnidCarga>`).join('')}
               ${uc.qtdRat ? `<qtdRat>${formatarNumero(uc.qtdRat, 4)}</qtdRat>` : ''}
             </infUnidCarga>`).join('')}
             ${ut.qtdRat ? `<qtdRat>${formatarNumero(ut.qtdRat, 4)}</qtdRat>` : ''}
           </infUnidTransp>`).join('')}
           
-          ${mdfeTransp.perigosos?.map((p: any) => `
+          ${(mdfeTransp.perigosos || []).map((p: any) => `
           <peri>
             <nONU>${p.nONU}</nONU>
             ${p.xNomeAE ? `<xNomeAE>${escapeXml(p.xNomeAE)}</xNomeAE>` : ''}
@@ -258,7 +282,7 @@ export function gerarXmlMDFe(params: {
     <!-- PRODUTO PREDOMINANTE                       -->
     <!-- ========================================== -->
     <prodPred>
-      <tpCarga>${produtoPredominante.tpCarga}</tpCarga>
+      <tpCarga>${TP_CARGA_CODIGO[produtoPredominante.tpCarga] ?? produtoPredominante.tpCarga}</tpCarga>
       <xProd>${escapeXml(produtoPredominante.xProd)}</xProd>
       ${produtoPredominante.cEAN ? `<cEAN>${escapeXml(produtoPredominante.cEAN)}</cEAN>` : ''}
       ${produtoPredominante.NCM ? `<NCM>${produtoPredominante.NCM}</NCM>` : ''}
@@ -303,9 +327,108 @@ export function gerarXmlMDFe(params: {
     </infAdic>` : ''}
 
   </infMDFe>
+  <infMDFeSupl>
+    <qrCodMDFe>https://dfe-portal.svrs.rs.gov.br/mdfe/qrCode?chMDFe=${mdfe.chaveAcesso}&amp;tpAmb=${mdfe.tpAmb}</qrCodMDFe>
+  </infMDFeSupl>
 </MDFe>`;
 
   // ⚠️ XML sem assinatura digital. A assinatura real é aplicada por assinarXmlEnvelopado().
 
   return xml.trim();
+}
+
+// ============================================================
+// EVENTOS DO MDF-e (MDFeRecepcaoEvento)
+// ============================================================
+// ⚠️ Diferente de NFe/CTe (envEvento > idLote > evento > infEvento), o layout
+// 3.00 do MDF-e usa <eventoMDFe> como raiz do documento, sem o agrupador
+// idLote/evento — conforme o Manual de Orientação do Contribuinte MDF-e.
+// Valide contra o ambiente de homologação antes de usar em produção.
+
+export function gerarXmlCancelamentoMdfe(params: {
+  chaveAcessoMdfe: string;
+  cnpjAutor: string;
+  sequencialEvento: number;
+  justificativa: string;
+  protocoloAutorizacao: string;
+  ambiente?: 1 | 2;
+}): string {
+  if (!/^[0-9]{44}$/.test(params.chaveAcessoMdfe)) {
+    throw new Error('Chave de acesso do MDF-e inválida: deve ter 44 dígitos');
+  }
+  if (params.justificativa.length < 15 || params.justificativa.length > 255) {
+    throw new Error('Justificativa deve ter entre 15 e 255 caracteres (TJust)');
+  }
+  if (!/^[0-9]{15}$/.test(params.protocoloAutorizacao) && !/^[0-9]{17}$/.test(params.protocoloAutorizacao)) {
+    throw new Error('Protocolo inválido: deve ter 15 ou 17 dígitos (TProt)');
+  }
+
+  const dhEvento = formatarDataHoraSefaz();
+  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const nSeq = params.sequencialEvento.toString().padStart(2, '0');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<eventoMDFe xmlns="http://www.portalfiscal.inf.br/mdfe" versao="3.00">
+  <infEvento Id="ID110111${params.chaveAcessoMdfe}${nSeq}">
+    <cOrgao>${params.chaveAcessoMdfe.slice(0, 2)}</cOrgao>
+    <tpAmb>${params.ambiente ?? 2}</tpAmb>
+    <CNPJ>${cnpjLimpo}</CNPJ>
+    <chMDFe>${params.chaveAcessoMdfe}</chMDFe>
+    <dhEvento>${dhEvento}</dhEvento>
+    <tpEvento>110111</tpEvento>
+    <nSeqEvento>${params.sequencialEvento}</nSeqEvento>
+    <detEvento versao="3.00">
+      <evCancMDFe>
+        <descEvento>Cancelamento</descEvento>
+        <nProt>${params.protocoloAutorizacao}</nProt>
+        <xJust>${escapeXml(params.justificativa)}</xJust>
+      </evCancMDFe>
+    </detEvento>
+  </infEvento>
+</eventoMDFe>`;
+}
+
+export function gerarXmlEncerramentoMdfe(params: {
+  chaveAcessoMdfe: string;
+  cnpjAutor: string;
+  sequencialEvento: number;
+  protocoloAutorizacao: string;
+  codigoUFEncerramento: string;
+  codigoMunicipioEncerramento: string;
+  dataEncerramento?: string; // YYYY-MM-DD; padrão: hoje
+  ambiente?: 1 | 2;
+}): string {
+  if (!/^[0-9]{44}$/.test(params.chaveAcessoMdfe)) {
+    throw new Error('Chave de acesso do MDF-e inválida: deve ter 44 dígitos');
+  }
+  if (!/^[0-9]{15}$/.test(params.protocoloAutorizacao) && !/^[0-9]{17}$/.test(params.protocoloAutorizacao)) {
+    throw new Error('Protocolo inválido: deve ter 15 ou 17 dígitos (TProt)');
+  }
+
+  const dhEvento = formatarDataHoraSefaz();
+  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const nSeq = params.sequencialEvento.toString().padStart(2, '0');
+  const dtEnc = params.dataEncerramento || dhEvento.slice(0, 10);
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<eventoMDFe xmlns="http://www.portalfiscal.inf.br/mdfe" versao="3.00">
+  <infEvento Id="ID110112${params.chaveAcessoMdfe}${nSeq}">
+    <cOrgao>${params.chaveAcessoMdfe.slice(0, 2)}</cOrgao>
+    <tpAmb>${params.ambiente ?? 2}</tpAmb>
+    <CNPJ>${cnpjLimpo}</CNPJ>
+    <chMDFe>${params.chaveAcessoMdfe}</chMDFe>
+    <dhEvento>${dhEvento}</dhEvento>
+    <tpEvento>110112</tpEvento>
+    <nSeqEvento>${params.sequencialEvento}</nSeqEvento>
+    <detEvento versao="3.00">
+      <evEncMDFe>
+        <descEvento>Encerramento</descEvento>
+        <nProt>${params.protocoloAutorizacao}</nProt>
+        <dtEnc>${dtEnc}</dtEnc>
+        <cUF>${params.codigoUFEncerramento}</cUF>
+        <cMun>${params.codigoMunicipioEncerramento}</cMun>
+      </evEncMDFe>
+    </detEvento>
+  </infEvento>
+</eventoMDFe>`;
 }

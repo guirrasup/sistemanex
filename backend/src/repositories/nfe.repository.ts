@@ -454,6 +454,10 @@ export class NfeRepository extends BaseRepository {
     return this.prisma.eventoNFe.create({ data });
   }
 
+  async criarInutilizacao(data: Prisma.InutilizacaoNFeUncheckedCreateInput) {
+    return this.prisma.inutilizacaoNFe.create({ data });
+  }
+
   async contarEventosPorTipo(nfeId: string, tpEvento: string) {
     return this.prisma.eventoNFe.count({ where: { nfeId, tpEvento } });
   }

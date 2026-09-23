@@ -22,6 +22,7 @@ import dashboardRoutes from './routes/dashboard.routes.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import transportadoraRoutes from './routes/transportadora.routes.js';
 import certificadoRoutes from './routes/certificado.routes.js';
+import empresaRoutes from './routes/empresa.routes.js';
 
 dotenv.config();
 
@@ -105,6 +106,7 @@ app.use('/api/nfe', nfeRoutes);
 app.use('/api/financeiro', financeiroRoutes);
 app.use('/api/cnpj', cnpjRoutes);
 app.use('/api/certificado', certificadoRoutes);
+app.use('/api/empresa', empresaRoutes);
 
 app.use('/api/produtos', dataLimiter, produtoRoutes);
 app.use('/api/clientes', dataLimiter, clienteRoutes);

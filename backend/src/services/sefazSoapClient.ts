@@ -3,6 +3,10 @@
 // A comunicação exige TLS mútuo (mTLS): o certificado A1 da empresa é usado como
 // certificado de CLIENTE na conexão HTTPS, além de assinar o XML do documento.
 import https from 'https';
+import tls from 'tls';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
 import { DOMParser } from '@xmldom/xmldom';
 
 export interface CredenciaisMtls {
@@ -15,15 +19,50 @@ export interface RespostaSefaz {
   xmlBruto: string;
 }
 
+// As AC Raiz da ICP-Brasil não estão no truststore padrão do Node (que usa a
+// lista pública da Mozilla) — confirmado em teste real contra a SEFAZ homologação
+// (SVRS/DF): o servidor manda seu certificado + a AC intermediária, mas não a raiz,
+// e o handshake falha com "unable to get local issuer certificate" sem ela. Em vez
+// de `rejectUnauthorized: false` (desativaria a verificação por completo), carregamos
+// as raízes oficiais da ICP-Brasil publicadas pelo ITI (https://acraiz.icpbrasil.gov.br)
+// como CAs confiáveis adicionais — o Node continua validando a cadeia normalmente.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CAMINHO_CAS_ICP_BRASIL = path.join(__dirname, '../config/certs/icp-brasil-raizes.pem');
+
+function carregarCasIcpBrasil(): string[] {
+  const conteudo = readFileSync(CAMINHO_CAS_ICP_BRASIL, 'utf8');
+  return conteudo
+    .split(/(?=-----BEGIN CERTIFICATE-----)/)
+    .map((bloco) => bloco.trim())
+    .filter(Boolean);
+}
+
+// Node substitui (não soma) a lista de CAs confiáveis quando `ca` é informado —
+// então incluímos as CAs públicas padrão (tls.rootCertificates) junto das raízes
+// ICP-Brasil, para não deixar de confiar nas CAs globalmente conhecidas.
+const CAS_CONFIAVEIS = [...tls.rootCertificates, ...carregarCasIcpBrasil()];
+
 /**
  * Envia um envelope SOAP 1.2 para a SEFAZ via HTTPS com autenticação mútua (mTLS)
- * usando o certificado da empresa. Não usa `rejectUnauthorized: false` — a cadeia
- * de certificados da SEFAZ deve validar contra as CAs confiáveis do Node; caso o
- * ambiente não tenha a cadeia ICP-Brasil no truststore padrão, será necessário
- * fornecer o bundle de CAs via a opção `ca` (não implementado aqui: normalmente
- * as CAs do ICP-Brasil já são aceitas pelas cadeias públicas usadas pelos servidores
- * da SEFAZ, mas isso deve ser validado no primeiro teste real contra homologação).
+ * usando o certificado da empresa. A cadeia de certificados do servidor é validada
+ * contra as CAs padrão do Node MAIS as raízes ICP-Brasil (CAS_ICP_BRASIL acima) —
+ * nunca `rejectUnauthorized: false`.
  */
+/**
+ * Remove espaços/quebras de linha entre tags XML. Confirmado contra a SEFAZ
+ * homologação real: mensagens "bonitas" (indentadas, como os geradores deste
+ * projeto produzem para facilitar leitura/depuração) são REJEITADAS com
+ * "Rejeicao: Nao eh permitida a presenca de caracteres de edicao no inicio/fim
+ * da mensagem ou entre as tags da mensagem" — a SEFAZ exige a mensagem compacta.
+ * Seguro do ponto de vista da assinatura XML-DSig: C14N (usado por xml-crypto)
+ * já trata espaço em branco entre elementos como insignificante ao calcular o
+ * digest, então compactar depois de assinar não invalida a assinatura — só
+ * remove espaço que fica ENTRE tags (`>...<`), nunca dentro do conteúdo de texto.
+ */
+function compactarXml(xml: string): string {
+  return xml.replace(/>\s+</g, '><').trim();
+}
+
 export function postSoap(params: {
   url: string;
   soapAction: string;
@@ -31,7 +70,8 @@ export function postSoap(params: {
   mtls: CredenciaisMtls;
   timeoutMs?: number;
 }): Promise<RespostaSefaz> {
-  const { url, soapAction, envelope, mtls, timeoutMs = 30000 } = params;
+  const { url, soapAction, mtls, timeoutMs = 30000 } = params;
+  const envelope = compactarXml(params.envelope);
   const target = new URL(url);
 
   return new Promise((resolve, reject) => {
@@ -43,6 +83,7 @@ export function postSoap(params: {
         method: 'POST',
         cert: mtls.cert,
         key: mtls.key,
+        ca: CAS_CONFIAVEIS,
         headers: {
           'Content-Type': 'application/soap+xml; charset=utf-8; action="' + soapAction + '"',
           'Content-Length': Buffer.byteLength(envelope, 'utf8'),

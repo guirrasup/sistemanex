@@ -70,6 +70,8 @@ router.post('/cancelar/:id', emitirLimiter, controller.cancelar.bind(controller)
 
 router.post('/carta-correcao', emitirLimiter, controller.enviarCartaCorrecao.bind(controller));
 
+router.post('/inutilizar', emitirLimiter, controller.inutilizar.bind(controller));
+
 // ============================================================
 // ROTA DE FALLBACK (DEVE SER A ÚLTIMA)
 // ============================================================

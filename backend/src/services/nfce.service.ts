@@ -7,12 +7,27 @@ import { ProdutoRepository } from '../repositories/produto.repository.js';
 import { FinanceiroRepository } from '../repositories/financeiro.repository.js';
 import { gerarChaveAcessoNFe } from '../utils/chaveAcesso.js';
 import { calcularTotaisNfe } from '../utils/tributosEngine.js';
-import { gerarXmlNfce400 } from '../utils/xmlNfeGenerator.js';
+import { gerarXmlNfce400, gerarXmlCancelamentoNFe } from '../utils/xmlNfeGenerator.js';
 import type { ItemNfe, NFCeDocumento } from '../types/fiscal.js';
 import { mapEmpresaParaEmitente } from '../utils/fiscalMappers.js';
 import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
-import { autorizarNfe } from './nfeSefazClient.js';
+import { autorizarNfe, enviarEvento } from './nfeSefazClient.js';
+import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
+
+// URL do portal de consulta pública da NFC-e por UF — usada tanto para montar o
+// QR Code (padrão V3 "online": <base>?p=<chave44>|3|<tpAmb>, sem hash/CSC — a
+// SEFAZ valida a chave em tempo real quando o QR é lido) quanto o campo
+// <urlChave> (a mesma URL de consulta, exigida pelo schema em infNFeSupl).
+// ⚠️ Só o DF foi confirmado; as demais UFs precisam da URL real de consulta
+// pública de NFC-e de cada Secretaria da Fazenda antes de usar em produção.
+const URL_CONSULTA_NFCE_POR_UF: Record<string, string> = {
+  // http (não https) — confirmado contra rejeição real da SEFAZ ("Endereco do
+  // site da UF da consulta via QR-Code diverge do previsto"): a SEFAZ valida
+  // essa URL contra uma tabela própria por UF, e o esquema precisa bater exatamente.
+  DF: 'http://www.fazenda.df.gov.br/nfce/qrcode',
+};
+const URL_CONSULTA_NFCE_PADRAO = 'https://www.nfce.fazenda.gov.br/portal/consultaNFCe.aspx';
 
 interface ItemNfceInput {
   produtoId?: string;
@@ -26,6 +41,7 @@ interface ItemNfceInput {
   valorUnitario?: number;
   valorTotalBruto?: number;
   cstICMS?: string;
+  csosnICMS?: string;
   aliquotaICMS?: number;
   baseCalculoICMS?: number;
   valorICMS?: number;
@@ -245,8 +261,8 @@ export class NfceService {
       valorPago: data.valorPago || valorTotalFinal,
       valorTroco: data.formaPagamento === '01' ? Math.max(0, (data.valorRecebido || 0) - valorTotalFinal) : 0,
 
-      // QR Code
-      urlQrCode: `https://www.nfce.fazenda.gov.br/portal/qrCode/${chaveCompleta}`,
+      // QR Code (padrão V3 "online" da NT 2015.002: <base>?p=<chave44>|3|<tpAmb>)
+      urlQrCode: `${URL_CONSULTA_NFCE_POR_UF[empresa.uf] || URL_CONSULTA_NFCE_PADRAO}?p=${chaveCompleta}|3|${empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2}`,
       tokenCscId: data.tokenCscId || '000001',
 
       // Informações adicionais
@@ -312,6 +328,7 @@ export class NfceService {
       valorTotalBruto: Number(item.valorTotalBruto),
       origemMercadoria: 0,
       cstICMS: item.cstICMS,
+      csosnICMS: item.csosnICMS || undefined,
       aliquotaICMS: Number(item.aliquotaICMS),
       baseCalculoICMS: Number(item.baseCalculoICMS),
       valorICMS: Number(item.valorICMS),
@@ -330,7 +347,7 @@ export class NfceService {
       serie,
       numero,
       chaveAcesso: chaveCompleta,
-      dataHoraEmissao: nfce.dataHoraEmissao.toISOString(),
+      dataHoraEmissao: formatarDataHoraSefaz(nfce.dataHoraEmissao),
       naturezaOperacao: data.naturezaOperacao || 'Venda a Consumidor Final',
       ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2,
       tipoEmissao: 1,
@@ -350,6 +367,7 @@ export class NfceService {
       valorTroco: Number(nfceData.valorTroco),
       urlQrCode: nfceData.urlQrCode as string,
       tokenCscId: nfceData.tokenCscId as string,
+      urlConsultaChave: URL_CONSULTA_NFCE_POR_UF[empresa.uf] || URL_CONSULTA_NFCE_PADRAO,
       tpNF: data.tpNF as 0 | 1 | undefined,
       idDest: data.idDest as 1 | 2 | 3 | undefined,
       finNFe: data.finNFe as 1 | 2 | 3 | 4 | undefined,
@@ -361,7 +379,7 @@ export class NfceService {
       infAdFisco: data.infAdFisco,
       infCpl: data.infCpl,
       protocoloAutorizacao: '',
-      dataHoraAutorizacao: new Date().toISOString(),
+      dataHoraAutorizacao: formatarDataHoraSefaz(),
       xmlAssinado: '',
     };
 
@@ -372,7 +390,9 @@ export class NfceService {
       throw new Error('Certificado digital não configurado para esta empresa');
     }
     const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
-    const xml = assinarXmlEnvelopado(xmlSemAssinatura, 'infNFe', chaveECertPem);
+    // 'infNFeSupl' (QR Code) precisa vir ANTES de <Signature> no documento final
+    // (exigido pelo schema) — ver o comentário de `inserirApos` em xmlSigner.ts.
+    const xml = assinarXmlEnvelopado(xmlSemAssinatura, 'infNFe', chaveECertPem, 'infNFeSupl');
 
     // Transmissão real à SEFAZ (mesmo webservice da NFe — NFC-e é o modelo 65 da
     // mesma família), controlada por SEFAZ_TRANSMISSAO_REAL (ver nfe.service.ts).
@@ -467,17 +487,22 @@ export class NfceService {
       quantidade: item.quantidade || 0,
       valorUnitario: item.valorUnitario || 0,
       valorTotalBruto: item.valorTotalBruto || totalBruto,
-      cstICMS: item.cstICMS || '00',
-      aliquotaICMS: item.aliquotaICMS || 18,
-      baseCalculoICMS: item.baseCalculoICMS || totalBruto,
-      valorICMS: item.valorICMS || (totalBruto * (item.aliquotaICMS || 18) / 100),
+      cstICMS: item.csosnICMS ? undefined : (item.cstICMS || '00'),
+      csosnICMS: item.csosnICMS || undefined,
+      // `??` (não `||`): 0 é um valor legítimo aqui (ex.: item sob CSOSN sem
+      // base própria) — `||` trocava um 0 explícito pelo padrão, inflando o
+      // vBC/vICMS do documento e causando "Total da BC ICMS difere do somatorio
+      // dos itens" na SEFAZ mesmo quando o item já tinha o valor certo (0).
+      aliquotaICMS: item.aliquotaICMS ?? 18,
+      baseCalculoICMS: item.baseCalculoICMS ?? totalBruto,
+      valorICMS: item.valorICMS ?? (totalBruto * (item.aliquotaICMS ?? 18) / 100),
       cstPIS: item.cstPIS || '01',
-      aliquotaPIS: item.aliquotaPIS || 1.65,
-      valorPIS: item.valorPIS || (totalBruto * 1.65 / 100),
+      aliquotaPIS: item.aliquotaPIS ?? 1.65,
+      valorPIS: item.valorPIS ?? (totalBruto * 1.65 / 100),
       cstCOFINS: item.cstCOFINS || '01',
-      aliquotaCOFINS: item.aliquotaCOFINS || 7.6,
-      valorCOFINS: item.valorCOFINS || (totalBruto * 7.6 / 100),
-      valorTributosAprox: item.valorTributosAproximados || (totalBruto * 0.314),
+      aliquotaCOFINS: item.aliquotaCOFINS ?? 7.6,
+      valorCOFINS: item.valorCOFINS ?? (totalBruto * 7.6 / 100),
+      valorTributosAprox: item.valorTributosAproximados ?? (totalBruto * 0.314),
     });
   }
 
@@ -545,6 +570,44 @@ export class NfceService {
     }
     if (motivo.length > 255) {
       throw new Error('Motivo deve ter no máximo 255 caracteres (TJust)');
+    }
+
+    const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
+
+    if (transmissaoReal) {
+      if (nfce.status !== 'AUTORIZADA' || !nfce.protocoloAutorizacao) {
+        throw new Error('Apenas NFC-e autorizadas pela SEFAZ podem ser canceladas');
+      }
+
+      const empresa = await this.empresaRepo.findById(empresaId);
+      if (!empresa) throw new Error('Empresa não encontrada');
+
+      const certificado = await this.certificadoService.obterCertificadoDecriptado(empresaId);
+      if (!certificado) throw new Error('Certificado digital não configurado para esta empresa');
+      const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+
+      const ambiente: 1 | 2 = empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2;
+      const xmlEvento = gerarXmlCancelamentoNFe({
+        chaveAcessoNFe: nfce.chaveAcesso,
+        cnpjAutor: empresa.cnpj,
+        sequencialEvento: 1,
+        justificativa: motivo,
+        protocoloAutorizacao: nfce.protocoloAutorizacao,
+        ambiente,
+      });
+      const xmlEventoAssinado = assinarXmlEnvelopado(xmlEvento, 'infEvento', chaveECertPem);
+
+      const resultado = await enviarEvento({
+        uf: empresa.uf,
+        ambiente: ambiente === 1 ? 'producao' : 'homologacao',
+        xmlEventoAssinado,
+        mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
+        modelo: '65',
+      });
+
+      if (!resultado.sucesso) {
+        throw new Error(`SEFAZ rejeitou o cancelamento: ${resultado.xMotivo || 'motivo não informado'} (cStat ${resultado.cStat})`);
+      }
     }
 
     // Cancela título financeiro se existir

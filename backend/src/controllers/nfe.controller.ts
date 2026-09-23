@@ -98,23 +98,19 @@ export class NfeController {
       }
 
       // ✅ VALIDA CADA ITEM
+      // O service resolve NCM/CFOP/preço a partir do produto cadastrado (produtoId)
+      // — não são enviados pelo cliente, então não fazem parte desta validação.
       for (const item of itens) {
-        if (!item.ncm || item.ncm.length !== 8) {
+        if (!item.produtoId) {
           return res.status(400).json({
             sucesso: false,
-            erro: `Item "${item.descricao || 'sem descrição'}": NCM deve ter 8 dígitos`
+            erro: 'Cada item deve informar produtoId'
           });
         }
-        if (!item.cfop || item.cfop.length !== 4) {
+        if (item.quantidade !== undefined && item.quantidade <= 0) {
           return res.status(400).json({
             sucesso: false,
-            erro: `Item "${item.descricao || 'sem descrição'}": CFOP deve ter 4 dígitos`
-          });
-        }
-        if (!item.quantidade || item.quantidade <= 0) {
-          return res.status(400).json({
-            sucesso: false,
-            erro: `Item "${item.descricao || 'sem descrição'}": Quantidade deve ser maior que zero`
+            erro: `Item ${item.produtoId}: quantidade deve ser maior que zero`
           });
         }
       }
@@ -659,6 +655,59 @@ export class NfeController {
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao consultar situação'
+      });
+    }
+  }
+
+  async inutilizar(req: RequestComUsuario, res: Response) {
+    try {
+      const empresaId = req.user?.empresaId;
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
+      const { modelo, serie, numeroInicial, numeroFinal, justificativa } = req.body;
+
+      if (modelo !== '55' && modelo !== '65') {
+        return res.status(400).json({ sucesso: false, erro: 'Modelo inválido: deve ser "55" (NF-e) ou "65" (NFC-e)' });
+      }
+
+      if (!validarTSerie(serie)) {
+        return res.status(400).json({ sucesso: false, erro: 'Série inválida: deve ser 0 ou entre 1 e 999 (TSerie)' });
+      }
+
+      if (!validarTNF(numeroInicial) || !validarTNF(numeroFinal)) {
+        return res.status(400).json({ sucesso: false, erro: 'Número inicial/final inválido: deve ser entre 1 e 999999999 (TNF)' });
+      }
+
+      if (numeroInicial > numeroFinal) {
+        return res.status(400).json({ sucesso: false, erro: 'Número inicial deve ser menor ou igual ao número final' });
+      }
+
+      if (!validarTJust(justificativa)) {
+        return res.status(400).json({ sucesso: false, erro: 'Justificativa deve ter entre 15 e 255 caracteres (TJust)' });
+      }
+
+      const resultado = await this.nfeService.inutilizarNumeracao({
+        empresaId,
+        modelo,
+        serie,
+        numeroInicial,
+        numeroFinal,
+        justificativa,
+      });
+
+      return res.status(201).json({
+        sucesso: true,
+        dados: resultado,
+        mensagem: 'Inutilização de numeração processada'
+      });
+
+    } catch (error: unknown) {
+      console.error('❌ Erro ao inutilizar numeração:', error);
+      return res.status(400).json({
+        sucesso: false,
+        erro: error instanceof Error ? error.message : 'Erro ao inutilizar numeração'
       });
     }
   }

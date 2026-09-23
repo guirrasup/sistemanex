@@ -2,11 +2,11 @@
 import { CteRepository, FiltroCte } from '../repositories/cte.repository.js';
 import { StatusCTe } from '@prisma/client';
 import { gerarChaveAcessoNFe, calcularDVMod11NFe } from '../utils/chaveAcesso.js';
-import { gerarXmlCte400 } from '../utils/xmlCteGenerator.js';
+import { gerarXmlCte400, gerarXmlCancelamentoCte } from '../utils/xmlCteGenerator.js';
 import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
 import { EmpresaRepository } from '../repositories/empresa.repository.js';
-import { autorizarCte } from './cteSefazClient.js';
+import { autorizarCte, enviarEventoCte } from './cteSefazClient.js';
 
 interface EmitirCteInput {
   cUF?: string;
@@ -32,6 +32,28 @@ interface EmitirCteInput {
 
 const PROTOCOLO_MOCK_SUFIXO_BASE = 1000000;
 const PROTOCOLO_MOCK_SUFIXO_RANGE = 9000000;
+
+// Mapeia os códigos numéricos do layout SEFAZ (aceitos na API) para os nomes
+// dos enums do Prisma, que é o que o repositório/gerador de XML esperam.
+const TIPO_SERVICO_POR_CODIGO: Record<number, string> = {
+  0: 'NORMAL', 1: 'SUBCONTRATACAO', 2: 'REDESPACHO', 3: 'REDESPACHO_INTERMEDIARIO', 4: 'VINCULADO_MULTIMODAL',
+};
+const TOMADOR_POR_CODIGO: Record<number, string> = {
+  0: 'REMETENTE', 1: 'EXPEDIDOR', 2: 'RECEBEDOR', 3: 'DESTINATARIO', 4: 'OUTROS',
+};
+const IND_IE_TOMA_POR_CODIGO: Record<number, string> = {
+  1: 'CONTRIBUINTE', 2: 'ISENTO', 9: 'NAO_CONTRIBUINTE',
+};
+
+function paraEnumOuCodigo<T extends string>(
+  valor: unknown,
+  mapa: Record<number, T>,
+  padrao: T
+): T {
+  if (typeof valor === 'string' && Object.values(mapa).includes(valor as T)) return valor as T;
+  if (typeof valor === 'number' && mapa[valor] !== undefined) return mapa[valor];
+  return padrao;
+}
 
 export class CteService {
   private cteRepo: CteRepository;
@@ -117,7 +139,9 @@ export class CteService {
       tpImp: data.tpImp || '1',
       tpEmis: tipoEmissao,
       cDV: dv,
-      tpAmb: data.tpAmb || 1,
+      // Não hardcodar 1 (produção): sem isso, todo CT-e afirmaria ser de
+      // produção mesmo com a empresa configurada para homologação.
+      tpAmb: data.tpAmb || (empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2),
       tpCTe: data.tpCTe || 'NORMAL',
       procEmi: data.procEmi || '0',
       verProc: data.verProc || 'SUP-TECNOLOGIA-1.0',
@@ -126,7 +150,7 @@ export class CteService {
       xMunEnv: data.xMunEnv || data.xMunIni,
       UFEnv: data.UFEnv || data.UFIni,
       modal: data.modal || 'RODOVIARIO',
-      tpServ: data.tpServ || 0,
+      tpServ: paraEnumOuCodigo(data.tpServ, TIPO_SERVICO_POR_CODIGO, 'NORMAL'),
       cMunIni: data.cMunIni,
       xMunIni: data.xMunIni,
       UFIni: data.UFIni,
@@ -135,10 +159,10 @@ export class CteService {
       UFFim: data.UFFim,
       retira: data.retira || '1',
       xDetRetira: data.xDetRetira,
-      indIEToma: data.indIEToma || '9',
+      indIEToma: paraEnumOuCodigo(data.indIEToma, IND_IE_TOMA_POR_CODIGO, 'NAO_CONTRIBUINTE'),
 
       // TOMADOR
-      toma: data.tomadorServico || 0,
+      toma: paraEnumOuCodigo(data.tomadorServico, TOMADOR_POR_CODIGO, 'REMETENTE'),
       tomadorCNPJ: data.tomadorCNPJ,
       tomadorCPF: data.tomadorCPF,
       tomadorIE: data.tomadorIE,
@@ -210,7 +234,10 @@ export class CteService {
 
       // RELACIONAMENTOS
       empresaId: data.empresaId,
-      emitenteId: data.emitenteId,
+      // O CT-e é sempre emitido pela própria empresa dona do registro — sem
+      // esse padrão, a criação falhava com "Argument emitente is missing"
+      // sempre que o chamador não informasse emitenteId explicitamente.
+      emitenteId: data.emitenteId || data.empresaId,
       remetenteId: data.remetenteId,
       destinatarioId: data.destinatarioId,
       expedidorId: data.expedidorId,
@@ -295,6 +322,48 @@ export class CteService {
 
     if (cte.status !== 'AUTORIZADA') {
       throw new Error('Apenas CT-e autorizados podem ser cancelados');
+    }
+
+    const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
+
+    if (transmissaoReal) {
+      if (!cte.protocoloAutorizacao) {
+        throw new Error('CT-e autorizado sem protocolo de autorização registrado');
+      }
+      if (!cte.chaveAcesso) {
+        throw new Error('CT-e sem chave de acesso registrada');
+      }
+
+      const empresa = await this.empresaRepo.findById(empresaId);
+      if (!empresa) throw new Error('Empresa não encontrada');
+
+      const certificado = await this.certificadoService.obterCertificadoDecriptado(empresaId);
+      if (!certificado) throw new Error('Certificado digital não configurado para esta empresa');
+      const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+
+      const ambiente: 1 | 2 = empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2;
+      const xmlEvento = gerarXmlCancelamentoCte({
+        chaveAcessoCte: cte.chaveAcesso,
+        cnpjAutor: empresa.cnpj,
+        sequencialEvento: 1,
+        justificativa: motivo,
+        protocoloAutorizacao: cte.protocoloAutorizacao,
+        ambiente,
+      });
+      const xmlEventoAssinado = assinarXmlEnvelopado(xmlEvento, 'infEvento', chaveECertPem);
+
+      const resultado = await enviarEventoCte({
+        uf: empresa.uf,
+        ambiente: ambiente === 1 ? 'producao' : 'homologacao',
+        xmlEventoAssinado,
+        mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
+      });
+
+      if (!resultado.sucesso) {
+        throw new Error(`SEFAZ rejeitou o cancelamento: ${resultado.xMotivo || 'motivo não informado'} (cStat ${resultado.cStat})`);
+      }
+    } else {
+      console.warn('[CTe] SEFAZ_TRANSMISSAO_REAL não está ativo — cancelamento em modo mock (não transmitido).');
     }
 
     return this.cteRepo.updateStatus(id, empresaId, 'CANCELADA', motivo);

@@ -2,6 +2,7 @@
 // Integração real com os webservices SOAP da SEFAZ (SVRS, autorizador único
 // nacional) para MDF-e, layout 3.00. Usa recepção síncrona (MDFeRecepcaoSinc),
 // igual ao CT-e: a resposta já traz o protocolo de autorização na mesma chamada.
+import { gzipSync } from 'zlib';
 import { postSoap, extrairTag, extrairTags, type CredenciaisMtls } from './sefazSoapClient.js';
 import { obterEnderecosMdfe, type AmbienteSefaz } from '../config/mdfeEndpoints.js';
 
@@ -73,7 +74,16 @@ export async function consultarStatusServicoMdfe(params: {
   return { cStat, xMotivo, online: cStat === '107' };
 }
 
-/** MDFeRecepcaoSinc — envia o XML assinado do MDF-e para autorização síncrona. */
+/**
+ * MDFeRecepcaoSinc — envia o XML assinado do MDF-e para autorização síncrona.
+ *
+ * Confirmado via WSDL real (SVRS): `mdfeDadosMsg` desta operação é tipado como
+ * `xs:string` puro (diferente de StatusServico/RecepcaoEvento, que são
+ * `complexType mixed` e aceitam XML literal) — o conteúdo esperado é o
+ * documento `<MDFe>` assinado, SEM wrapper `enviMDFe`/`idLote` (que não existe
+ * no layout 3.00 síncrono), compactado com gzip e codificado em base64 — mesmo
+ * padrão descoberto e confirmado para o CT-e (CTeRecepcaoSincV4).
+ */
 export async function autorizarMdfe(params: {
   uf: string;
   ambiente: AmbienteSefaz;
@@ -81,16 +91,16 @@ export async function autorizarMdfe(params: {
   mtls: CredenciaisMtls;
 }): Promise<ResultadoAutorizacaoMdfe> {
   const enderecos = obterEnderecosMdfe(params.uf, params.ambiente);
-  const idLote = Date.now().toString().slice(-15);
 
-  const corpo = `<mdfeDadosMsg xmlns="${NS_MDFE}">
-      <enviMDFe versao="3.00">
-        <idLote>${idLote}</idLote>
-        ${params.xmlAssinado.replace(/^<\?xml[^>]*\?>/, '')}
-      </enviMDFe>
-    </mdfeDadosMsg>`;
+  const mdfeSemDeclaracaoXml = params.xmlAssinado.replace(/^<\?xml[^>]*\?>/, '');
+  const mdfeGzipBase64 = gzipSync(mdfeSemDeclaracaoXml).toString('base64');
 
-  const soapEnvelope = envelope('http://www.portalfiscal.inf.br/mdfe/wsdl/MDFeRecepcaoSinc', corpo);
+  const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="${XMLNS_SOAP12}">
+  <soap12:Body>
+    <mdfeDadosMsg xmlns="http://www.portalfiscal.inf.br/mdfe/wsdl/MDFeRecepcaoSinc">${mdfeGzipBase64}</mdfeDadosMsg>
+  </soap12:Body>
+</soap12:Envelope>`;
 
   const resposta = await postSoap({
     url: enderecos.recepcaoSinc,

@@ -1,7 +1,7 @@
 // backend/src/utils/__tests__/xmlCteGenerator.test.ts
 import { describe, it, expect } from 'vitest';
 import { DOMParser } from '@xmldom/xmldom';
-import { gerarXmlCte400 } from '../xmlCteGenerator.js';
+import { gerarXmlCte400, gerarXmlCancelamentoCte } from '../xmlCteGenerator.js';
 
 function criarCteBase(overrides: Record<string, any> = {}): Record<string, any> {
   return {
@@ -168,5 +168,55 @@ describe('gerarXmlCte400', () => {
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
     expect(doc.getElementsByTagName('infNFe').length).toBe(1);
     expect(doc.getElementsByTagName('chave')[0].textContent).toBe('35260112345678000199550010000000011123456780');
+  });
+});
+
+describe('gerarXmlCancelamentoCte', () => {
+  const chaveValida = '35260118236447000190570010000000011123456789';
+
+  it('gera o evento 110111 referenciando o protocolo de autorização', () => {
+    const xml = gerarXmlCancelamentoCte({
+      chaveAcessoCte: chaveValida,
+      cnpjAutor: '18236447000190',
+      sequencialEvento: 1,
+      justificativa: 'Cancelamento solicitado pelo cliente',
+      protocoloAutorizacao: '157260000012345',
+    });
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    expect(doc.getElementsByTagName('tpEvento')[0].textContent).toBe('110111');
+    expect(doc.getElementsByTagName('nProt')[0].textContent).toBe('157260000012345');
+    expect(doc.getElementsByTagName('chCTe')[0].textContent).toBe(chaveValida);
+  });
+
+  it('lança erro quando a chave de acesso é inválida', () => {
+    expect(() => gerarXmlCancelamentoCte({
+      chaveAcessoCte: '123',
+      cnpjAutor: '18236447000190',
+      sequencialEvento: 1,
+      justificativa: 'Cancelamento solicitado pelo cliente',
+      protocoloAutorizacao: '157260000012345',
+    })).toThrow(/chave de acesso/i);
+  });
+
+  it('lança erro quando o protocolo não tem 15 ou 17 dígitos', () => {
+    expect(() => gerarXmlCancelamentoCte({
+      chaveAcessoCte: chaveValida,
+      cnpjAutor: '18236447000190',
+      sequencialEvento: 1,
+      justificativa: 'Cancelamento solicitado pelo cliente',
+      protocoloAutorizacao: '123',
+    })).toThrow(/protocolo/i);
+  });
+
+  it('usa tpAmb=2 (homologação) por padrão, e respeita o ambiente informado', () => {
+    const xml = gerarXmlCancelamentoCte({
+      chaveAcessoCte: chaveValida,
+      cnpjAutor: '18236447000190',
+      sequencialEvento: 1,
+      justificativa: 'Cancelamento solicitado pelo cliente',
+      protocoloAutorizacao: '157260000012345',
+      ambiente: 1,
+    });
+    expect(xml).toContain('<tpAmb>1</tpAmb>');
   });
 });

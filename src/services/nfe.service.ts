@@ -32,6 +32,7 @@ export interface CancelamentoNFeParams {
 
 export interface InutilizacaoNFeParams {
   cnpj: TCnpj;
+  modelo: '55' | '65';
   serie: TSerie;
   numeroInicial: TNF;
   numeroFinal: TNF;

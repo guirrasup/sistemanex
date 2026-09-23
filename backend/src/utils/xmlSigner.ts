@@ -50,12 +50,31 @@ export function extrairChaveECertificadoDoPfx(pfxBuffer: Buffer, senha: string):
  *
  * Pré-requisito: o elemento alvo já deve ter um atributo `Id` com o valor esperado pela
  * SEFAZ (ex.: `Id="NFe<chave44>"`), pois a assinatura referencia esse Id via `URI="#..."`.
+ *
+ * `inserirApos` (opcional) resolve um caso real: na NFC-e, o schema exige
+ * `infNFeSupl` (QR Code) ANTES de `<Signature>` como últimos filhos de `<NFe>`
+ * — mas o elemento assinado continua sendo `infNFe`. Sem separar "o que é
+ * assinado" de "onde a assinatura é inserida", `<Signature>` sempre aparecia
+ * logo após `infNFe`, ou seja, ANTES de `infNFeSupl` — rejeitado pela SEFAZ
+ * ("Falha no Schema XML", elemento infNFeSupl) por estar fora de ordem.
  */
 export function assinarXmlEnvelopado(
-  xmlSemAssinatura: string,
+  xmlSemAssinaturaOriginal: string,
   elementoAssinado: string,
-  chaveECertificado: ChaveECertificadoPem
+  chaveECertificado: ChaveECertificadoPem,
+  inserirApos: string = elementoAssinado
 ): string {
+  // A SEFAZ rejeita mensagens com espaço/quebra de linha entre tags ("Rejeicao:
+  // Nao eh permitida a presenca de caracteres de edicao..."), então o XML
+  // final transmitido precisa ser compacto. Isso TEM que acontecer aqui, antes
+  // de assinar — não depois: espaço em branco entre tags é conteúdo textual
+  // significativo para a canonicalização C14N (não é "insignificante" como em
+  // uma validação com DTD), então removê-lo depois de assinar muda o resultado
+  // da canonicalização e invalida a assinatura. Confirmado com uma rejeição
+  // real da SEFAZ (cStat 297 "Assinatura difere do calculado") ao tentar
+  // compactar só na camada de transporte, depois de já ter assinado.
+  const xmlSemAssinatura = xmlSemAssinaturaOriginal.replace(/>\s+</g, '><').trim();
+
   const sig = new SignedXml({
     privateKey: chaveECertificado.privateKeyPem,
     publicCert: chaveECertificado.certPem,
@@ -74,7 +93,7 @@ export function assinarXmlEnvelopado(
 
   sig.computeSignature(xmlSemAssinatura, {
     location: {
-      reference: `//*[local-name(.)='${elementoAssinado}']`,
+      reference: `//*[local-name(.)='${inserirApos}']`,
       action: 'after',
     },
   });

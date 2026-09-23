@@ -1,5 +1,5 @@
 // src/components/config/ConfiguracoesEmpresaView.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Building2, 
   ShieldCheck, 
@@ -30,6 +30,8 @@ import { StorageService } from '../../utils/storage';
 import { processarCertificadoA1 } from '../../utils/certificadoParser';
 import { consultarCnpjConectaGov } from '../../utils/consultaCnpjApi';
 import { getApiErrorMessage } from '../../utils/apiError';
+import { certificadoService } from '../../services/certificado.service';
+import { empresaService } from '../../services/empresa.service';
 
 interface ConfiguracoesEmpresaViewProps {
   empresa: ConfiguracaoEmpresa;
@@ -75,16 +77,47 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
   });
 
   const [salvo, setSalvo] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState<string | null>(null);
   const [consultandoCnpj, setConsultandoCnpj] = useState(false);
-  
+  const [carregandoDoServidor, setCarregandoDoServidor] = useState(true);
+
   const [arquivoCertificado, setArquivoCertificado] = useState<File | null>(null);
   const [senhaCertificado, setSenhaCertificado] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [isProcessandoCert, setIsProcessandoCert] = useState(false);
+  const [isEnviandoCertServidor, setIsEnviandoCertServidor] = useState(false);
   const [feedbackCert, setFeedbackCert] = useState<{ tipo: 'sucesso' | 'erro' | 'info'; mensagem: string } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🔥 Ao abrir a tela, busca os dados REAIS da empresa no backend (banco de
+  // dados) — é isso que os services de emissão (NfeService, etc.) realmente
+  // usam. O localStorage fica só como cache/preenchimento inicial do formulário.
+  useEffect(() => {
+    let cancelado = false;
+
+    (async () => {
+      try {
+        const empresaServidor = await empresaService.obterMinhaEmpresa();
+        if (cancelado || !empresaServidor) return;
+
+        setFormData(prev => ({
+          ...prev,
+          ...empresaServidor,
+          endereco: { ...prev.endereco, ...(empresaServidor.endereco || {}) },
+          certificado: { ...prev.certificado, ...(empresaServidor.certificado || {}) },
+        } as ConfiguracaoEmpresa));
+      } catch (err) {
+        console.warn('Não foi possível carregar os dados da empresa do servidor (usando cache local):', err);
+      } finally {
+        if (!cancelado) setCarregandoDoServidor(false);
+      }
+    })();
+
+    return () => { cancelado = true; };
+  }, []);
 
   const handleChange = <K extends keyof ConfiguracaoEmpresa>(field: K, value: ConfiguracaoEmpresa[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -247,35 +280,54 @@ const handleCarregarCertificadoEPreencher = async () => {
   setFeedbackCert(null);
 
   try {
+    // 1) Validação local rápida (feedback imediato de senha/formato, sem round-trip).
     const resultado = await processarCertificadoA1(arquivoCertificado, senhaCertificado);
 
-    if (resultado.sucesso && resultado.dadosEmpresa) {
-      // 🔥 MANTÉM TODOS OS DADOS EXISTENTES E SOBRESCREVE APENAS OS DO CERTIFICADO
-      const novosDados: ConfiguracaoEmpresa = {
-        ...formData, // ✅ Mantém todos os dados existentes
-        ...resultado.dadosEmpresa, // ✅ Sobrescreve com os dados do certificado
-        endereco: {
-          ...formData.endereco, // ✅ Mantém endereço existente
-          ...(resultado.dadosEmpresa.endereco || {}), // ✅ Sobrescreve com dados do certificado
-        },
-        certificado: {
-          ...formData.certificado, // ✅ Mantém certificado existente
-          ...resultado.certificadoInfo, // ✅ Sobrescreve com novas informações
-        },
-      };
-
-      setFormData(novosDados);
-
-      setFeedbackCert({
-        tipo: 'sucesso',
-        mensagem: `✅ Certificado ${arquivoCertificado.name} validado! Todos os dados foram preenchidos. Clique em "Salvar Configurações" para persistir.`,
-      });
-    } else {
+    if (!resultado.sucesso) {
       setFeedbackCert({
         tipo: 'erro',
         mensagem: resultado.mensagem || 'Falha ao processar o certificado.',
       });
+      return;
     }
+
+    if (resultado.dadosEmpresa) {
+      const dadosEmpresa = resultado.dadosEmpresa;
+      setFormData(prev => ({
+        ...prev,
+        ...dadosEmpresa,
+        endereco: { ...prev.endereco, ...(dadosEmpresa.endereco || {}) },
+        certificado: { ...prev.certificado, ...resultado.certificadoInfo },
+      } as ConfiguracaoEmpresa));
+    }
+
+    // 2) Envio real ao backend: criptografa (AES-256-GCM) e armazena vinculado
+    // à empresa autenticada — é esse certificado que assina e transmite os
+    // documentos fiscais de verdade à SEFAZ, não a validação local acima.
+    setIsProcessandoCert(false);
+    setIsEnviandoCertServidor(true);
+
+    const resultadoServidor = await certificadoService.upload(arquivoCertificado, senhaCertificado);
+
+    if (!resultadoServidor.sucesso) {
+      setFeedbackCert({
+        tipo: 'erro',
+        mensagem: resultadoServidor.mensagem || 'O certificado foi validado localmente, mas o envio ao servidor falhou.',
+      });
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      ...resultadoServidor.empresa,
+      endereco: { ...prev.endereco, ...(resultadoServidor.empresa?.endereco || {}) },
+      certificado: { ...prev.certificado, ...resultadoServidor.certificado },
+    } as ConfiguracaoEmpresa));
+
+    setFeedbackCert({
+      tipo: 'sucesso',
+      mensagem: `✅ Certificado ${arquivoCertificado.name} validado e enviado ao servidor com sucesso! Ele já está pronto para assinar e transmitir documentos fiscais à SEFAZ.`,
+    });
   } catch (err: unknown) {
     setFeedbackCert({
       tipo: 'erro',
@@ -283,15 +335,34 @@ const handleCarregarCertificadoEPreencher = async () => {
     });
   } finally {
     setIsProcessandoCert(false);
+    setIsEnviandoCertServidor(false);
   }
 };
 
-  const handleSalvar = (e: React.FormEvent) => {
+  const handleSalvar = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSalvando(true);
+    setErroSalvar(null);
+
+    // Cache local: mantém a tela utilizável mesmo se a chamada ao backend falhar.
     StorageService.saveConfiguracao(formData);
-    onEmpresaChange();
-    setSalvo(true);
-    setTimeout(() => setSalvo(false), 3500);
+
+    try {
+      const empresaAtualizada = await empresaService.atualizarMinhaEmpresa(formData);
+      setFormData(prev => ({
+        ...prev,
+        ...empresaAtualizada,
+        endereco: { ...prev.endereco, ...(empresaAtualizada.endereco || {}) },
+        certificado: { ...prev.certificado, ...(empresaAtualizada.certificado || {}) },
+      } as ConfiguracaoEmpresa));
+      onEmpresaChange();
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 3500);
+    } catch (err: unknown) {
+      setErroSalvar(getApiErrorMessage(err, 'Não foi possível salvar as configurações no servidor.'));
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const formatarData = (iso: string) => {
@@ -325,8 +396,17 @@ const handleCarregarCertificadoEPreencher = async () => {
         </div>
 
         <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Configurações</div>
-          <div className={`text-[10px] font-medium ${corText}`}>Certificado A1 • ICP-Brasil</div>
+          {carregandoDoServidor ? (
+            <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5 justify-end">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              <span>Carregando dados do servidor...</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-xs font-semibold text-slate-700">Configurações</div>
+              <div className={`text-[10px] font-medium ${corText}`}>Certificado A1 • ICP-Brasil</div>
+            </>
+          )}
         </div>
       </div>
 
@@ -439,21 +519,30 @@ const handleCarregarCertificadoEPreencher = async () => {
               <button
                 type="button"
                 onClick={handleCarregarCertificadoEPreencher}
-                disabled={isProcessandoCert || !arquivoCertificado}
+                disabled={isProcessandoCert || isEnviandoCertServidor || !arquivoCertificado}
                 className="w-full bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700/50 disabled:cursor-not-allowed text-white font-bold text-xs py-2.5 px-4 rounded-lg shadow-sm transition-all flex items-center justify-center gap-2"
               >
                 {isProcessandoCert ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Processando certificado...</span>
+                    <span>Validando certificado...</span>
+                  </>
+                ) : isEnviandoCertServidor ? (
+                  <>
+                    <UploadCloud className="w-4 h-4 animate-pulse" />
+                    <span>Enviando ao servidor...</span>
                   </>
                 ) : (
                   <>
                     <FileCheck className="w-4 h-4" />
-                    <span>Validar e preencher dados</span>
+                    <span>Validar e enviar ao servidor</span>
                   </>
                 )}
               </button>
+              <p className="text-[10px] text-slate-400/80 leading-relaxed">
+                O certificado é criptografado (AES-256-GCM) e armazenado no servidor —
+                é ele que assina e transmite os documentos fiscais à SEFAZ.
+              </p>
             </div>
 
           </div>
@@ -969,6 +1058,13 @@ const handleCarregarCertificadoEPreencher = async () => {
           </div>
         </div>
 
+        {erroSalvar && (
+          <div className="p-3 rounded-lg text-xs flex items-start gap-2.5 bg-rose-50 border border-rose-200 text-rose-800">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+            <div className="flex-1 font-medium leading-relaxed">{erroSalvar}</div>
+          </div>
+        )}
+
         <div className="flex items-center justify-end gap-3 pt-2">
           <button
             type="button"
@@ -979,14 +1075,15 @@ const handleCarregarCertificadoEPreencher = async () => {
             <Trash2 className="w-4 h-4" />
             <span>Limpar Formulário</span>
           </button>
-        
+
           <button
             type="submit"
             id="btn-salvar-config-empresa"
-            className={`${corBgButton} text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer`}
+            disabled={salvando}
+            className={`${corBgButton} disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer`}
           >
-            <Save className="w-4 h-4" />
-            <span>Salvar Configurações</span>
+            {salvando ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>{salvando ? 'Salvando no servidor...' : 'Salvar Configurações'}</span>
           </button>
         </div>
 

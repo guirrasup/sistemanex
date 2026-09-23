@@ -5,10 +5,11 @@ import { MdfeComponentRepository } from '../repositories/mdfe.component.reposito
 import { ClienteRepository } from '../repositories/cliente.repository.js';
 import { EmpresaRepository } from '../repositories/empresa.repository.js';
 import { gerarChaveAcessoMDFe } from '../utils/chaveAcessoMDFe.js';
-import { gerarXmlMDFe } from '../utils/xmlMdfeGenerator.js';
+import { limparDocumento } from '../utils/cpfCnpjValidator.js';
+import { gerarXmlMDFe, gerarXmlCancelamentoMdfe, gerarXmlEncerramentoMdfe } from '../utils/xmlMdfeGenerator.js';
 import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
-import { autorizarMdfe } from './mdfeSefazClient.js';
+import { autorizarMdfe, enviarEventoMdfe } from './mdfeSefazClient.js';
 
 interface PerigosoInput {
   numeroONU?: string;
@@ -83,6 +84,20 @@ interface PercursoInput {
   uf?: string;
 }
 
+interface VeiculoTracaoInput {
+  placa: string;
+  renavam?: string;
+  tara: number | string;
+  tpRod: string;
+  tpCar: string;
+  uf?: string;
+}
+
+interface CondutorInput {
+  nome: string;
+  cpf: string;
+}
+
 interface EmitirMdfeInput {
   empresaId: string;
   emitenteId: string;
@@ -116,11 +131,72 @@ interface EmitirMdfeInput {
   seguros?: SeguroInput[];
   lacres?: string[];
   autorizadosDownload?: AutorizadoDownloadInput[];
+  rntrc?: string;
+  veiculo?: VeiculoTracaoInput;
+  condutores?: CondutorInput[];
   usuario?: string;
   [key: string]: unknown;
 }
 
 const MAX_DOCUMENTOS_POR_MDFE = 20000;
+
+// O gerador de XML espera as chaves do layout SEFAZ (chCTe/chNFe/chMDFe,
+// tpUnidTransp/idUnidTransp, nONU/xNomeAE/etc.), não as do payload da API
+// (chave, tipo/identificacao, numeroONU/nomeApropriado/etc.) — confirmado via
+// rejeição real ("Informações dos tomadores é obrigatória", causada pela chave
+// do documento nunca chegando ao XML por causa do nome de campo errado).
+function mapearUnidadeCarga(uc: UnidadeCargaInput) {
+  return { tpUnidCarga: uc.tipo, idUnidCarga: uc.identificacao, lacres: uc.lacres, qtdRat: uc.quantidadeRateada };
+}
+function mapearUnidadeTransporte(ut: UnidadeTransporteInput) {
+  return {
+    tpUnidTransp: ut.tipo,
+    idUnidTransp: ut.identificacao,
+    lacres: ut.lacres,
+    qtdRat: ut.quantidadeRateada,
+    unidadesCarga: (ut.unidadesCarga || []).map(mapearUnidadeCarga),
+  };
+}
+function mapearPerigoso(p: PerigosoInput) {
+  return {
+    nONU: p.numeroONU,
+    xNomeAE: p.nomeApropriado,
+    xClaRisco: p.classeRisco,
+    grEmb: p.grupoEmbalagem,
+    qTotProd: p.quantidadeTotal,
+    qVolTipo: p.quantidadeVolumes,
+  };
+}
+function mapearCte(cte: CteNoMdfeInput) {
+  return {
+    chCTe: cte.chave,
+    SegCodBarra: cte.segundoCodigoBarras,
+    indReentrega: cte.indReentrega,
+    unidadesTransporte: (cte.unidadesTransporte || []).map(mapearUnidadeTransporte),
+    perigosos: (cte.perigosos || []).map(mapearPerigoso),
+    qtdTotal: cte.entregaParcial?.quantidadeTotal,
+    qtdParcial: cte.entregaParcial?.quantidadeParcial,
+    indPrestacaoParcial: cte.prestacaoParcial?.indicador,
+    nfesParciais: (cte.prestacaoParcial?.nfes || []).map((chNFe) => ({ chNFe })),
+  };
+}
+function mapearNfe(nfe: NfeNoMdfeInput) {
+  return {
+    chNFe: nfe.chave,
+    SegCodBarra: nfe.segundoCodigoBarras,
+    indReentrega: nfe.indReentrega,
+    unidadesTransporte: (nfe.unidadesTransporte || []).map(mapearUnidadeTransporte),
+    perigosos: (nfe.perigosos || []).map(mapearPerigoso),
+  };
+}
+function mapearMdfeTransp(m: MdfeTranspNoMdfeInput) {
+  return {
+    chMDFe: m.chave,
+    indReentrega: m.indReentrega,
+    unidadesTransporte: (m.unidadesTransporte || []).map(mapearUnidadeTransporte),
+    perigosos: (m.perigosos || []).map(mapearPerigoso),
+  };
+}
 
 function obrigatorio<T>(valor: T | undefined | null, campo: string): T {
   if (valor === undefined || valor === null || valor === '') {
@@ -292,6 +368,18 @@ export class MdfeService {
       infAdFisco: data.infAdFisco,
       infCpl: data.infCpl,
 
+      // Modal rodoviário (rodo/infANTT/veicTracao)
+      rntrc: data.rntrc,
+      veicTracaoPlaca: data.veiculo?.placa,
+      veicTracaoRenavam: data.veiculo?.renavam,
+      veicTracaoTara: data.veiculo?.tara !== undefined ? String(data.veiculo.tara) : undefined,
+      veicTracaoTpRod: data.veiculo?.tpRod,
+      veicTracaoTpCar: data.veiculo?.tpCar,
+      veicTracaoUF: data.veiculo?.uf,
+      condutores: data.condutores?.length
+        ? { create: data.condutores.map((c) => ({ xNome: c.nome, CPF: limparDocumento(c.cpf) })) }
+        : undefined,
+
       // Relacionamentos
       empresaId: data.empresaId,
       emitenteId: data.emitenteId,
@@ -312,13 +400,44 @@ export class MdfeService {
     });
 
     // Gera XML
+    // O emit do MDF-e precisa ser a própria empresa (o CNPJ deve bater com o do
+    // certificado digital usado para assinar/transmitir) — não o Cliente de
+    // "emitenteId" (usado só para validação acima) — confirmado via rejeição
+    // real da SEFAZ ("CNPJ-Base do Emitente difere do CNPJ-Base do Certificado").
+    const emitenteXml = {
+      documento: empresa.cnpj,
+      inscricaoEstadual: empresa.inscricaoEstadual,
+      razaoSocial: empresa.razaoSocial,
+      nomeFantasia: empresa.nomeFantasia,
+      endereco: empresa.endereco,
+    };
     const xmlSemAssinatura = gerarXmlMDFe({
       mdfe,
-      emitente,
-      municipiosCarrega: data.municipiosCarrega,
-      percursos: data.percursos || [],
-      municipiosDescarga: data.municipiosDescarga,
-      seguros: data.seguros || [],
+      emitente: emitenteXml,
+      // O gerador de XML espera as chaves do layout SEFAZ (cMunCarrega/xMunCarrega,
+      // cMunDescarga/xMunDescarga), não as chaves do payload da API (codigo/nome) —
+      // confirmado via rejeição real (cMunCarrega chegava "undefined" no XML).
+      municipiosCarrega: data.municipiosCarrega.map((m) => ({ cMunCarrega: m.codigo, xMunCarrega: m.nome })),
+      percursos: (data.percursos || []).map((p) => ({ UFPer: p.uf })),
+      municipiosDescarga: data.municipiosDescarga.map((m) => ({
+        cMunDescarga: m.codigo,
+        xMunDescarga: m.nome,
+        ctes: (m.ctes || []).map(mapearCte),
+        nfes: (m.nfes || []).map(mapearNfe),
+        mdfesTransp: (m.mdfesTransp || []).map(mapearMdfeTransp),
+      })),
+      // O gerador espera as chaves do layout SEFAZ (respSeg/respCNPJ/respCPF/xSeg/
+      // CNPJSeg/nApol/nAver), não as do SeguroInput da API — confirmado via
+      // rejeição real ("Seguro da carga é obrigatório") após o mapeamento faltar.
+      seguros: (data.seguros || []).map((s) => ({
+        respSeg: s.responsavel === '2' ? '2' : '1',
+        respCNPJ: s.responsavelCNPJ,
+        respCPF: s.responsavelCPF,
+        xSeg: s.seguradoraNome,
+        CNPJSeg: s.seguradoraCNPJ,
+        nApol: s.apolice,
+        nAver: s.averbacoes,
+      })),
       lacres: data.lacres || [],
       autorizadosDownload: data.autorizadosDownload || [],
       produtoPredominante: {
@@ -342,7 +461,10 @@ export class MdfeService {
       throw new Error('Certificado digital não configurado para esta empresa');
     }
     const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
-    const xml = assinarXmlEnvelopado(xmlSemAssinatura, 'infMDFe', chaveECertPem);
+    // <infMDFeSupl> (QR Code) precisa vir ANTES de <Signature> na ordem do
+    // documento, mas o elemento assinado continua sendo <infMDFe> — mesmo padrão
+    // usado no QR Code da NFC-e (infNFeSupl).
+    const xml = assinarXmlEnvelopado(xmlSemAssinatura, 'infMDFe', chaveECertPem, 'infMDFeSupl');
 
     // Transmissão real à SEFAZ (autorizador único nacional: SVRS/RS), controlada
     // por SEFAZ_TRANSMISSAO_REAL (ver nfe.service.ts). Sem ela, o MDF-e fica
@@ -622,7 +744,13 @@ export class MdfeService {
     }
   }
 
-  async encerrarMdfe(id: string, protocolo: string, municipioEncerramento: string, empresaId: string) {
+  async encerrarMdfe(
+    id: string,
+    protocolo: string,
+    municipioEncerramento: string,
+    empresaId: string,
+    codigoMunicipioEncerramento?: string
+  ) {
     const mdfe = await this.mdfeRepo.findById(id);
     if (!mdfe) throw new Error('MDF-e não encontrado');
     if (mdfe.empresaId !== empresaId) throw new Error('Acesso negado');
@@ -635,7 +763,53 @@ export class MdfeService {
       throw new Error('MDF-e deve estar autorizado para ser encerrado');
     }
 
-    const result = await this.mdfeRepo.encerrar(id, protocolo, municipioEncerramento);
+    const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
+    let protocoloFinal = protocolo;
+
+    if (transmissaoReal) {
+      if (!mdfe.protocoloAutorizacao) {
+        throw new Error('MDF-e autorizado sem protocolo de autorização registrado');
+      }
+      if (!codigoMunicipioEncerramento) {
+        throw new Error('Código IBGE do município de encerramento é obrigatório para transmissão real');
+      }
+
+      const empresa = await this.empresaRepo.findById(empresaId);
+      if (!empresa) throw new Error('Empresa não encontrada');
+
+      const certificado = await this.certificadoService.obterCertificadoDecriptado(empresaId);
+      if (!certificado) throw new Error('Certificado digital não configurado para esta empresa');
+      const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+
+      const ambiente: 1 | 2 = empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2;
+      const xmlEvento = gerarXmlEncerramentoMdfe({
+        chaveAcessoMdfe: mdfe.chaveAcesso,
+        cnpjAutor: empresa.cnpj,
+        sequencialEvento: 1,
+        protocoloAutorizacao: mdfe.protocoloAutorizacao,
+        codigoUFEncerramento: codigoMunicipioEncerramento.slice(0, 2),
+        codigoMunicipioEncerramento,
+        ambiente,
+      });
+      const xmlEventoAssinado = assinarXmlEnvelopado(xmlEvento, 'infEvento', chaveECertPem);
+
+      const resultado = await enviarEventoMdfe({
+        uf: empresa.uf,
+        ambiente: ambiente === 1 ? 'producao' : 'homologacao',
+        xmlEventoAssinado,
+        mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
+      });
+
+      if (!resultado.sucesso) {
+        throw new Error(`SEFAZ rejeitou o encerramento: ${resultado.xMotivo || 'motivo não informado'} (cStat ${resultado.cStat})`);
+      }
+
+      protocoloFinal = resultado.nProt || protocolo;
+    } else {
+      console.warn('[MDFe] SEFAZ_TRANSMISSAO_REAL não está ativo — encerramento em modo mock (não transmitido).');
+    }
+
+    const result = await this.mdfeRepo.encerrar(id, protocoloFinal, municipioEncerramento);
 
     await this.componentRepo.createHistoricoStatus({
       mdfeId: id,
@@ -659,6 +833,45 @@ export class MdfeService {
 
     if (mdfe.status === 'ENCERRADA') {
       throw new Error('MDF-e encerrado não pode ser cancelado');
+    }
+
+    const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
+
+    if (transmissaoReal) {
+      if (!mdfe.protocoloAutorizacao) {
+        throw new Error('MDF-e sem protocolo de autorização registrado');
+      }
+
+      const empresa = await this.empresaRepo.findById(empresaId);
+      if (!empresa) throw new Error('Empresa não encontrada');
+
+      const certificado = await this.certificadoService.obterCertificadoDecriptado(empresaId);
+      if (!certificado) throw new Error('Certificado digital não configurado para esta empresa');
+      const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+
+      const ambiente: 1 | 2 = empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2;
+      const xmlEvento = gerarXmlCancelamentoMdfe({
+        chaveAcessoMdfe: mdfe.chaveAcesso,
+        cnpjAutor: empresa.cnpj,
+        sequencialEvento: 1,
+        justificativa: motivo,
+        protocoloAutorizacao: mdfe.protocoloAutorizacao,
+        ambiente,
+      });
+      const xmlEventoAssinado = assinarXmlEnvelopado(xmlEvento, 'infEvento', chaveECertPem);
+
+      const resultado = await enviarEventoMdfe({
+        uf: empresa.uf,
+        ambiente: ambiente === 1 ? 'producao' : 'homologacao',
+        xmlEventoAssinado,
+        mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
+      });
+
+      if (!resultado.sucesso) {
+        throw new Error(`SEFAZ rejeitou o cancelamento: ${resultado.xMotivo || 'motivo não informado'} (cStat ${resultado.cStat})`);
+      }
+    } else {
+      console.warn('[MDFe] SEFAZ_TRANSMISSAO_REAL não está ativo — cancelamento em modo mock (não transmitido).');
     }
 
     const result = await this.mdfeRepo.cancelar(id, motivo);

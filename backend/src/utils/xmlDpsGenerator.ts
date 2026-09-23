@@ -31,18 +31,29 @@ function formatarNumero(val: number | undefined | null, decimais = 2): string {
  */
 export function gerarXmlDps(nfse: NFSeDocumento): string {
   const cnpjEmit = limparDocumento(nfse.emitente.cnpj);
+  const isCnpjEmit = cnpjEmit.length === 14;
   const docToma = limparDocumento(nfse.tomador.documento);
   const isCnpjToma = docToma.length === 14;
   const tpAmb = nfse.ambiente === 1 ? '1' : '2';
-  const idDps = `DPS${nfse.chaveAcesso}`;
+  // O Id da DPS (TSIdDPS) NÃO é "DPS"+chave de acesso da NFS-e (que é um
+  // identificador diferente, gerado pelo próprio Sistema Nacional na resposta) —
+  // é "DPS"+cMun(7)+tpInsc(1)+CNPJ/CPF(14)+série(5, zero-padded)+nDPS(15,
+  // zero-padded) = 42 dígitos fixos (confirmado no XSD oficial: TSIdDPS =
+  // "DPS[0-9]{42}", e num exemplo real de produção do SDK nfse-nacional/nfse-php).
+  // tpInsc é "1" para CPF e "2" para CNPJ (confirmado no mesmo exemplo real —
+  // usar "1" para CNPJ, como uma primeira tentativa assumiu, causa E0004
+  // "identificador difere da concatenação dos campos correspondentes", pois o
+  // ADN recalcula tpInsc a partir do CNPJ/CPF informado em <prest>). Os
+  // elementos <serie>/<nDPS> permanecem SEM zero-padding (apenas o Id é padded).
+  const idDps = `DPS${nfse.emitente.endereco.codigoMunicipio}${isCnpjEmit ? '2' : '1'}${cnpjEmit}${String(nfse.serieDPS).padStart(5, '0')}${String(nfse.numeroDPS).padStart(15, '0')}`;
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<DPS xmlns="http://www.sped.fazenda.gov.br/nfse">
-  <infDPS Id="${escapeXml(idDps)}" versao="1.00">
+<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00">
+  <infDPS Id="${escapeXml(idDps)}">
     <tpAmb>${tpAmb}</tpAmb>
     <dhEmi>${nfse.dataHoraEmissao}</dhEmi>
     <verAplic>SUP-TECNOLOGIA-1.00</verAplic>
-    <serie>${String(nfse.serieDPS).padStart(5, '0')}</serie>
+    <serie>${nfse.serieDPS}</serie>
     <nDPS>${nfse.numeroDPS}</nDPS>
     <dCompet>${nfse.dataCompetencia}</dCompet>
     <tpEmit>1</tpEmit>
@@ -51,10 +62,14 @@ export function gerarXmlDps(nfse: NFSeDocumento): string {
     <!-- PRESTADOR -->
     <prest>
       <CNPJ>${cnpjEmit}</CNPJ>
-      <IM>${escapeXml(nfse.emitente.inscricaoMunicipal)}</IM>
+      ${nfse.emitente.inscricaoMunicipal ? `<IM>${escapeXml(nfse.emitente.inscricaoMunicipal)}</IM>` : ''}
       <xNome>${escapeXml(nfse.emitente.razaoSocial)}</xNome>
       ${nfse.emitente.endereco.telefone ? `<fone>${limparDocumento(nfse.emitente.endereco.telefone)}</fone>` : ''}
       ${nfse.emitente.endereco.email ? `<email>${escapeXml(nfse.emitente.endereco.email)}</email>` : ''}
+      <regTrib>
+        <opSimpNac>${nfse.emitente.optanteMEI ? 2 : nfse.emitente.optanteSimplesNacional ? 3 : 1}</opSimpNac>
+        <regEspTrib>0</regEspTrib>
+      </regTrib>
     </prest>
 
     <!-- TOMADOR -->
@@ -72,8 +87,8 @@ export function gerarXmlDps(nfse: NFSeDocumento): string {
         ${nfse.tomador.endereco.complemento ? `<xCpl>${escapeXml(nfse.tomador.endereco.complemento)}</xCpl>` : ''}
         <xBairro>${escapeXml(nfse.tomador.endereco.bairro)}</xBairro>
       </end>
-      ${nfse.tomador.email ? `<email>${escapeXml(nfse.tomador.email)}</email>` : ''}
       ${nfse.tomador.telefone ? `<fone>${limparDocumento(nfse.tomador.telefone)}</fone>` : ''}
+      ${nfse.tomador.email ? `<email>${escapeXml(nfse.tomador.email)}</email>` : ''}
     </toma>
 
     <!-- SERVIÇO -->
@@ -84,8 +99,8 @@ export function gerarXmlDps(nfse: NFSeDocumento): string {
       <cServ>
         <cTribNac>${escapeXml(nfse.servico.codigoTributacaoNacional)}</cTribNac>
         ${nfse.servico.codigoTributacaoMunicipal ? `<cTribMun>${escapeXml(nfse.servico.codigoTributacaoMunicipal)}</cTribMun>` : ''}
-        ${nfse.servico.codigoNBS ? `<cNBS>${escapeXml(nfse.servico.codigoNBS)}</cNBS>` : ''}
         <xDescServ>${escapeXml(nfse.servico.descricao)}</xDescServ>
+        ${nfse.servico.codigoNBS ? `<cNBS>${limparDocumento(nfse.servico.codigoNBS)}</cNBS>` : ''}
       </cServ>
     </serv>
 
@@ -102,14 +117,18 @@ export function gerarXmlDps(nfse: NFSeDocumento): string {
       <trib>
         <tribMun>
           <tribISSQN>${nfse.servico.tributacaoISSQN}</tribISSQN>
-          <cLocIncid>${escapeXml(nfse.servico.localPrestacao.codigoMunicipio)}</cLocIncid>
-          <pAliq>${formatarNumero(nfse.servico.aliquotaISS)}</pAliq>
+          <!-- pAliq omitido: para municípios registrados no Sistema Nacional a
+               alíquota é parametrizada pelo próprio sistema — confirmado via
+               rejeição real do ADN (pAliq não aparece entre os elementos aceitos
+               nessa posição quando o município de incidência está no Sistema Nacional). -->
+          <tpRetISSQN>${nfse.servico.tipoRetencaoISS}</tpRetISSQN>
         </tribMun>
-        ${nfse.servico.aliquotaPIS || nfse.servico.aliquotaCOFINS ? `
         <totTrib>
-          ${nfse.servico.aliquotaPIS ? `<pAliqPIS>${formatarNumero(nfse.servico.aliquotaPIS, 4)}</pAliqPIS>` : ''}
-          ${nfse.servico.aliquotaCOFINS ? `<pAliqCOFINS>${formatarNumero(nfse.servico.aliquotaCOFINS, 4)}</pAliqCOFINS>` : ''}
-        </totTrib>` : ''}
+          <!-- Decreto 8.264/2014: quando não se informa valor estimado de tributos,
+               usa-se indTotTrib=0 (confirmado contra o XSD oficial: totTrib é
+               obrigatório e é uma choice entre vTotTrib/pTotTrib/indTotTrib/pTotTribSN). -->
+          <indTotTrib>0</indTotTrib>
+        </totTrib>
       </trib>
     </valores>
   </infDPS>

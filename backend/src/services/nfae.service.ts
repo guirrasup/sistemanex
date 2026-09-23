@@ -6,6 +6,7 @@ import { gerarXmlNfae, type NfaeParaXml } from '../utils/xmlNfaeGenerator.js';
 import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
 import { EmpresaRepository } from '../repositories/empresa.repository.js';
+import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
 
 const prisma = new PrismaClient();
 
@@ -258,7 +259,7 @@ export class NFAeService {
       chaveAcesso: chaveCompleta,
       numero,
       serie: data.serie || 900,
-      dataHoraEmissao: new Date().toISOString(),
+      dataHoraEmissao: formatarDataHoraSefaz(),
       naturezaOperacao: data.naturezaOperacao || 'Fornecimento de Energia Elétrica',
       motivoEmissao: data.motivoEmissao || 'PRODUTOR_RURAL',
       descricaoMotivo: data.descricaoMotivo || data.motivoEmissao || 'Produtor Rural',

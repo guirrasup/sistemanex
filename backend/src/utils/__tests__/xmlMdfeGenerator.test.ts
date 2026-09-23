@@ -1,7 +1,7 @@
 // backend/src/utils/__tests__/xmlMdfeGenerator.test.ts
 import { describe, it, expect } from 'vitest';
 import { DOMParser } from '@xmldom/xmldom';
-import { gerarXmlMDFe } from '../xmlMdfeGenerator.js';
+import { gerarXmlMDFe, gerarXmlCancelamentoMdfe, gerarXmlEncerramentoMdfe } from '../xmlMdfeGenerator.js';
 
 function criarParamsBase(overrides: Partial<Parameters<typeof gerarXmlMDFe>[0]> = {}): Parameters<typeof gerarXmlMDFe>[0] {
   return {
@@ -149,5 +149,66 @@ describe('gerarXmlMDFe', () => {
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
     expect(doc.getElementsByTagName('vCarga')[0].textContent).toBe('5000.00');
     expect(doc.getElementsByTagName('qCarga')[0].textContent).toBe('100.5000');
+  });
+});
+
+describe('gerarXmlCancelamentoMdfe', () => {
+  const chaveValida = '35260118236447000190580010000000011123456789';
+
+  it('gera o evento 110111 referenciando o protocolo de autorização', () => {
+    const xml = gerarXmlCancelamentoMdfe({
+      chaveAcessoMdfe: chaveValida,
+      cnpjAutor: '18236447000190',
+      sequencialEvento: 1,
+      justificativa: 'Cancelamento solicitado pelo cliente',
+      protocoloAutorizacao: '158260000012345',
+    });
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    expect(doc.getElementsByTagName('eventoMDFe').length).toBe(1);
+    expect(doc.getElementsByTagName('tpEvento')[0].textContent).toBe('110111');
+    expect(doc.getElementsByTagName('nProt')[0].textContent).toBe('158260000012345');
+    expect(doc.getElementsByTagName('chMDFe')[0].textContent).toBe(chaveValida);
+  });
+
+  it('lança erro quando a chave de acesso é inválida', () => {
+    expect(() => gerarXmlCancelamentoMdfe({
+      chaveAcessoMdfe: '123',
+      cnpjAutor: '18236447000190',
+      sequencialEvento: 1,
+      justificativa: 'Cancelamento solicitado pelo cliente',
+      protocoloAutorizacao: '158260000012345',
+    })).toThrow(/chave de acesso/i);
+  });
+});
+
+describe('gerarXmlEncerramentoMdfe', () => {
+  const chaveValida = '35260118236447000190580010000000011123456789';
+
+  it('gera o evento 110112 com os dados do município de encerramento', () => {
+    const xml = gerarXmlEncerramentoMdfe({
+      chaveAcessoMdfe: chaveValida,
+      cnpjAutor: '18236447000190',
+      sequencialEvento: 1,
+      protocoloAutorizacao: '158260000012345',
+      codigoUFEncerramento: '35',
+      codigoMunicipioEncerramento: '3550308',
+      dataEncerramento: '2026-09-22',
+    });
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    expect(doc.getElementsByTagName('tpEvento')[0].textContent).toBe('110112');
+    expect(doc.getElementsByTagName('cMun')[0].textContent).toBe('3550308');
+    expect(doc.getElementsByTagName('cUF')[0].textContent).toBe('35');
+    expect(doc.getElementsByTagName('dtEnc')[0].textContent).toBe('2026-09-22');
+  });
+
+  it('lança erro quando o protocolo não tem 15 ou 17 dígitos', () => {
+    expect(() => gerarXmlEncerramentoMdfe({
+      chaveAcessoMdfe: chaveValida,
+      cnpjAutor: '18236447000190',
+      sequencialEvento: 1,
+      protocoloAutorizacao: '123',
+      codigoUFEncerramento: '35',
+      codigoMunicipioEncerramento: '3550308',
+    })).toThrow(/protocolo/i);
   });
 });

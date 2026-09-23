@@ -116,15 +116,21 @@ export async function autorizarNfe(params: {
     mtls: params.mtls,
   });
 
-  // <cStat> aparece na ordem do documento: primeiro o do lote (retEnviNFe), e —
-  // apenas se autorizado sincronamente — um segundo dentro de protNFe > infProt,
-  // que é o que realmente importa para saber se o documento foi autorizado.
+  // <cStat> aparece na ordem do documento: primeiro o do lote (retEnviNFe) — só
+  // confirma que o LOTE foi processado (cStat 104 "Lote processado" mesmo numa
+  // rejeição!) — e, quando o processamento síncrono chega a avaliar o documento,
+  // um segundo dentro de protNFe > infProt com o resultado real (autorizado OU
+  // rejeitado). Usar `nProt` para decidir qual pegar é o bug: nProt só existe
+  // quando autorizado, então toda rejeição caía de volta no cStat do lote,
+  // escondendo o motivo real da rejeição. Confirmado com uma rejeição real da
+  // SEFAZ: cStat 104/"Lote processado" (lote) + cStat 297/"Assinatura difere do
+  // calculado" (infProt) — o segundo é sempre o que importa quando presente.
   const cStats = extrairTags(resposta.xmlBruto, 'cStat');
   const nProt = extrairTag(resposta.xmlBruto, 'nProt');
   const nRec = extrairTag(resposta.xmlBruto, 'nRec');
-  const cStatRelevante = nProt ? cStats[1] : cStats[0];
+  const cStatRelevante = cStats.length > 1 ? cStats[1] : cStats[0];
   const xMotivos = extrairTags(resposta.xmlBruto, 'xMotivo');
-  const xMotivoRelevante = nProt ? xMotivos[1] : xMotivos[0];
+  const xMotivoRelevante = cStats.length > 1 ? xMotivos[1] : xMotivos[0];
 
   return {
     cStat: cStatRelevante,
@@ -164,9 +170,13 @@ export async function consultarRecibo(params: {
     mtls: params.mtls,
   });
 
-  const cStat = extrairTag(resposta.xmlBruto, 'cStat');
+  // Mesma ressalva de autorizarNfe(): quando o protNFe/infProt está presente, o
+  // segundo cStat/xMotivo é o resultado real do documento — o primeiro é só do lote.
+  const cStats = extrairTags(resposta.xmlBruto, 'cStat');
+  const xMotivos = extrairTags(resposta.xmlBruto, 'xMotivo');
   const nProt = extrairTag(resposta.xmlBruto, 'nProt');
-  const xMotivo = extrairTag(resposta.xmlBruto, 'xMotivo');
+  const cStat = cStats.length > 1 ? cStats[1] : cStats[0];
+  const xMotivo = cStats.length > 1 ? xMotivos[1] : xMotivos[0];
 
   return {
     cStat,
@@ -211,6 +221,53 @@ export async function enviarEvento(params: {
     xMotivo,
     nProt,
     sucesso: cStat === '135' || cStat === '136',
+    xmlRetorno: resposta.xmlBruto,
+  };
+}
+
+export interface ResultadoInutilizacao {
+  cStat?: string;
+  xMotivo?: string;
+  nProt?: string;
+  sucesso: boolean;
+  xmlRetorno: string;
+}
+
+/**
+ * NFeInutilizacao4 — inutiliza uma faixa de numeração de NF-e/NFC-e que nunca
+ * chegou a ser transmitida (pulo de numeração, erro de sequência). Diferente de
+ * autorizarNfe/enviarEvento, o corpo é o próprio <inutNFe> assinado
+ * (elementoAssinado="infInut" em assinarXmlEnvelopado), sem envelope envEvento.
+ */
+export async function inutilizarNfe(params: {
+  uf: string;
+  ambiente: AmbienteSefaz;
+  xmlInutilizacaoAssinado: string;
+  mtls: CredenciaisMtls;
+  modelo?: '55' | '65';
+}): Promise<ResultadoInutilizacao> {
+  const enderecos = resolverEnderecos(params.modelo || '55', params.uf, params.ambiente);
+
+  const corpo = params.xmlInutilizacaoAssinado.replace(/^<\?xml[^>]*\?>/, '');
+  const soapEnvelope = envelope('http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4', corpo);
+
+  const resposta = await postSoap({
+    url: enderecos.inutilizacao,
+    soapAction: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4/nfeInutilizacaoNF',
+    envelope: soapEnvelope,
+    mtls: params.mtls,
+  });
+
+  const cStat = extrairTag(resposta.xmlBruto, 'cStat');
+  const nProt = extrairTag(resposta.xmlBruto, 'nProt');
+  const xMotivo = extrairTag(resposta.xmlBruto, 'xMotivo');
+
+  // 102 = Inutilização de número homologada
+  return {
+    cStat,
+    xMotivo,
+    nProt,
+    sucesso: cStat === '102',
     xmlRetorno: resposta.xmlBruto,
   };
 }

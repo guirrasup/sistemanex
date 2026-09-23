@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   extrairChaveECertificadoDoPfx: vi.fn(),
   assinarXmlEnvelopado: vi.fn(),
   autorizarMdfe: vi.fn(),
+  enviarEventoMdfe: vi.fn(),
 }));
 
 vi.mock('../../repositories/mdfe.repository.js', () => ({
@@ -60,6 +61,7 @@ vi.mock('../../utils/xmlSigner.js', () => ({
 }));
 vi.mock('../mdfeSefazClient.js', () => ({
   autorizarMdfe: mocks.autorizarMdfe,
+  enviarEventoMdfe: mocks.enviarEventoMdfe,
 }));
 
 const { MdfeService } = await import('../mdfe.service.js');
@@ -75,7 +77,13 @@ function criarEmpresa(overrides: Record<string, any> = {}) {
     ambienteEmissao: 'HOMOLOGACAO',
     serieMdfe: 1,
     proximoNumeroMdfe: 1,
-    endereco: { codigoMunicipio: '3550308' },
+    inscricaoEstadual: '110042490114',
+    razaoSocial: 'Empresa Teste LTDA',
+    nomeFantasia: 'Empresa Teste',
+    endereco: {
+      logradouro: 'Rua da Empresa', numero: '100', bairro: 'Centro',
+      codigoMunicipio: '3550308', nomeMunicipio: 'São Paulo', uf: 'SP', cep: '01000000',
+    },
     certificado: { status: 'VALIDO' },
     ...overrides,
   };
@@ -241,6 +249,47 @@ describe('MdfeService.encerrarMdfe', () => {
     expect(mocks.createHistoricoStatus).toHaveBeenCalledWith(expect.objectContaining({ statusNovo: 'ENCERRADA' }));
     expect(resultado[0].status).toBe('ENCERRADA');
   });
+
+  it('em modo real, exige protocolo de autorização e o código IBGE do município de encerramento', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.mdfeFindById.mockResolvedValue({ id: 'mdfe-1', empresaId: 'empresa-1', status: 'AUTORIZADA', protocoloAutorizacao: null });
+
+    const service = new MdfeService();
+    await expect(service.encerrarMdfe('mdfe-1', 'protocolo-123', 'municipio-x', 'empresa-1')).rejects.toThrow(/sem protocolo de autorização/i);
+    expect(mocks.enviarEventoMdfe).not.toHaveBeenCalled();
+
+    mocks.mdfeFindById.mockResolvedValue({ id: 'mdfe-1', empresaId: 'empresa-1', status: 'AUTORIZADA', protocoloAutorizacao: '158260000012345' });
+    await expect(service.encerrarMdfe('mdfe-1', 'protocolo-123', 'municipio-x', 'empresa-1')).rejects.toThrow(/código ibge do município/i);
+  });
+
+  it('em modo real, lança erro quando a SEFAZ rejeita o encerramento e não registra localmente', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.mdfeFindById.mockResolvedValue({
+      id: 'mdfe-1', empresaId: 'empresa-1', status: 'AUTORIZADA',
+      protocoloAutorizacao: '158260000012345', chaveAcesso: '35260118236447000190580010000000011123456789',
+    });
+    mocks.enviarEventoMdfe.mockResolvedValue({ sucesso: false, cStat: '573', xMotivo: 'Duplicidade de evento', xmlRetorno: '<retEvento/>' });
+
+    const service = new MdfeService();
+    await expect(service.encerrarMdfe('mdfe-1', 'protocolo-123', 'São Paulo', 'empresa-1', '3550308')).rejects.toThrow(/duplicidade de evento/i);
+    expect(mocks.mdfeEncerrar).not.toHaveBeenCalled();
+  });
+
+  it('em modo real, transmite o evento de encerramento e usa o protocolo devolvido pela SEFAZ', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.mdfeFindById.mockResolvedValue({
+      id: 'mdfe-1', empresaId: 'empresa-1', status: 'AUTORIZADA',
+      protocoloAutorizacao: '158260000012345', chaveAcesso: '35260118236447000190580010000000011123456789',
+    });
+    mocks.enviarEventoMdfe.mockResolvedValue({ sucesso: true, cStat: '135', nProt: '158260000099999', xmlRetorno: '<retEvento/>' });
+    mocks.mdfeEncerrar.mockResolvedValue([{ id: 'mdfe-1', status: 'ENCERRADA' }, { id: 'encerramento-1' }]);
+
+    const service = new MdfeService();
+    await service.encerrarMdfe('mdfe-1', 'protocolo-informado-pelo-usuario', 'São Paulo', 'empresa-1', '3550308');
+
+    expect(mocks.enviarEventoMdfe).toHaveBeenCalledTimes(1);
+    expect(mocks.mdfeEncerrar).toHaveBeenCalledWith('mdfe-1', '158260000099999', 'São Paulo');
+  });
 });
 
 describe('MdfeService.cancelarMdfe', () => {
@@ -263,6 +312,45 @@ describe('MdfeService.cancelarMdfe', () => {
     const service = new MdfeService();
     const resultado = await service.cancelarMdfe('mdfe-1', 'motivo do cancelamento', 'empresa-1');
 
+    expect(mocks.mdfeCancelar).toHaveBeenCalledWith('mdfe-1', 'motivo do cancelamento');
+    expect(resultado.status).toBe('CANCELADA');
+  });
+
+  it('em modo real, exige protocolo de autorização antes de transmitir o cancelamento', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.mdfeFindById.mockResolvedValue({ id: 'mdfe-1', empresaId: 'empresa-1', status: 'AUTORIZADA', protocoloAutorizacao: null });
+
+    const service = new MdfeService();
+    await expect(service.cancelarMdfe('mdfe-1', 'motivo do cancelamento', 'empresa-1')).rejects.toThrow(/sem protocolo de autorização/i);
+    expect(mocks.enviarEventoMdfe).not.toHaveBeenCalled();
+  });
+
+  it('em modo real, lança erro quando a SEFAZ rejeita o cancelamento e não cancela localmente', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.mdfeFindById.mockResolvedValue({
+      id: 'mdfe-1', empresaId: 'empresa-1', status: 'AUTORIZADA',
+      protocoloAutorizacao: '158260000012345', chaveAcesso: '35260118236447000190580010000000011123456789',
+    });
+    mocks.enviarEventoMdfe.mockResolvedValue({ sucesso: false, cStat: '573', xMotivo: 'Duplicidade de evento', xmlRetorno: '<retEvento/>' });
+
+    const service = new MdfeService();
+    await expect(service.cancelarMdfe('mdfe-1', 'motivo do cancelamento', 'empresa-1')).rejects.toThrow(/duplicidade de evento/i);
+    expect(mocks.mdfeCancelar).not.toHaveBeenCalled();
+  });
+
+  it('em modo real, transmite o evento de cancelamento à SEFAZ antes de cancelar localmente', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.mdfeFindById.mockResolvedValue({
+      id: 'mdfe-1', empresaId: 'empresa-1', status: 'AUTORIZADA',
+      protocoloAutorizacao: '158260000012345', chaveAcesso: '35260118236447000190580010000000011123456789',
+    });
+    mocks.enviarEventoMdfe.mockResolvedValue({ sucesso: true, cStat: '135', xMotivo: 'Evento registrado', xmlRetorno: '<retEvento/>' });
+    mocks.mdfeCancelar.mockResolvedValue({ id: 'mdfe-1', status: 'CANCELADA' });
+
+    const service = new MdfeService();
+    const resultado = await service.cancelarMdfe('mdfe-1', 'motivo do cancelamento', 'empresa-1');
+
+    expect(mocks.enviarEventoMdfe).toHaveBeenCalledTimes(1);
     expect(mocks.mdfeCancelar).toHaveBeenCalledWith('mdfe-1', 'motivo do cancelamento');
     expect(resultado.status).toBe('CANCELADA');
   });

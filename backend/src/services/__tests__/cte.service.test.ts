@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   extrairChaveECertificadoDoPfx: vi.fn(),
   assinarXmlEnvelopado: vi.fn(),
   autorizarCte: vi.fn(),
+  enviarEventoCte: vi.fn(),
 }));
 
 vi.mock('../../repositories/cte.repository.js', () => ({
@@ -43,6 +44,7 @@ vi.mock('../../utils/xmlSigner.js', () => ({
 }));
 vi.mock('../cteSefazClient.js', () => ({
   autorizarCte: mocks.autorizarCte,
+  enviarEventoCte: mocks.enviarEventoCte,
 }));
 
 const { CteService } = await import('../cte.service.js');
@@ -187,6 +189,45 @@ describe('CteService.cancelarCte', () => {
     const service = new CteService();
     const resultado = await service.cancelarCte('cte-1', 'motivo do cancelamento', 'empresa-1');
 
+    expect(mocks.cteUpdateStatus).toHaveBeenCalledWith('cte-1', 'empresa-1', 'CANCELADA', 'motivo do cancelamento');
+    expect(resultado.status).toBe('CANCELADA');
+  });
+
+  it('em modo real, exige protocolo de autorização e chave de acesso antes de transmitir o cancelamento', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.cteFindById.mockResolvedValue({ id: 'cte-1', status: 'AUTORIZADA', protocoloAutorizacao: null, chaveAcesso: null });
+
+    const service = new CteService();
+    await expect(service.cancelarCte('cte-1', 'motivo do cancelamento', 'empresa-1')).rejects.toThrow(/sem protocolo de autorização/i);
+    expect(mocks.enviarEventoCte).not.toHaveBeenCalled();
+  });
+
+  it('em modo real, lança erro quando a SEFAZ rejeita o cancelamento e não atualiza o status local', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.cteFindById.mockResolvedValue({
+      id: 'cte-1', status: 'AUTORIZADA',
+      protocoloAutorizacao: '157260000012345', chaveAcesso: '35260118236447000190570010000000011123456789',
+    });
+    mocks.enviarEventoCte.mockResolvedValue({ sucesso: false, cStat: '573', xMotivo: 'Duplicidade de evento', xmlRetorno: '<retEvento/>' });
+
+    const service = new CteService();
+    await expect(service.cancelarCte('cte-1', 'motivo do cancelamento', 'empresa-1')).rejects.toThrow(/duplicidade de evento/i);
+    expect(mocks.cteUpdateStatus).not.toHaveBeenCalled();
+  });
+
+  it('em modo real, transmite o evento de cancelamento à SEFAZ antes de atualizar o status local', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.cteFindById.mockResolvedValue({
+      id: 'cte-1', status: 'AUTORIZADA',
+      protocoloAutorizacao: '157260000012345', chaveAcesso: '35260118236447000190570010000000011123456789',
+    });
+    mocks.enviarEventoCte.mockResolvedValue({ sucesso: true, cStat: '135', xMotivo: 'Evento registrado', xmlRetorno: '<retEvento/>' });
+    mocks.cteUpdateStatus.mockResolvedValue({ id: 'cte-1', status: 'CANCELADA' });
+
+    const service = new CteService();
+    const resultado = await service.cancelarCte('cte-1', 'motivo do cancelamento', 'empresa-1');
+
+    expect(mocks.enviarEventoCte).toHaveBeenCalledTimes(1);
     expect(mocks.cteUpdateStatus).toHaveBeenCalledWith('cte-1', 'empresa-1', 'CANCELADA', 'motivo do cancelamento');
     expect(resultado.status).toBe('CANCELADA');
   });

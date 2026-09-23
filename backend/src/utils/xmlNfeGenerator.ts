@@ -1,6 +1,7 @@
 // backend/src/utils/xmlNfeGenerator.ts
-import { NFeDocumento, NFCeDocumento } from '../types/fiscal.js';
+import { NFeDocumento, NFCeDocumento, ItemNfe } from '../types/fiscal.js';
 import { limparDocumento } from './cpfCnpjValidator.js';
+import { formatarDataHoraSefaz } from './dataHoraSefaz.js';
 
 // ============================================================
 // FUNÇÕES AUXILIARES
@@ -38,6 +39,86 @@ function validarProtocolo(protocolo: string): boolean {
 
 function validarTJust(texto: string): boolean {
   return texto.length >= 15 && texto.length <= 255;
+}
+
+/**
+ * Monta o grupo de tributação de ICMS do item. Confirmado contra a SEFAZ
+ * homologação real: um emitente do Simples Nacional (CRT=1) é REJEITADO
+ * ("Informado CST para emissor do Simples Nacional") se o item usar um grupo
+ * CST de regime normal (ICMS00 etc.) — precisa usar o grupo CSOSN
+ * correspondente. CRT=2/3 continuam usando CST normalmente.
+ */
+function blocoIcmsItem(item: ItemNfe, regimeTributario: number): string {
+  if (regimeTributario !== 1) {
+    return `<ICMS00>
+            <orig>${item.origemMercadoria}</orig>
+            <CST>${item.cstICMS}</CST>
+            <modBC>3</modBC>
+            <vBC>${formatarNumero(item.baseCalculoICMS, 2)}</vBC>
+            <pICMS>${formatarNumero(item.aliquotaICMS, 2)}</pICMS>
+            <vICMS>${formatarNumero(item.valorICMS, 2)}</vICMS>
+          </ICMS00>`;
+  }
+
+  const csosn = item.csosnICMS;
+  if (!csosn) {
+    throw new Error(`Item "${item.descricao}" sem CSOSN informado (obrigatório para emitente do Simples Nacional, CRT=1)`);
+  }
+
+  switch (csosn) {
+    case '101':
+      return `<ICMSSN101>
+            <orig>${item.origemMercadoria}</orig>
+            <CSOSN>101</CSOSN>
+            <pCredSN>${formatarNumero(item.aliquotaICMS, 4)}</pCredSN>
+            <vCredICMSSN>${formatarNumero(item.valorICMS, 2)}</vCredICMSSN>
+          </ICMSSN101>`;
+    case '102':
+    case '103':
+    case '300':
+    case '400':
+      return `<ICMSSN102>
+            <orig>${item.origemMercadoria}</orig>
+            <CSOSN>${csosn}</CSOSN>
+          </ICMSSN102>`;
+    case '201':
+      return `<ICMSSN201>
+            <orig>${item.origemMercadoria}</orig>
+            <CSOSN>201</CSOSN>
+            <modBCST>4</modBCST>
+            <vBCST>${formatarNumero(item.valorICMSST, 2)}</vBCST>
+            <pICMSST>${formatarNumero(item.aliquotaICMSST, 2)}</pICMSST>
+            <vICMSST>${formatarNumero(item.valorICMSST, 2)}</vICMSST>
+            <pCredSN>${formatarNumero(item.aliquotaICMS, 4)}</pCredSN>
+            <vCredICMSSN>${formatarNumero(item.valorICMS, 2)}</vCredICMSSN>
+          </ICMSSN201>`;
+    case '202':
+    case '203':
+      return `<ICMSSN202>
+            <orig>${item.origemMercadoria}</orig>
+            <CSOSN>${csosn}</CSOSN>
+            <modBCST>4</modBCST>
+            <vBCST>${formatarNumero(item.valorICMSST, 2)}</vBCST>
+            <pICMSST>${formatarNumero(item.aliquotaICMSST, 2)}</pICMSST>
+            <vICMSST>${formatarNumero(item.valorICMSST, 2)}</vICMSST>
+          </ICMSSN202>`;
+    case '500':
+      return `<ICMSSN500>
+            <orig>${item.origemMercadoria}</orig>
+            <CSOSN>500</CSOSN>
+          </ICMSSN500>`;
+    case '900':
+      return `<ICMSSN900>
+            <orig>${item.origemMercadoria}</orig>
+            <CSOSN>900</CSOSN>
+            <modBC>3</modBC>
+            <vBC>${formatarNumero(item.baseCalculoICMS, 2)}</vBC>
+            <pICMS>${formatarNumero(item.aliquotaICMS, 2)}</pICMS>
+            <vICMS>${formatarNumero(item.valorICMS, 2)}</vICMS>
+          </ICMSSN900>`;
+    default:
+      throw new Error(`CSOSN "${csosn}" não suportado pelo gerador de XML (item: "${item.descricao}")`);
+  }
 }
 
 // ============================================================
@@ -90,6 +171,8 @@ export function gerarXmlNfe400(nfe: NFeDocumento): string {
       <finNFe>${nfe.finalidade}</finNFe>
       <indFinal>${nfe.consumidorFinal ? '1' : '0'}</indFinal>
       <indPres>${nfe.presencaComprador}</indPres>
+      <!-- NT 2020.006: obrigatório quando indPres é 2/3/4/9 (rejeição 434 sem ele); 0 = sem intermediador/marketplace -->
+      <indIntermed>0</indIntermed>
       <procEmi>0</procEmi>
       <verProc>SUP-TECNOLOGIA-4.00</verProc>
     </ide>
@@ -166,14 +249,7 @@ export function gerarXmlNfe400(nfe: NFeDocumento): string {
       <imposto>
         <vTotTrib>${formatarNumero(item.valorTributosAproximados, 2)}</vTotTrib>
         <ICMS>
-          <ICMS00>
-            <orig>${item.origemMercadoria}</orig>
-            <CST>${item.cstICMS}</CST>
-            <modBC>3</modBC>
-            <vBC>${formatarNumero(item.baseCalculoICMS, 2)}</vBC>
-            <pICMS>${formatarNumero(item.aliquotaICMS, 2)}</pICMS>
-            <vICMS>${formatarNumero(item.valorICMS, 2)}</vICMS>
-          </ICMS00>
+          ${blocoIcmsItem(item, nfe.emitente.regimeTributario)}
         </ICMS>
         <PIS>
           <PISAliq>
@@ -306,9 +382,11 @@ export function gerarXmlNfce400(nfce: NFCeDocumento): string {
     (acc, item) => {
       acc.vBC += item.baseCalculoICMS || 0;
       acc.vICMS += item.valorICMS || 0;
+      acc.vPIS += item.valorPIS || 0;
+      acc.vCOFINS += item.valorCOFINS || 0;
       return acc;
     },
-    { vBC: 0, vICMS: 0 }
+    { vBC: 0, vICMS: 0, vPIS: 0, vCOFINS: 0 }
   );
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -332,6 +410,8 @@ export function gerarXmlNfce400(nfce: NFCeDocumento): string {
       <finNFe>${nfce.finNFe ?? 1}</finNFe>
       <indFinal>${nfce.indFinal ?? 1}</indFinal>
       <indPres>${nfce.indPres ?? 1}</indPres>
+      <!-- NT 2020.006: obrigatório quando indPres é 2/3/4/9 (rejeição 434 sem ele); 0 = sem intermediador/marketplace -->
+      <indIntermed>0</indIntermed>
       <procEmi>${nfce.procEmi ?? '0'}</procEmi>
       <verProc>${nfce.verProc || 'SUP-TECNOLOGIA-4.00'}</verProc>
     </ide>
@@ -392,14 +472,7 @@ export function gerarXmlNfce400(nfce: NFCeDocumento): string {
       <imposto>
         <vTotTrib>${formatarNumero(item.valorTributosAproximados, 2)}</vTotTrib>
         <ICMS>
-          <ICMS00>
-            <orig>${item.origemMercadoria}</orig>
-            <CST>${item.cstICMS}</CST>
-            <modBC>3</modBC>
-            <vBC>${formatarNumero(item.baseCalculoICMS, 2)}</vBC>
-            <pICMS>${formatarNumero(item.aliquotaICMS, 2)}</pICMS>
-            <vICMS>${formatarNumero(item.valorICMS, 2)}</vICMS>
-          </ICMS00>
+          ${blocoIcmsItem(item, nfce.emitente.regimeTributario)}
         </ICMS>
         <PIS>
           <PISAliq>
@@ -439,13 +512,20 @@ export function gerarXmlNfce400(nfce: NFCeDocumento): string {
         <vII>0.00</vII>
         <vIPI>0.00</vIPI>
         <vIPIDevol>0.00</vIPIDevol>
-        <vPIS>0.00</vPIS>
-        <vCOFINS>0.00</vCOFINS>
+        <vPIS>${formatarNumero(totais.vPIS, 2)}</vPIS>
+        <vCOFINS>${formatarNumero(totais.vCOFINS, 2)}</vCOFINS>
         <vOutro>${formatarNumero(nfce.valorTotalAcrescimo || 0, 2)}</vOutro>
         <vNF>${formatarNumero(nfce.valorTotalNota, 2)}</vNF>
         <vTotTrib>${formatarNumero(nfce.valorTotalTributosAproximados, 2)}</vTotTrib>
       </ICMSTot>
     </total>
+
+    <!-- TRANSPORTE (obrigatório mesmo na NFC-e; confirmado contra rejeição real
+         "Falha no Schema XML" — sem este bloco, o validador da SEFAZ acusa o
+         elemento de pagamento seguinte, como se fosse ali o erro) -->
+    <transp>
+      <modFrete>9</modFrete>
+    </transp>
 
     <!-- PAGAMENTO -->
     <pag>
@@ -465,7 +545,7 @@ export function gerarXmlNfce400(nfce: NFCeDocumento): string {
   <!-- DADOS SUPLEMENTARES (QR CODE) -->
   <infNFeSupl>
     <qrCode><![CDATA[${nfce.urlQrCode}]]></qrCode>
-    ${nfce.tokenCscId ? `<urlChave>https://www.nfce.fazenda.gov.br/portal/consultaRecaptcha.aspx</urlChave>` : ''}
+    <urlChave>${nfce.urlConsultaChave || 'https://www.nfce.fazenda.gov.br/portal/consultaNFCe.aspx'}</urlChave>
   </infNFeSupl>
 </NFe>`;
 
@@ -483,6 +563,7 @@ export function gerarXmlCartaCorrecao(params: {
   cnpjAutor: string;
   sequencialEvento: number;
   textoCorrecao: string;
+  ambiente?: 1 | 2;
 }): string {
   // ✅ VALIDA TChNFe (44 dígitos)
   if (!validarChaveAcesso(params.chaveAcessoNFe)) {
@@ -494,7 +575,7 @@ export function gerarXmlCartaCorrecao(params: {
     throw new Error('Texto de correção deve ter entre 15 e 255 caracteres (TJust)');
   }
 
-  const dhEvento = new Date().toISOString();
+  const dhEvento = formatarDataHoraSefaz();
   const cnpjLimpo = limparDocumento(params.cnpjAutor);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -503,7 +584,7 @@ export function gerarXmlCartaCorrecao(params: {
   <evento versao="1.00">
     <infEvento Id="ID110110${params.chaveAcessoNFe}${params.sequencialEvento.toString().padStart(2, '0')}">
       <cOrgao>${params.chaveAcessoNFe.slice(0, 2)}</cOrgao>
-      <tpAmb>1</tpAmb>
+      <tpAmb>${params.ambiente ?? 2}</tpAmb>
       <CNPJ>${cnpjLimpo}</CNPJ>
       <chNFe>${params.chaveAcessoNFe}</chNFe>
       <dhEvento>${dhEvento}</dhEvento>
@@ -530,6 +611,7 @@ export function gerarXmlCancelamentoNFe(params: {
   sequencialEvento: number;
   justificativa: string;
   protocoloAutorizacao: string;
+  ambiente?: 1 | 2;
 }): string {
   // ✅ VALIDA TChNFe (44 dígitos)
   if (!validarChaveAcesso(params.chaveAcessoNFe)) {
@@ -546,7 +628,7 @@ export function gerarXmlCancelamentoNFe(params: {
     throw new Error('Protocolo inválido: deve ter 15 ou 17 dígitos (TProt)');
   }
 
-  const dhEvento = new Date().toISOString();
+  const dhEvento = formatarDataHoraSefaz();
   const cnpjLimpo = limparDocumento(params.cnpjAutor);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -555,7 +637,7 @@ export function gerarXmlCancelamentoNFe(params: {
   <evento versao="1.00">
     <infEvento Id="ID110111${params.chaveAcessoNFe}${params.sequencialEvento.toString().padStart(2, '0')}">
       <cOrgao>${params.chaveAcessoNFe.slice(0, 2)}</cOrgao>
-      <tpAmb>1</tpAmb>
+      <tpAmb>${params.ambiente ?? 2}</tpAmb>
       <CNPJ>${cnpjLimpo}</CNPJ>
       <chNFe>${params.chaveAcessoNFe}</chNFe>
       <dhEvento>${dhEvento}</dhEvento>
@@ -570,4 +652,56 @@ export function gerarXmlCancelamentoNFe(params: {
     </infEvento>
   </evento>
 </envEvento>`;
+}
+
+// ============================================================
+// INUTILIZAÇÃO DE NUMERAÇÃO (NFeInutilizacao4)
+// ============================================================
+// Diferente dos eventos acima (envEvento/RecepcaoEvento4), a inutilização é um
+// documento próprio (inutNFe), transmitido a um webservice dedicado
+// (NFeInutilizacao4) — usado para "queimar" uma faixa de números de NF-e que
+// nunca chegou a ser emitida (pulo de numeração, erro de sequência etc.).
+
+export function gerarXmlInutilizacaoNFe(params: {
+  cUF: string;
+  cnpjAutor: string;
+  ano: string; // AA (2 dígitos)
+  modelo: '55' | '65';
+  serie: number;
+  numeroInicial: number;
+  numeroFinal: number;
+  justificativa: string;
+  ambiente?: 1 | 2;
+}): string {
+  if (!validarTJust(params.justificativa)) {
+    throw new Error('Justificativa deve ter entre 15 e 255 caracteres (TJust)');
+  }
+  if (params.numeroInicial > params.numeroFinal) {
+    throw new Error('Número inicial deve ser menor ou igual ao número final (TNF)');
+  }
+
+  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const cUF = params.cUF.padStart(2, '0');
+  const serie = params.serie.toString().padStart(3, '0');
+  const nNFIni = params.numeroInicial.toString().padStart(9, '0');
+  const nNFFin = params.numeroFinal.toString().padStart(9, '0');
+
+  // Formato oficial do Id (TInutId, PL_009): "ID" + cUF + ano + CNPJ + mod + serie + nNFIni + nNFFin
+  const id = `ID${cUF}${params.ano}${cnpjLimpo}${params.modelo}${serie}${nNFIni}${nNFFin}`;
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<inutNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <infInut Id="${id}">
+    <tpAmb>${params.ambiente ?? 2}</tpAmb>
+    <xServ>INUTILIZAR</xServ>
+    <cUF>${cUF}</cUF>
+    <ano>${params.ano}</ano>
+    <CNPJ>${cnpjLimpo}</CNPJ>
+    <mod>${params.modelo}</mod>
+    <serie>${params.serie}</serie>
+    <nNFIni>${params.numeroInicial}</nNFIni>
+    <nNFFin>${params.numeroFinal}</nNFFin>
+    <xJust>${escapeXml(params.justificativa)}</xJust>
+  </infInut>
+</inutNFe>`;
 }

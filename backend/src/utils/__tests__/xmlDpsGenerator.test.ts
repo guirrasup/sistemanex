@@ -83,13 +83,20 @@ function criarNfse(overrides: Partial<NFSeDocumento> = {}): NFSeDocumento {
 }
 
 describe('gerarXmlDps', () => {
-  it('gera um XML bem-formado com a raiz <DPS> e o Id no formato DPS<chaveAcesso>', () => {
+  it('gera um XML bem-formado com a raiz <DPS> versionada e o Id no formato TSIdDPS (DPS+cMun+tpInsc+CNPJ+serie+nDPS)', () => {
     const nfse = criarNfse();
     const xml = gerarXmlDps(nfse);
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
 
-    expect(doc.getElementsByTagName('DPS').length).toBe(1);
-    expect(doc.getElementsByTagName('infDPS')[0].getAttribute('Id')).toBe(`DPS${nfse.chaveAcesso}`);
+    expect(doc.getElementsByTagName('DPS')[0].getAttribute('versao')).toBe('1.00');
+    // TSIdDPS exige exatamente 42 dígitos: DPS+cMun(7)+tpInsc(1)+CNPJ(14)+serie(5,
+    // zero-padded no Id)+nDPS(15, zero-padded no Id). tpInsc="2" para CNPJ (não
+    // "1" — confirmado num exemplo real de produção do SDK nfse-nacional/nfse-php).
+    // Os elementos <serie>/<nDPS> permanecem sem zero-padding.
+    const idEsperado = `DPS${nfse.emitente.endereco.codigoMunicipio}2${nfse.emitente.cnpj}${String(nfse.serieDPS).padStart(5, '0')}${String(nfse.numeroDPS).padStart(15, '0')}`;
+    expect(doc.getElementsByTagName('infDPS')[0].getAttribute('Id')).toBe(idEsperado);
+    expect(doc.getElementsByTagName('serie')[0].textContent).toBe(String(nfse.serieDPS));
+    expect(doc.getElementsByTagName('nDPS')[0].textContent).toBe(String(nfse.numeroDPS));
   });
 
   it('inclui CNPJ do prestador e do tomador nos blocos corretos', () => {

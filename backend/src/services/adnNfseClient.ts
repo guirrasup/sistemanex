@@ -15,6 +15,25 @@ export interface ResultadoEnvioDps {
 }
 
 /**
+ * Extrai a mensagem de erro de uma resposta de erro do ADN. O corpo real traz os
+ * erros em `erros: [{Codigo, Descricao, Complemento}]` — não em `mensagem`/
+ * `message` — confirmado via teste real (sem isso, o erro ficava sempre
+ * mascarado como o genérico "HTTP 400").
+ */
+function extrairErroAdn(corpoResposta: unknown, statusHttp: number): string {
+  const corpo = corpoResposta as {
+    mensagem?: string;
+    message?: string;
+    erros?: { Codigo?: string; Descricao?: string; Complemento?: string }[];
+  } | undefined;
+  const primeiroErro = corpo?.erros?.[0];
+  const erroDetalhado = primeiroErro
+    ? `${primeiroErro.Codigo ? `[${primeiroErro.Codigo}] ` : ''}${primeiroErro.Descricao || ''}${primeiroErro.Complemento ? ` — ${primeiroErro.Complemento}` : ''}`
+    : undefined;
+  return erroDetalhado || corpo?.mensagem || corpo?.message || `HTTP ${statusHttp}`;
+}
+
+/**
  * POST {base}/nfse — envia a DPS assinada (gzip+base64) e recebe de volta a
  * NFS-e já autorizada pelo Sistema Nacional (também gzip+base64), de forma síncrona.
  */
@@ -33,11 +52,10 @@ export async function enviarDps(params: {
   });
 
   if (resposta.statusHttp < 200 || resposta.statusHttp >= 300) {
-    const corpo = resposta.corpo as { mensagem?: string; message?: string } | undefined;
     return {
       sucesso: false,
       statusHttp: resposta.statusHttp,
-      erro: corpo?.mensagem || corpo?.message || `HTTP ${resposta.statusHttp}`,
+      erro: extrairErroAdn(resposta.corpo, resposta.statusHttp),
       respostaBruta: resposta.bruto,
     };
   }
@@ -111,11 +129,10 @@ export async function enviarEventoNfse(params: {
   });
 
   if (resposta.statusHttp < 200 || resposta.statusHttp >= 300) {
-    const corpo = resposta.corpo as { mensagem?: string; message?: string } | undefined;
     return {
       sucesso: false,
       statusHttp: resposta.statusHttp,
-      erro: corpo?.mensagem || corpo?.message || `HTTP ${resposta.statusHttp}`,
+      erro: extrairErroAdn(resposta.corpo, resposta.statusHttp),
       respostaBruta: resposta.bruto,
     };
   }

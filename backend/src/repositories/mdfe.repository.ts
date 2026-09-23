@@ -322,7 +322,8 @@ export class MdfeRepository extends BaseRepository {
           },
           seguros: true,
           lacres: true,
-          autorizadosDownload: true
+          autorizadosDownload: true,
+          condutores: true
         }
       });
     }

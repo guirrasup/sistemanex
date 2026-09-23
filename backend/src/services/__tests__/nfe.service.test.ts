@@ -15,7 +15,9 @@ const mocks = vi.hoisted(() => ({
   nfeCancelar: vi.fn(),
   nfeContarEventosPorTipo: vi.fn(),
   nfeCriarEvento: vi.fn(),
+  nfeCriarInutilizacao: vi.fn(),
   nfeFindById: vi.fn(),
+  nfeFindByChave: vi.fn(),
   clienteFindById: vi.fn(),
   produtoFindById: vi.fn(),
   produtoFindByIds: vi.fn(),
@@ -30,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   assinarXmlEnvelopado: vi.fn(),
   autorizarNfe: vi.fn(),
   enviarEvento: vi.fn(),
+  inutilizarNfe: vi.fn(),
 }));
 
 vi.mock('../../repositories/nfe.repository.js', () => ({
@@ -38,7 +41,9 @@ vi.mock('../../repositories/nfe.repository.js', () => ({
     cancelar: mocks.nfeCancelar,
     contarEventosPorTipo: mocks.nfeContarEventosPorTipo,
     criarEvento: mocks.nfeCriarEvento,
+    criarInutilizacao: mocks.nfeCriarInutilizacao,
     findById: mocks.nfeFindById,
+    findByChave: mocks.nfeFindByChave,
   })),
 }));
 vi.mock('../../repositories/cliente.repository.js', () => ({
@@ -76,6 +81,7 @@ vi.mock('../../utils/xmlSigner.js', () => ({
 vi.mock('../nfeSefazClient.js', () => ({
   autorizarNfe: mocks.autorizarNfe,
   enviarEvento: mocks.enviarEvento,
+  inutilizarNfe: mocks.inutilizarNfe,
 }));
 
 const { NfeService } = await import('../nfe.service.js');
@@ -366,5 +372,113 @@ describe('NfeService.cancelarNfe', () => {
     await service.cancelarNfe('nfe-1', 'motivo qualquer com mais de 15 caracteres', 'empresa-1');
 
     expect(mocks.financeiroCancelarTitulo).toHaveBeenCalledWith('titulo-1', 'motivo qualquer com mais de 15 caracteres');
+  });
+});
+
+describe('NfeService.enviarCartaCorrecao', () => {
+  const paramsBase = {
+    empresaId: 'empresa-1',
+    chaveAcesso: '35260118236447000190550010000000011123456789',
+    cnpjAutor: '18236447000190',
+    textoCorrecao: 'Correção do endereço do destinatário na nota fiscal',
+  };
+
+  it('lança erro quando a NF-e não é encontrada', async () => {
+    mocks.nfeFindByChave.mockResolvedValue(null);
+    const service = new NfeService();
+    await expect(service.enviarCartaCorrecao(paramsBase)).rejects.toThrow(/não encontrada/i);
+  });
+
+  it('em modo mock, registra o evento localmente sem chamar a SEFAZ', async () => {
+    mocks.nfeFindByChave.mockResolvedValue({ id: 'nfe-1', empresaId: 'empresa-1' });
+    mocks.nfeContarEventosPorTipo.mockResolvedValue(0);
+    mocks.nfeCriarEvento.mockResolvedValue({ id: 'evento-1' });
+
+    const service = new NfeService();
+    await service.enviarCartaCorrecao(paramsBase);
+
+    expect(mocks.enviarEvento).not.toHaveBeenCalled();
+    const dadosEvento = mocks.nfeCriarEvento.mock.calls[0][0];
+    expect(dadosEvento.cStat).toBe('000');
+    expect(dadosEvento.tpEvento).toBe('110110');
+  });
+
+  it('com SEFAZ_TRANSMISSAO_REAL=true e sucesso, transmite e registra o protocolo retornado', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.nfeFindByChave.mockResolvedValue({ id: 'nfe-1', empresaId: 'empresa-1' });
+    mocks.nfeContarEventosPorTipo.mockResolvedValue(0);
+    mocks.enviarEvento.mockResolvedValue({ sucesso: true, cStat: '135', nProt: '135260000098765', xmlRetorno: '<retEvento/>' });
+    mocks.nfeCriarEvento.mockResolvedValue({ id: 'evento-1' });
+
+    const service = new NfeService();
+    await service.enviarCartaCorrecao(paramsBase);
+
+    expect(mocks.enviarEvento).toHaveBeenCalledTimes(1);
+    const dadosEvento = mocks.nfeCriarEvento.mock.calls[0][0];
+    expect(dadosEvento.cStat).toBe('135');
+    expect(dadosEvento.nProt).toBe('135260000098765');
+  });
+
+  it('com SEFAZ_TRANSMISSAO_REAL=true e rejeição, lança erro e não persiste o evento', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.nfeFindByChave.mockResolvedValue({ id: 'nfe-1', empresaId: 'empresa-1' });
+    mocks.nfeContarEventosPorTipo.mockResolvedValue(0);
+    mocks.enviarEvento.mockResolvedValue({ sucesso: false, cStat: '573', xMotivo: 'Duplicidade de evento', xmlRetorno: '<retEvento/>' });
+
+    const service = new NfeService();
+    await expect(service.enviarCartaCorrecao(paramsBase)).rejects.toThrow(/duplicidade de evento/i);
+    expect(mocks.nfeCriarEvento).not.toHaveBeenCalled();
+  });
+});
+
+describe('NfeService.inutilizarNumeracao', () => {
+  const paramsBase = {
+    empresaId: 'empresa-1',
+    modelo: '55' as const,
+    serie: 1,
+    numeroInicial: 10,
+    numeroFinal: 15,
+    justificativa: 'Pulo de numeração por erro de sequência no sistema',
+  };
+
+  it('lança erro quando o certificado digital está ausente ou inválido', async () => {
+    mocks.empresaFindById.mockResolvedValue(criarEmpresa({ certificado: null }));
+    const service = new NfeService();
+    await expect(service.inutilizarNumeracao(paramsBase)).rejects.toThrow(/certificado digital/i);
+  });
+
+  it('em modo mock, registra a solicitação como PROCESSANDO sem chamar a SEFAZ', async () => {
+    mocks.nfeCriarInutilizacao.mockImplementation((dados: any) => Promise.resolve({ id: 'inut-1', ...dados }));
+
+    const service = new NfeService();
+    const resultado = await service.inutilizarNumeracao(paramsBase);
+
+    expect(mocks.inutilizarNfe).not.toHaveBeenCalled();
+    expect(resultado.status).toBe('PROCESSANDO');
+  });
+
+  it('com SEFAZ_TRANSMISSAO_REAL=true e sucesso, registra como HOMOLOGADA com o protocolo real', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.inutilizarNfe.mockResolvedValue({ sucesso: true, cStat: '102', nProt: '135260000011111', xmlRetorno: '<retInutNFe/>' });
+    mocks.nfeCriarInutilizacao.mockImplementation((dados: any) => Promise.resolve({ id: 'inut-1', ...dados }));
+
+    const service = new NfeService();
+    const resultado = await service.inutilizarNumeracao(paramsBase);
+
+    expect(mocks.inutilizarNfe).toHaveBeenCalledTimes(1);
+    expect(resultado.status).toBe('HOMOLOGADA');
+    expect(resultado.protocolo).toBe('135260000011111');
+  });
+
+  it('com SEFAZ_TRANSMISSAO_REAL=true e rejeição, persiste REJEITADA e lança erro com o motivo', async () => {
+    process.env.SEFAZ_TRANSMISSAO_REAL = 'true';
+    mocks.inutilizarNfe.mockResolvedValue({ sucesso: false, cStat: '999', xMotivo: 'Faixa já inutilizada', xmlRetorno: '<retInutNFe/>' });
+    mocks.nfeCriarInutilizacao.mockImplementation((dados: any) => Promise.resolve({ id: 'inut-1', ...dados }));
+
+    const service = new NfeService();
+    await expect(service.inutilizarNumeracao(paramsBase)).rejects.toThrow(/faixa já inutilizada/i);
+
+    const dadosCriados = mocks.nfeCriarInutilizacao.mock.calls[0][0];
+    expect(dadosCriados.status).toBe('REJEITADA');
   });
 });
