@@ -128,4 +128,13 @@ export const nfceService = {
       throw new Error(getApiErrorMessage(error, 'Erro ao cancelar NFC-e'));
     }
   },
+
+  /** Registro completo (com empresa/consumidor/itens) — usado pelo DanfceViewer. */
+  async buscarPorId(id: string): Promise<NFCeDocumento> {
+    if (!id) {
+      throw new Error('ID da NFC-e é obrigatório');
+    }
+    const response = await api.get(`/nfce/${id}`);
+    return response.data?.dados || response.data;
+  },
 };

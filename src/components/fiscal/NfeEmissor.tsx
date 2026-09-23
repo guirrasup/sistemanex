@@ -26,7 +26,7 @@ interface NfeEmissorProps {
   produtos: Produto[];
   transportadoras: TransportadoraERP[];
   onNfeEmitida: (nfe: NFeDocumento) => void;
-  onViewDanfe: (nfe: NFeDocumento) => void;
+  onViewDanfe: (nfeId: string) => void;
 }
 
 // ============================================================
@@ -559,7 +559,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => onViewDanfe(nfeEmitidaSucesso as unknown as NFeDocumento)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm">
+              <button onClick={() => onViewDanfe(nfeEmitidaSucesso.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm">
                 <Eye className="w-3.5 h-3.5" /> <span>Visualizar DANFE</span>
               </button>
               <button onClick={() => setNfeEmitidaSucesso(null)} className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer">

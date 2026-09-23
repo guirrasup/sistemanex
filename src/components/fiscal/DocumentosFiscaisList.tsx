@@ -39,8 +39,8 @@ interface DocumentosFiscaisListProps {
   ctes?: CTeDocumento[];
   nfaes?: NFAeDocumento[];
   onViewDanfse: (nfse: NFSeDocumento) => void;
-  onViewDanfe: (nfe: NFeDocumento) => void;
-  onViewDanfce?: (nfce: NFCeDocumento) => void;
+  onViewDanfe: (nfeId: string) => void;
+  onViewDanfce?: (nfceId: string) => void;
   onViewDacte?: (cte: CTeDocumento) => void;
   onViewDanfae?: (nfae: NFAeDocumento) => void;
   onEmitirNovaNfse?: () => void;
@@ -68,9 +68,18 @@ interface DocumentoFiscalBruto {
   serie?: number;
   serieDPS?: number;
   chaveAcesso?: string;
-  destinatario?: { nomeRazaoSocial?: string; documento?: string; cpfCnpj?: string };
-  tomador?: { nomeRazaoSocial?: string; documento?: string };
-  remetente?: { nomeRazaoSocial?: string; documento?: string };
+  // 🔥 NFe/CTe: relação real com Cliente (schema.prisma) — campo é `razaoSocial`,
+  // não `nomeRazaoSocial` (nome do protótipo antigo, nunca existiu no backend real).
+  destinatario?: { razaoSocial?: string; documento?: string };
+  tomador?: { razaoSocial?: string; documento?: string };
+  remetente?: { razaoSocial?: string; documento?: string };
+  // 🔥 NFCe/NFAe não têm relação com Cliente — gravam os dados crus direto na
+  // linha do documento.
+  consumidorNome?: string;
+  consumidorCpfCnpj?: string;
+  destinatarioNome?: string;
+  destinatarioDocumento?: string;
+  requerenteNome?: string;
   valorTotalNota?: number;
   valorTotalServicos?: number;
   valorTotalFrete?: number;
@@ -81,7 +90,6 @@ interface DocumentoFiscalBruto {
   servico?: { descricao?: string };
   municipioInicio?: { nome?: string; uf?: string };
   municipioFim?: { nome?: string; uf?: string };
-  requerente?: { nomeRazaoSocial?: string };
   motivoEmissao?: string;
 }
 
@@ -234,14 +242,16 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           numero: doc.numero || 0,
           serie: doc.serie || 0,
           chave: doc.chaveAcesso || '',
-          destinatario: doc.destinatario?.nomeRazaoSocial || 'Destinatário não informado',
+          // 🔥 destinatario vem da relação real com Cliente (schema.prisma), cujo
+          // campo é `razaoSocial` — não `nomeRazaoSocial` (nome do protótipo antigo).
+          destinatario: doc.destinatario?.razaoSocial || 'Destinatário não informado',
           documento: doc.destinatario?.documento || 'Não informado',
           valor: doc.valorTotalNota || 0,
           data: doc.dataHoraEmissao || new Date().toISOString(),
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: `${doc.itens?.length || 0} item(ns) faturado(s)`,
-          onView: () => onViewDanfe(doc as unknown as NFeDocumento),
+          onView: () => onViewDanfe(doc.id || ''),
         };
       case 'NFSE':
         return {
@@ -253,7 +263,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           numero: doc.numeroNfse || 0,
           serie: doc.serieDPS || 0,
           chave: doc.chaveAcesso || '',
-          destinatario: doc.tomador?.nomeRazaoSocial || 'Tomador não informado',
+          destinatario: doc.tomador?.razaoSocial || 'Tomador não informado',
           documento: doc.tomador?.documento || 'Não informado',
           valor: doc.valorTotalServicos || 0,
           data: doc.dataHoraEmissao || new Date().toISOString(),
@@ -272,14 +282,16 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           numero: doc.numero || 0,
           serie: doc.serie || 0,
           chave: doc.chaveAcesso || '',
-          destinatario: doc.destinatario?.nomeRazaoSocial || 'Consumidor Final (PDV)',
-          documento: doc.destinatario?.cpfCnpj || 'Não Informado',
+          // 🔥 NFCe não tem relação `destinatario` — o schema grava o consumidor em
+          // campos crus direto na linha (consumidorNome/consumidorCpfCnpj).
+          destinatario: doc.consumidorNome || 'Consumidor Final (PDV)',
+          documento: doc.consumidorCpfCnpj || 'Não Informado',
           valor: doc.valorTotalNota || 0,
           data: doc.dataHoraEmissao || new Date().toISOString(),
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: `${doc.itens?.length || 0} item(ns) • Cupom Fiscal PDV`,
-          onView: () => onViewDanfce && onViewDanfce(doc as unknown as NFCeDocumento),
+          onView: () => onViewDanfce && onViewDanfce(doc.id || ''),
         };
       case 'CTE':
         return {
@@ -291,7 +303,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           numero: doc.numero || 0,
           serie: doc.serie || 0,
           chave: doc.chaveAcesso || '',
-          destinatario: `${doc.remetente?.nomeRazaoSocial?.slice(0, 18) || 'Remetente'} ➔ ${doc.destinatario?.nomeRazaoSocial?.slice(0, 18) || 'Destinatário'}`,
+          destinatario: `${doc.remetente?.razaoSocial?.slice(0, 18) || 'Remetente'} ➔ ${doc.destinatario?.razaoSocial?.slice(0, 18) || 'Destinatário'}`,
           documento: doc.remetente?.documento || 'Não informado',
           valor: doc.valorTotalFrete || 0,
           data: doc.dataHoraEmissao || new Date().toISOString(),
@@ -310,13 +322,15 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           numero: doc.numero || 0,
           serie: doc.serie || 0,
           chave: doc.chaveAcesso || '',
-          destinatario: doc.destinatario?.nomeRazaoSocial || 'Destinatário não informado',
-          documento: doc.destinatario?.documento || 'Não informado',
+          // 🔥 NFAe não tem relação destinatario/requerente — schema grava tudo em
+          // campos crus direto na linha (destinatarioNome/requerenteNome etc.).
+          destinatario: doc.destinatarioNome || 'Destinatário não informado',
+          documento: doc.destinatarioDocumento || 'Não informado',
           valor: doc.valorTotalNota || 0,
           data: doc.dataHoraEmissao || new Date().toISOString(),
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
-          detalhes: `${doc.requerente?.nomeRazaoSocial || 'Requerente'} • ${doc.motivoEmissao || 'Sem motivo'}`,
+          detalhes: `${doc.requerenteNome || 'Requerente'} • ${doc.motivoEmissao || 'Sem motivo'}`,
           onView: () => onViewDanfae && onViewDanfae(doc as unknown as NFAeDocumento),
         };
       default:

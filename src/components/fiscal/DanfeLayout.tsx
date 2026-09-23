@@ -290,7 +290,11 @@ export const DanfeLayout: React.FC<DanfeLayoutProps> = ({
             {duplicatas.map((dup, i) => (
               <div key={i} className="border border-slate-300 p-1 rounded bg-slate-50 min-w-[130px]">
                 <div className="text-[8px] text-slate-500">Nº {dup.numero}</div>
-                <div className="font-bold">Venc: {new Date(dup.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR')}</div>
+                {/* dataVencimento pode chegar como "2026-01-01" (data pura) ou já
+                    como datetime ISO completo (campo DateTime do Prisma serializado)
+                    — concatenar "T00:00:00" só na primeira forma; na segunda geraria
+                    uma string de data inválida (dois sufixos de hora). */}
+                <div className="font-bold">Venc: {new Date(dup.dataVencimento.includes('T') ? dup.dataVencimento : `${dup.dataVencimento}T00:00:00`).toLocaleDateString('pt-BR')}</div>
                 <div className="font-bold text-slate-900">{formatarMoeda(dup.valor)}</div>
               </div>
             ))}
