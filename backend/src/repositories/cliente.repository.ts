@@ -83,10 +83,23 @@ export class ClienteRepository extends BaseRepository {
 
     // 🔥 SE TIVER ENDERECO, ATUALIZA OU CRIA
     if (endereco) {
+      // O branch "create" do upsert (usado quando o cliente ainda não tem um
+      // endereço vinculado) exige todos os campos obrigatórios do Endereco,
+      // inclusive codigoUF (código IBGE de 2 dígitos da UF) — que o formulário
+      // de Cliente/Fornecedor nunca coleta. Derivado dos 2 primeiros dígitos
+      // de codigoMunicipio (código IBGE de 7 dígitos), mesma técnica usada no
+      // criar() do controller. .trim() porque codigoMunicipio pode ter vindo
+      // de uma leitura anterior de uma coluna Char() do Postgres, que
+      // preenche com espaço à direita valores mais curtos que o tamanho fixo.
+      const e = endereco as Record<string, unknown>;
+      const enderecoCompleto = !e.codigoUF && typeof e.codigoMunicipio === 'string' && e.codigoMunicipio.trim().length >= 2
+        ? { ...e, codigoUF: e.codigoMunicipio.trim().slice(0, 2) }
+        : e;
+
       updateData.endereco = {
         upsert: {
-          create: endereco as Prisma.EnderecoCreateWithoutClienteInput,
-          update: endereco as Prisma.EnderecoUpdateWithoutClienteInput
+          create: enderecoCompleto as Prisma.EnderecoCreateWithoutClienteInput,
+          update: enderecoCompleto as Prisma.EnderecoUpdateWithoutClienteInput
         }
       };
     }

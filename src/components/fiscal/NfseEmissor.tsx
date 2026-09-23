@@ -41,13 +41,14 @@ import { calcularTributosNfse } from '../../utils/tributosEngine';
 import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { nfseService } from '../../services/nfse.service';
+import { DanfseLayout } from './DanfseLayout';
 
 interface NfseEmissorProps {
   empresa: ConfiguracaoEmpresa;
   clientes: ClienteFornecedor[];
   servicosCatalogo: ServicoCatalogo[];
   onNfseEmitida: (nfse: NFSeDocumento) => void;
-  onViewDanfse: (nfse: NFSeDocumento) => void;
+  onViewDanfse: (nfseId: string) => void;
 }
 
 // 🔥 COR DO MÓDULO - AZUL
@@ -161,6 +162,11 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
   const [isCarregandoUltima, setIsCarregandoUltima] = useState<boolean>(false);
   const [errosValidacao, setErrosValidacao] = useState<string[]>([]);
   const [sucessoNfse, setSucessoNfse] = useState<NFSeDocumento | null>(null);
+  // 🔥 Mesmo padrão do NfeEmissor/NfceEmissor: campo obrigatório vazio só fica
+  // vermelho depois da primeira tentativa de emitir, e preview antes de
+  // transmitir de verdade pra SEFAZ (homolog ou produção).
+  const [tentouEnviar, setTentouEnviar] = useState<boolean>(false);
+  const [showPreview, setShowPreview] = useState<boolean>(false);
 
   // ============================================================
   // CÁLCULOS
@@ -265,14 +271,18 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
       setCodigoNBS(srv.codigoNBS || '');
       setDescricaoServico(srv.descricao);
       setCodigoInterno(srv.codigoInterno);
-      setValorServico(srv.valorUnitario);
-      setAliquotaISS(srv.aliquotaISS);
+      // 🔥 Decimal do Prisma (valorUnitario/aliquota*) chega como string no JSON,
+      // apesar do tipo ServicoCatalogo dizer `number` — atribuição direta (sem
+      // Number()) contamina os states numéricos e quebra calcularTributosNfse()
+      // e o .toFixed() no preview (mesmo bug já corrigido nos outros emissores).
+      setValorServico(Number(srv.valorUnitario) || 0);
+      setAliquotaISS(Number(srv.aliquotaISS) || 0);
       setTipoRetencaoISS(srv.retencaoISSPadrao ? 2 : 1);
-      setAliquotaPIS(srv.aliquotaPIS);
-      setAliquotaCOFINS(srv.aliquotaCOFINS);
-      setAliquotaIRRF(srv.aliquotaIRRF);
-      setAliquotaCSLL(srv.aliquotaCSLL);
-      setAliquotaINSS(srv.aliquotaINSS);
+      setAliquotaPIS(Number(srv.aliquotaPIS) || 0);
+      setAliquotaCOFINS(Number(srv.aliquotaCOFINS) || 0);
+      setAliquotaIRRF(Number(srv.aliquotaIRRF) || 0);
+      setAliquotaCSLL(Number(srv.aliquotaCSLL) || 0);
+      setAliquotaINSS(Number(srv.aliquotaINSS) || 0);
       toast.showInfo(`ℹ️ Serviço "${srv.descricao}" carregado.`);
     }
   };
@@ -314,7 +324,12 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
     if (tributacaoISSQN === 1 && (aliquotaISS < 2 || aliquotaISS > 5)) {
       errs.push('Alíquota de ISSQN deve estar entre 2,00% e 5,00% (LC 116/2003).');
     }
-    if (codigoTributacaoNacional && codigoTributacaoNacional.length !== 6) {
+    // 🔥 Antes só validava o formato SE já preenchido — campo marcado com "*"
+    // como obrigatório mas deixá-lo vazio passava direto sem avisar nada
+    // (mesmo tipo de brecha que achamos no "Identificar CPF/CNPJ" da NFC-e).
+    if (!codigoTributacaoNacional.trim()) {
+      errs.push('Item da Lista de Serviços (LC 116) é obrigatório.');
+    } else if (codigoTributacaoNacional.length !== 6) {
       errs.push('Código de tributação nacional (LC 116) deve ter 6 dígitos.');
     }
     if (!codigoNBS || codigoNBS.length < 5) {
@@ -323,6 +338,22 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
 
     setErrosValidacao(errs);
     return errs.length === 0;
+  };
+
+  // 🔥 Classe do input: borda vermelha só depois de tentar emitir (tentouEnviar)
+  // E o campo estar vazio — mesmo padrão dos outros emissores.
+  const classeCampo = (valor: string, base = `w-full border rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`) =>
+    tentouEnviar && !valor.trim()
+      ? `${base.replace(corFocus, 'focus:ring-rose-500')} border-rose-400 bg-rose-50`
+      : `${base} border-slate-300`;
+
+  const handleClickEmitir = () => {
+    setTentouEnviar(true);
+    if (!validarFormulario()) {
+      toast.showError('Preencha os campos obrigatórios destacados em vermelho antes de emitir.');
+      return;
+    }
+    setShowPreview(true);
   };
 
   // ============================================================
@@ -431,6 +462,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
       if (nfseEmitida) {
         onNfseEmitida(nfseEmitida);
         setSucessoNfse(nfseEmitida);
+        setTentouEnviar(false);
         toast.showSuccess(`✅ NFS-e Nº ${nfseEmitida.numeroNfse} emitida com sucesso!`);
       }
     } catch (err: unknown) {
@@ -440,6 +472,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
       toast.showError(`❌ ${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
+      setShowPreview(false);
     }
   };
 
@@ -504,7 +537,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => onViewDanfse(sucessoNfse)}
+                onClick={() => onViewDanfse(sucessoNfse.id)}
                 className={`${corBgButton} text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
               >
                 <Eye className="w-3.5 h-3.5" />
@@ -565,7 +598,11 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           <select
             value={selectedClienteId}
             onChange={(e) => handleClienteChange(e.target.value)}
-            className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[280px]`}
+            className={`text-xs bg-slate-50 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 font-medium text-slate-700 max-w-[280px] border ${
+              tentouEnviar && !selectedClienteId
+                ? 'border-rose-400 bg-rose-50 focus:ring-rose-500'
+                : 'border-slate-300 focus:ring-blue-500'
+            }`}
           >
             <option value="">-- Escolher Cliente --</option>
             {clientes.map(c => (
@@ -581,7 +618,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               type="text"
               value={tomadorDoc}
               onChange={(e) => setTomadorDoc(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={classeCampo(tomadorDoc)}
               placeholder="00.000.000/0000-00"
             />
           </div>
@@ -591,7 +628,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               type="text"
               value={tomadorRazaoSocial}
               onChange={(e) => setTomadorRazaoSocial(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={classeCampo(tomadorRazaoSocial)}
               placeholder="Nome do tomador"
             />
           </div>
@@ -668,7 +705,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
                 type="text"
                 value={tomadorLogradouro}
                 onChange={(e) => setTomadorLogradouro(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={classeCampo(tomadorLogradouro)}
                 placeholder="Rua, Avenida..."
               />
             </div>
@@ -678,7 +715,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
                 type="text"
                 value={tomadorNumero}
                 onChange={(e) => setTomadorNumero(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={classeCampo(tomadorNumero)}
                 placeholder="123"
               />
             </div>
@@ -797,7 +834,11 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           <select
             value={selectedServicoId}
             onChange={(e) => handleServicoChange(e.target.value)}
-            className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[280px]`}
+            className={`text-xs bg-slate-50 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 font-medium text-slate-700 max-w-[280px] border ${
+              tentouEnviar && !selectedServicoId
+                ? 'border-rose-400 bg-rose-50 focus:ring-rose-500'
+                : 'border-slate-300 focus:ring-blue-500'
+            }`}
           >
             <option value="">-- Selecione um Serviço --</option>
             {servicosCatalogo.map((s) => (
@@ -815,7 +856,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               type="text"
               value={codigoTributacaoNacional}
               onChange={(e) => setCodigoTributacaoNacional(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+              className={`${classeCampo(codigoTributacaoNacional)} font-mono`}
               placeholder="010701"
             />
           </div>
@@ -835,7 +876,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               type="text"
               value={codigoNBS}
               onChange={(e) => setCodigoNBS(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+              className={`${classeCampo(codigoNBS)} font-mono`}
               placeholder="1.1403.21.10"
             />
           </div>
@@ -857,7 +898,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
             rows={3}
             value={descricaoServico}
             onChange={(e) => setDescricaoServico(e.target.value)}
-            className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} leading-relaxed text-xs`}
+            className={`${classeCampo(descricaoServico)} leading-relaxed`}
             placeholder="Descrição detalhada dos serviços prestados..."
           />
           <span className="text-[10px] text-slate-400">{descricaoServico.length}/2000</span>
@@ -879,7 +920,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               min="0.01"
               value={valorServico || ''}
               onChange={(e) => setValorServico(parseFloat(e.target.value) || 0)}
-              className={`w-full border border-slate-300 rounded-lg p-2 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`${classeCampo(tentouEnviar && valorServico <= 0 ? '' : 'x')} text-sm font-bold text-slate-900`}
             />
           </div>
           <div>
@@ -1225,8 +1266,11 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       </div>
 
+      {/* 🔥 Clicável mesmo com dados incompletos — dispara a validação que pinta
+          os campos obrigatórios vazios de vermelho (handleClickEmitir), e só
+          abre o preview (não transmite ainda) quando tudo estiver ok. */}
       <button
-        onClick={handleTransmitirNfse}
+        onClick={handleClickEmitir}
         disabled={isTransmitting}
         id="btn-transmitir-nfse"
         className={`w-full ${corBgButton} disabled:bg-slate-300 text-white font-bold text-sm py-3 px-4 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
@@ -1239,10 +1283,132 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         ) : (
           <>
             <Send className="w-4 h-4" />
-            <span>TRANSMITIR NFS-e NACIONAL (DPS v1.01)</span>
+            <span>REVISAR & TRANSMITIR NFS-e NACIONAL (DPS v1.01)</span>
           </>
         )}
       </button>
+
+      {/* ============================================================
+          PREVIEW ANTES DE TRANSMITIR — mesmo componente DanfseLayout usado na
+          visualização pós-emissão (DanfseViewer), com chancela "APENAS PARA
+          VISUALIZAÇÃO". Nada é enviado pra SEFAZ até confirmar aqui dentro.
+          ============================================================ */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-xl max-w-4xl w-full shadow-2xl max-h-[95vh] overflow-hidden flex flex-col">
+
+            <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden select-none">
+              <span
+                className="absolute text-rose-600/25 text-4xl sm:text-5xl font-black uppercase tracking-widest whitespace-nowrap border-4 border-rose-600/25 px-8 py-2"
+                style={{ top: '48%', left: '48%', transform: 'translate(-50%, -50%) rotate(-30deg)' }}
+              >
+                Apenas para Visualização
+              </span>
+            </div>
+
+            <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-center justify-between z-20">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">
+                  Espelho do DANFSe — documento ainda NÃO transmitido
+                </span>
+              </div>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                (empresa.ambienteEmissao as unknown as string) === 'PRODUCAO'
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                  : 'bg-blue-100 text-blue-800 border-blue-300'
+              }`}>
+                {(empresa.ambienteEmissao as unknown as string) === 'PRODUCAO' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'}
+              </span>
+            </div>
+
+            <div className="overflow-y-auto flex-1">
+              <DanfseLayout
+                numeroNfse={empresa.proximoNumeroNfse || 1}
+                serieDPS={empresa.serieNfse || 1}
+                numeroDPS={empresa.proximoNumeroNfse || 1}
+                prestador={{
+                  razaoSocial: empresa.razaoSocial,
+                  nomeFantasia: empresa.nomeFantasia,
+                  cnpj: empresa.cnpj,
+                  inscricaoMunicipal: empresa.inscricaoMunicipal,
+                  optanteSimplesNacional: empresa.optanteSimples,
+                  endereco: empresa.endereco,
+                }}
+                tomador={{
+                  nomeRazaoSocial: tomadorRazaoSocial,
+                  documento: tomadorDoc,
+                  inscricaoMunicipal: tomadorInscricaoMunicipal,
+                  telefone: tomadorTelefone,
+                  email: tomadorEmail,
+                  endereco: {
+                    logradouro: tomadorLogradouro,
+                    numero: tomadorNumero,
+                    complemento: tomadorComplemento,
+                    bairro: tomadorBairro,
+                    nomeMunicipio: tomadorNomeMunicipio,
+                    uf: tomadorUf,
+                    cep: tomadorCep,
+                  },
+                }}
+                descricaoServico={descricaoServico}
+                codigoTributacaoNacional={codigoTributacaoNacional}
+                codigoNBS={codigoNBS}
+                localPrestacaoNomeMunicipio={localPrestacaoNomeMunicipio}
+                localPrestacaoUf={localPrestacaoUf}
+                localPrestacaoCodigoMunicipio={localPrestacaoCodigoMunicipio}
+                valorTotalServicos={calc.valorServico}
+                valorTotalDeducoes={calc.deducoesMateriais}
+                valorTotalDescontos={calc.descontoIncondicionado + calc.descontoCondicionado}
+                baseCalculoISS={calc.baseCalculoISS}
+                aliquotaISS={aliquotaISS}
+                valorTotalISS={calc.valorISS}
+                valorPIS={calc.valorPIS}
+                valorCOFINS={calc.valorCOFINS}
+                valorIRRF={calc.valorIRRF}
+                valorCSLL={calc.valorCSLL}
+                valorINSS={calc.valorINSS}
+                valorCBS={calc.valorCBS}
+                valorIBSUF={calc.valorIBSUF}
+                valorIBSMun={calc.valorIBSMun}
+                valorTotalIBS={calc.valorTotalIBS}
+                valorLiquidoNfse={calc.valorLiquido}
+                valorTotalISSRetido={calc.valorISSRetido}
+                informacoesComplementares={informacoesComplementares}
+              />
+            </div>
+
+            <div className="shrink-0 bg-white border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPreview(false)}
+                disabled={isTransmitting}
+                className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium cursor-pointer transition-colors disabled:opacity-50"
+              >
+                Voltar e Revisar
+              </button>
+              <button
+                type="button"
+                onClick={handleTransmitirNfse}
+                disabled={isTransmitting}
+                className={`px-4 py-2 rounded-lg ${corBgButton} text-white font-semibold shadow-sm cursor-pointer disabled:opacity-60 flex items-center gap-2 transition-colors`}
+              >
+                {isTransmitting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Transmitindo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Confirmar e Transmitir</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

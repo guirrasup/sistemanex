@@ -110,14 +110,18 @@ export default function App() {
   const [transportadoras, setTransportadoras] = useState<Transportadora[]>([]);
 
   // Modal Viewers
-  const [viewingDanfse, setViewingDanfse] = useState<NFSeDocumento | null>(null);
+  // 🔥 Só o id — DanfseViewer busca o registro completo (mesmo padrão do
+  // DanfeViewer/DanfceViewer).
+  const [viewingDanfse, setViewingDanfse] = useState<string | null>(null);
   // 🔥 Guarda só o id — DanfeViewer busca o registro completo por conta
   // própria (a listagem de NF-e não inclui os dados da empresa emitente).
   const [viewingDanfe, setViewingDanfe] = useState<string | null>(null);
   // 🔥 Só o id — DanfceViewer busca o registro completo (mesmo padrão do
   // DanfeViewer, NF-e).
   const [viewingDanfce, setViewingDanfce] = useState<string | null>(null);
-  const [viewingDacte, setViewingDacte] = useState<CTeDocumento | null>(null);
+  // 🔥 Só o id — DacteViewer busca o registro completo (mesmo padrão do
+  // DanfeViewer/DanfceViewer/DanfseViewer).
+  const [viewingDacte, setViewingDacte] = useState<string | null>(null);
   const [viewingDanfae, setViewingDanfae] = useState<NFAeDocumento | null>(null);
   // 🔥 NOVO - MDF-e Viewer
   const [viewingMdfe, setViewingMdfe] = useState<MDFeDocumento | null>(null);
@@ -686,7 +690,7 @@ export default function App() {
 
         {viewingDanfse && (
           <DanfseViewer
-            nfse={viewingDanfse}
+            nfseId={viewingDanfse}
             onClose={() => setViewingDanfse(null)}
           />
         )}
@@ -715,7 +719,7 @@ export default function App() {
           <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 relative">
               <DacteViewer
-                cte={viewingDacte}
+                cteId={viewingDacte}
                 onBack={() => setViewingDacte(null)}
               />
             </div>

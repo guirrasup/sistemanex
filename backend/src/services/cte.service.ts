@@ -117,12 +117,58 @@ export class CteService {
     const vTPrest = data.vTPrest || this.calcularTotalFrete(data);
     const vRec = data.vRec || vTPrest;
 
-    // 3. Calcular ICMS
-    const aliquotaICMS = data.aliquotaICMS || 12;
+    // 3. Grupo de tributação do ICMS — usa o CST que o formulário escolheu
+    // (gerarXmlCte400 já suporta todos os grupos: CST00/20/45/60/90/SN, cada
+    // um condicionado à presença do respectivo campo `CSTxx`), em vez de
+    // forçar CST00 sempre. Antes disso, as demais opções da tela (Redução de
+    // BC, Isenta/Não Tributada/Diferida, Substituição Tributária, Simples
+    // Nacional) eram aceitas no formulário e descartadas silenciosamente aqui.
+    const aliquotaICMS = Number(data.aliquotaICMS) || 12;
     const vBC = vTPrest;
     const vICMS = (vBC * aliquotaICMS) / 100;
-    const vPIS = (vTPrest * 0.65) / 100;
-    const vCOFINS = (vTPrest * 3.0) / 100;
+    const numOuUndef = (v: unknown) => (v === undefined || v === null ? undefined : Number(v));
+
+    const temGrupoIcmsInformado = Boolean(
+      data.CST00 || data.CST20 || data.CST45 || data.CST60 || data.CST90 || data.CSTSN
+    );
+    const grupoIcms = temGrupoIcmsInformado
+      ? {
+          CST00: data.CST00 as string | undefined,
+          vBC00: numOuUndef(data.vBC00),
+          pICMS00: numOuUndef(data.pICMS00),
+          vICMS00: numOuUndef(data.vICMS00),
+
+          CST20: data.CST20 as string | undefined,
+          pRedBC20: numOuUndef(data.pRedBC20),
+          vBC20: numOuUndef(data.vBC20),
+          pICMS20: numOuUndef(data.pICMS20),
+          vICMS20: numOuUndef(data.vICMS20),
+
+          CST45: data.CST45 as string | undefined,
+
+          CST60: data.CST60 as string | undefined,
+          vBCSTRet: numOuUndef(data.vBCSTRet),
+          vICMSSTRet: numOuUndef(data.vICMSSTRet),
+          pICMSSTRet: numOuUndef(data.pICMSSTRet),
+          vCred: numOuUndef(data.vCred),
+
+          CST90: data.CST90 as string | undefined,
+          pRedBC90: numOuUndef(data.pRedBC90),
+          vBC90: numOuUndef(data.vBC90),
+          pICMS90: numOuUndef(data.pICMS90),
+          vICMS90: numOuUndef(data.vICMS90),
+
+          CSTSN: data.CSTSN as string | undefined,
+          indSN: data.indSN as string | undefined,
+        }
+      : {
+          // Sem nenhum CST informado (chamada fora do formulário, ex.: script/teste):
+          // mantém o comportamento anterior como fallback — ICMS00 com a alíquota informada.
+          CST00: '00',
+          vBC00: vBC,
+          pICMS00: aliquotaICMS,
+          vICMS00: vICMS,
+        };
 
     // 4. Criar CT-e
     const cte = await this.cteRepo.create({
@@ -203,11 +249,8 @@ export class CteService {
       vTPrest,
       vRec,
 
-      // IMPOSTOS - ICMS00
-      CST00: '00',
-      vBC00: vBC,
-      pICMS00: aliquotaICMS,
-      vICMS00: vICMS,
+      // IMPOSTOS
+      ...grupoIcms,
 
       // INFORMAÇÕES DA CARGA
       vCarga: data.valorCargaAverbada,

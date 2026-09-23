@@ -38,10 +38,10 @@ interface DocumentosFiscaisListProps {
   nfces?: NFCeDocumento[];
   ctes?: CTeDocumento[];
   nfaes?: NFAeDocumento[];
-  onViewDanfse: (nfse: NFSeDocumento) => void;
+  onViewDanfse: (nfseId: string) => void;
   onViewDanfe: (nfeId: string) => void;
   onViewDanfce?: (nfceId: string) => void;
-  onViewDacte?: (cte: CTeDocumento) => void;
+  onViewDacte?: (cteId: string) => void;
   onViewDanfae?: (nfae: NFAeDocumento) => void;
   onEmitirNovaNfse?: () => void;
   onEmitirNovaNfe?: () => void;
@@ -91,6 +91,15 @@ interface DocumentoFiscalBruto {
   municipioInicio?: { nome?: string; uf?: string };
   municipioFim?: { nome?: string; uf?: string };
   motivoEmissao?: string;
+  // 🔥 CT-e: schema.prisma segue o leiaute SEFAZ ao pé da letra — número é
+  // `nCT`, municípios/valor de frete são campos escalares, não objetos aninhados.
+  nCT?: number;
+  xMunIni?: string;
+  UFIni?: string;
+  xMunFim?: string;
+  UFFim?: string;
+  vTPrest?: number | string;
+  dhEmi?: string;
 }
 
 // 🔥 TIPO PARA DOCUMENTO UNIFICADO
@@ -270,7 +279,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: doc.servico?.descricao || 'Serviço sem descrição',
-          onView: () => onViewDanfse(doc as unknown as NFSeDocumento),
+          onView: () => onViewDanfse(doc.id || ''),
         };
       case 'NFCE':
         return {
@@ -300,17 +309,17 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           modelo: '57',
           corBadge: 'bg-cyan-50 text-cyan-800 border-cyan-200',
           id: doc.id || '',
-          numero: doc.numero || 0,
+          numero: doc.nCT || 0,
           serie: doc.serie || 0,
           chave: doc.chaveAcesso || '',
           destinatario: `${doc.remetente?.razaoSocial?.slice(0, 18) || 'Remetente'} ➔ ${doc.destinatario?.razaoSocial?.slice(0, 18) || 'Destinatário'}`,
           documento: doc.remetente?.documento || 'Não informado',
-          valor: doc.valorTotalFrete || 0,
-          data: doc.dataHoraEmissao || new Date().toISOString(),
+          valor: Number(doc.vTPrest) || 0,
+          data: doc.dhEmi || new Date().toISOString(),
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
-          detalhes: `Frete ${doc.municipioInicio?.nome || '?'}/${doc.municipioInicio?.uf || '?'} ➔ ${doc.municipioFim?.nome || '?'}/${doc.municipioFim?.uf || '?'}`,
-          onView: () => onViewDacte && onViewDacte(doc as unknown as CTeDocumento),
+          detalhes: `Frete ${doc.xMunIni || '?'}/${doc.UFIni || '?'} ➔ ${doc.xMunFim || '?'}/${doc.UFFim || '?'}`,
+          onView: () => onViewDacte && doc.id && onViewDacte(doc.id),
         };
       case 'NFAE':
         return {

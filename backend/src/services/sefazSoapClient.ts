@@ -69,10 +69,27 @@ export function postSoap(params: {
   envelope: string;
   mtls: CredenciaisMtls;
   timeoutMs?: number;
+  // SOAP 1.2 (default) é o que a SEFAZ (NFe/CTe/MDFe) usa: a soapAction vai
+  // dentro do Content-Type ("application/soap+xml... action=..."). Webservices
+  // ASP.NET .asmx (ex.: NFS-e do DF) são SOAP 1.1: content-type "text/xml" e a
+  // soapAction vai num header HTTP "SOAPAction" separado, entre aspas —
+  // confirmado contra o WSDL real do webservice (binding soap 1.1).
+  versaoSoap?: '1.1' | '1.2';
 }): Promise<RespostaSefaz> {
-  const { url, soapAction, mtls, timeoutMs = 30000 } = params;
+  const { url, soapAction, mtls, timeoutMs = 30000, versaoSoap = '1.2' } = params;
   const envelope = compactarXml(params.envelope);
   const target = new URL(url);
+  const headers: Record<string, string | number> =
+    versaoSoap === '1.1'
+      ? {
+          'Content-Type': 'text/xml; charset=utf-8',
+          SOAPAction: `"${soapAction}"`,
+          'Content-Length': Buffer.byteLength(envelope, 'utf8'),
+        }
+      : {
+          'Content-Type': 'application/soap+xml; charset=utf-8; action="' + soapAction + '"',
+          'Content-Length': Buffer.byteLength(envelope, 'utf8'),
+        };
 
   return new Promise((resolve, reject) => {
     const req = https.request(
@@ -84,10 +101,7 @@ export function postSoap(params: {
         cert: mtls.cert,
         key: mtls.key,
         ca: CAS_CONFIAVEIS,
-        headers: {
-          'Content-Type': 'application/soap+xml; charset=utf-8; action="' + soapAction + '"',
-          'Content-Length': Buffer.byteLength(envelope, 'utf8'),
-        },
+        headers,
         timeout: timeoutMs,
       },
       (res) => {

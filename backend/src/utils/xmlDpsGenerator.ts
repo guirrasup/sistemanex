@@ -47,6 +47,24 @@ export function gerarXmlDps(nfse: NFSeDocumento): string {
   // elementos <serie>/<nDPS> permanecem SEM zero-padding (apenas o Id é padded).
   const idDps = `DPS${nfse.emitente.endereco.codigoMunicipio}${isCnpjEmit ? '2' : '1'}${cnpjEmit}${String(nfse.serieDPS).padStart(5, '0')}${String(nfse.numeroDPS).padStart(15, '0')}`;
 
+  // 🔥 cTribMun (TCCodTribMun) é restrito pelo XSD do Sistema Nacional a
+  // exatamente 3 dígitos — confirmado por rejeição real ("[E1235] Falha no
+  // esquema XML... valor 'X' inválido para TCCodTribMun") e por um caso
+  // idêntico documentado publicamente (TOTVS: "The value 'X' is not accepted
+  // by the pattern '[0-9]{3}'"). É um código de 3 dígitos definido por cada
+  // prefeitura — diferente do código nacional (cTribNac, 6 dígitos, item da
+  // LC 116) — então não dá pra simplesmente truncar/preencher um valor de
+  // tamanho errado; como o campo é opcional, omitimos quando não bate esse
+  // formato, até o usuário configurar o código de 3 dígitos do seu município.
+  // .trim() é essencial aqui: a coluna codigoTributacaoMunicipal é Char(4) no
+  // Postgres, que preenche com espaço à direita valores menores que 4 — um
+  // "000" salvo vira "000 " na leitura, o que quebraria o teste de 3 dígitos
+  // abaixo mesmo já estando no formato certo.
+  const codTribMunLimpo = (nfse.servico.codigoTributacaoMunicipal || '').trim();
+  const cTribMunTag = /^\d{3}$/.test(codTribMunLimpo)
+    ? `<cTribMun>${escapeXml(codTribMunLimpo)}</cTribMun>`
+    : '';
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00">
   <infDPS Id="${escapeXml(idDps)}">
@@ -98,7 +116,7 @@ export function gerarXmlDps(nfse: NFSeDocumento): string {
       </locPrest>
       <cServ>
         <cTribNac>${escapeXml(nfse.servico.codigoTributacaoNacional)}</cTribNac>
-        ${nfse.servico.codigoTributacaoMunicipal ? `<cTribMun>${escapeXml(nfse.servico.codigoTributacaoMunicipal)}</cTribMun>` : ''}
+        ${cTribMunTag}
         <xDescServ>${escapeXml(nfse.servico.descricao)}</xDescServ>
         ${nfse.servico.codigoNBS ? `<cNBS>${limparDocumento(nfse.servico.codigoNBS)}</cNBS>` : ''}
       </cServ>

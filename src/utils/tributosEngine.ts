@@ -69,7 +69,11 @@ export function calcularTributosNfse(params: {
   let baseCalculoISS = 0;
   let valorISS = 0;
   let valorISSRetido = 0;
-  const aliquotaISS = params.aliquotaISS;
+  // 🔥 Decimal do Prisma chega como string no JSON — Math.max() abaixo já
+  // coage os valores em Reais automaticamente, mas os campos de alíquota são
+  // atribuídos direto (sem coerção); ficavam string no resultado retornado e
+  // quebravam .toFixed() em quem consome esse retorno (DanfseLayout).
+  const aliquotaISS = Number(params.aliquotaISS) || 0;
 
   if (params.tributacaoISSQN === 1) {
     baseCalculoISS = Math.max(0, vServ - descIncond - deducoes);
@@ -79,11 +83,11 @@ export function calcularTributosNfse(params: {
     }
   }
 
-  const aliqPIS = params.aliquotaPIS !== undefined ? params.aliquotaPIS : (params.optanteSimplesNacional ? 0 : 0.65);
-  const aliqCOFINS = params.aliquotaCOFINS !== undefined ? params.aliquotaCOFINS : (params.optanteSimplesNacional ? 0 : 3.00);
-  const aliqIRRF = params.aliquotaIRRF || 0;
-  const aliqCSLL = params.aliquotaCSLL || 0;
-  const aliqINSS = params.aliquotaINSS || 0;
+  const aliqPIS = params.aliquotaPIS !== undefined ? Number(params.aliquotaPIS) || 0 : (params.optanteSimplesNacional ? 0 : 0.65);
+  const aliqCOFINS = params.aliquotaCOFINS !== undefined ? Number(params.aliquotaCOFINS) || 0 : (params.optanteSimplesNacional ? 0 : 3.00);
+  const aliqIRRF = Number(params.aliquotaIRRF) || 0;
+  const aliqCSLL = Number(params.aliquotaCSLL) || 0;
+  const aliqINSS = Number(params.aliquotaINSS) || 0;
 
   const baseCalculoFed = Math.max(0, vServ - descIncond);
   const valorPIS = Number(((baseCalculoFed * aliqPIS) / 100).toFixed(2));

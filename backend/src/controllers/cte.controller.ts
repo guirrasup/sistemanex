@@ -317,7 +317,7 @@ export class CteController {
         });
       }
 
-      if (req.body.cfop && !/^[0-9]{3}$/.test(req.body.cfop)) {
+      if (req.body.CFOP && !/^[0-9]{4}$/.test(req.body.CFOP)) {
         return res.status(400).json({
           sucesso: false,
           erro: 'CFOP inválido: deve ter 3 dígitos'
@@ -353,33 +353,12 @@ export class CteController {
         });
       }
 
-      if (!req.body.rntrc) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'RNTRC é obrigatório'
-        });
-      }
-
-      if (!req.body.veiculo?.placa) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'Placa do veículo é obrigatória'
-        });
-      }
-
-      if (!req.body.motorista?.nome || !req.body.motorista?.cpf) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'Nome e CPF do motorista são obrigatórios'
-        });
-      }
-
-      if (!/^[0-9]{11}$/.test(req.body.motorista.cpf.replace(/\D/g, ''))) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'CPF do motorista inválido: deve ter 11 dígitos'
-        });
-      }
+      // 🔥 rntrc/veiculo/motorista NÃO são colunas do modelo CTe (confirmado no
+      // schema.prisma e em cteService.emitirCte, que nunca lê data.rntrc/data.veiculo/
+      // data.motorista) — o layout 4.00 usa só o RNTRC da Transportadora vinculada
+      // (transportadoraId), o veículo/condutor migraram pro MDF-e. Exigir esses 3
+      // campos aqui só bloqueava a emissão sem que o valor informado fosse usado pra
+      // nada. Removido; transportadoraId (quando informado) é validado na service.
 
       const tpCTe = req.body.tpCTe || 'NORMAL';
       if (!['NORMAL', 'COMPLEMENTO_VALORES', 'SUBSTITUICAO'].includes(tpCTe)) {

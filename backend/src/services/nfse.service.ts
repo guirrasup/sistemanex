@@ -14,7 +14,10 @@ import { mapEmpresaParaEmitente, mapClienteParaTomador } from '../utils/fiscalMa
 import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
 import { enviarDps, enviarEventoNfse } from './adnNfseClient.js';
+import { enviarDpsMunicipal } from './nfseMunicipalSoapClient.js';
+import { obterWebservicePropio } from '../config/nfseMunicipiosWebservicePropio.js';
 import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
+import { limparDocumento } from '../utils/cpfCnpjValidator.js';
 
 interface ServicoOverrideInput {
   valorServico?: number;
@@ -210,7 +213,11 @@ export class NfseService {
     const tomadorData = {
       tomadorId: tomador.id,
       tomadorTipoPessoa: tomador.tipoPessoa,
-      tomadorDocumento: tomador.documento,
+      // Cliente.documento é livre (coluna text) e o cadastro não força máscara —
+      // o usuário pode digitar com pontuação ("12.345.678/0001-99"). A coluna
+      // tomadorDocumento aqui é VarChar(14) (só dígitos), então precisa limpar
+      // antes, senão o Postgres rejeita com "value too long for the column's type".
+      tomadorDocumento: limparDocumento(tomador.documento),
       tomadorRazaoSocial: tomador.razaoSocial,
       tomadorNomeFantasia: tomador.nomeFantasia,
       tomadorInscricaoMunicipal: tomador.inscricaoMunicipal,
@@ -416,11 +423,26 @@ export class NfseService {
       const xmlDpsAssinado = assinarXmlEnvelopado(xmlDpsSemAssinatura, 'infDPS', chaveECertPem);
       xmlAssinadoFinal = xmlDpsAssinado;
 
-      const resultado = await enviarDps({
-        ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 'producao' : 'homologacao',
-        xmlDpsAssinado,
-        mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
-      });
+      // Municípios que mantêm webservice próprio (ex.: DF) rejeitam a DPS enviada
+      // pro Emissor Nacional público com "[E0037] ... inexistente no cadastro de
+      // convênio municipal" — mesma DPS/XSD, mas precisa ir pro endpoint SOAP
+      // próprio do município (ver nfseMunicipiosWebservicePropio.ts).
+      const codigoMunicipioEmissor = empresa.endereco?.codigoMunicipio || '';
+      const webservicePropio = obterWebservicePropio(codigoMunicipioEmissor);
+      const ambienteAdn = empresa.ambienteEmissao === 'PRODUCAO' ? 'producao' : 'homologacao';
+      const mtls = { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem };
+
+      const resultado = webservicePropio
+        ? await enviarDpsMunicipal({
+            url: webservicePropio[ambienteAdn],
+            xmlDpsAssinado,
+            mtls,
+          })
+        : await enviarDps({
+            ambiente: ambienteAdn,
+            xmlDpsAssinado,
+            mtls,
+          });
 
       if (resultado.sucesso && resultado.nfseXml) {
         statusFinal = 'AUTORIZADA';
