@@ -47,9 +47,16 @@ app.use(
 );
 
 // Rate limiting
+// 🔥 100 req/min por IP era compartilhado por TODA a API (auth, cadastros, os 6
+// tipos de documento fiscal, dashboard) — um único carregamento do app já disparava
+// ~16-34 requisições (App.tsx + Dashboard, hoje deduplicado), e qualquer IP com mais
+// de um usuário atrás do mesmo NAT/rede corporativa, ou só duas ou três recargas de
+// página em menos de 1 minuto (comportamento normal quando a página parece travada),
+// já estourava o limite. Ao bater 429, o interceptor de retry com backoff do frontend
+// insistia nos mesmos endpoints, prolongando o travamento em vez de se recuperar.
 const limiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 300,
   message: {
     sucesso: false,
     erro: 'Muitas requisições. Aguarde um momento e tente novamente.',
@@ -62,7 +69,7 @@ app.use('/api', limiter);
 
 const dataLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 200,
+  max: 400,
   message: {
     sucesso: false,
     erro: 'Limite de requisições de dados excedido. Aguarde um momento.',
@@ -77,18 +84,6 @@ const loginLimiter = rateLimit({
   message: {
     sucesso: false,
     erro: 'Muitas tentativas de login. Tente novamente em 15 minutos.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Segurança (P4): emissão de documentos fiscais é operação crítica.
-const emissaoLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
-  message: {
-    sucesso: false,
-    erro: 'Limite de emissões excedido. Aguarde um momento e tente novamente.',
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -113,10 +108,15 @@ app.use('/api/clientes', dataLimiter, clienteRoutes);
 app.use('/api/servicos', dataLimiter, servicoRoutes);
 app.use('/api/transportadoras', dataLimiter, transportadoraRoutes);
 
-app.use('/api/nfce', dataLimiter, emissaoLimiter, nfceRoutes);
-app.use('/api/cte', dataLimiter, emissaoLimiter, cteRoutes);
-app.use('/api/nfae', dataLimiter, emissaoLimiter, nfaeRoutes);
-app.use('/api/mdfe', dataLimiter, emissaoLimiter, mdfeRoutes);
+// 🔥 nfce/cte/nfae/mdfe já aplicam seus próprios limiters por rota (consultarLimiter
+// nos GETs, emitirLimiter nos POSTs de emissão/cancelamento — mesmo padrão de
+// nfe/nfse). Um `emissaoLimiter` de 10 req/min era aplicado aqui em cima de TODO
+// o router (GETs inclusive, via app.use), sufocando até a simples listagem desses
+// 4 tipos — qualquer refresh de tela já estourava o limite e travava a UI em 429.
+app.use('/api/nfce', dataLimiter, nfceRoutes);
+app.use('/api/cte', dataLimiter, cteRoutes);
+app.use('/api/nfae', dataLimiter, nfaeRoutes);
+app.use('/api/mdfe', dataLimiter, mdfeRoutes);
 
 // Dashboard
 app.use('/api/dashboard', dataLimiter, dashboardRoutes);

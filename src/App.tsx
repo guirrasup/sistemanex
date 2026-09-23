@@ -187,13 +187,17 @@ export default function App() {
         clientesService.listar(1, 100),
         servicosService.listar(1, 100),
         financeiroService.listar(1, 100),
-        nfseService.listar(1, 100),
-        nfeService.listar(1, 100),
-        nfceService.listar(1, 100),
-        cteService.listar(1, 100),
-        nfaeService.listar(1, 100),
+        // 🔥 nfse/nfe/nfce/cte/nfae/mdfe usam filtros como objeto, não (page, limit)
+        // posicional — chamar como as outras services acima faz o limit=100 ser
+        // silenciosamente ignorado (cai no default interno de cada service, 50),
+        // truncando a lista sempre que o tipo passar de 50 documentos.
+        nfseService.listar({ page: 1, limit: 100 }),
+        nfeService.listar({ page: 1, limit: 100 }),
+        nfceService.listar({ page: 1, limit: 100 }),
+        cteService.listar({ page: 1, limit: 100 }),
+        nfaeService.listar({ page: 1, limit: 100 }),
         // 🔥 NOVO - MDF-e
-        mdfeService.listar(1, 100),
+        mdfeService.listar({ page: 1, limit: 100 }),
         transportadoraService.listar(1, 100),
       ];
 
@@ -485,7 +489,7 @@ export default function App() {
             <div className="max-w-7xl mx-auto">
               
               {currentView === 'dashboard' && (
-                <DashboardReal 
+                <DashboardReal
                   nfses={nfses}
                   nfes={nfes}
                   nfces={nfces}
@@ -493,8 +497,8 @@ export default function App() {
                   nfaes={nfaes}
                   produtos={produtos}
                   clientes={clientes}
-                  servicos={servicos} 
                   titulos={titulos}
+                  transportadoras={transportadoras}
                 />
               )}
 

@@ -1,5 +1,5 @@
 // src/components/dashboard/DashboardReal.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -18,7 +18,6 @@ import {
   Activity,
   ShieldCheck,
   Wallet,
-  Loader2,
   Building2,
   UserCheck,
   UserPlus,
@@ -38,8 +37,6 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
-import api from '../../services/api';
-import { getApiErrorMessage } from '../../utils/apiError';
 
 interface DocumentoFiscalResumo {
   id: string;
@@ -51,8 +48,12 @@ interface DocumentoFiscalResumo {
   valorTotalServicos?: number;
   valorTotalFrete?: number;
   status?: string;
-  destinatario?: { razaoSocial: string; documento: string };
-  tomador?: { razaoSocial: string; documento: string };
+  // Record<string, unknown> porque os tipos reais de cada documento (NFeDocumento,
+  // NFSeDocumento, NFCeDocumento etc.) declaram formatos diferentes entre si para
+  // destinatário/tomador (NFCe usa nomeRazaoSocial, os demais razaoSocial) — só
+  // lemos razaoSocial de forma opcional e com cast abaixo de qualquer jeito.
+  destinatario?: unknown;
+  tomador?: unknown;
   // NFe e CTe devolvem os campos crus do Prisma (schema segue o leiaute SEFAZ
   // à risca pra esses dois, ao contrário de NFSe/NFCe/NFAe, que usam nomes
   // amigáveis) — vNF/vTPrest/dhEmi, não valorTotalNota/valorTotalFrete/
@@ -137,23 +138,48 @@ interface DashboardData {
     valorTotalNota?: number;
     valorTotalServicos?: number;
     status: string;
-    destinatario?: { razaoSocial: string; documento: string };
-    tomador?: { razaoSocial: string; documento: string };
+    destinatario?: unknown;
+    tomador?: unknown;
     tipo: 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE';
   }>;
   faturamentoPorMes: Array<{ mes: string; ano: number; valor: number; color: string }>;
   documentosPorStatus: { autorizadas: number; canceladas: number; pendentes: number };
 }
 
+interface DashboardRealProps {
+  nfes: DocumentoFiscalResumo[];
+  nfses: DocumentoFiscalResumo[];
+  nfces: DocumentoFiscalResumo[];
+  ctes: DocumentoFiscalResumo[];
+  nfaes: DocumentoFiscalResumo[];
+  produtos: ProdutoResumo[];
+  clientes: ClienteResumo[];
+  titulos: TituloResumo[];
+  transportadoras?: unknown[];
+}
+
 // ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
 
-export const DashboardReal: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-
+// 🔥 Os dados já foram carregados uma única vez pelo App.tsx (que os mantém em
+// cache/estado compartilhado) e chegam aqui via props. Antes, este componente
+// buscava tudo de novo com suas próprias 9 chamadas à API sempre que montava
+// (sem nenhum guard contra o duplo-disparo do useEffect em StrictMode) —
+// cada visita à aba Painel gerava até ~20 requisições redundantes, e algumas
+// idas e vindas entre telas já eram suficientes pra bater no rate limit
+// global de 100 req/min e travar o app inteiro em "Carregando...".
+export const DashboardReal: React.FC<DashboardRealProps> = ({
+  nfes,
+  nfses,
+  nfces,
+  ctes,
+  nfaes,
+  produtos,
+  clientes,
+  titulos,
+  transportadoras = []
+}) => {
   // 🔥 COR DO MÓDULO (AZUL)
   const cor = 'blue';
   const corBg = 'bg-blue-50';
@@ -178,50 +204,10 @@ export const DashboardReal: React.FC = () => {
   };
 
   // ============================================================
-  // CARREGA DADOS
+  // CALCULA DASHBOARD A PARTIR DOS DADOS JÁ CARREGADOS (PROPS)
   // ============================================================
 
-  const carregarDados = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      
-      // Busca todos os dados em paralelo
-      const [
-        clientesRes,
-        produtosRes,
-        titulosRes,
-        nfesRes,
-        nfsesRes,
-        nfcesRes,
-        ctesRes,
-        nfaesRes,
-        transportadorasRes
-      ] = await Promise.all([
-        api.get('/clientes?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/produtos?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/financeiro/titulos?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/nfe?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/nfse?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/nfce?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/cte?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/nfae?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/transportadoras?limit=999').catch(() => ({ data: { dados: { data: [] } } }))
-      ]);
-
-      // Extrair dados
-      const clientes: ClienteResumo[] = clientesRes.data?.dados?.data || clientesRes.data?.dados || [];
-      const produtos: ProdutoResumo[] = produtosRes.data?.dados?.data || produtosRes.data?.dados || [];
-      const titulos: TituloResumo[] = titulosRes.data?.dados?.data || titulosRes.data?.dados || [];
-      const nfes: DocumentoFiscalResumo[] = nfesRes.data?.dados?.data || nfesRes.data?.dados || [];
-      const nfses: DocumentoFiscalResumo[] = nfsesRes.data?.dados?.data || nfsesRes.data?.dados || [];
-      const nfces: DocumentoFiscalResumo[] = nfcesRes.data?.dados?.data || nfcesRes.data?.dados || [];
-      const ctes: DocumentoFiscalResumo[] = ctesRes.data?.dados?.data || ctesRes.data?.dados || [];
-      const nfaes: DocumentoFiscalResumo[] = nfaesRes.data?.dados?.data || nfaesRes.data?.dados || [];
-      const transportadoras = transportadorasRes.data?.dados?.data || transportadorasRes.data?.dados || [];
-
-      
+  const dashboard: DashboardData = useMemo(() => {
       // ============================================================
       // CÁLCULOS
       // ============================================================
@@ -320,10 +306,10 @@ export const DashboardReal: React.FC = () => {
       const totalTransportadoras = transportadoras.length;
 
       // ============================================================
-      // SET DASHBOARD
+      // RESULTADO
       // ============================================================
 
-      setDashboard({
+      return {
         faturamentoTotal,
         totalNfes,
         totalClientes,
@@ -351,50 +337,8 @@ export const DashboardReal: React.FC = () => {
         })),
         faturamentoPorMes,
         documentosPorStatus
-      });
-
-      
-    } catch (err: unknown) {
-      console.error('❌ Erro:', err);
-      setError(getApiErrorMessage(err, 'Erro ao carregar dados'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    carregarDados();
-  }, []);
-
-  // ============================================================
-  // RENDER LOADING
-  // ============================================================
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-sm">Carregando dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !dashboard) {
-    return (
-      <div className="bg-rose-50 border border-rose-200 rounded-xl p-8 text-center max-w-lg mx-auto">
-        <AlertCircle className="w-12 h-12 text-rose-600 mx-auto mb-3" />
-        <p className="text-rose-800 font-medium text-lg">{error || 'Dados indisponíveis'}</p>
-        <button 
-          onClick={carregarDados}
-          className="mt-4 px-6 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer"
-        >
-          🔄 Tentar novamente
-        </button>
-      </div>
-    );
-  }
+      };
+  }, [nfes, nfses, nfces, ctes, nfaes, produtos, clientes, titulos, transportadoras]);
 
   const {
     faturamentoTotal = 0,
@@ -812,7 +756,9 @@ export const DashboardReal: React.FC = () => {
                 'CTE': <Truck className="w-3.5 h-3.5" />,
                 'NFAE': <FileCode2 className="w-3.5 h-3.5" />,
               };
-              const cliente = doc.destinatario?.razaoSocial || doc.tomador?.razaoSocial || '—';
+              const destinatario = doc.destinatario as { razaoSocial?: string } | undefined;
+              const tomador = doc.tomador as { razaoSocial?: string } | undefined;
+              const cliente = destinatario?.razaoSocial || tomador?.razaoSocial || '—';
               const valor = doc.valorTotalNota || doc.valorTotalServicos || 0;
               const numero = doc.numero || 0;
 
