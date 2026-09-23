@@ -503,6 +503,7 @@ export default function App() {
                   empresa={empresa}
                   clientes={clientes}
                   produtos={produtos}
+                  transportadoras={transportadoras}
                   onNfeEmitida={handleNfeEmitida}
                   onViewDanfe={(doc) => setViewingDanfe(doc)}
                 />

@@ -400,9 +400,14 @@ export interface ItemNfe {
   origemMercadoria: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   
   cstICMS: CSTICMS | CSOSN;
-  
+
+  // Preenchido só quando o produto é do Simples Nacional (CRT=1) — CST e CSOSN
+  // são mutuamente exclusivos no leiaute; quando presente, csosnICMS prevalece
+  // sobre cstICMS ao montar o XML/payload de emissão.
+  csosnICMS?: CSOSN;
+
   aliquotaICMS: TDec_0302_04;
-  
+
   baseCalculoICMS: TDec_1104v;
   
   valorICMS: TDec_1104v;
@@ -650,14 +655,55 @@ export interface NFCeDocumento {
 // CT-e TRANSPORTE (Modelo 57)
 // ============================================================
 
+// Componente do valor da prestação (grupo Comp do CT-e) — frete peso, frete
+// valor, pedágio, GRIS etc., cada um como uma linha {xNome, vComp}.
+export interface CTeComponenteValor {
+  xNome: string;
+  vComp: number;
+}
+
+// Quantidade da carga (grupo infQ, obrigatório) — ex.: peso bruto, volumes.
+export interface CTeQuantidade {
+  cUnid: string;
+  tpMed: string;
+  qCarga: number;
+}
+
+// Documento transportado (grupo infDoc) — hoje só o emissor usa tipo 'NFe';
+// os demais campos existem no leiaute para 'NF'/'Outros' (ver DocumentoCTe no
+// schema do backend) e ficam opcionais aqui.
+export interface CTeDocumentoTransportado {
+  tipo: 'NFe' | 'NF' | 'Outros' | 'DCe';
+  chave?: string;
+  dEmi?: string;
+  segundoCodigoBarras?: string;
+  indReentrega?: boolean;
+  serie?: string;
+  nDoc?: string;
+  vNF?: number;
+  tpDoc?: string;
+  descOutros?: string;
+}
+
 export interface CTeDocumento {
   id: string;
   modelo: '57';
-  
+
   serie: TSerie;
-  
+
   numero: TNF;
-  
+
+  // Campos crus como o backend/SEFAZ realmente nomeiam (schema.prisma do CT-e
+  // segue o leiaute SEFAZ à risca, ao contrário do restante deste tipo, que é
+  // do protótipo anterior ao backend real) — mantidos opcionais ao lado dos
+  // nomes "amigáveis" abaixo para não quebrar quem já lê os antigos.
+  nCT?: TNF;
+  xMunIni?: string;
+  UFIni?: TUf;
+  xMunFim?: string;
+  UFFim?: TUf;
+  vTPrest?: TDec_1104v;
+
   chaveAcesso: TChNFe;
   
   dataHoraEmissao: TDateTimeUTC;

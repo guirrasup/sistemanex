@@ -34,7 +34,7 @@ import {
   Info,
   FolderOpen
 } from 'lucide-react';
-import { MDFeDocumento, ModalMDFe, TipoEmitenteMDFe, TipoCargaMDFe } from '../../types/mdfe';
+import { MDFeDocumento, ModalMDFe, TipoEmitenteMDFe, TipoCargaMDFe, SeguroMDFe } from '../../types/mdfe';
 import { ClienteFornecedor, ConfiguracaoEmpresa } from '../../types/erp';
 import { formatarMoeda, formatarCpfCnpj, limparDocumento } from '../../utils/cpfCnpjValidator';
 import { mdfeService } from '../../services/mdfe.service';
@@ -95,6 +95,23 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
   const [dhIniViagem, setDhIniViagem] = useState('');
   const [indCanalVerde, setIndCanalVerde] = useState(false);
   const [indCarregaPosterior, setIndCarregaPosterior] = useState(false);
+
+  // ============================================================
+  // STATE - VEÍCULO DE TRAÇÃO E CONDUTORES (obrigatório p/ modal RODOVIARIO)
+  // ============================================================
+  // ⚠️ Achado nesta revisão: o formulário não tinha NENHUM campo pra isso —
+  // toda emissão RODOVIARIO (o modal padrão) falhava contra o backend real
+  // ("Para modal rodoviário, informe veiculo.{placa, tara, tpRod, tpCar}").
+  const [rntrc, setRntrc] = useState('');
+  const [veiculoPlaca, setVeiculoPlaca] = useState('');
+  const [veiculoRenavam, setVeiculoRenavam] = useState('');
+  const [veiculoTara, setVeiculoTara] = useState<number>(0);
+  const [veiculoTpRod, setVeiculoTpRod] = useState('01');
+  const [veiculoTpCar, setVeiculoTpCar] = useState('00');
+  const [veiculoUf, setVeiculoUf] = useState('SP');
+  const [condutores, setCondutores] = useState<{ nome: string; cpf: string }[]>([]);
+  const [novoCondutorNome, setNovoCondutorNome] = useState('');
+  const [novoCondutorCpf, setNovoCondutorCpf] = useState('');
 
   // ============================================================
   // STATE - MUNICÍPIOS DE CARREGAMENTO
@@ -173,6 +190,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
   // STATE - UI
   // ============================================================
   const [isTransmitting, setIsTransmitting] = useState(false);
+  const [isCarregandoUltima, setIsCarregandoUltima] = useState(false);
   const [erros, setErros] = useState<string[]>([]);
   const [sucessoMdfe, setSucessoMdfe] = useState<MDFeDocumento | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
@@ -405,6 +423,24 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
   };
 
   // ============================================================
+  // HANDLERS - CONDUTORES
+  // ============================================================
+
+  const handleAddCondutor = () => {
+    if (!novoCondutorNome.trim() || !novoCondutorCpf.trim()) {
+      toast.showWarning('⚠️ Informe nome e CPF do condutor.');
+      return;
+    }
+    setCondutores([...condutores, { nome: novoCondutorNome, cpf: novoCondutorCpf }]);
+    setNovoCondutorNome('');
+    setNovoCondutorCpf('');
+  };
+
+  const handleRemoveCondutor = (index: number) => {
+    setCondutores(condutores.filter((_, i) => i !== index));
+  };
+
+  // ============================================================
   // HANDLERS - LACRES
   // ============================================================
 
@@ -461,6 +497,70 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
   };
 
   // ============================================================
+  // CARREGAR ÚLTIMA NOTA
+  // ============================================================
+
+  const handleCarregarUltima = async () => {
+    setIsCarregandoUltima(true);
+    setErros([]);
+    try {
+      const resposta = await mdfeService.listar({ page: 1, limit: 1, status: 'AUTORIZADA' });
+      const ultima = resposta.data?.[0];
+      if (!ultima) {
+        toast.showError('Nenhum MDF-e autorizado anterior encontrado.');
+        return;
+      }
+
+      // A resposta real tem campos crus (veicTracaoPlaca, não veiculo.placa) —
+      // só o que costuma se repetir entre viagens é restaurado (identificação,
+      // veículo, rota); municípios de descarga e documentos vinculados ficam
+      // de fora de propósito (são específicos da viagem anterior e reaproveitar
+      // uma chave de CT-e/NF-e já vinculada rejeita na SEFAZ).
+      const raw = ultima as unknown as {
+        modal?: string;
+        tpEmit?: string;
+        tpTransp?: string;
+        UFIni?: string;
+        UFFim?: string;
+        tpCarga?: string;
+        xProd?: string;
+        cUnid?: string;
+        rntrc?: string;
+        veicTracaoPlaca?: string;
+        veicTracaoRenavam?: string;
+        veicTracaoTara?: number | string;
+        veicTracaoTpRod?: string;
+        veicTracaoTpCar?: string;
+        veicTracaoUF?: string;
+        emitenteId?: string;
+      };
+
+      if (raw.emitenteId) handleSelectEmitente(raw.emitenteId);
+      if (raw.modal) setModal(raw.modal as ModalMDFe);
+      if (raw.tpEmit) setTpEmit(raw.tpEmit as TipoEmitenteMDFe);
+      if (raw.tpTransp) setTpTransp(raw.tpTransp as typeof tpTransp);
+      if (raw.UFIni) setUFIni(raw.UFIni);
+      if (raw.UFFim) setUFFim(raw.UFFim);
+      if (raw.tpCarga) setTpCarga(raw.tpCarga as TipoCargaMDFe);
+      if (raw.xProd) setXProd(raw.xProd);
+      if (raw.cUnid) setCUnid(raw.cUnid as typeof cUnid);
+      setRntrc(raw.rntrc || '');
+      setVeiculoPlaca(raw.veicTracaoPlaca || '');
+      setVeiculoRenavam(raw.veicTracaoRenavam || '');
+      setVeiculoTara(Number(raw.veicTracaoTara) || 0);
+      setVeiculoTpRod(raw.veicTracaoTpRod || '01');
+      setVeiculoTpCar(raw.veicTracaoTpCar || '00');
+      setVeiculoUf(raw.veicTracaoUF || 'SP');
+
+      toast.showSuccess('Dados da última MDF-e carregados (identificação, veículo e rota). Municípios de descarga e documentos vinculados ficam de fora de propósito — revise antes de emitir.');
+    } catch (error: unknown) {
+      toast.showError(getApiErrorMessage(error, 'Erro ao carregar o último MDF-e'));
+    } finally {
+      setIsCarregandoUltima(false);
+    }
+  };
+
+  // ============================================================
   // VALIDAÇÃO
   // ============================================================
 
@@ -470,6 +570,16 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
     // Emitente
     if (!emitenteDoc || !emitenteNome) {
       errs.push('Emitente: CPF/CNPJ e Razão Social são obrigatórios.');
+    }
+
+    // Veículo/condutores — a SEFAZ exige esse bloco para o modal rodoviário
+    if (modal === 'RODOVIARIO') {
+      if (!veiculoPlaca || !veiculoTara || !veiculoTpRod || !veiculoTpCar) {
+        errs.push('Para modal rodoviário, informe placa, tara, tipo de rodado e tipo de carroceria do veículo.');
+      }
+      if (condutores.length === 0) {
+        errs.push('Para modal rodoviário, informe ao menos um condutor (nome e CPF).');
+      }
     }
 
     // Municípios de carregamento
@@ -558,6 +668,16 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         dhIniViagem: dhIniViagem || undefined,
         indCanalVerde,
         indCarregaPosterior,
+        rntrc: rntrc || undefined,
+        veiculo: modal === 'RODOVIARIO' ? {
+          placa: veiculoPlaca,
+          renavam: veiculoRenavam || undefined,
+          tara: veiculoTara,
+          tpRod: veiculoTpRod,
+          tpCar: veiculoTpCar,
+          uf: veiculoUf,
+        } : undefined,
+        condutores: modal === 'RODOVIARIO' ? condutores : undefined,
         municipiosCarrega: municipiosCarrega.map(m => ({
           codigo: m.codigo,
           nome: m.nome
@@ -649,9 +769,20 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           </p>
         </div>
 
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {empresa.serieMdfe || 1}</div>
-          <div className={`text-[10px] font-medium ${corText}`}>Próximo MDF-e: Nº {empresa.proximoNumeroMdfe || 1}</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCarregarUltima}
+            disabled={isCarregandoUltima}
+            title="Preenche identificação, veículo e rota com os dados do último MDF-e autorizado"
+            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
+            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-semibold text-slate-700">Série {empresa.serieMdfe || 1}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próximo MDF-e: Nº {empresa.proximoNumeroMdfe || 1}</div>
+          </div>
         </div>
       </div>
 
@@ -887,12 +1018,158 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           </div>
         </div>
 
+        {modal === 'RODOVIARIO' && (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
+              <Truck className={`w-4 h-4 ${corText}`} />
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">3. Veículo e Condutores</h3>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-4">
+              <div>
+                <label className="block font-medium text-slate-600 mb-1">RNTRC</label>
+                <input
+                  type="text"
+                  value={rntrc}
+                  onChange={(e) => setRntrc(e.target.value)}
+                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  placeholder="12345678"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-600 mb-1">Placa *</label>
+                <input
+                  type="text"
+                  value={veiculoPlaca}
+                  onChange={(e) => setVeiculoPlaca(e.target.value.toUpperCase())}
+                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+                  placeholder="ABC1D23"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-600 mb-1">Renavam</label>
+                <input
+                  type="text"
+                  value={veiculoRenavam}
+                  onChange={(e) => setVeiculoRenavam(e.target.value)}
+                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  placeholder="00000000000"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-600 mb-1">Tara (kg) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={veiculoTara || ''}
+                  onChange={(e) => setVeiculoTara(parseFloat(e.target.value) || 0)}
+                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  placeholder="8000"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-slate-600 mb-1">Tipo de Rodado *</label>
+                <select
+                  value={veiculoTpRod}
+                  onChange={(e) => setVeiculoTpRod(e.target.value)}
+                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                >
+                  <option value="01">01 - Truck</option>
+                  <option value="02">02 - Toco</option>
+                  <option value="03">03 - Cavalo Mecânico</option>
+                  <option value="04">04 - VAN</option>
+                  <option value="05">05 - Utilitário</option>
+                  <option value="06">06 - Outros</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-medium text-slate-600 mb-1">Tipo de Carroceria *</label>
+                <select
+                  value={veiculoTpCar}
+                  onChange={(e) => setVeiculoTpCar(e.target.value)}
+                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                >
+                  <option value="00">00 - Não Aplicável</option>
+                  <option value="01">01 - Aberta</option>
+                  <option value="02">02 - Fechada/Baú</option>
+                  <option value="03">03 - Graneleira</option>
+                  <option value="04">04 - Porta Container</option>
+                  <option value="05">05 - Sider</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-medium text-slate-600 mb-1">UF do Veículo</label>
+                <input
+                  type="text"
+                  maxLength={2}
+                  value={veiculoUf}
+                  onChange={(e) => setVeiculoUf(e.target.value.toUpperCase())}
+                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+                  placeholder="SP"
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 pt-3">
+              <label className="block font-medium text-slate-600 mb-2">Condutores ({condutores.length})</label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                <input
+                  type="text"
+                  value={novoCondutorNome}
+                  onChange={(e) => setNovoCondutorNome(e.target.value)}
+                  placeholder="Nome do condutor"
+                  className={`flex-1 min-w-[160px] border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
+                />
+                <input
+                  type="text"
+                  value={novoCondutorCpf}
+                  onChange={(e) => setNovoCondutorCpf(e.target.value)}
+                  placeholder="CPF (só números)"
+                  className={`w-40 border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCondutor}
+                  className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Adicionar</span>
+                </button>
+              </div>
+
+              {condutores.length === 0 ? (
+                <div className="text-xs text-slate-500 p-2 text-center bg-slate-50 rounded-lg border border-slate-200">
+                  Nenhum condutor adicionado
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {condutores.map((c, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
+                    >
+                      <span>{c.nome} — {formatarCpfCnpj(c.cpf)}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCondutor(idx)}
+                        className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div className="flex items-center gap-2">
               <MapPin className={`w-4 h-4 ${corText}`} />
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                3. Municípios de Carregamento ({municipiosCarrega.length}/50)
+                4. Municípios de Carregamento ({municipiosCarrega.length}/50)
               </h3>
             </div>
           </div>
@@ -955,7 +1232,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
             <div className="flex items-center gap-2">
               <Route className={`w-4 h-4 ${corText}`} />
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                4. Percurso ({percursos.length}/25)
+                5. Percurso ({percursos.length}/25)
               </h3>
             </div>
           </div>
@@ -1009,7 +1286,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
             <div className="flex items-center gap-2">
               <FolderOpen className={`w-4 h-4 ${corText}`} />
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                5. Municípios de Descarga ({municipiosDescarga.length}/1000)
+                6. Municípios de Descarga ({municipiosDescarga.length}/1000)
               </h3>
             </div>
           </div>
@@ -1209,7 +1486,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <Package className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">6. Produto Predominante</h3>
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">7. Produto Predominante</h3>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
@@ -1271,7 +1548,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <Calculator className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">7. Totalizadores</h3>
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">8. Totalizadores</h3>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
@@ -1332,7 +1609,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div className="flex items-center gap-2">
               <Shield className={`w-4 h-4 ${corText}`} />
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">8. Seguro ({seguros.length})</h3>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">9. Seguro ({seguros.length})</h3>
             </div>
             <button
               type="button"
@@ -1461,7 +1738,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <Barcode className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">9. Lacres</h3>
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">10. Lacres</h3>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-3">
@@ -1510,7 +1787,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <UserCheck className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">10. Autorizados para Download ({autorizadosDownload.length}/10)</h3>
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">11. Autorizados para Download ({autorizadosDownload.length}/10)</h3>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-3">
@@ -1569,7 +1846,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <Info className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">11. Informações Adicionais</h3>
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">12. Informações Adicionais</h3>
           </div>
 
           <div className="space-y-3 text-xs">

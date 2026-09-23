@@ -1,5 +1,5 @@
 // prisma/seed.ts
-import { PrismaClient, Prisma } from '@prisma/client'
+import { PrismaClient, Prisma, TipoCliente, TipoPessoa } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -51,7 +51,7 @@ async function main() {
         cnae: '6201501',
         regimeTributario: 'SIMPLES_NACIONAL',
         aliquotaSimples: 6.0,
-        ambienteEmissao: SEED_AMBIENTE, // ✅ env-driven (default HOMOLOGACAO)
+        ambienteEmissao: SEED_AMBIENTE,
         chavePixPadrao: '18236447000190',
         optanteSimples: true,
         endereco: {
@@ -107,13 +107,9 @@ async function main() {
       }
     })
 
-    /* [AutoPatch] Remova o dado sensível do log ou mascare antes:
-   console.log('Usuario admin criado:', admin.email)
-*/
+    console.log('Usuario admin criado:', admin.email)
   } else {
-    /* [AutoPatch] Remova o dado sensível do log ou mascare antes:
-   console.log('Usuario admin ja existe:', admin.email)
-*/
+    console.log('Usuario admin ja existe:', admin.email)
   }
 
   // ============================================
@@ -238,14 +234,13 @@ async function main() {
   const clientesParaCriar = clientesData.filter(c => !documentosClientesExistentes.has(c.documento))
 
   if (clientesParaCriar.length > 0) {
-    // ✅ chunking em vez de abort
     await criarEmLotes(
       clientesParaCriar,
       (data) =>
         prisma.cliente.create({
           data: {
-            tipo: data.tipo,
-            tipoPessoa: data.tipoPessoa,
+            tipo: data.tipo as TipoCliente,
+            tipoPessoa: data.tipoPessoa as TipoPessoa,
             documento: data.documento,
             razaoSocial: data.razaoSocial,
             nomeFantasia: data.nomeFantasia,
@@ -389,8 +384,8 @@ async function main() {
       (data) =>
         prisma.cliente.create({
           data: {
-            tipo: data.tipo,
-            tipoPessoa: data.tipoPessoa,
+            tipo: data.tipo as TipoCliente,
+            tipoPessoa: data.tipoPessoa as TipoPessoa,
             documento: data.documento,
             razaoSocial: data.razaoSocial,
             nomeFantasia: data.nomeFantasia,
@@ -408,7 +403,7 @@ async function main() {
   console.log('Fornecedores processados')
 
   // ============================================
-  // PRODUTOS (mantidos — são genéricos, sem marca real)
+  // PRODUTOS
   // ============================================
   const produtosData = [
     {
@@ -634,6 +629,7 @@ async function main() {
 
   // ============================================
   // TRANSPORTADORAS (CNPJs fictícios)
+  // ✅ CORREÇÃO: buscar por cnpj SEM filtrar empresaId — o @unique é global no schema
   // ============================================
   const transportadorasData = [
     {
@@ -642,7 +638,7 @@ async function main() {
       razaoSocial: 'TRANSPORTADORA EXEMPLO UM LTDA - DEV',
       nomeFantasia: 'TRANSP UM DEV',
       inscricaoEstadual: '123456789',
-      rntrc: '1234567',
+      rntrc: '12345678',
       tipoTransportador: 'RODOVIARIO',
       email: 'contato@transp-um-dev.local',
       telefone: '1134567890',
@@ -668,7 +664,7 @@ async function main() {
       razaoSocial: 'TRANSPORTADORA EXEMPLO DOIS LTDA - DEV',
       nomeFantasia: 'TRANSP DOIS DEV',
       inscricaoEstadual: '987654321',
-      rntrc: '7654321',
+      rntrc: '76543210',
       tipoTransportador: 'RODOVIARIO',
       email: 'contato@transp-dois-dev.local',
       telefone: '1145678901',
@@ -694,7 +690,7 @@ async function main() {
       razaoSocial: 'TRANSPORTADORA EXEMPLO TRES LTDA - DEV',
       nomeFantasia: 'TRANSP TRES DEV',
       inscricaoEstadual: '456789123',
-      rntrc: '4567890',
+      rntrc: '45678901',
       tipoTransportador: 'RODOVIARIO',
       email: 'contato@transp-tres-dev.local',
       telefone: '1156789012',
@@ -720,7 +716,7 @@ async function main() {
       razaoSocial: 'TRANSPORTADORA EXEMPLO QUATRO LTDA - DEV',
       nomeFantasia: 'TRANSP QUATRO DEV',
       inscricaoEstadual: '678901234',
-      rntrc: '6789012',
+      rntrc: '67890123',
       tipoTransportador: 'RODOVIARIO',
       email: 'contato@transp-quatro-dev.local',
       telefone: '1167890123',
@@ -746,7 +742,7 @@ async function main() {
       razaoSocial: 'TRANSPORTADORA EXEMPLO CINCO LTDA - DEV',
       nomeFantasia: 'TRANSP CINCO DEV',
       inscricaoEstadual: '890123456',
-      rntrc: '8901234',
+      rntrc: '89012345',
       tipoTransportador: 'MULTIMODAL',
       email: 'contato@transp-cinco-dev.local',
       telefone: '1178901234',
@@ -771,8 +767,8 @@ async function main() {
   const cnpjsTransportadoras = transportadorasData.map(t => t.cnpj.replace(/\D/g, ''))
   const transportadorasExistentes = await prisma.transportadora.findMany({
     where: {
-      cnpj: { in: cnpjsTransportadoras },
-      empresaId: empresa.id
+      // ✅ CORREÇÃO: sem empresaId — o @unique de cnpj é global no schema
+      cnpj: { in: cnpjsTransportadoras }
     },
     select: { cnpj: true }
   })
@@ -789,6 +785,7 @@ async function main() {
         prisma.transportadora.create({
           data: {
             ...data,
+            tipoPessoa: data.tipoPessoa as TipoPessoa,
             cnpj: data.cnpj.replace(/\D/g, ''),
             empresa: { connect: { id: empresa.id } },
             endereco: { create: data.endereco }

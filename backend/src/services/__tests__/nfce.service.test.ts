@@ -189,7 +189,7 @@ describe('NfceService.emitirNfce', () => {
     const resultado = await service.emitirNfce({ empresaId: 'empresa-1', itens: [criarItemInput()] });
 
     expect(mocks.autorizarNfe).not.toHaveBeenCalled();
-    expect(mocks.nfceUpdateStatus).toHaveBeenCalledWith('nfce-1', 'AUTORIZADA', expect.stringMatching(/^\d+$/), expect.stringContaining('<Signature>MOCK</Signature>'));
+    expect(mocks.nfceUpdateStatus).toHaveBeenCalledWith('nfce-1', 'AUTORIZADA', expect.stringMatching(/^\d+$/), expect.stringContaining('<Signature>MOCK</Signature>'), undefined, undefined);
     expect(resultado.xmlAssinado).toContain('<Signature>MOCK</Signature>');
   });
 
@@ -206,7 +206,7 @@ describe('NfceService.emitirNfce', () => {
     const service = new NfceService();
     await service.emitirNfce({ empresaId: 'empresa-1', itens: [criarItemInput()] });
 
-    expect(mocks.nfceUpdateStatus).toHaveBeenCalledWith('nfce-1', 'AUTORIZADA', '135260000099999', expect.any(String));
+    expect(mocks.nfceUpdateStatus).toHaveBeenCalledWith('nfce-1', 'AUTORIZADA', '135260000099999', expect.any(String), undefined, '<retNFe/>');
   });
 
   it('com SEFAZ_TRANSMISSAO_REAL=true e rejeição, marca REJEITADA e lança erro com o motivo', async () => {
@@ -216,7 +216,7 @@ describe('NfceService.emitirNfce', () => {
     const service = new NfceService();
     await expect(service.emitirNfce({ empresaId: 'empresa-1', itens: [criarItemInput()] })).rejects.toThrow(/rejeição: cfop inválido/i);
 
-    expect(mocks.nfceUpdateStatus).toHaveBeenCalledWith('nfce-1', 'REJEITADA', undefined, expect.any(String), 'Rejeição: CFOP inválido');
+    expect(mocks.nfceUpdateStatus).toHaveBeenCalledWith('nfce-1', 'REJEITADA', undefined, expect.any(String), 'Rejeição: CFOP inválido', '<retNFe/>');
   });
 
   it('com SEFAZ_TRANSMISSAO_REAL=true e lote assíncrono (nRec), marca PROCESSANDO sem lançar erro', async () => {
@@ -225,7 +225,7 @@ describe('NfceService.emitirNfce', () => {
 
     const service = new NfceService();
     await expect(service.emitirNfce({ empresaId: 'empresa-1', itens: [criarItemInput()] })).resolves.toBeDefined();
-    expect(mocks.nfceUpdateStatus).toHaveBeenCalledWith('nfce-1', 'PROCESSANDO', expect.any(String), expect.any(String));
+    expect(mocks.nfceUpdateStatus).toHaveBeenCalledWith('nfce-1', 'PROCESSANDO', expect.any(String), expect.any(String), undefined, '<retNFe/>');
   });
 
   it('baixa o estoque dos produtos vendidos', async () => {

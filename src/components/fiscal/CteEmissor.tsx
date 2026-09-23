@@ -6,7 +6,7 @@ import {
   Plus, Trash2, Navigation, Route, Weight, Box,
   User, Building, Calculator, Receipt, Barcode,
   Calendar, Clock, Info, Shield, DollarSign, Layers,
-  Hash, Mail, Phone, Home, MapPinned, Users, FileBadge2
+  Hash, Mail, Phone, Home, MapPinned, Users, FileBadge2, RefreshCw
 } from 'lucide-react';
 import { CTeDocumento, CTeComponenteValor, CTeQuantidade, CTeDocumentoTransportado } from '../../types/fiscal';
 import { ClienteFornecedor, ConfiguracaoEmpresa, TransportadoraERP } from '../../types/erp';
@@ -244,6 +244,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
   // STATE - UI
   // ============================================================
   const [isTransmitting, setIsTransmitting] = useState<boolean>(false);
+  const [isCarregandoUltima, setIsCarregandoUltima] = useState<boolean>(false);
   const [erros, setErros] = useState<string[]>([]);
   const [sucessoCte, setSucessoCte] = useState<CTeDocumento | null>(null);
 
@@ -357,7 +358,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
       .map(s => s.trim().replace(/\D/g, ''))
       .filter(s => s.length === 44);
 
-    const novosDocs = chaves.map(chave => ({
+    const novosDocs: CTeDocumentoTransportado[] = chaves.map(chave => ({
       tipo: 'NFe',
       chave,
       dEmi: new Date().toISOString(),
@@ -398,9 +399,55 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
   };
 
   const atualizarAutXML = (index: number, campo: 'CNPJ' | 'CPF', valor: string) => {
-    setAutXML(prev => prev.map((a, i) => 
+    setAutXML(prev => prev.map((a, i) =>
       i === index ? { ...a, [campo]: valor } : a
     ));
+  };
+
+  // ============================================================
+  // CARREGAR ÚLTIMA NOTA
+  // ============================================================
+
+  const handleCarregarUltima = async () => {
+    setIsCarregandoUltima(true);
+    setErros([]);
+    try {
+      const resposta = await cteService.listar({ page: 1, limit: 1 });
+      const ultima = resposta.data?.[0];
+      if (!ultima) {
+        toast.showError('Nenhum CT-e anterior encontrado.');
+        return;
+      }
+
+      // Shape cru do backend (schema.prisma do CT-e segue o leiaute SEFAZ ao
+      // pé da letra) — não são chaves de documentos ou municípios de
+      // descarga/carga de propósito: são específicos da viagem anterior.
+      const raw = ultima as unknown as {
+        remetenteId?: string;
+        destinatarioId?: string;
+        modal?: string;
+        tpServ?: string;
+        toma?: string;
+        natOp?: string;
+        CFOP?: string;
+        proPred?: string;
+        rntrc?: string;
+      };
+
+      if (raw.remetenteId) handleSelectRemetente(raw.remetenteId);
+      if (raw.destinatarioId) handleSelectDestinatario(raw.destinatarioId);
+      if (raw.modal) setModal(raw.modal as ModalCTe);
+      if (raw.natOp) setNatOp(raw.natOp);
+      if (raw.CFOP) setCFOP(raw.CFOP);
+      if (raw.proPred) setProdutoPredominante(raw.proPred);
+      setRntrc(raw.rntrc || '');
+
+      toast.showSuccess('Dados do último CT-e carregados (remetente, destinatário, modal, produto). Municípios de descarga e documentos transportados ficam de fora de propósito — revise antes de emitir.');
+    } catch (error: unknown) {
+      toast.showError(getApiErrorMessage(error, 'Erro ao carregar o último CT-e'));
+    } finally {
+      setIsCarregandoUltima(false);
+    }
   };
 
   // ============================================================
@@ -434,12 +481,16 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
     if (!motoristaNome.trim()) {
       errs.push('Informe o Nome do Motorista.');
     }
-    if (!motoristaCpf.trim()) {
-      errs.push('Informe o CPF do Motorista.');
+    if (!/^[0-9]{11}$/.test(motoristaCpf.replace(/\D/g, ''))) {
+      errs.push('CPF do motorista inválido: deve ter 11 dígitos.');
     }
 
     if (totalFrete <= 0) {
       errs.push('O valor total da prestação do frete deve ser maior que zero.');
+    }
+
+    if (documentos.length === 0) {
+      errs.push('Adicione pelo menos 1 documento transportado (chave de NF-e).');
     }
 
     if (tpCTe === 'SUBSTITUICAO' && !chCteSub) {
@@ -489,7 +540,11 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         natOp,
         mod: '57',
         serie,
-        nCT: numero,
+        // ⚠️ nCT NÃO é enviado de propósito: o backend usa `data.nCT` se vier
+        // preenchido, ignorando sua própria numeração sequencial — o `numero`
+        // sorteado aqui (100-999) era só pra montar a chave de acesso local de
+        // preview; enviá-lo faria o backend gravar um número de CT-e não
+        // sequencial e sujeito a colisão. O backend gera o número real.
         dhEmi: new Date().toISOString(),
         tpImp,
         tpEmis,
@@ -672,6 +727,18 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
           ...(outrasTaxas > 0 ? [{ xNome: 'OUTRAS TAXAS', vComp: outrasTaxas }] : []),
         ],
         quantidades,
+        // ⚠️ Achado nesta revisão: o formulário juntava as chaves de NF-e (seção
+        // "Documentos Transportados") mas nunca as incluía no payload — a SEFAZ
+        // rejeita todo CT-e sem esse grupo ("Grupo Documentos Transportados deve
+        // ser informado"), confirmado testando contra a SEFAZ real.
+        documentos,
+        // ⚠️ Mesmo achado para rntrc/veiculo/motorista: o backend exige os 3 pra
+        // aceitar a requisição (senão devolve 400 "RNTRC é obrigatório" etc,
+        // confirmado testando contra o backend real), mas o formulário coletava
+        // esses campos e nunca os enviava.
+        rntrc,
+        veiculo: { placa: placaVeiculo, uf: ufVeiculo },
+        motorista: { nome: motoristaNome, cpf: motoristaCpf },
         duplicatas: [{ nDup: `${numero}/01`, dVenc: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), vDup: totalFrete }],
         observacoes: xObs ? [{ xCampo: 'obsGeral', xTexto: xObs }] : [],
         autorizadosDownload: autXML.filter(a => a.CNPJ || a.CPF),
@@ -730,9 +797,19 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
             Documento fiscal oficial para prestação de serviços de transporte de cargas rodoviário intermunicipal e interestadual.
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {serie}</div>
-          <div className={`text-[10px] font-medium ${corText}`}>Próximo CT-e: Nº {Math.floor(Math.random() * 900) + 100}</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCarregarUltima}
+            disabled={isCarregandoUltima}
+            title="Preenche o formulário com os dados do último CT-e autorizado"
+            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
+            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-semibold text-slate-700">Série {serie}</div>
+          </div>
         </div>
       </div>
 

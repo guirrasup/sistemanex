@@ -216,9 +216,18 @@ export class NfceService {
       tipoEmissao: 1
     });
 
+    // Resolve os defaults de cada item ANTES de somar os totais — os mesmos
+    // defaults que criarItem() aplica ao persistir. Antes, os totais do
+    // cabeçalho eram somados a partir de data.itens "cru" (sem defaults),
+    // enquanto os itens persistidos (e o XML) usavam os valores com default
+    // do criarItem(); qualquer campo omitido pelo chamador (ex.: valorICMS,
+    // valorTributosAproximados) produzia cabeçalho e itens divergentes —
+    // rejeitado pela SEFAZ ("Total ... difere do somatorio dos itens").
+    const itensResolvidos = data.itens.map((item) => this.resolverItem(item));
+
     // Calcula totais com desconto e acréscimo
     const totais = calcularTotaisNfe(
-      data.itens as unknown as ItemNfe[],
+      itensResolvidos as unknown as ItemNfe[],
       0, // frete
       0, // seguro
       0, // outras despesas
@@ -256,9 +265,11 @@ export class NfceService {
       valorTotalTributosAprox: totais.valorTotalTributosAproximados,
       valorTotalNota: valorTotalFinal,
 
-      // Pagamento
+      // Pagamento — em dinheiro (01) com troco, vPag deve ser o valor
+      // efetivamente recebido (não o total da nota), senão vTroco = vPag - vNF
+      // não bate com o troco informado e a SEFAZ rejeita ("Valor do troco incorreto").
       formaPagamento: data.formaPagamento || '17',
-      valorPago: data.valorPago || valorTotalFinal,
+      valorPago: data.valorPago ?? (data.formaPagamento === '01' && data.valorRecebido ? data.valorRecebido : valorTotalFinal),
       valorTroco: data.formaPagamento === '01' ? Math.max(0, (data.valorRecebido || 0) - valorTotalFinal) : 0,
 
       // QR Code (padrão V3 "online" da NT 2015.002: <base>?p=<chave44>|3|<tpAmb>)
@@ -280,12 +291,10 @@ export class NfceService {
     // Cria NFC-e
     const nfce = await this.nfceRepo.create(nfceData);
 
-    // Cria itens
+    // Cria itens (usando os mesmos valores resolvidos já somados nos totais acima)
     const itensCriados = [];
-    if (data.itens?.length > 0) {
-      for (const item of data.itens) {
-        itensCriados.push(await this.criarItem(nfce.id, item));
-      }
+    for (const item of itensResolvidos) {
+      itensCriados.push(await this.criarItem(nfce.id, item));
     }
 
     // Cria pagamentos
@@ -294,11 +303,11 @@ export class NfceService {
         await this.criarPagamento(nfce.id, pag);
       }
     } else {
-      // Pagamento padrão
+      // Pagamento padrão (mesma regra do vPag do cabeçalho acima)
       await this.criarPagamento(nfce.id, {
         tPag: data.formaPagamento || '17',
         xPag: data.xPag || this.getDescricaoPagamento(data.formaPagamento || '17'),
-        vPag: data.valorPago || valorTotalFinal,
+        vPag: data.valorPago ?? (data.formaPagamento === '01' && data.valorRecebido ? data.valorRecebido : valorTotalFinal),
         dPag: data.dPag,
         tpIntegra: data.tpIntegra || '1',
         CNPJInstPag: data.CNPJInstPag,
@@ -399,6 +408,7 @@ export class NfceService {
     const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
     let statusFinal: 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO' = 'AUTORIZADA';
     let protocolo = `1352600${Math.floor(PROTOCOLO_MOCK_SUFIXO_BASE + Math.random() * PROTOCOLO_MOCK_SUFIXO_RANGE)}`;
+    let xmlRetorno: string | undefined;
 
     if (transmissaoReal) {
       const resultado = await autorizarNfe({
@@ -409,6 +419,7 @@ export class NfceService {
         mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
         modelo: '65',
       });
+      xmlRetorno = resultado.xmlRetorno;
 
       if (resultado.autorizado && resultado.nProt) {
         statusFinal = 'AUTORIZADA';
@@ -418,14 +429,14 @@ export class NfceService {
       } else {
         statusFinal = 'REJEITADA';
         const motivo = resultado.xMotivo || 'motivo não informado';
-        await this.nfceRepo.updateStatus(nfce.id, 'REJEITADA', undefined, xml, motivo);
+        await this.nfceRepo.updateStatus(nfce.id, 'REJEITADA', undefined, xml, motivo, xmlRetorno);
         throw new Error(`SEFAZ rejeitou a NFC-e: ${motivo} (cStat ${resultado.cStat})`);
       }
     } else {
       console.warn('[NFCe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
     }
 
-    await this.nfceRepo.updateStatus(nfce.id, statusFinal, protocolo, xml);
+    await this.nfceRepo.updateStatus(nfce.id, statusFinal, protocolo, xml, undefined, xmlRetorno);
 
     // Baixa estoque
     const itensValidos = data.itens.filter(
@@ -474,9 +485,45 @@ export class NfceService {
     };
   }
 
-  private async criarItem(nfceId: string, item: ItemNfceInput) {
-    const totalBruto = (item.quantidade || 0) * (item.valorUnitario || 0);
+  // Aplica os mesmos defaults que antes só existiam em criarItem(), mas cedo o
+  // bastante para alimentar tanto calcularTotaisNfe() (cabeçalho) quanto a
+  // persistência do item — garantindo que os dois nunca divirjam.
+  private resolverItem(item: ItemNfceInput): Required<Omit<ItemNfceInput, 'produtoId' | 'cest'>> & Pick<ItemNfceInput, 'produtoId' | 'cest'> {
+    const totalBruto = item.valorTotalBruto ?? (item.quantidade || 0) * (item.valorUnitario || 0);
+    const aliquotaICMS = item.aliquotaICMS ?? 18;
 
+    return {
+      produtoId: item.produtoId,
+      codigoProduto: item.codigoProduto || '',
+      descricao: item.descricao || '',
+      ncm: item.ncm || '',
+      cest: item.cest,
+      cfop: item.cfop || '5102',
+      unidadeMedida: item.unidadeMedida || 'UN',
+      quantidade: item.quantidade || 0,
+      valorUnitario: item.valorUnitario || 0,
+      valorTotalBruto: totalBruto,
+      // csosnICMS presente ⇒ cstICMS não se aplica (mutuamente exclusivos no leiaute)
+      cstICMS: item.csosnICMS ? '' : (item.cstICMS || '00'),
+      csosnICMS: item.csosnICMS || '',
+      // `??` (não `||`): 0 é um valor legítimo aqui (ex.: item sob CSOSN sem
+      // base própria) — `||` trocava um 0 explícito pelo padrão, inflando o
+      // vBC/vICMS do documento e causando "Total da BC ICMS difere do somatorio
+      // dos itens" na SEFAZ mesmo quando o item já tinha o valor certo (0).
+      aliquotaICMS,
+      baseCalculoICMS: item.baseCalculoICMS ?? totalBruto,
+      valorICMS: item.valorICMS ?? (totalBruto * aliquotaICMS / 100),
+      cstPIS: item.cstPIS || '01',
+      aliquotaPIS: item.aliquotaPIS ?? 1.65,
+      valorPIS: item.valorPIS ?? (totalBruto * 1.65 / 100),
+      cstCOFINS: item.cstCOFINS || '01',
+      aliquotaCOFINS: item.aliquotaCOFINS ?? 7.6,
+      valorCOFINS: item.valorCOFINS ?? (totalBruto * 7.6 / 100),
+      valorTributosAproximados: item.valorTributosAproximados ?? (totalBruto * 0.314),
+    };
+  }
+
+  private async criarItem(nfceId: string, item: ItemNfceInput) {
     return this.nfceRepo.createItem(nfceId, {
       codigoProduto: item.codigoProduto || '',
       descricao: item.descricao || '',
@@ -486,23 +533,19 @@ export class NfceService {
       unidadeMedida: item.unidadeMedida || 'UN',
       quantidade: item.quantidade || 0,
       valorUnitario: item.valorUnitario || 0,
-      valorTotalBruto: item.valorTotalBruto || totalBruto,
+      valorTotalBruto: item.valorTotalBruto || 0,
       cstICMS: item.csosnICMS ? undefined : (item.cstICMS || '00'),
       csosnICMS: item.csosnICMS || undefined,
-      // `??` (não `||`): 0 é um valor legítimo aqui (ex.: item sob CSOSN sem
-      // base própria) — `||` trocava um 0 explícito pelo padrão, inflando o
-      // vBC/vICMS do documento e causando "Total da BC ICMS difere do somatorio
-      // dos itens" na SEFAZ mesmo quando o item já tinha o valor certo (0).
       aliquotaICMS: item.aliquotaICMS ?? 18,
-      baseCalculoICMS: item.baseCalculoICMS ?? totalBruto,
-      valorICMS: item.valorICMS ?? (totalBruto * (item.aliquotaICMS ?? 18) / 100),
+      baseCalculoICMS: item.baseCalculoICMS ?? 0,
+      valorICMS: item.valorICMS ?? 0,
       cstPIS: item.cstPIS || '01',
       aliquotaPIS: item.aliquotaPIS ?? 1.65,
-      valorPIS: item.valorPIS ?? (totalBruto * 1.65 / 100),
+      valorPIS: item.valorPIS ?? 0,
       cstCOFINS: item.cstCOFINS || '01',
       aliquotaCOFINS: item.aliquotaCOFINS ?? 7.6,
-      valorCOFINS: item.valorCOFINS ?? (totalBruto * 7.6 / 100),
-      valorTributosAprox: item.valorTributosAproximados ?? (totalBruto * 0.314),
+      valorCOFINS: item.valorCOFINS ?? 0,
+      valorTributosAprox: item.valorTributosAproximados ?? 0,
     });
   }
 

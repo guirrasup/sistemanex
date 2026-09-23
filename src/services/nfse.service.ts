@@ -26,6 +26,39 @@ export interface FiltroNFSe {
   chave?: string;
 }
 
+// Contrato real aceito por POST /api/nfse/emitir — o backend calcula ISS/PIS/
+// COFINS/etc. (calcularTributosNfse) a partir do que é enviado aqui; nada de
+// valorISS/baseCalculoISS já calculados, ao contrário do ServicoItemNfse
+// "cheio" usado para o documento já emitido.
+export interface EmitirNfseServicoParams {
+  valorServico: number;
+  descontoIncondicionado?: number;
+  deducoesMateriais?: number;
+  aliquotaISS?: number;
+  tipoRetencaoISS?: number;
+  tributacaoISSQN?: number;
+  codigoTributacaoNacional?: string;
+  codigoTributacaoMunicipal?: string;
+  codigoNBS?: string;
+  descricao?: string;
+  aliquotaPIS?: number;
+  retidoPIS?: boolean;
+  aliquotaCOFINS?: number;
+  retidoCOFINS?: boolean;
+  aliquotaIRRF?: number;
+  aliquotaCSLL?: number;
+  aliquotaINSS?: number;
+}
+
+export interface EmitirNfseParams {
+  tomadorId: string;
+  servicoId?: string;
+  servico: EmitirNfseServicoParams;
+  formaPagamento?: string;
+  informacoesComplementares?: string;
+  numeroPedido?: string;
+}
+
 export interface TotalFaturadoNFSe {
   totalServicos: number;
   totalISS: number;
@@ -59,13 +92,12 @@ export interface ServicoMaisPrestado {
 
 export const nfseService = {
   async listar(filtros: FiltroNFSe = {}): Promise<ListaNfseResponse> {
+    const { page = 1, limit = 50, ...outrosFiltros } = filtros;
     try {
-      const { page = 1, limit = 50, ...outrosFiltros } = filtros;
-      
       const response = await api.get('/nfse', {
         params: { page, limit, ...outrosFiltros }
       });
-      
+
       if (response.data && response.data.sucesso && response.data.dados) {
         return response.data.dados;
       }
@@ -111,23 +143,22 @@ export const nfseService = {
     }
   },
 
-  async emitir(nfse: Partial<NFSeDocumento>): Promise<NFSeDocumento> {
+  async emitir(dados: EmitirNfseParams): Promise<NFSeDocumento> {
     try {
       // ✅ VALIDA DADOS OBRIGATÓRIOS
-      if (!nfse.tomadorId) {
+      if (!dados.tomadorId) {
         throw new Error('Tomador é obrigatório');
       }
-      
-      const valorServico = nfse.servico?.valorServico || 0;
-      if (valorServico <= 0) {
+
+      if (!dados.servico || dados.servico.valorServico <= 0) {
         throw new Error('Valor do serviço deve ser maior que zero');
       }
-      
-      if (!nfse.servico?.descricao && !nfse.servicoId) {
+
+      if (!dados.servico.descricao && !dados.servicoId) {
         throw new Error('Descrição do serviço é obrigatória ou selecione um serviço do catálogo');
       }
-      
-      const response = await api.post('/nfse/emitir', nfse);
+
+      const response = await api.post('/nfse/emitir', dados);
       return response.data.dados || response.data;
     } catch (error: unknown) {
       console.error('❌ NFS-e emitir erro:', error);

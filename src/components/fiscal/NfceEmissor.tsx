@@ -38,14 +38,18 @@ import {
   Printer,
   Ticket
 } from 'lucide-react';
-import { NFCeDocumento, NFeDocumento, ItemNfe } from '../../types/fiscal';
+import { NFCeDocumento, ItemNfe } from '../../types/fiscal';
 import { Produto, ClienteFornecedor, ConfiguracaoEmpresa } from '../../types/erp';
-import { StorageService } from '../../utils/storage';
-import { formatarMoeda, formatarCpfCnpj, validarCpfOuCnpj, limparDocumento } from '../../utils/cpfCnpjValidator';
-import { gerarChaveAcessoNFe } from '../../utils/chaveAcesso';
+import { formatarMoeda, validarCpfOuCnpj } from '../../utils/cpfCnpjValidator';
 import { calcularTotaisNfe } from '../../utils/tributosEngine';
 import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
+import { nfceService, EmitirNfceItemParams } from '../../services/nfce.service';
+
+// CSOSN sem base própria (ICMSSN102/ICMSSN500 no XML) — não declaram vBC/vICMS;
+// mandar um valor aqui infla o total do documento sem lastro em nenhum item,
+// e a SEFAZ rejeita ("Total da BC ICMS difere do somatorio dos itens").
+const CSOSN_SEM_BASE_PROPRIA = ['102', '103', '300', '400', '500'];
 
 interface NfceEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -102,7 +106,11 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   const [idDest, setIdDest] = useState<1 | 2 | 3>(1);
   const [finNFe, setFinNFe] = useState<1 | 2 | 3 | 4>(1);
   const [indFinal, setIndFinal] = useState<0 | 1>(1);
-  const [indPres, setIndPres] = useState<0 | 1 | 2 | 3 | 4 | 5 | 9>(2);
+  // ⚠️ Default era 2 (não presencial) — a SEFAZ rejeita NFC-e "não presencial"
+  // (cStat 717, "NFC-e em operacao nao presencial"): o modelo 65 é, por
+  // definição, o cupom fiscal do balcão/PDV. Achado emitindo de verdade contra
+  // a SEFAZ real durante esta revisão.
+  const [indPres, setIndPres] = useState<0 | 1 | 2 | 3 | 4 | 5 | 9>(1);
   const [procEmi, setProcEmi] = useState<string>('0');
   const [verProc, setVerProc] = useState<string>('SUP-TECNOLOGIA-4.00');
   const [tpEmis, setTpEmis] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7 | 9>(1);
@@ -145,6 +153,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   // STATE - UI
   // ============================================================
   const [isTransmitting, setIsTransmitting] = useState<boolean>(false);
+  const [isCarregandoUltima, setIsCarregandoUltima] = useState<boolean>(false);
   const [erros, setErros] = useState<string[]>([]);
   const [sucessoNfce, setSucessoNfce] = useState<NFCeDocumento | null>(null);
 
@@ -214,19 +223,20 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
       const novos = [...itens];
       const it = novos[existenteIndex];
       const novaQtd = it.quantidade + 1;
-      
+
       if (novaQtd > prod.estoqueAtual) {
         toast.showWarning(`⚠️ Estoque insuficiente para "${prod.descricao}". Disponível: ${prod.estoqueAtual}`);
         return;
       }
-      
+
+      const semBasePropria = !!it.csosnICMS && CSOSN_SEM_BASE_PROPRIA.includes(it.csosnICMS);
       const novoTotal = novaQtd * it.valorUnitario;
       novos[existenteIndex] = {
         ...it,
         quantidade: novaQtd,
         valorTotalBruto: novoTotal,
-        baseCalculoICMS: novoTotal,
-        valorICMS: (novoTotal * it.aliquotaICMS) / 100,
+        baseCalculoICMS: semBasePropria ? 0 : novoTotal,
+        valorICMS: semBasePropria ? 0 : (novoTotal * it.aliquotaICMS) / 100,
         valorPIS: (novoTotal * it.aliquotaPIS) / 100,
         valorCOFINS: (novoTotal * it.aliquotaCOFINS) / 100,
         valorTributosAproximados: novoTotal * 0.314,
@@ -236,6 +246,10 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
       return;
     }
 
+    // CST (regime normal) e CSOSN (Simples Nacional) são mutuamente exclusivos
+    // no leiaute — a empresa aqui é Simples Nacional (CRT=1), então o csosnICMS
+    // do produto (quando cadastrado) prevalece sobre o CST.
+    const semBasePropria = !!prod.csosnICMS && CSOSN_SEM_BASE_PROPRIA.includes(prod.csosnICMS);
     const novoItem: ItemNfe = {
       id: `item-nfce-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       codigoProduto: prod.codigo,
@@ -248,19 +262,17 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
       valorUnitario: prod.precoVenda,
       valorTotalBruto: prod.precoVenda,
       origemMercadoria: prod.origem || 0,
-      cstICMS: prod.cstICMS || '00',
+      cstICMS: (prod.cstICMS || '00') as ItemNfe['cstICMS'],
+      csosnICMS: prod.csosnICMS as ItemNfe['csosnICMS'],
       aliquotaICMS: prod.aliquotaICMS,
-      baseCalculoICMS: prod.precoVenda,
-      valorICMS: (prod.precoVenda * prod.aliquotaICMS) / 100,
-      cstPIS: prod.cstPIS || '01',
+      baseCalculoICMS: semBasePropria ? 0 : prod.precoVenda,
+      valorICMS: semBasePropria ? 0 : (prod.precoVenda * prod.aliquotaICMS) / 100,
+      cstPIS: '01',
       aliquotaPIS: prod.aliquotaPIS,
       valorPIS: (prod.precoVenda * prod.aliquotaPIS) / 100,
-      cstCOFINS: prod.cstCOFINS || '01',
+      cstCOFINS: '01',
       aliquotaCOFINS: prod.aliquotaCOFINS,
       valorCOFINS: (prod.precoVenda * prod.aliquotaCOFINS) / 100,
-      cstIPI: prod.cstIPI || '50',
-      aliquotaIPI: prod.aliquotaIPI || 0,
-      valorIPI: (prod.precoVenda * (prod.aliquotaIPI || 0)) / 100,
       codigoEAN: prod.codigoBarrasEAN || undefined,
       codigoEANTrib: prod.codigoBarrasEAN || undefined,
       valorTributosAproximados: prod.precoVenda * 0.314,
@@ -382,6 +394,60 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   };
 
   // ============================================================
+  // CARREGAR ÚLTIMA NOTA
+  // ============================================================
+
+  const handleCarregarUltima = async () => {
+    setIsCarregandoUltima(true);
+    setErros([]);
+    try {
+      const resposta = await nfceService.listar({ page: 1, limit: 1, status: 'AUTORIZADA' });
+      const ultima = resposta.data?.[0];
+      if (!ultima) {
+        toast.showError('Nenhuma NFC-e autorizada anterior encontrada.');
+        return;
+      }
+
+      setNaturezaOperacao(ultima.naturezaOperacao || naturezaOperacao);
+      setFormaPagamento((ultima.formaPagamento as typeof formaPagamento) || formaPagamento);
+
+      // A resposta real da API é o registro cru do Prisma (consumidorCpfCnpj/
+      // consumidorNome soltos), não o shape { destinatario: {...} } do tipo
+      // NFCeDocumento do protótipo antigo — lido aqui com um cast local.
+      const raw = ultima as unknown as { consumidorCpfCnpj?: string; consumidorNome?: string };
+      if (raw.consumidorCpfCnpj) {
+        const clienteAnterior = clientes.find(c => c.documento === raw.consumidorCpfCnpj);
+        setIdentificarConsumidor(true);
+        if (clienteAnterior) {
+          handleSelectCliente(clienteAnterior.id);
+        } else {
+          setConsumidorDoc(raw.consumidorCpfCnpj);
+          setConsumidorNome(raw.consumidorNome || '');
+        }
+      } else {
+        setIdentificarConsumidor(false);
+      }
+
+      // O shape do item devolvido pela API já bate quase 1:1 com ItemNfe — só
+      // precisa de um id novo (React key) e o nome do campo de tributos
+      // aproximados diverge (valorTributosAprox na API x valorTributosAproximados aqui).
+      const itensRecarregados: ItemNfe[] = (ultima.itens || []).map((item, idx) => ({
+        ...item,
+        id: `item-nfce-ultima-${Date.now()}-${idx}`,
+        valorTributosAproximados: (item as unknown as { valorTributosAprox?: number }).valorTributosAprox
+          ?? item.valorTributosAproximados,
+      }));
+      setItens(itensRecarregados);
+
+      toast.showSuccess('Dados da última NFC-e carregados. Revise antes de emitir.');
+    } catch (error: unknown) {
+      toast.showError(getApiErrorMessage(error, 'Erro ao carregar a última NFC-e'));
+    } finally {
+      setIsCarregandoUltima(false);
+    }
+  };
+
+  // ============================================================
   // TRANSMISSÃO
   // ============================================================
 
@@ -392,112 +458,58 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
     setErros([]);
 
     try {
-      const numero = empresa.proximoNumeroNfce || 1;
-      const serie = empresa.serieNfce || 1;
-      const aamm = new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0');
+      const itensParaEnvio: EmitirNfceItemParams[] = itens.map(item => ({
+        codigoProduto: item.codigoProduto,
+        descricao: item.descricao,
+        ncm: item.ncm,
+        cest: item.cest,
+        cfop: item.cfop,
+        unidadeMedida: item.unidadeMedida,
+        quantidade: item.quantidade,
+        valorUnitario: item.valorUnitario,
+        cstICMS: item.csosnICMS ? undefined : item.cstICMS,
+        csosnICMS: item.csosnICMS,
+        aliquotaICMS: item.aliquotaICMS,
+        baseCalculoICMS: item.baseCalculoICMS,
+        valorICMS: item.valorICMS,
+        cstPIS: item.cstPIS,
+        aliquotaPIS: item.aliquotaPIS,
+        valorPIS: item.valorPIS,
+        cstCOFINS: item.cstCOFINS,
+        aliquotaCOFINS: item.aliquotaCOFINS,
+        valorCOFINS: item.valorCOFINS,
+        valorTributosAproximados: item.valorTributosAproximados,
+      }));
 
-      const { chaveCompleta } = gerarChaveAcessoNFe({
-        codigoUf: empresa.endereco.codigoMunicipio.slice(0, 2) || '35',
-        anoMes: aamm,
-        cnpjEmitente: empresa.cnpj,
-        modelo: '65',
-        serie,
-        numero,
-        tipoEmissao: 1,
-      });
-
-      const docConsumidor = identificarConsumidor ? limparDocumento(consumidorDoc) : '';
-
-      const novaNfce: NFCeDocumento = {
-        id: `nfce-${Date.now()}`,
-        modelo: '65',
-        serie,
-        numero,
-        chaveAcesso: chaveCompleta,
-        dataHoraEmissao: new Date().toISOString(),
-        naturezaOperacao,
-        ambiente: empresa.ambienteEmissao,
-        tipoEmissao: 1,
-        status: 'AUTORIZADA',
-        emitente: {
-          cnpj: empresa.cnpj,
-          inscricaoMunicipal: empresa.inscricaoMunicipal,
-          inscricaoEstadual: empresa.inscricaoEstadual,
-          razaoSocial: empresa.razaoSocial,
-          nomeFantasia: empresa.nomeFantasia,
-          regimeTributario: empresa.regimeTributario,
-          optanteSimplesNacional: empresa.optanteSimplesNacional,
-          optanteMEI: empresa.optanteMEI,
-          endereco: empresa.endereco,
-        },
+      const nfceEmitida = await nfceService.emitir({
+        itens: itensParaEnvio,
         consumidorIdentificado: identificarConsumidor,
-        destinatario: identificarConsumidor ? {
-          cpfCnpj: docConsumidor || undefined,
-          nomeRazaoSocial: consumidorNome || 'Consumidor Identificado',
-          email: consumidorEmail || undefined,
-          endereco: {
-            logradouro: consumidorLogradouro || '',
-            numero: consumidorNumero || '',
-            complemento: consumidorComplemento || '',
-            bairro: consumidorBairro || '',
-            codigoMunicipio: consumidorCodigoMunicipio || '3550308',
-            nomeMunicipio: consumidorNomeMunicipio || 'São Paulo',
-            uf: consumidorUf || 'SP',
-            cep: consumidorCep || '',
-            telefone: consumidorTelefone || '',
-            email: consumidorEmail || '',
-          },
-        } : undefined,
-        itens,
-        valorTotalProdutos: totais.valorTotalProdutos,
-        valorTotalDesconto: valorDesconto,
-        valorTotalAcrescimo: valorAcrescimo,
-        valorTotalTributosAproximados: totais.valorTotalTributosAproximados,
-        valorTotalNota: valorTotalFinal,
+        consumidorDoc: identificarConsumidor ? consumidorDoc : undefined,
+        consumidorNome: identificarConsumidor ? consumidorNome : undefined,
+        naturezaOperacao,
+        valorDesconto,
+        valorAcrescimo,
         formaPagamento,
-        valorPago: valorRecebido > 0 ? valorRecebido : valorTotalFinal,
-        valorTroco: formaPagamento === '01' ? troco : 0,
-        urlQrCode: `https://www.nfce.fazenda.gov.br/portal/qrCode/${chaveCompleta}`,
-        tokenCscId: empresa.tokenCSCId || '000001',
-        protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-        dataHoraAutorizacao: new Date().toISOString(),
-        xmlAssinado: '',
-        indFinal,
-        indPres,
-        tpEmis,
-        procEmi,
-        verProc,
+        valorPago: vPag,
+        valorRecebido: formaPagamento === '01' ? valorRecebido : undefined,
+        tokenCscId: undefined,
+        infAdFisco: infAdFisco || undefined,
+        infCpl: infCpl || undefined,
         tpNF,
         idDest,
         finNFe,
-        pagamentos: [{
-          indPag: '0',
-          tPag: tPag,
-          xPag: xPag,
-          vPag: vPag,
-          dPag: dPag || undefined,
-          tpIntegra: tpIntegra,
-          CNPJPag: '',
-          UFPag: '',
-          CNPJInstPag: CNPJInstPag || undefined,
-          tBand: tBand || undefined,
-          cAut: cAut || undefined,
-          CNPJReceb: CNPJReceb || undefined,
-          idTermPag: idTermPag || undefined,
-        }],
-        infAdFisco: infAdFisco || undefined,
-        infCpl: infCpl || undefined,
-      };
+        indFinal,
+        indPres,
+        procEmi,
+        verProc,
+        tpEmis,
+      });
 
-      const xml = gerarXmlNfe400(novaNfce as unknown as NFeDocumento);
-      novaNfce.xmlAssinado = xml;
-
-      StorageService.addNfce(novaNfce);
-      onNfceEmitida(novaNfce);
-      setSucessoNfce(novaNfce);
-      
-      toast.showSuccess(`✅ NFC-e Nº ${numero} emitida com sucesso!`);
-
+      if (nfceEmitida) {
+        onNfceEmitida(nfceEmitida);
+        setSucessoNfce(nfceEmitida);
+        toast.showSuccess(`✅ NFC-e Nº ${nfceEmitida.numero} emitida com sucesso!`);
+      }
     } catch (error: unknown) {
       console.error('❌ Erro na transmissão:', error);
       const mensagemErro = getApiErrorMessage(error, 'Erro ao emitir NFC-e. Tente novamente.');
@@ -537,9 +549,20 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           </p>
         </div>
 
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfce || 1}</div>
-          <div className={`text-[10px] font-medium ${corText}`}>Próxima NFC-e: Nº {empresa.proximoNumeroNfce || 1}</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCarregarUltima}
+            disabled={isCarregandoUltima}
+            title="Preenche o formulário com os dados da última NFC-e autorizada"
+            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
+            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfce || 1}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próxima NFC-e: Nº {empresa.proximoNumeroNfce || 1}</div>
+          </div>
         </div>
       </div>
 

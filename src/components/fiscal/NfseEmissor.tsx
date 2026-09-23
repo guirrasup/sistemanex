@@ -36,14 +36,11 @@ import {
 } from 'lucide-react';
 import { NFSeDocumento, TributacaoISSQN, TipoRetencaoISS } from '../../types/fiscal';
 import { ClienteFornecedor, ServicoCatalogo, ConfiguracaoEmpresa } from '../../types/erp';
-import { StorageService } from '../../utils/storage';
-import { validarCpfOuCnpj, formatarMoeda, limparDocumento } from '../../utils/cpfCnpjValidator';
-import { gerarChaveAcessoNFSe } from '../../utils/chaveAcesso';
+import { validarCpfOuCnpj, formatarMoeda } from '../../utils/cpfCnpjValidator';
 import { calcularTributosNfse } from '../../utils/tributosEngine';
-import { gerarXmlNfseNacional } from '../../utils/xmlNfseGenerator';
 import { useToast } from '../../hooks/useToast';
-import api from '../../services/api';
 import { getApiErrorMessage } from '../../utils/apiError';
+import { nfseService } from '../../services/nfse.service';
 
 interface NfseEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -161,6 +158,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
   // STATE - UI
   // ============================================================
   const [isTransmitting, setIsTransmitting] = useState<boolean>(false);
+  const [isCarregandoUltima, setIsCarregandoUltima] = useState<boolean>(false);
   const [errosValidacao, setErrosValidacao] = useState<string[]>([]);
   const [sucessoNfse, setSucessoNfse] = useState<NFSeDocumento | null>(null);
 
@@ -221,7 +219,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
       setTomadorNomeFantasia(cli.nomeFantasia || '');
       setTomadorInscricaoMunicipal(cli.inscricaoMunicipal || '');
       setTomadorInscricaoEstadual(cli.inscricaoEstadual || '');
-      setTomadorIndicadorIE((cli.indIEDest as '1' | '2' | '9') || '9');
+      setTomadorIndicadorIE(cli.indicadorIE || '9');
       setTomadorEmail(cli.email || '');
       setTomadorTelefone(cli.telefone || '');
       setTomadorLogradouro(cli.endereco.logradouro);
@@ -286,6 +284,11 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
   const validarFormulario = (): boolean => {
     const errs: string[] = [];
 
+    // ✅ o backend só aceita tomadorId (um cliente já cadastrado)
+    if (!selectedClienteId) {
+      errs.push('Selecione um tomador cadastrado na lista acima.');
+    }
+
     // Tomador
     const valDoc = validarCpfOuCnpj(tomadorDoc);
     if (!valDoc.valido) {
@@ -323,6 +326,71 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
   };
 
   // ============================================================
+  // CARREGAR ÚLTIMA NOTA
+  // ============================================================
+
+  const handleCarregarUltima = async () => {
+    setIsCarregandoUltima(true);
+    setErrosValidacao([]);
+    try {
+      const resposta = await nfseService.listar({ page: 1, limit: 1, status: 'AUTORIZADA' });
+      const ultima = resposta.data?.[0];
+      if (!ultima) {
+        toast.showError('Nenhuma NFS-e autorizada anterior encontrada.');
+        return;
+      }
+
+      // A resposta real da API tem campos soltos (tomadorId, descricaoServico,
+      // pagamentoTipoMeio) em vez do shape aninhado { tomador, servico } do
+      // tipo NFSeDocumento do protótipo antigo — lido aqui com um cast local.
+      const raw = ultima as unknown as {
+        tomadorId?: string;
+        descricaoServico?: string;
+        codigoTributacaoNacional?: string;
+        codigoTributacaoMunicipal?: string;
+        codigoNBS?: string;
+        codigoInterno?: string;
+        valorServico?: number | string;
+        aliquotaISS?: number | string;
+        tributacaoISSQN?: number;
+        tipoRetencaoISS?: number;
+        aliquotaPIS?: number | string;
+        aliquotaCOFINS?: number | string;
+        aliquotaIRRF?: number | string;
+        aliquotaCSLL?: number | string;
+        aliquotaINSS?: number | string;
+        pagamentoTipoMeio?: string;
+      };
+
+      if (raw.tomadorId) {
+        handleClienteChange(raw.tomadorId);
+      }
+      setSelectedServicoId('');
+      if (raw.descricaoServico) setDescricaoServico(raw.descricaoServico);
+      if (raw.codigoTributacaoNacional) setCodigoTributacaoNacional(raw.codigoTributacaoNacional);
+      if (raw.codigoTributacaoMunicipal) setCodigoTributacaoMunicipal(raw.codigoTributacaoMunicipal);
+      if (raw.codigoNBS) setCodigoNBS(raw.codigoNBS);
+      if (raw.codigoInterno) setCodigoInterno(raw.codigoInterno);
+      if (raw.valorServico) setValorServico(Number(raw.valorServico));
+      if (raw.aliquotaISS) setAliquotaISS(Number(raw.aliquotaISS));
+      if (raw.tributacaoISSQN) setTributacaoISSQN(raw.tributacaoISSQN as TributacaoISSQN);
+      if (raw.tipoRetencaoISS) setTipoRetencaoISS(raw.tipoRetencaoISS as TipoRetencaoISS);
+      if (raw.aliquotaPIS) setAliquotaPIS(Number(raw.aliquotaPIS));
+      if (raw.aliquotaCOFINS) setAliquotaCOFINS(Number(raw.aliquotaCOFINS));
+      if (raw.aliquotaIRRF) setAliquotaIRRF(Number(raw.aliquotaIRRF));
+      if (raw.aliquotaCSLL) setAliquotaCSLL(Number(raw.aliquotaCSLL));
+      if (raw.aliquotaINSS) setAliquotaINSS(Number(raw.aliquotaINSS));
+      if (raw.pagamentoTipoMeio) setFormaPagamento(raw.pagamentoTipoMeio);
+
+      toast.showSuccess('Dados da última NFS-e carregados. Revise antes de emitir.');
+    } catch (error: unknown) {
+      toast.showError(getApiErrorMessage(error, 'Erro ao carregar a última NFS-e'));
+    } finally {
+      setIsCarregandoUltima(false);
+    }
+  };
+
+  // ============================================================
   // TRANSMISSÃO
   // ============================================================
 
@@ -333,163 +401,38 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
     setErrosValidacao([]);
 
     try {
-      const numeroNfse = empresa.proximoNumeroNfse || 1;
-      const serieDPS = empresa.serieNfse || 1;
-      const aamm = new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0');
-
-      const { chaveCompleta, codigoVerificacao } = gerarChaveAcessoNFSe({
-        codigoMunicipioIBGE: empresa.endereco?.codigoMunicipio || '3550308',
-        ambienteGerador: empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2,
-        tipoInscricao: 1,
-        documentoEmitente: empresa.cnpj,
-        numeroNfse,
-        anoMesDPS: aamm,
-      });
-
-      const docTomadorLimpo = limparDocumento(tomadorDoc);
-      const isCnpj = docTomadorLimpo.length === 14;
-
-      const novaNfse: NFSeDocumento = {
-        id: `nfse-${Date.now()}`,
-        chaveAcesso: chaveCompleta,
-        numeroNfse,
-        serieDPS,
-        numeroDPS: numeroNfse,
-        dataCompetencia: new Date().toISOString().split('T')[0],
-        dataHoraEmissao: new Date().toISOString(),
-        dataHoraProcessamento: new Date().toISOString(),
-        codigoVerificacao,
-        ambiente: empresa.ambienteEmissao,
-        tipoEmissao: 1,
-        status: 'AUTORIZADA',
-
-        emitente: {
-          cnpj: empresa.cnpj,
-          inscricaoMunicipal: empresa.inscricaoMunicipal || '',
-          inscricaoEstadual: empresa.inscricaoEstadual || '',
-          razaoSocial: empresa.razaoSocial,
-          nomeFantasia: empresa.nomeFantasia || '',
-          regimeTributario: empresa.regimeTributario === 'SIMPLES_NACIONAL' ? 1 : 3,
-          optanteSimplesNacional: empresa.optanteSimples || false,
-          optanteMEI: empresa.optanteMEI || false,
-          endereco: {
-            logradouro: empresa.endereco?.logradouro || '',
-            numero: empresa.endereco?.numero || '',
-            complemento: empresa.endereco?.complemento || '',
-            bairro: empresa.endereco?.bairro || '',
-            codigoMunicipio: empresa.endereco?.codigoMunicipio || '3550308',
-            nomeMunicipio: empresa.endereco?.nomeMunicipio || 'São Paulo',
-            uf: empresa.endereco?.uf || 'SP',
-            cep: empresa.endereco?.cep || '',
-            telefone: empresa.endereco?.telefone || '',
-            email: empresa.endereco?.email || '',
-          },
-        },
-
-        tomador: {
-          tipoPessoa: isCnpj ? 'PJ' : 'PF',
-          documento: tomadorDoc,
-          nomeRazaoSocial: tomadorRazaoSocial,
-          nomeFantasia: tomadorNomeFantasia || undefined,
-          inscricaoMunicipal: tomadorInscricaoMunicipal || undefined,
-          inscricaoEstadual: tomadorInscricaoEstadual || undefined,
-          indicadorIEDestinatario: tomadorIndicadorIE,
-          email: tomadorEmail || undefined,
-          telefone: tomadorTelefone || undefined,
-          endereco: {
-            logradouro: tomadorLogradouro,
-            numero: tomadorNumero,
-            complemento: tomadorComplemento || undefined,
-            bairro: tomadorBairro,
-            codigoMunicipio: tomadorCodigoMunicipio || '3550308',
-            nomeMunicipio: tomadorNomeMunicipio || 'São Paulo',
-            uf: tomadorUf,
-            cep: tomadorCep || '',
-            telefone: tomadorTelefone || undefined,
-            email: tomadorEmail || undefined,
-          },
-        },
-
+      const nfseEmitida = await nfseService.emitir({
+        tomadorId: selectedClienteId,
+        servicoId: selectedServicoId || undefined,
         servico: {
-          codigoTributacaoNacional: codigoTributacaoNacional,
-          codigoTributacaoMunicipal: codigoTributacaoMunicipal,
-          descricao: descricaoServico,
-          codigoNBS: codigoNBS,
-          codigoInterno: codigoInterno || undefined,
-          localPrestacao: {
-            codigoMunicipio: localPrestacaoCodigoMunicipio,
-            nomeMunicipio: localPrestacaoNomeMunicipio,
-            uf: localPrestacaoUf,
-          },
-          valorServico: calc.valorServico,
-          descontoIncondicionado: calc.descontoIncondicionado,
-          descontoCondicionado: calc.descontoCondicionado,
-          deducoesMateriais: calc.deducoesMateriais,
-          tributacaoISSQN,
-          aliquotaISS: calc.aliquotaISS,
-          valorISS: calc.valorISS,
+          valorServico,
+          descontoIncondicionado,
+          deducoesMateriais,
+          aliquotaISS,
           tipoRetencaoISS,
-          valorISSRetido: calc.valorISSRetido,
-          baseCalculoISS: calc.baseCalculoISS,
-          cstPisCofins: '01',
-          aliquotaPIS: calc.aliquotaPIS,
-          valorPIS: calc.valorPIS,
+          tributacaoISSQN,
+          codigoTributacaoNacional,
+          codigoTributacaoMunicipal,
+          codigoNBS,
+          descricao: descricaoServico,
+          aliquotaPIS,
           retidoPIS,
-          aliquotaCOFINS: calc.aliquotaCOFINS,
-          valorCOFINS: calc.valorCOFINS,
+          aliquotaCOFINS,
           retidoCOFINS,
-          aliquotaIRRF: calc.aliquotaIRRF,
-          valorIRRF: calc.valorIRRF,
-          aliquotaCSLL: calc.aliquotaCSLL,
-          valorCSLL: calc.valorCSLL,
-          aliquotaINSS: calc.aliquotaINSS,
-          valorINSS: calc.valorINSS,
-          ibscbs: calc.ibscbs,
-          valorTributosFederais: calc.tributosFederais,
-          valorTributosEstaduais: calc.tributosEstaduais,
-          valorTributosMunicipais: calc.tributosMunicipais,
-          percentualTotalTributos: calc.percentualTotalTributos,
+          aliquotaIRRF,
+          aliquotaCSLL,
+          aliquotaINSS,
         },
-
-        valorTotalServicos: calc.valorServico,
-        valorTotalDescontos: calc.descontoIncondicionado,
-        valorTotalDeducoes: calc.deducoesMateriais,
-        baseCalculoISS: calc.baseCalculoISS,
-        valorTotalISS: calc.valorISS,
-        valorTotalISSRetido: calc.valorISSRetido,
-        valorTotalRetencoesFederais: calc.totalRetencoes - calc.valorISSRetido,
-        valorTotalIBS: calc.valorTotalIBS,
-        valorTotalCBS: calc.valorCBS,
-        valorLiquidoNfse: calc.valorLiquido,
-        valorTotalNotaFinal: calc.valorTotalNotaFinal,
+        formaPagamento,
         informacoesComplementares: informacoesComplementares || undefined,
         numeroPedido: numeroPedido || undefined,
-        xmlAssinado: '',
-        urlVisualizacaoNacional: 'https://www.nfse.gov.br/consultapublica',
-      };
+      });
 
-      novaNfse.xmlAssinado = gerarXmlNfseNacional(novaNfse);
-
-      try {
-        const response = await api.post('/nfse/emitir', {
-          empresaId: empresa.id,
-          tomadorId: selectedClienteId,
-          servicoId: selectedServicoId || undefined,
-          servico: novaNfse.servico,
-          formaPagamento,
-          informacoesComplementares,
-          numeroPedido,
-        });
-              } catch (err: unknown) {
-        console.error('Erro ao salvar NFS-e no backend:', err);
-        StorageService.addNfse(novaNfse);
+      if (nfseEmitida) {
+        onNfseEmitida(nfseEmitida);
+        setSucessoNfse(nfseEmitida);
+        toast.showSuccess(`✅ NFS-e Nº ${nfseEmitida.numeroNfse} emitida com sucesso!`);
       }
-
-      StorageService.addNfse(novaNfse);
-      onNfseEmitida(novaNfse);
-      setSucessoNfse(novaNfse);
-      toast.showSuccess(`✅ NFS-e Nº ${numeroNfse} emitida com sucesso!`);
-
     } catch (err: unknown) {
       console.error('❌ Erro na transmissão:', err);
       const mensagemErro = getApiErrorMessage(err, 'Falha ao processar emissão da NFS-e. Verifique os dados.');
@@ -523,9 +466,20 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           </p>
         </div>
 
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfse || 1}</div>
-          <div className={`text-[10px] font-medium ${corText}`}>Próxima NFS-e: Nº {empresa.proximoNumeroNfse || 1}</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCarregarUltima}
+            disabled={isCarregandoUltima}
+            title="Preenche o formulário com os dados da última NFS-e autorizada"
+            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
+            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfse || 1}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próxima NFS-e: Nº {empresa.proximoNumeroNfse || 1}</div>
+          </div>
         </div>
       </div>
 
@@ -542,7 +496,8 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
                   Chave: {sucessoNfse.chaveAcesso} | Cód: {sucessoNfse.codigoVerificacao}
                 </p>
                 <div className="text-[11px] text-blue-700 mt-1">
-                  Tomador: {sucessoNfse.tomador.nomeRazaoSocial} • Valor: {formatarMoeda(sucessoNfse.valorTotalServicos)}
+                  Tomador: {(sucessoNfse as unknown as { tomadorRazaoSocial?: string }).tomadorRazaoSocial || sucessoNfse.tomador?.nomeRazaoSocial}
+                  {' '}• Valor: {formatarMoeda(sucessoNfse.valorTotalServicos)}
                 </div>
               </div>
             </div>
@@ -825,7 +780,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               type="text"
               maxLength={2}
               value={localPrestacaoUf}
-              onChange={(e) => setLocalPrestacaoUf(e.target.value.toUpperCase())}
+              onChange={(e) => setLocalPrestacaoUf(e.target.value.toUpperCase() as typeof localPrestacaoUf)}
               className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
               placeholder="SP"
             />

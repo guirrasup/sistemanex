@@ -1,5 +1,5 @@
 // prisma/seed-fiscal.ts
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 import { gerarChaveAcessoNFe, gerarChaveAcessoNFSe } from '../src/utils/chaveAcesso.js'
 
 const prisma = new PrismaClient()
@@ -151,7 +151,7 @@ async function obterProximoNumero(
 // 🔥 HELPER DE TRANSAÇÃO EM LOTES (defesa em profundidade contra locks excessivos)
 async function criarEmLotes<T>(
   registros: T[],
-  criar: (data: T) => Promise<any>,
+  criar: (data: T) => Prisma.PrismaPromise<any>,
   tamanhoLote: number = PAGE_SIZE
 ): Promise<void> {
   for (let i = 0; i < registros.length; i += tamanhoLote) {
@@ -167,7 +167,7 @@ async function main() {
   // 1. Buscar empresa e dados existentes
   // ============================================
   const empresa = await prisma.empresa.findFirst({
-    where: { cnpj: '18.236.447/0001-90' },
+    where: { cnpj: '18236447000190' },
     select: {
       id: true,
       razaoSocial: true,
@@ -295,12 +295,12 @@ async function main() {
     for (let j = 0; j < numItens; j++) {
       const prod = produtos[j % produtos.length]
       const qtd = Math.floor(Math.random() * 5) + 1
-      const valorUnit = prod.precoVenda * (0.9 + Math.random() * 0.2)
+      const valorUnit = Number(prod.precoVenda) * (0.9 + Math.random() * 0.2)
       const total = qtd * valorUnit
-      const icms = total * (prod.aliquotaICMS / 100)
-      const pis = total * (prod.aliquotaPIS / 100)
-      const cofins = total * (prod.aliquotaCOFINS / 100)
-      const ipi = total * ((prod.aliquotaIPI || 0) / 100)
+      const icms = total * (Number(prod.aliquotaICMS) / 100)
+      const pis = total * (Number(prod.aliquotaPIS) / 100)
+      const cofins = total * (Number(prod.aliquotaCOFINS) / 100)
+      const ipi = total * (Number(prod.aliquotaIPI || 0) / 100)
       const tributosAprox = total * 0.314
 
       valorTotalProdutos += total
@@ -440,14 +440,14 @@ async function main() {
   for (let i = 0; i < 10; i++) {
     const cliente = clientes[(i + 3) % clientes.length]
     const servico = servicos[i % servicos.length]
-    const valorServico = servico.valorUnitario * (0.8 + Math.random() * 0.4)
-    const aliquotaISS = servico.aliquotaISS || 5.0
+    const valorServico = Number(servico.valorUnitario) * (0.8 + Math.random() * 0.4)
+    const aliquotaISS = Number(servico.aliquotaISS) || 5.0
     const baseISS = valorServico
     const valorISS = baseISS * (aliquotaISS / 100)
-    const valorPIS = valorServico * (servico.aliquotaPIS / 100)
-    const valorCOFINS = valorServico * (servico.aliquotaCOFINS / 100)
-    const valorIRRF = valorServico * (servico.aliquotaIRRF / 100)
-    const valorCSLL = valorServico * (servico.aliquotaCSLL / 100)
+    const valorPIS = valorServico * (Number(servico.aliquotaPIS) / 100)
+    const valorCOFINS = valorServico * (Number(servico.aliquotaCOFINS) / 100)
+    const valorIRRF = valorServico * (Number(servico.aliquotaIRRF) / 100)
+    const valorCSLL = valorServico * (Number(servico.aliquotaCSLL) / 100)
     const valorLiquido = valorServico - valorISS - valorPIS - valorCOFINS - valorIRRF - valorCSLL
 
     const dataEmissao = gerarDataAleatoria(60)
@@ -540,10 +540,10 @@ async function main() {
     for (let j = 0; j < numItens; j++) {
       const prod = produtos[(j + 2) % produtos.length]
       const qtd = Math.floor(Math.random() * 3) + 1
-      const total = qtd * prod.precoVenda
-      const icms = total * (prod.aliquotaICMS / 100)
-      const pis = total * (prod.aliquotaPIS / 100)
-      const cofins = total * (prod.aliquotaCOFINS / 100)
+      const total = qtd * Number(prod.precoVenda)
+      const icms = total * (Number(prod.aliquotaICMS) / 100)
+      const pis = total * (Number(prod.aliquotaPIS) / 100)
+      const cofins = total * (Number(prod.aliquotaCOFINS) / 100)
 
       valorTotalProdutos += total
       valorTotalTributosAprox += total * 0.314
@@ -639,11 +639,12 @@ async function main() {
     const transportadora = transportadoras[i % transportadoras.length]
     const valorFrete = gerarValor(500, 3000)
     const peso = gerarValor(100, 500)
+    const valorCarga = gerarValor(10000, 50000)
 
     const dataEmissao = gerarDataAleatoria(45)
     const aamm = new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0')
 
-    const { chaveCompleta: chaveAcesso } = gerarChaveAcessoNFe({
+    const { chaveCompleta: chaveAcesso, codigoNumerico: cCT, dv: cDV } = gerarChaveAcessoNFe({
       codigoUf,
       anoMes: aamm,
       cnpjEmitente: empresa.cnpj,
@@ -653,49 +654,85 @@ async function main() {
       tipoEmissao: 1,
     })
 
+    // ✅ ALINHADO AO SCHEMA REAL DO CTe (nomes/tipos de campo do leiaute SEFAZ,
+    // não os nomes simplificados de uma versão antiga do modelo). Veículo/
+    // condutor não existem no CT-e 4.00 — migraram para o MDF-e (ver
+    // comentário do model CTe no schema.prisma); RNTRC vem da Transportadora.
     cteData.push({
-      modelo: '57',
+      cUF: codigoUf,
+      cCT,
+      CFOP: '6353',
+      natOp: 'Prestação de Serviço de Transporte de Cargas',
+      mod: '57',
       serie: 1,
-      numero: numeroCte,
-      chaveAcesso,
-      dataHoraEmissao: dataEmissao,
-      naturezaOperacao: 'Prestação de Serviço de Transporte Rodoviário de Cargas',
-      cfop: '6353',
-      ambiente: empresa.ambienteEmissao || 1,
-      tipoEmissao: 1,
+      nCT: numeroCte,
+      dhEmi: dataEmissao,
+      tpImp: '1',
+      tpEmis: '1',
+      cDV: String(cDV),
+      tpAmb: empresa.ambienteEmissao === 'PRODUCAO' ? '1' : '2',
+      tpCTe: 'NORMAL',
+      procEmi: '0',
+      verProc: 'SEED-1.0',
+      cMunEnv: codigoMunicipio,
+      xMunEnv: 'Sao Paulo',
+      UFEnv: 'SP',
+      modal: 'RODOVIARIO',
+      tpServ: 'NORMAL',
+      cMunIni: codigoMunicipio,
+      xMunIni: 'Sao Paulo',
+      UFIni: 'SP',
+      cMunFim: '3304557',
+      xMunFim: 'Rio de Janeiro',
+      UFFim: 'RJ',
+      retira: '1',
+      indIEToma: 'NAO_CONTRIBUINTE',
+      toma: 'REMETENTE',
+      vTPrest: Number(valorFrete.toFixed(2)),
+      vRec: Number(valorFrete.toFixed(2)),
+      CST00: '00',
+      vBC00: Number(valorFrete.toFixed(2)),
+      pICMS00: 12.0,
+      vICMS00: Number((valorFrete * 0.12).toFixed(2)),
+      vCarga: Number(valorCarga.toFixed(2)),
+      proPred: 'Equipamentos Eletrônicos',
+      vCargaAverb: Number(valorCarga.toFixed(2)),
+      nFat: String(numeroCte),
+      vOrig: Number(valorFrete.toFixed(2)),
+      vLiq: Number(valorFrete.toFixed(2)),
       status: i % 5 === 0 ? 'CANCELADA' : 'AUTORIZADA',
+      chaveAcesso,
+      xmlAssinado: gerarXmlAssinado('CTe', numeroCte, chaveAcesso),
+      empresaId: empresa.id,
+      emitenteId: empresa.id,
       remetenteId: remetente.id,
       destinatarioId: destinatario.id,
-      tomadorServico: 0,
-      municipioInicioCod: codigoMunicipio,
-      municipioInicioNome: 'São Paulo',
-      municipioInicioUf: 'SP',
-      municipioFimCod: '3304557',
-      municipioFimNome: 'Rio de Janeiro',
-      municipioFimUf: 'RJ',
-      produtoPredominante: 'Equipamentos Eletrônicos',
-      valorCargaAverbada: gerarValor(10000, 50000),
-      pesoBrutoKg: Number(peso.toFixed(1)),
-      pesoLiquidoKg: Number((peso * 0.9).toFixed(1)),
-      quantidadeVolumes: Math.floor(Math.random() * 10) + 1,
-      especieVolumes: 'Caixas',
-      cubagemM3: Number((Math.random() * 5 + 1).toFixed(2)),
-      chavesNFeTransportadas: JSON.stringify(['35260818236447000190550010000010411123456784']),
-      rntrc: transportadora?.rntrc || '1234567',
-      veiculoPlaca: `BRA${String(1000 + i * 123).slice(0, 4)}`,
-      veiculoUf: 'SP',
-      motoristaNome: ['João Silva', 'Maria Santos', 'Pedro Costa', 'Ana Oliveira', 'Carlos Souza'][i],
-      motoristaCpf: ['123.456.789-00', '987.654.321-00', '456.789.123-00', '789.123.456-00', '321.654.987-00'][i],
-      valorTotalFrete: Number(valorFrete.toFixed(2)),
-      fretePeso: Number((valorFrete * 0.4).toFixed(2)),
-      freteValor: Number((valorFrete * 0.3).toFixed(2)),
-      pedagio: Number((Math.random() * 100 + 50).toFixed(2)),
-      taxaGris: Number((Math.random() * 50 + 20).toFixed(2)),
-      outrasTaxas: Number((Math.random() * 30 + 10).toFixed(2)),
-      valorReceber: Number(valorFrete.toFixed(2)),
-      cstICMS: '00',
-      baseCalculoICMS: Number(valorFrete.toFixed(2)),
-      aliquotaICMS: 12.0,
-      valorICMS: Number((valorFrete * 0.12).toFixed(2)),
-      valorPIS: Number((valorFrete * 0.0065).toFixed(2)),
-      valorCOFINS: Number((valorFrete
+      transportadoraId: transportadora?.id,
+      quantidades: {
+        create: [{ cUnid: '01', tpMed: 'PESO BRUTO', qCarga: Number(peso.toFixed(4)) }]
+      }
+    })
+
+    numeroCte++
+  }
+
+  // ✅ CORREÇÃO: transação em lotes
+  await criarEmLotes(cteData, (data) => prisma.cTe.create({ data }))
+
+  console.log(`✅ 5 CT-e criados`)
+
+  console.log('\n========================================')
+  console.log('RESUMO DO SEED FISCAL')
+  console.log('========================================')
+  console.log('10 NF-e, 10 NFS-e, 5 NFC-e e 5 CT-e criados com sucesso!')
+  console.log('========================================')
+}
+
+main()
+  .catch((e) => {
+    console.error('Erro no seed fiscal:', e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

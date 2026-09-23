@@ -223,7 +223,7 @@ export class NfceRepository extends BaseRepository {
     });
   }
 
-  async updateStatus(id: string, status: StatusDocumento, protocolo?: string, xmlAssinado?: string, motivoRejeicao?: string) {
+  async updateStatus(id: string, status: StatusDocumento, protocolo?: string, xmlAssinado?: string, motivoRejeicao?: string, xmlRetorno?: string) {
     if (!id) {
       throw new Error('ID da NFC-e é obrigatório');
     }
@@ -239,6 +239,10 @@ export class NfceRepository extends BaseRepository {
 
     if (xmlAssinado) {
       data.xmlAssinado = xmlAssinado;
+    }
+
+    if (xmlRetorno) {
+      data.xmlRetorno = xmlRetorno;
     }
 
     if (motivoRejeicao) {

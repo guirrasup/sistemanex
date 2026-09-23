@@ -7,14 +7,13 @@ import {
   Barcode, XCircle, FileText, Hash, Globe, Phone, Mail,
   Home, MapPinned, Weight, Box, Edit2, Info
 } from 'lucide-react';
-import { NFeDocumento, ItemNfe, FaturaDuplicata } from '../../types/fiscal';
+import { NFeDocumento, ItemNfe } from '../../types/fiscal';
 import { Produto, ClienteFornecedor, ConfiguracaoEmpresa, TransportadoraERP } from '../../types/erp';
-import { StorageService } from '../../utils/storage';
-import { validarCpfOuCnpj, formatarMoeda, limparDocumento } from '../../utils/cpfCnpjValidator';
-import { gerarChaveAcessoNFe } from '../../utils/chaveAcesso';
+import { formatarMoeda } from '../../utils/cpfCnpjValidator';
 import { calcularTotaisNfe } from '../../utils/tributosEngine';
-import { gerarXmlNfe400 } from '../../utils/xmlNfeGenerator';
 import { getApiErrorMessage } from '../../utils/apiError';
+import { nfeService, NfeApiRecord } from '../../services/nfe.service';
+import { useToast } from '../../hooks/useToast';
 
 // ============================================================
 // INTERFACE
@@ -30,22 +29,6 @@ interface NfeEmissorProps {
 }
 
 // ============================================================
-// VALIDAÇÕES
-// ============================================================
-
-function validarTJust(texto: string): boolean {
-  return texto.length >= 15 && texto.length <= 255;
-}
-
-function validarCodigoMunicipio(codigo: string): boolean {
-  return /^[0-9]{7}$/.test(codigo);
-}
-
-function validarCEP(cep: string): boolean {
-  return /^[0-9]{8}$/.test(cep.replace(/\D/g, ''));
-}
-
-// ============================================================
 // COMPONENTE
 // ============================================================
 
@@ -57,6 +40,8 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   onNfeEmitida,
   onViewDanfe,
 }) => {
+  const toast = useToast();
+
   // ============================================================
   // STATE - DESTINATÁRIO
   // ============================================================
@@ -122,9 +107,9 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   // STATE - UI
   // ============================================================
   const [isTransmitting, setIsTransmitting] = useState<boolean>(false);
+  const [isCarregandoUltima, setIsCarregandoUltima] = useState<boolean>(false);
   const [erros, setErros] = useState<string[]>([]);
-  const [sucessos, setSucessos] = useState<string[]>([]);
-  const [nfeEmitidaSucesso, setNfeEmitidaSucesso] = useState<NFeDocumento | null>(null);
+  const [nfeEmitidaSucesso, setNfeEmitidaSucesso] = useState<NfeApiRecord | null>(null);
 
   // ============================================================
   // CÁLCULOS
@@ -205,8 +190,12 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
     const prod = produtos.find(p => p.id === produtoSelecionado);
     if (!prod) return;
 
+    // ✅ id = produto.id (não um id aleatório): é o que permite montar o
+    // payload de emissão ({ produtoId, quantidade }) que o backend espera —
+    // ver handleTransmitirNfe. Se o mesmo produto for adicionado 2x, os itens
+    // dividem o mesmo id/key; não é uma regressão (a lista nunca impediu duplicidade).
     const newItem: ItemNfe = {
-      id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: prod.id,
       codigoProduto: prod.codigo,
       descricao: prod.descricao,
       ncm: prod.ncm,
@@ -243,7 +232,6 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
 
     setItens(prev => [...prev, newItem]);
     setProdutoSelecionado('');
-    setSucessos(prev => [...prev, `Produto "${prod.descricao}" adicionado`]);
   };
 
   const handleUpdateItemQtd = (index: number, qtd: number) => {
@@ -284,9 +272,9 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
 
   const handleLimparTudo = () => {
     setItens([]);
+    setSelectedClienteId('');
     limparCamposDestinatario();
     setErros([]);
-    setSucessos([]);
     setSelectedTransportadoraId('');
     setTransportadoraNome('');
     setTransportadoraCnpj('');
@@ -315,48 +303,108 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   const validarAntesDeTransmitir = (): string[] => {
     const errs: string[] = [];
 
-    const valDoc = validarCpfOuCnpj(destinatarioDoc);
-    if (!valDoc.valido) errs.push('CPF/CNPJ do destinatário inválido');
-
-    if (!destinatarioNome.trim()) errs.push('Razão Social do destinatário é obrigatória');
-
-    if (destinatarioIE && destinatarioIE !== 'ISENTO') {
-      if (!/^[0-9]{0,14}$/.test(destinatarioIE.replace(/\D/g, ''))) {
-        errs.push('Inscrição Estadual deve ter entre 0 e 14 dígitos (TIeDest)');
-      }
-    }
-
-    if (destinatarioIEST && !/^[0-9]{2,14}$/.test(destinatarioIEST.replace(/\D/g, ''))) {
-      errs.push('Inscrição Estadual ST deve ter entre 2 e 14 dígitos (TIeST)');
-    }
-
-    if (!validarCodigoMunicipio(destinatarioMunIbge)) {
-      errs.push('Código do município deve ter 7 dígitos (TCodMunIBGE)');
-    }
-
-    if (!validarCEP(destinatarioCep)) errs.push('CEP inválido (8 dígitos)');
+    // ✅ o backend só aceita destinatarioId (um cliente já cadastrado) — os
+    // campos abaixo (doc/nome/endereço) são só um preview de leitura,
+    // preenchidos automaticamente ao escolher o cliente na lista.
+    if (!selectedClienteId) errs.push('Selecione um cliente cadastrado na lista acima');
 
     if (itens.length === 0) errs.push('Adicione pelo menos 1 produto na NF-e');
 
-    for (const item of itens) {
-      if (!item.ncm || item.ncm.length !== 8) {
-        errs.push(`Item "${item.descricao}": NCM deve ter 8 dígitos`);
-      }
-      if (!item.cfop || item.cfop.length !== 4) {
-        errs.push(`Item "${item.descricao}": CFOP deve ter 4 dígitos`);
-      }
-    }
-
     return errs;
+  };
+
+  // ============================================================
+  // CARREGAR ÚLTIMA NOTA
+  // ============================================================
+
+  const handleCarregarUltima = async () => {
+    setIsCarregandoUltima(true);
+    setErros([]);
+    try {
+      const resposta = await nfeService.listar({ page: 1, limit: 1, status: 'AUTORIZADA' });
+      const ultima = resposta.data?.[0];
+      if (!ultima) {
+        toast.showError('Nenhuma NF-e autorizada anterior encontrada.');
+        return;
+      }
+
+      if (ultima.destinatario?.id) {
+        handleSelectCliente(ultima.destinatario.id);
+      }
+      // ⚠️ forma de pagamento e "consumidor final" não são persistidos hoje
+      // pelo backend (POST /nfe/emitir ignora esses 2 campos na gravação —
+      // achado durante esta revisão, fora do escopo deste checkpoint) —
+      // então não há valor real pra restaurar; só a natureza da operação volta.
+      if (ultima.natOp) setNaturezaOperacao(ultima.natOp);
+
+      // Os itens salvos são um retrato (snapshot) da NF-e — não guardam o
+      // produtoId original. Reencontra pelo código do produto no catálogo
+      // atual (mais confiável reaproveitar o cadastro vigente do que os
+      // valores/tributos históricos, que podem ter mudado desde então).
+      const itensRecarregados: ItemNfe[] = [];
+      let itensNaoEncontrados = 0;
+      for (const itemAntigo of ultima.itens || []) {
+        const prod = produtos.find(p => p.codigo === itemAntigo.codigoProduto);
+        if (!prod) {
+          itensNaoEncontrados++;
+          continue;
+        }
+        const quantidade = Number(itemAntigo.quantidade) || 1;
+        itensRecarregados.push({
+          id: prod.id,
+          codigoProduto: prod.codigo,
+          descricao: prod.descricao,
+          ncm: prod.ncm,
+          cest: prod.cest || undefined,
+          cfop: prod.cfopPadrao,
+          unidadeMedida: prod.unidade,
+          quantidade,
+          valorUnitario: prod.precoVenda,
+          valorTotalBruto: quantidade * prod.precoVenda,
+          origemMercadoria: 0,
+          cstICMS: '00',
+          aliquotaICMS: prod.aliquotaICMS,
+          baseCalculoICMS: quantidade * prod.precoVenda,
+          valorICMS: (quantidade * prod.precoVenda * Number(prod.aliquotaICMS)) / 100,
+          cstIPI: '50',
+          aliquotaIPI: prod.aliquotaIPI || 0,
+          valorIPI: (quantidade * prod.precoVenda * Number(prod.aliquotaIPI || 0)) / 100,
+          cstPIS: '01',
+          aliquotaPIS: prod.aliquotaPIS,
+          valorPIS: (quantidade * prod.precoVenda * Number(prod.aliquotaPIS)) / 100,
+          cstCOFINS: '01',
+          aliquotaCOFINS: prod.aliquotaCOFINS,
+          valorCOFINS: (quantidade * prod.precoVenda * Number(prod.aliquotaCOFINS)) / 100,
+          aliquotaIBSUF: 0.05,
+          valorIBSUF: quantidade * prod.precoVenda * 0.0005,
+          aliquotaIBSMun: 0.05,
+          valorIBSMun: quantidade * prod.precoVenda * 0.0005,
+          aliquotaCBS: 0.90,
+          valorCBS: quantidade * prod.precoVenda * 0.009,
+          valorTributosAproximados: quantidade * prod.precoVenda * 0.31,
+          codigoEAN: prod.codigoBarrasEAN || undefined,
+          codigoEANTrib: prod.codigoBarrasEAN || undefined,
+        });
+      }
+      setItens(itensRecarregados);
+
+      const msg = itensNaoEncontrados > 0
+        ? `Dados da última NF-e carregados (${itensNaoEncontrados} item(ns) não encontrados no catálogo atual e foram ignorados).`
+        : 'Dados da última NF-e carregados. Revise antes de emitir.';
+      toast.showSuccess(msg);
+    } catch (error: unknown) {
+      toast.showError(getApiErrorMessage(error, 'Erro ao carregar a última NF-e'));
+    } finally {
+      setIsCarregandoUltima(false);
+    }
   };
 
   // ============================================================
   // TRANSMISSÃO
   // ============================================================
 
-  const handleTransmitirNfe = () => {
+  const handleTransmitirNfe = async () => {
     setErros([]);
-    setSucessos([]);
 
     const errs = validarAntesDeTransmitir();
     if (errs.length > 0) {
@@ -365,147 +413,34 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
     }
 
     setIsTransmitting(true);
+    try {
+      const nfeEmitida = await nfeService.emitir({
+        destinatarioId: selectedClienteId,
+        itens: itens.map(item => ({
+          produtoId: item.id,
+          quantidade: item.quantidade,
+          valorUnitario: item.valorUnitario,
+        })),
+        naturezaOperacao,
+        formaPagamento,
+        consumidorFinal,
+      });
 
-    setTimeout(() => {
-      try {
-        const numero = empresa.proximoNumeroNfe;
-        const aamm = new Date().toISOString().slice(2, 4) + 
-                     (new Date().getMonth() + 1).toString().padStart(2, '0');
-
-        const { chaveCompleta } = gerarChaveAcessoNFe({
-          codigoUf: empresa.endereco.codigoMunicipio.slice(0, 2),
-          anoMes: aamm,
-          cnpjEmitente: empresa.cnpj,
-          modelo: '55',
-          serie: empresa.serieNfe,
-          numero,
-          tipoEmissao: 1,
-        });
-
-        const docDestLimpo = limparDocumento(destinatarioDoc);
-        const isCnpj = docDestLimpo.length === 14;
-
-        const duplicatas: FaturaDuplicata[] = [
-          {
-            numero: `${numero}/01`,
-            dataVencimento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            valor: totais.valorTotalNota,
-            status: 'PENDENTE',
-          },
-        ];
-
-        const novaNfe: NFeDocumento = {
-          id: `nfe-${Date.now()}`,
-          modelo: '55',
-          serie: empresa.serieNfe,
-          numero,
-          chaveAcesso: chaveCompleta,
-          dataHoraEmissao: new Date().toISOString(),
-          dataHoraSaida: new Date().toISOString(),
-          naturezaOperacao,
-          ambiente: empresa.ambienteEmissao,
-          tipoEmissao: 1,
-          tipoDocumento,
-          finalidade,
-          consumidorFinal,
-          presencaComprador,
-          status: 'AUTORIZADA',
-          idDest: empresa.endereco.uf === destinatarioUf ? 1 : 2,
-          tpImp: 1,
-          emitente: {
-            cnpj: empresa.cnpj,
-            inscricaoMunicipal: empresa.inscricaoMunicipal,
-            inscricaoEstadual: empresa.inscricaoEstadual,
-            razaoSocial: empresa.razaoSocial,
-            nomeFantasia: empresa.nomeFantasia,
-            regimeTributario: empresa.regimeTributario,
-            optanteSimplesNacional: empresa.optanteSimplesNacional,
-            optanteMEI: empresa.optanteMEI,
-            endereco: empresa.endereco,
-            aliquotaSimplesNacional: empresa.aliquotaSimplesNacional,
-          },
-          destinatario: {
-            tipoPessoa: isCnpj ? 'PJ' : 'PF',
-            documento: destinatarioDoc,
-            nomeRazaoSocial: destinatarioNome,
-            inscricaoEstadual: destinatarioIE || 'ISENTO',
-            inscricaoEstadualST: destinatarioIEST || undefined,
-            indicadorIEDestinatario: destinatarioIE ? '1' : '9',
-            email: destinatarioEmail,
-            telefone: destinatarioTelefone,
-            endereco: {
-              logradouro: destinatarioLogradouro,
-              numero: destinatarioNumero,
-              complemento: destinatarioComplemento,
-              bairro: destinatarioBairro,
-              codigoMunicipio: destinatarioMunIbge,
-              nomeMunicipio: destinatarioMun,
-              uf: destinatarioUf,
-              cep: destinatarioCep,
-              codigoPais: '1058',
-              nomePais: 'BRASIL',
-            },
-          },
-          itens: itens.map(item => ({
-            ...item,
-            valorTributosAproximados: item.valorTributosAproximados || 0,
-          })),
-          valorTotalProdutos: totais.valorTotalProdutos,
-          valorTotalFrete: totais.valorTotalFrete,
-          valorTotalSeguro: totais.valorTotalSeguro,
-          valorTotalDesconto: totais.valorTotalDesconto,
-          valorTotalOutrasDespesas: totais.valorTotalOutrasDespesas,
-          baseCalculoICMS: totais.baseCalculoICMS,
-          valorTotalICMS: totais.valorTotalICMS,
-          baseCalculoICMSST: totais.baseCalculoICMSST,
-          valorTotalICMSST: totais.valorTotalICMSST,
-          valorTotalIPI: totais.valorTotalIPI,
-          valorTotalPIS: totais.valorTotalPIS,
-          valorTotalCOFINS: totais.valorTotalCOFINS,
-          valorTotalIBS: totais.valorTotalIBS,
-          valorTotalCBS: totais.valorTotalCBS,
-          valorTotalTributosAproximados: totais.valorTotalTributosAproximados,
-          valorTotalNota: totais.valorTotalNota,
-          formaPagamento,
-          duplicatas,
-          transporte: {
-            modalidadeFrete,
-            transportadora: transportadoraNome ? {
-              cnpjCpf: transportadoraCnpj,
-              razaoSocial: transportadoraNome,
-              municipio: empresa.endereco.nomeMunicipio,
-              uf: empresa.endereco.uf,
-            } : undefined,
-            veiculo: veiculoPlaca ? {
-              placa: veiculoPlaca,
-              uf: veiculoUf,
-              rntc: veiculoRNTC || undefined,
-            } : undefined,
-            volumes: volumesQuantidade > 0 ? {
-              quantidade: volumesQuantidade,
-              especie: volumesEspecie,
-              pesoLiquidoKg: volumesPesoLiquido,
-              pesoBrutoKg: volumesPesoBruto,
-            } : undefined,
-          },
-          protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-          dataHoraAutorizacao: new Date().toISOString(),
-          informacoesAdicionais: 'Emitido por SUP TECNOLOGIA ERP. Integração automática com estoque (baixa automática efetuada) e contas a receber.',
-          xmlAssinado: '',
-        };
-
-        novaNfe.xmlAssinado = gerarXmlNfe400(novaNfe);
-        StorageService.addNfe(novaNfe);
-        onNfeEmitida(novaNfe);
-        setNfeEmitidaSucesso(novaNfe);
-        setSucessos(['NF-e emitida e autorizada com sucesso!']);
-
-      } catch (error: unknown) {
-        setErros([`Erro ao transmitir NF-e: ${getApiErrorMessage(error, 'Erro desconhecido')}`]);
-      } finally {
-        setIsTransmitting(false);
+      if (nfeEmitida) {
+        // ⚠️ nfeEmitida vem no formato cru do Prisma (não no formato NFeDocumento
+        // do protótipo antigo) — o cast é necessário porque a listagem/DANFE
+        // ainda esperam o tipo antigo; ver nota em NfeApiRecord (nfe.service.ts).
+        onNfeEmitida(nfeEmitida as unknown as NFeDocumento);
+        setNfeEmitidaSucesso(nfeEmitida);
+        toast.showSuccess(`✅ NF-e Nº ${nfeEmitida.numero} emitida e autorizada com sucesso!`);
       }
-    }, 1200);
+    } catch (error: unknown) {
+      const mensagemErro = getApiErrorMessage(error, 'Erro ao transmitir NF-e');
+      setErros([mensagemErro]);
+      toast.showError(`❌ ${mensagemErro}`);
+    } finally {
+      setIsTransmitting(false);
+    }
   };
 
   // ============================================================
@@ -513,7 +448,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   // ============================================================
 
   const cor = 'emerald';
-  const isFormReady = itens.length > 0 && destinatarioNome && destinatarioDoc;
+  const isFormReady = itens.length > 0 && !!selectedClienteId;
 
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
@@ -533,9 +468,20 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             Emissão de nota de mercadorias com baixa automática em estoque e contas a receber.
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfe}</div>
-          <div className="text-[10px] font-medium text-emerald-700">Próxima NF-e: Nº {empresa.proximoNumeroNfe}</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCarregarUltima}
+            disabled={isCarregandoUltima}
+            title="Preenche o formulário com os dados da última NF-e autorizada (cliente, itens, forma de pagamento)"
+            className="bg-white hover:bg-emerald-100 disabled:opacity-60 text-emerald-700 font-medium text-xs px-3 py-2 rounded-lg border border-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
+            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfe}</div>
+            <div className="text-[10px] font-medium text-emerald-700">Próxima NF-e: Nº {empresa.proximoNumeroNfe}</div>
+          </div>
         </div>
       </div>
 
@@ -547,13 +493,14 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-emerald-800">NF-e Nº {nfeEmitidaSucesso.numero} Autorizada!</h3>
                 <p className="text-xs text-emerald-800 font-mono mt-0.5">Chave: {nfeEmitidaSucesso.chaveAcesso}</p>
+                <p className="text-xs text-emerald-800 font-mono mt-0.5">Protocolo: {nfeEmitidaSucesso.protocoloAutorizacao}</p>
                 <div className="text-[11px] text-emerald-700 mt-1">
-                  Destinatário: {nfeEmitidaSucesso.destinatario.nomeRazaoSocial} • Total: {formatarMoeda(nfeEmitidaSucesso.valorTotalNota)}
+                  Destinatário: {nfeEmitidaSucesso.destinatario?.razaoSocial} • Total: {formatarMoeda(Number(nfeEmitidaSucesso.vNF) || 0)}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => onViewDanfe(nfeEmitidaSucesso)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm">
+              <button onClick={() => onViewDanfe(nfeEmitidaSucesso as unknown as NFeDocumento)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm">
                 <Eye className="w-3.5 h-3.5" /> <span>Visualizar DANFE</span>
               </button>
               <button onClick={() => setNfeEmitidaSucesso(null)} className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer">
@@ -1014,14 +961,14 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
               <RefreshCw className="w-3.5 h-3.5" />
               Limpar Tudo
             </button>
-            <button 
+            <button
               onClick={() => {
                 if (isFormReady) {
-                  alert('Pré-visualização do DANFE (simulação)');
+                  toast.showInfo('A pré-visualização do DANFE fica disponível após a emissão (veja "Visualizar DANFE" na tela de sucesso).');
                 } else {
-                  alert('Preencha os dados da NF-e primeiro');
+                  toast.showError('Preencha os dados da NF-e primeiro');
                 }
-              }} 
+              }}
               className="bg-white hover:bg-slate-50 text-slate-600 font-medium text-xs py-2 px-3 rounded-lg border border-slate-300 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5" />

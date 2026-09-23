@@ -110,6 +110,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
 
   // UI
   const [isTransmitting, setIsTransmitting] = useState<boolean>(false);
+  const [isCarregandoUltima, setIsCarregandoUltima] = useState<boolean>(false);
   const [erros, setErros] = useState<string[]>([]);
   const [sucessoNfae, setSucessoNfae] = useState<NFAeDocumento | null>(null);
 
@@ -249,6 +250,86 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
 
     setErros(errs);
     return errs.length === 0;
+  };
+
+  // ============================================================
+  // CARREGAR ÚLTIMA NOTA
+  // ============================================================
+
+  const handleCarregarUltima = async () => {
+    setIsCarregandoUltima(true);
+    setErros([]);
+    try {
+      const resposta = await nfaeService.listar({ page: 1, limit: 1, status: 'AUTORIZADA' });
+      const ultima = resposta.data?.[0];
+      if (!ultima) {
+        toast.showError('Nenhuma NFA-e autorizada anterior encontrada.');
+        return;
+      }
+
+      // A resposta real da API tem campos soltos (requerenteNome, destinatarioId,
+      // itens[].codigo) — o shape aninhado { requerente, destinatario } do tipo
+      // NFAeDocumento do protótipo antigo vem null; lido aqui com um cast local.
+      const raw = ultima as unknown as {
+        naturezaOperacao?: string;
+        motivoEmissao?: MotivoEmissaoNFAe;
+        descricaoMotivo?: string;
+        requerenteTipoPessoa?: TipoPessoa;
+        requerenteDocumento?: string;
+        requerenteNome?: string;
+        requerenteInscricaoProdutor?: string;
+        requerenteLogradouro?: string;
+        requerenteNumero?: string;
+        requerenteComplemento?: string;
+        requerenteBairro?: string;
+        requerenteMunicipio?: string;
+        requerenteMunicipioIbge?: string;
+        requerenteUf?: string;
+        requerenteCep?: string;
+        requerenteTelefone?: string;
+        requerenteEmail?: string;
+        destinatarioId?: string;
+      };
+
+      if (raw.naturezaOperacao) setNaturezaOperacao(raw.naturezaOperacao);
+      if (raw.motivoEmissao) setMotivoEmissao(raw.motivoEmissao);
+      if (raw.descricaoMotivo) setDescricaoMotivo(raw.descricaoMotivo);
+
+      // Requerente é um emitente avulso digitado à mão (não é necessariamente
+      // um cliente cadastrado), então preenche os campos direto em vez de
+      // tentar casar com a lista de clientes.
+      setSelectedRequerenteId('');
+      if (raw.requerenteTipoPessoa) setRequerenteTipoPessoa(raw.requerenteTipoPessoa);
+      if (raw.requerenteDocumento) setRequerenteDoc(raw.requerenteDocumento);
+      if (raw.requerenteNome) setRequerenteNome(raw.requerenteNome);
+      setRequerenteInscricaoProdutor(raw.requerenteInscricaoProdutor || '');
+      setRequerenteLogradouro(raw.requerenteLogradouro || '');
+      setRequerenteNumero(raw.requerenteNumero || '');
+      setRequerenteComplemento(raw.requerenteComplemento || '');
+      setRequerenteBairro(raw.requerenteBairro || '');
+      setRequerenteMun(raw.requerenteMunicipio || '');
+      setRequerenteMunIbge(raw.requerenteMunicipioIbge || '');
+      setRequerenteUf(raw.requerenteUf || '');
+      setRequerenteCep(raw.requerenteCep || '');
+      setRequerenteTelefone(raw.requerenteTelefone || '');
+      setRequerenteEmail(raw.requerenteEmail || '');
+
+      if (raw.destinatarioId) {
+        handleSelectDestinatario(raw.destinatarioId);
+      }
+
+      const itensRecarregados: ItemNfae[] = (ultima.itens || []).map((item, idx) => ({
+        ...item,
+        id: `item-ultima-${Date.now()}-${idx}`,
+      }));
+      setItens(itensRecarregados);
+
+      toast.showSuccess('Dados da última NFA-e carregados. Revise antes de emitir.');
+    } catch (error: unknown) {
+      toast.showError(getApiErrorMessage(error, 'Erro ao carregar a última NFA-e'));
+    } finally {
+      setIsCarregandoUltima(false);
+    }
   };
 
   // ============================================================
@@ -397,9 +478,19 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
             Nota Fiscal Avulsa Eletrônica para fornecimento de energia elétrica.
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {serie || 900}</div>
-          <div className={`text-[10px] font-medium ${corText}`}>Próxima NFA-e: Nº {Math.floor(Math.random() * 900) + 100}</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCarregarUltima}
+            disabled={isCarregandoUltima}
+            title="Preenche o formulário com os dados da última NFA-e autorizada"
+            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
+            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-semibold text-slate-700">Série {serie || 900}</div>
+          </div>
         </div>
       </div>
 
@@ -416,7 +507,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
                   Chave: {sucessoNfae.chaveAcesso}
                 </p>
                 <div className="text-[11px] text-amber-700 mt-1">
-                  Requerente: {sucessoNfae.requerente?.nome} • Total: {formatarMoeda(sucessoNfae.valorTotalNota)}
+                  Requerente: {sucessoNfae.requerente?.nomeRazaoSocial || (sucessoNfae as unknown as { requerenteNome?: string }).requerenteNome} • Total: {formatarMoeda(sucessoNfae.valorTotalNota)}
                 </div>
               </div>
             </div>
