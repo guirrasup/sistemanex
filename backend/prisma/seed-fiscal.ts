@@ -9,6 +9,13 @@ import { gerarChaveAcessoNFe, gerarChaveAcessoNFSe } from '../src/utils/chaveAce
 
 const prisma = new PrismaClient()
 
+// 🔥 CNPJ da empresa alvo — configurável via env porque o cadastro de
+// clientes tem `documento` globalmente único no schema (não por empresa):
+// se a empresa "padrão" abaixo já tiver esses documentos fictícios
+// reservados por outra empresa no banco, ela nunca ganha clientes pelo
+// seed.ts e este script falha com "Nenhum cliente encontrado".
+const CNPJ_EMPRESA_FISCAL = process.env.SEED_FISCAL_CNPJ || '18236447000190'
+
 // 🔥 LIMITES DE SEGURANÇA (mitigação CWE-770 / CWE-400)
 const PAGE_SIZE = 100
 const MAX_PAGE_ITERATIONS = 1000
@@ -132,17 +139,20 @@ async function buscarPaginadoPorCursor<T extends { id: string }>(
 
 // 🔥 PRÓXIMO NÚMERO COM LIMITE (evita crescimento descontrolado)
 //    ✅ CORREÇÃO: usa aggregate(_max) em vez de findFirst + orderBy (evita full scan + sort)
+// ✅ campoNumero: o nome da coluna varia por modelo (NFSe usa numeroNfse,
+// CTe usa nCT — ver schema.prisma; os demais usam numero).
 async function obterProximoNumero(
   model: 'nFe' | 'nFSe' | 'nFCe' | 'cTe' | 'nFAe',
   empresaId: string,
-  base: number
+  base: number,
+  campoNumero: string = 'numero'
 ): Promise<number> {
   const resultado = await (prisma[model] as any).aggregate({
     where: { empresaId },
-    _max: { numero: true },
+    _max: { [campoNumero]: true },
   })
 
-  const ultimoNumero: number | null = resultado?._max?.numero ?? null
+  const ultimoNumero: number | null = resultado?._max?.[campoNumero] ?? null
   const proximo = ultimoNumero !== null ? Math.max(ultimoNumero + 1, base) : base
 
   if (proximo > base + MAX_DOCS_POR_TIPO) {
@@ -172,18 +182,26 @@ async function main() {
   // 1. Buscar empresa e dados existentes
   // ============================================
   const empresa = await prisma.empresa.findFirst({
-    where: { cnpj: '18236447000190' },
+    where: { cnpj: CNPJ_EMPRESA_FISCAL },
     select: {
       id: true,
       razaoSocial: true,
+      nomeFantasia: true,
       cnpj: true,
+      inscricaoMunicipal: true,
       serieNfe: true,
       serieNfse: true,
       serieNfce: true,
       ambienteEmissao: true,
       endereco: {
         select: {
-          codigoMunicipio: true
+          logradouro: true,
+          numero: true,
+          bairro: true,
+          codigoMunicipio: true,
+          nomeMunicipio: true,
+          uf: true,
+          cep: true
         }
       }
     }
@@ -316,6 +334,9 @@ async function main() {
       valorTotalIPI += ipi
       valorTotalTributosAprox += tributosAprox
 
+      // ✅ Nomes de campo do schema real do ItemNFe (vProd/pICMS/vBC/vTotTrib
+      // etc., não os nomes "amigáveis" de uma versão anterior do modelo — ver
+      // o create real em nfe.service.ts:emitirNfe).
       const itemData: any = {
         codigoProduto: prod.codigo,
         descricao: prod.descricao,
@@ -325,25 +346,25 @@ async function main() {
         unidadeMedida: prod.unidade,
         quantidade: qtd,
         valorUnitario: Number(valorUnit.toFixed(2)),
-        valorTotalBruto: Number(total.toFixed(2)),
-        origemMercadoria: 0,
+        vProd: Number(total.toFixed(2)),
+        origemMercadoria: '0',
         cstICMS: '00',
-        aliquotaICMS: prod.aliquotaICMS,
-        baseCalculoICMS: Number(total.toFixed(2)),
-        valorICMS: Number(icms.toFixed(2)),
+        pICMS: prod.aliquotaICMS,
+        vBC: Number(total.toFixed(2)),
+        vICMS: Number(icms.toFixed(2)),
         cstPIS: '01',
-        aliquotaPIS: prod.aliquotaPIS,
-        valorPIS: Number(pis.toFixed(2)),
+        pPIS: prod.aliquotaPIS,
+        vPIS: Number(pis.toFixed(2)),
         cstCOFINS: '01',
-        aliquotaCOFINS: prod.aliquotaCOFINS,
-        valorCOFINS: Number(cofins.toFixed(2)),
-        valorTributosAprox: Number(tributosAprox.toFixed(2))
+        pCOFINS: prod.aliquotaCOFINS,
+        vCOFINS: Number(cofins.toFixed(2)),
+        vTotTrib: Number(tributosAprox.toFixed(2))
       }
 
       if (prod.aliquotaIPI) {
         itemData.cstIPI = '50'
-        itemData.aliquotaIPI = prod.aliquotaIPI
-        itemData.valorIPI = Number(ipi.toFixed(2))
+        itemData.pIPI = prod.aliquotaIPI
+        itemData.vIPI = Number(ipi.toFixed(2))
       }
 
       itens.push(itemData)
@@ -352,7 +373,7 @@ async function main() {
     const valorTotalNota = Number((valorTotalProdutos + valorTotalIPI).toFixed(2))
     const aamm = new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0')
 
-    const { chaveCompleta } = gerarChaveAcessoNFe({
+    const { chaveCompleta, codigoNumerico: cNF, dv } = gerarChaveAcessoNFe({
       codigoUf,
       anoMes: aamm,
       cnpjEmitente: empresa.cnpj,
@@ -363,40 +384,48 @@ async function main() {
     })
 
     const dataEmissao = gerarDataAleatoria(90)
+    const tpAmbNum = empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2
 
+    // ✅ Nomes/tipos de campo do schema real da NFe (natOp/tpNF/idDest/vBC/vNF
+    // etc., em vez dos nomes "amigáveis" de uma versão anterior do modelo —
+    // ver o create real em nfe.service.ts:emitirNfe). formaPagamento não é
+    // persistido como coluna própria da NFe (fica no relacionamento
+    // PagamentoNFe, não criado aqui por simplicidade do seed).
     nfeData.push({
       modelo: '55',
+      cUF: codigoUf,
+      cNF,
       serie: empresa.serieNfe || 1,
       numero: numeroNfe,
       chaveAcesso: chaveCompleta,
-      dataHoraEmissao: dataEmissao,
-      dataHoraSaida: dataEmissao,
-      naturezaOperacao: i % 2 === 0 ? 'Venda de Mercadorias' : 'Venda para Consumo',
-      ambiente: empresa.ambienteEmissao || 1,
-      tipoEmissao: 1,
-      tipoDocumento: 1,
-      finalidade: 1,
-      consumidorFinal: i % 3 === 0,
-      presencaComprador: 2,
+      natOp: i % 2 === 0 ? 'Venda de Mercadorias' : 'Venda para Consumo',
+      indPag: '0',
+      dhEmi: dataEmissao,
+      dhSaiEnt: dataEmissao,
+      tpNF: '1',
+      idDest: '1',
+      cMunFG: codigoMunicipio,
+      tpImp: '1',
+      tpEmis: '1',
+      cDV: String(dv),
+      tpAmb: String(tpAmbNum),
+      finNFe: '1',
+      indFinal: i % 3 === 0 ? '1' : '0',
+      indPres: '2',
+      procEmi: '0',
+      verProc: 'SUP-TECNOLOGIA-4.00',
       status: i % 8 === 0 ? 'CANCELADA' : 'AUTORIZADA',
-      valorTotalProdutos: Number(valorTotalProdutos.toFixed(2)),
-      valorTotalFrete: 0,
-      valorTotalSeguro: 0,
-      valorTotalDesconto: 0,
-      valorTotalOutrasDesp: 0,
-      baseCalculoICMS: Number(baseCalculoICMS.toFixed(2)),
-      valorTotalICMS: Number(valorTotalICMS.toFixed(2)),
-      baseCalculoICMSST: 0,
-      valorTotalICMSST: 0,
-      valorTotalIPI: Number(valorTotalIPI.toFixed(2)),
-      valorTotalPIS: Number(valorTotalPIS.toFixed(2)),
-      valorTotalCOFINS: Number(valorTotalCOFINS.toFixed(2)),
-      valorTotalIBS: Number((valorTotalProdutos * 0.01).toFixed(2)),
-      valorTotalCBS: Number((valorTotalProdutos * 0.009).toFixed(2)),
-      valorTotalTributosAprox: Number(valorTotalTributosAprox.toFixed(2)),
-      valorTotalNota,
-      formaPagamento: i % 3 === 0 ? '17' : i % 3 === 1 ? '03' : '01',
-      informacoesAdicionais: 'Emitido via SUP TECNOLOGIA ERP',
+      vProd: Number(valorTotalProdutos.toFixed(2)),
+      vBC: Number(baseCalculoICMS.toFixed(2)),
+      vICMS: Number(valorTotalICMS.toFixed(2)),
+      vIPI: Number(valorTotalIPI.toFixed(2)),
+      vPIS: Number(valorTotalPIS.toFixed(2)),
+      vCOFINS: Number(valorTotalCOFINS.toFixed(2)),
+      vIBS: Number((valorTotalProdutos * 0.01).toFixed(2)),
+      vCBS: Number((valorTotalProdutos * 0.009).toFixed(2)),
+      vTotTrib: Number(valorTotalTributosAprox.toFixed(2)),
+      vNF: valorTotalNota,
+      infCpl: 'Emitido via SUP TECNOLOGIA ERP',
       protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
       dataHoraAutorizacao: dataEmissao,
       xmlAssinado: gerarXmlAssinado('NFe', numeroNfe, chaveCompleta),
@@ -413,7 +442,7 @@ async function main() {
       },
       transporte: {
         create: {
-          modalidadeFrete: 0,
+          modalidadeFrete: '0',
           transportadoraNome: transportadoras[i % transportadoras.length]?.razaoSocial || 'Transportadora Padrão',
           transportadoraCnpj: transportadoras[i % transportadoras.length]?.cnpj || '00.000.000/0000-00',
           veiculoPlaca: `BRA${String(1000 + i * 123).slice(0, 4)}`,
@@ -439,7 +468,7 @@ async function main() {
   // ============================================
   console.log('\n📄 Gerando NFS-e...')
 
-  let numeroNfse = await obterProximoNumero('nFSe', empresa.id, 100)
+  let numeroNfse = await obterProximoNumero('nFSe', empresa.id, 100, 'numeroNfse')
   const nfseData: any[] = []
 
   for (let i = 0; i < 10; i++) {
@@ -466,6 +495,9 @@ async function main() {
       anoMesDPS: new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0'),
     })
 
+    // ✅ Nomes de campo do schema real da NFSe: sem sub-objetos emitente/
+    // tomador — são colunas soltas prestador*/tomador* na própria tabela
+    // (ver model NFSe no schema.prisma).
     nfseData.push({
       chaveAcesso: chaveCompleta,
       numeroNfse,
@@ -475,23 +507,56 @@ async function main() {
       dataHoraEmissao: dataEmissao,
       dataHoraProcessamento: dataEmissao,
       codigoVerificacao,
-      ambiente: empresa.ambienteEmissao || 1,
-      tipoEmissao: 1,
+      ambiente: empresa.ambienteEmissao || 'HOMOLOGACAO',
+      tipoEmissao: '1',
       status: i % 8 === 0 ? 'CANCELADA' : 'AUTORIZADA',
+
+      prestadorCnpj: empresa.cnpj,
+      prestadorInscricaoMunicipal: empresa.inscricaoMunicipal || '00000000',
+      prestadorRazaoSocial: empresa.razaoSocial,
+      prestadorNomeFantasia: empresa.nomeFantasia,
+      prestadorLogradouro: empresa.endereco.logradouro,
+      prestadorNumero: empresa.endereco.numero,
+      prestadorBairro: empresa.endereco.bairro,
+      prestadorCodigoMunicipio: empresa.endereco.codigoMunicipio,
+      prestadorNomeMunicipio: empresa.endereco.nomeMunicipio,
+      prestadorUf: empresa.endereco.uf,
+      prestadorCep: empresa.endereco.cep,
+
+      tomadorTipoPessoa: cliente.tipoPessoa === 'PF' ? 'PF' : 'PJ',
+      tomadorDocumento: cliente.documento,
+      tomadorRazaoSocial: cliente.razaoSocial,
+      tomadorLogradouro: cliente.endereco?.logradouro || '',
+      tomadorNumero: cliente.endereco?.numero || 'S/N',
+      tomadorBairro: cliente.endereco?.bairro || '',
+      tomadorCodigoMunicipio: cliente.endereco?.codigoMunicipio || codigoMunicipio,
+      tomadorNomeMunicipio: cliente.endereco?.nomeMunicipio || '',
+      tomadorUf: cliente.endereco?.uf || empresa.endereco.uf,
+      tomadorCep: cliente.endereco?.cep || '',
+
+      codigoTributacaoNacional: servico.codigoTributacaoNacional || '010701',
+      codigoTributacaoMunicipal: servico.codigoTributacaoMunicipal || '0107',
+      descricaoServico: servico.descricao,
+      codigoNBS: servico.codigoNBS || '112202000',
+
+      localPrestacaoCodigoMunicipio: empresa.endereco.codigoMunicipio,
+      localPrestacaoNomeMunicipio: empresa.endereco.nomeMunicipio,
+      localPrestacaoUf: empresa.endereco.uf,
+
+      valorServico: Number(valorServico.toFixed(2)),
       valorTotalServicos: Number(valorServico.toFixed(2)),
       valorTotalDescontos: 0,
       valorTotalDeducoes: 0,
       baseCalculoISS: Number(baseISS.toFixed(2)),
       valorTotalISS: Number(valorISS.toFixed(2)),
       valorTotalISSRetido: i % 3 === 0 ? Number(valorISS.toFixed(2)) : 0,
-      valorTotalRetencoesFed: Number((valorPIS + valorCOFINS + valorIRRF + valorCSLL).toFixed(2)),
+      valorTotalRetencoesFederais: Number((valorPIS + valorCOFINS + valorIRRF + valorCSLL).toFixed(2)),
       valorTotalIBS: Number((valorServico * 0.01).toFixed(2)),
-      valorTotalCBS: Number((valorServico * 0.009).toFixed(2)),
       valorLiquidoNfse: Number(valorLiquido.toFixed(2)),
       valorTotalNotaFinal: Number(valorLiquido.toFixed(2)),
       informacoesComplementares: 'Documento emitido via SUP TECNOLOGIA ERP - NFS-e Padrão Nacional',
       xmlAssinado: gerarXmlAssinado('NFSe', numeroNfse, chaveCompleta),
-      urlVisualizacao: 'https://www.nfse.gov.br/consultapublica',
+      urlVisualizacaoNacional: 'https://www.nfse.gov.br/consultapublica',
       empresaId: empresa.id,
       tomadorId: cliente.id,
       servicoId: servico.id,
@@ -598,8 +663,8 @@ async function main() {
       chaveAcesso,
       dataHoraEmissao: dataEmissao,
       naturezaOperacao: 'Venda a Consumidor Final',
-      ambiente: empresa.ambienteEmissao || 1,
-      tipoEmissao: 1,
+      ambiente: empresa.ambienteEmissao || 'HOMOLOGACAO',
+      tipoEmissao: '1',
       status: i % 5 === 0 ? 'CANCELADA' : 'AUTORIZADA',
       consumidorIdentificado: i % 2 === 0,
       consumidorCpfCnpj: i % 2 === 0 ? cliente.documento : null,
@@ -635,7 +700,7 @@ async function main() {
   // ============================================
   console.log('\n📄 Gerando CT-e...')
 
-  let numeroCte = await obterProximoNumero('cTe', empresa.id, 100)
+  let numeroCte = await obterProximoNumero('cTe', empresa.id, 100, 'nCT')
   const cteData: any[] = []
 
   for (let i = 0; i < 5; i++) {
