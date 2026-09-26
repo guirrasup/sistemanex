@@ -24,6 +24,7 @@ services:
       PORT: 3333
       DATABASE_URL: postgresql://${POSTGRES_USER:-nex_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nex_erp}
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env}
+      CERTIFICADO_ENCRYPTION_KEY: ${CERTIFICADO_ENCRYPTION_KEY:?defina CERTIFICADO_ENCRYPTION_KEY no arquivo .env (gere com: openssl rand -hex 32)}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       CONECTAGOV_CLIENT_ID: ${CONECTAGOV_CLIENT_ID:-}
       CONECTAGOV_CLIENT_SECRET: ${CONECTAGOV_CLIENT_SECRET:-}
