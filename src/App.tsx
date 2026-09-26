@@ -14,7 +14,7 @@ import { NfaeEmissor } from './components/fiscal/NfaeEmissor';
 // 🔥 NOVO - MDF-e
 import { MdfeEmissor } from './components/fiscal/MdfeEmissor';
 import { DamdfeViewer } from './components/fiscal/DamdfeViewer';
-import { DocumentosFiscaisList } from './components/fiscal/DocumentosFiscaisList';
+import { DocumentosFiscaisList, TipoDocumentoFiltro } from './components/fiscal/DocumentosFiscaisList';
 import { DanfseViewer } from './components/fiscal/DanfseViewer';
 import { DanfeViewer } from './components/fiscal/DanfeViewer';
 import { DanfceViewer } from './components/fiscal/DanfceViewer';
@@ -93,6 +93,10 @@ export default function App() {
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [carregando, setCarregando] = useState<boolean>(true);
+  // 🔥 Com qual tipo a tela de Documentos Emitidos deve abrir — null (ou
+  // navegação genérica pelo menu) mostra todos os tipos; um atalho por tipo
+  // (ex.: badge do Dashboard) já entra filtrado, sem exigir seleção manual.
+  const [documentosTipoInicial, setDocumentosTipoInicial] = useState<TipoDocumentoFiltro | null>(null);
 
   // App State
   const [empresa, setEmpresa] = useState<ConfiguracaoEmpresa>(StorageService.getConfiguracao());
@@ -418,6 +422,23 @@ export default function App() {
     refreshData(true);
   };
 
+  // 🔥 Navegação genérica (Header/Sidebar): ao entrar em "Documentos Emitidos"
+  // por um item de menu comum, limpa qualquer tipo herdado de um atalho
+  // anterior — essa entrada sempre mostra todos os tipos.
+  const handleNavigate = (view: string) => {
+    if (view === 'documentos-fiscais') {
+      setDocumentosTipoInicial(null);
+    }
+    setCurrentView(view);
+  };
+
+  // 🔥 Navegação por tipo (ex.: atalho de um tipo específico no Dashboard):
+  // já abre "Documentos Emitidos" filtrado, sem exigir seleção manual.
+  const handleNavigateDocumentosTipo = (tipo: TipoDocumentoFiltro) => {
+    setDocumentosTipoInicial(tipo);
+    setCurrentView('documentos-fiscais');
+  };
+
   // ============================================================
   // EFFECT
   // ============================================================
@@ -487,7 +508,7 @@ export default function App() {
           empresa={empresa}
           usuario={usuarioLogado}
           currentView={currentView}
-          onNavigate={(view) => setCurrentView(view)}
+          onNavigate={handleNavigate}
           onExportarBackup={handleExportBackup}
           onLogout={handleLogout}
         />
@@ -496,7 +517,7 @@ export default function App() {
           
           <Sidebar
             currentView={currentView}
-            onNavigate={(view) => setCurrentView(view)}
+            onNavigate={handleNavigate}
             isOpen={sidebarOpen}
             onToggle={() => setSidebarOpen(!sidebarOpen)}
             contadores={{
@@ -530,6 +551,7 @@ export default function App() {
                   clientes={clientes}
                   titulos={titulos}
                   transportadoras={transportadoras}
+                  onNavigateDocumentosTipo={handleNavigateDocumentosTipo}
                 />
               )}
 
@@ -595,16 +617,22 @@ export default function App() {
 
               {currentView === 'documentos-fiscais' && (
                 <DocumentosFiscaisList
+                  // 🔥 Remonta ao trocar de tipo inicial (atalho por tipo), pra
+                  // limpar filtros/ordenação residuais de uma entrada anterior.
+                  key={documentosTipoInicial || 'todos'}
+                  initialTipo={documentosTipoInicial || 'TODOS'}
                   nfses={nfses}
                   nfes={nfes}
                   nfces={nfces}
                   ctes={ctes}
                   nfaes={nfaes}
+                  mdfes={mdfes}
                   onViewDanfse={(doc) => setViewingDanfse(doc)}
                   onViewDanfe={(doc) => setViewingDanfe(doc)}
                   onViewDanfce={(doc) => setViewingDanfce(doc)}
                   onViewDacte={(doc) => setViewingDacte(doc)}
                   onViewDanfae={(doc) => setViewingDanfae(doc)}
+                  onViewMdfe={(doc) => setViewingMdfe(doc)}
                   onEmitirNovaNfse={() => setCurrentView('nfse-emissor')}
                   onEmitirNovaNfe={() => setCurrentView('nfe-emissor')}
                   onEmitirNovaNfce={() => setCurrentView('nfce-emissor')}

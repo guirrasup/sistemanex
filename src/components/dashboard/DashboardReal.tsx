@@ -37,6 +37,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
+import { TipoDocumentoFiltro } from '../fiscal/DocumentosFiscaisList';
 
 interface DocumentoFiscalResumo {
   id: string;
@@ -156,6 +157,7 @@ interface DashboardRealProps {
   clientes: ClienteResumo[];
   titulos: TituloResumo[];
   transportadoras?: unknown[];
+  onNavigateDocumentosTipo?: (tipo: TipoDocumentoFiltro) => void;
 }
 
 // ============================================================
@@ -178,7 +180,8 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
   produtos,
   clientes,
   titulos,
-  transportadoras = []
+  transportadoras = [],
+  onNavigateDocumentosTipo,
 }) => {
   // 🔥 COR DO MÓDULO (AZUL)
   const cor = 'blue';
@@ -469,16 +472,28 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
             {Object.entries(notasPorTipo).map(([tipo, qtd]) => {
               if (qtd === 0) return null;
               const cores: Record<string, string> = {
-                'NFE': 'bg-emerald-100 text-emerald-700',
-                'NFSE': 'bg-blue-100 text-blue-700',
-                'NFCE': 'bg-purple-100 text-purple-700',
-                'CTE': 'bg-cyan-100 text-cyan-700',
-                'NFAE': 'bg-amber-100 text-amber-700',
+                'NFE': 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
+                'NFSE': 'bg-blue-100 text-blue-700 hover:bg-blue-200',
+                'NFCE': 'bg-purple-100 text-purple-700 hover:bg-purple-200',
+                'CTE': 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200',
+                'NFAE': 'bg-amber-100 text-amber-700 hover:bg-amber-200',
               };
               return (
-                <span key={tipo} className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${cores[tipo] || 'bg-slate-100'}`}>
+                <button
+                  key={tipo}
+                  type="button"
+                  onClick={(e) => {
+                    // 🔥 Este chip fica dentro do card cujo onClick já navega pra
+                    // "Ver Todos" — sem isolar o clique aqui, o atalho por tipo
+                    // nunca dispararia (o clique do pai sempre ganharia).
+                    e.stopPropagation();
+                    onNavigateDocumentosTipo?.(tipo as TipoDocumentoFiltro);
+                  }}
+                  title={`Ver apenas documentos ${tipo}`}
+                  className={`text-[9px] font-medium px-1.5 py-0.5 rounded transition-colors cursor-pointer ${cores[tipo] || 'bg-slate-100 hover:bg-slate-200'}`}
+                >
                   {tipo}: {qtd}
-                </span>
+                </button>
               );
             })}
             {Object.values(notasPorTipo).every(v => v === 0) && (

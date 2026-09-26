@@ -79,7 +79,12 @@ export function formatarCEP(cep: string): string {
   return cep;
 }
 
-export function formatarMoeda(valor: number | undefined | null): string {
-  if (valor === undefined || valor === null || isNaN(valor)) return 'R$ 0,00';
-  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+export function formatarMoeda(valor: number | string | undefined | null): string {
+  // 🔥 Decimal do Prisma chega como string no JSON (ex.: "1450.00") — sem essa
+  // coerção, um valor não-numérico vindo de qualquer chamador quebra o
+  // toLocaleString silenciosamente (ele ignora as opções e devolve a string
+  // crua, produzindo texto tipo "0145014501450..." quando somado antes).
+  const numero = typeof valor === 'string' ? parseFloat(valor) : valor;
+  if (numero === undefined || numero === null || isNaN(numero)) return 'R$ 0,00';
+  return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
