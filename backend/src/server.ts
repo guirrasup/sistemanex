@@ -41,7 +41,11 @@ app.use(
     origin:
       process.env.NODE_ENV === 'production'
         ? [process.env.FRONTEND_URL || 'https://seu-dominio.com']
-        : ['http://localhost:5173', 'http://localhost:3000'],
+        // 🔥 Qualquer porta em localhost/127.0.0.1, não só 3000/5173 fixos: o Vite
+        // sobe em 3001/3002/... automaticamente quando a porta padrão já está
+        // ocupada (ex.: um dev server anterior ainda rodando), e a lista fixa
+        // bloqueava o login com CORS assim que isso acontecia.
+        : /^http:\/\/(localhost|127\.0\.0\.1):\d+$/,
     credentials: true,
   })
 );

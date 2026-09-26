@@ -310,6 +310,14 @@ export default function App() {
       StorageService.saveClientes(cacheData.clientes);
       StorageService.saveServicos(cacheData.servicos);
       StorageService.saveTitulos(cacheData.titulos);
+      // 🔥 Sem isso, uma busca real da empresa bem-sucedida nunca atualizava o
+      // cache local (sup_empresa_config) — se uma busca FUTURA falhasse (rede,
+      // etc.), o fallback usaria um snapshot desatualizado da empresa (ex.:
+      // código de município errado corrigido no servidor, mas ainda velho no
+      // localStorage), reintroduzindo um bug já corrigido no banco.
+      if (empresaReal) {
+        StorageService.saveConfiguracao(empresaReal);
+      }
       
                                                                          // 🔥 NOVO
       

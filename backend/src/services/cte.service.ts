@@ -96,9 +96,21 @@ export class CteService {
     }
 
     // 1. Gerar chave de acesso
-    const cUF = data.cUF || data.cMunIni?.slice(0, 2) || '35';
+    // 🔥 cUF e cnpjEmitente SEMPRE vêm do registro fresco de `empresa` buscado
+    // agora mesmo acima (nunca de data.cUF/data.emitenteCNPJ, enviados pelo
+    // frontend) — são os MESMOS valores usados logo abaixo pra montar o bloco
+    // <emit> do XML (gerarXmlCte400 lê cte.emitente/cte.emitente.endereco, a
+    // relação persistida, não o payload). Se o navegador do usuário tivesse um
+    // cache desatualizado de `empresa` no momento da emissão (ex.: acabou de
+    // trocar de certificado/CNPJ em outra aba), usar o valor do payload pra
+    // gerar a chave criava uma inconsistência real: a chave (Id) embutia um
+    // CNPJ diferente do que realmente aparece no corpo do XML — a SEFAZ
+    // rejeita isso com "Erro na composição do Campo ID". Usando sempre o
+    // mesmo registro de `empresa` pros dois, a chave e o corpo do documento
+    // nunca podem divergir.
+    const cUF = empresa.endereco?.codigoMunicipio?.slice(0, 2) || '35';
     const aamm = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
-    const cnpjEmitente = data.emitenteCNPJ || '00000000000000';
+    const cnpjEmitente = empresa.cnpj || '00000000000000';
     const serie = data.serie || 1;
     const numero = data.nCT || (await this.cteRepo.getProximoNumero(data.empresaId, serie));
     const tipoEmissao = data.tpEmis || 1;

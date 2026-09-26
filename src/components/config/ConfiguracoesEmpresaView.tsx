@@ -28,7 +28,7 @@ import { ConfiguracaoEmpresa } from '../../types/erp';
 import { formatarCpfCnpj, formatarCEP, limparDocumento } from '../../utils/cpfCnpjValidator';
 import { StorageService } from '../../utils/storage';
 import { processarCertificadoA1 } from '../../utils/certificadoParser';
-import { consultarCnpjConectaGov } from '../../utils/consultaCnpjApi';
+import { consultarCnpjConectaGov, ConsultaCnpjResponse } from '../../utils/consultaCnpjApi';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { certificadoService } from '../../services/certificado.service';
 import { empresaService } from '../../services/empresa.service';
@@ -36,6 +36,152 @@ import { empresaService } from '../../services/empresa.service';
 interface ConfiguracoesEmpresaViewProps {
   empresa: ConfiguracaoEmpresa;
   onEmpresaChange: () => void;
+}
+
+// 🔥 Base "em branco" reutilizada tanto por "Limpar Formulário" quanto por
+// "Carregar Certificado" — sem isso, carregar um certificado novo só
+// sobrescrevia as chaves presentes na resposta, deixando resíduos da empresa
+// anterior (IE, IM, chave Pix, banco, regime tributário etc.) nos campos que
+// a resposta não tocava.
+function criarEmpresaVazia(): ConfiguracaoEmpresa {
+  return {
+    razaoSocial: '',
+    nomeFantasia: '',
+    cnpj: '',
+    inscricaoEstadual: '',
+    inscricaoMunicipal: '',
+    cnae: '',
+    regimeTributario: 1,
+    aliquotaSimplesNacional: 6.0,
+    ambienteEmissao: 1,
+    serieNfe: 1,
+    proximoNumeroNfe: 1,
+    serieNfse: 1,
+    proximoNumeroNfse: 1,
+    serieNfce: 1,
+    proximoNumeroNfce: 1,
+    endereco: {
+      logradouro: '',
+      numero: '',
+      complemento: '',
+      bairro: '',
+      codigoMunicipio: '',
+      nomeMunicipio: '',
+      uf: '',
+      cep: '',
+      telefone: '',
+      email: '',
+    },
+    certificado: {
+      instalado: false,
+      tipo: 'A1',
+      nomeTitular: '',
+      cnpjCpf: '',
+      emissora: '',
+      dataValidadeInicio: '',
+      dataValidadeFim: '',
+      diasRestantes: 0,
+      arquivoCarregadoNome: '',
+      status: 'NAO_CONFIGURADO',
+    },
+    chavePixPadrao: '',
+    bancoPadrao: '',
+    optanteSimples: false,
+    optanteMEI: false,
+  };
+}
+
+// 🔥 O `codigo_municipio` que a API pública de CNPJ (OpenCNPJ/Receita Federal)
+// devolve NÃO é o código IBGE de 7 dígitos que a SEFAZ exige nos documentos
+// fiscais (schema TCodUfIBGE/TCodMunIBGE) — é o código "TOM" interno da
+// própria Receita Federal, mais curto (ex.: "9701" pra Brasília, em vez do
+// código IBGE real "5300108"). Usar esse valor direto gravava um cUF inválido
+// no XML e a SEFAZ rejeitava toda emissão real com "Falha no schema XML...
+// Enumeration constraint failed" — confirmado ao vivo. Resolve o código IBGE
+// de verdade consultando a API pública oficial do IBGE por nome do município + UF.
+async function resolverCodigoMunicipioIBGE(
+  nomeMunicipio: string | undefined,
+  uf: string | undefined,
+  codigoCandidato: string | undefined
+): Promise<string> {
+  // Se o valor que já veio for mesmo um código IBGE (7 dígitos), usa direto.
+  if (codigoCandidato && /^\d{7}$/.test(codigoCandidato)) {
+    return codigoCandidato;
+  }
+
+  if (!nomeMunicipio || !uf) return '';
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(
+      `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+
+    if (!response.ok) return '';
+
+    const municipios: Array<{ id: number; nome: string }> = await response.json();
+    const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
+    const alvo = normalizar(nomeMunicipio);
+    const encontrado = municipios.find((m) => normalizar(m.nome) === alvo);
+    return encontrado ? String(encontrado.id) : '';
+  } catch (err) {
+    console.warn('Falha ao resolver código IBGE do município:', err);
+    return '';
+  }
+}
+
+// 🔥 Mapeia o retorno da mesma consulta pública usada na tela "Consulta CNPJ"
+// (consultarCnpjConectaGov / OpenCNPJ) para o máximo de campos que o cadastro
+// da empresa realmente tem — bem mais rico que a busca da BrasilAPI que
+// rodava antes dentro do parser do certificado (só razão social/endereço básico).
+async function mapConsultaCnpjParaEmpresa(
+  dados: NonNullable<ConsultaCnpjResponse['dados']>
+): Promise<Partial<ConfiguracaoEmpresa>> {
+  const telefonePrincipal =
+    dados.telefone && dados.telefone.length > 0
+      ? `(${dados.telefone[0].ddd}) ${dados.telefone[0].numero}`
+      : '';
+
+  const codigoMunicipioIBGE = await resolverCodigoMunicipioIBGE(
+    dados.endereco.municipio,
+    dados.endereco.uf,
+    dados.endereco.codigoMunicipio
+  );
+
+  return {
+    // 🔥 Fixa o CNPJ no valor realmente consultado (que é sempre o mesmo CNPJ
+    // extraído do certificado que disparou essa consulta) — sem isso, um
+    // cadastro que já tivesse outro CNPJ (de uma empresa/certificado anterior)
+    // podia ficar com razaoSocial/endereco de uma empresa e cnpj de outra,
+    // e a SEFAZ rejeita a emissão com "CNPJ-Base do Emitente difere do
+    // CNPJ-Base do Certificado Digital" quando isso acontece.
+    cnpj: dados.cnpj ? formatarCpfCnpj(dados.cnpj) : undefined,
+    razaoSocial: dados.razaoSocial || undefined,
+    nomeFantasia: dados.nomeFantasia || undefined,
+    cnae: dados.cnaePrincipal
+      ? `${dados.cnaePrincipal}${dados.cnaePrincipalDescricao ? ` - ${dados.cnaePrincipalDescricao}` : ''}`
+      : undefined,
+    regimeTributario: dados.optanteSimples ? 1 : 3,
+    optanteSimples: dados.optanteSimples,
+    optanteMEI: dados.optanteMEI,
+    endereco: {
+      logradouro: `${dados.endereco.tipoLogradouro || ''} ${dados.endereco.logradouro || ''}`.trim(),
+      numero: dados.endereco.numero || '',
+      complemento: dados.endereco.complemento || '',
+      bairro: dados.endereco.bairro || '',
+      codigoMunicipio: codigoMunicipioIBGE,
+      nomeMunicipio: dados.endereco.municipio || '',
+      uf: dados.endereco.uf || '',
+      cep: dados.endereco.cep || '',
+      telefone: telefonePrincipal,
+      email: dados.email || '',
+      codigoPais: dados.endereco.codigoPais || undefined,
+      nomePais: dados.endereco.pais || undefined,
+    },
+  } as Partial<ConfiguracaoEmpresa>;
 }
 
 export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> = ({
@@ -169,6 +315,14 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
       
       if (response.sucesso && response.dados) {
         const dados = response.dados;
+        // 🔥 Mesma correção do fluxo de certificado: dados.endereco.codigoMunicipio
+        // aqui é o código "TOM" da Receita Federal, não o código IBGE que a
+        // SEFAZ exige — resolve o código IBGE real antes de aplicar.
+        const codigoMunicipioIBGE = await resolverCodigoMunicipioIBGE(
+          dados.endereco.municipio,
+          dados.endereco.uf,
+          dados.endereco.codigoMunicipio
+        );
         setFormData(prev => ({
           ...prev,
           razaoSocial: dados.razaoSocial || prev.razaoSocial,
@@ -180,7 +334,7 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
             numero: dados.endereco.numero || prev.endereco.numero,
             complemento: dados.endereco.complemento || prev.endereco.complemento,
             bairro: dados.endereco.bairro || prev.endereco.bairro,
-            codigoMunicipio: dados.endereco.codigoMunicipio || prev.endereco.codigoMunicipio,
+            codigoMunicipio: codigoMunicipioIBGE || prev.endereco.codigoMunicipio,
             nomeMunicipio: dados.endereco.municipio || prev.endereco.nomeMunicipio,
             uf: dados.endereco.uf || prev.endereco.uf,
             cep: dados.endereco.cep || prev.endereco.cep,
@@ -188,7 +342,7 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
             email: dados.email || prev.endereco.email,
           },
         }));
-        
+
         alert('✅ Dados do CNPJ preenchidos! Clique em "Salvar Configurações" para persistir.');
       } else {
         alert(`❌ ${response.erro || 'CNPJ não encontrado'}`);
@@ -205,56 +359,12 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
       return;
     }
 
-    const empresaVazia: ConfiguracaoEmpresa = {
-      razaoSocial: '',
-      nomeFantasia: '',
-      cnpj: '',
-      inscricaoEstadual: '',
-      inscricaoMunicipal: '',
-      cnae: '',
-      regimeTributario: 1,
-      aliquotaSimplesNacional: 6.0,
-      ambienteEmissao: 1,
-      serieNfe: 1,
-      proximoNumeroNfe: 1,
-      serieNfse: 1,
-      proximoNumeroNfse: 1,
-      serieNfce: 1,
-      proximoNumeroNfce: 1,
-      endereco: {
-        logradouro: '',
-        numero: '',
-        complemento: '',
-        bairro: '',
-        codigoMunicipio: '',
-        nomeMunicipio: '',
-        uf: '',
-        cep: '',
-        telefone: '',
-        email: '',
-      },
-      certificado: {
-        instalado: false,
-        tipo: 'A1',
-        nomeTitular: '',
-        cnpjCpf: '',
-        emissora: '',
-        dataValidadeInicio: '',
-        dataValidadeFim: '',
-        diasRestantes: 0,
-        arquivoCarregadoNome: '',
-        status: 'NAO_CONFIGURADO',
-      },
-      chavePixPadrao: '',
-      bancoPadrao: '',
-    };
-
-    setFormData(empresaVazia);
+    setFormData(criarEmpresaVazia());
     setArquivoCertificado(null);
     setSenhaCertificado('');
     setFeedbackCert(null);
     setSalvo(false);
-    
+
     alert('✅ Formulário limpo!');
   };
 
@@ -291,6 +401,12 @@ const handleCarregarCertificadoEPreencher = async () => {
       return;
     }
 
+    // 🔥 Limpa TUDO primeiro — carregar um certificado novo não pode deixar
+    // nenhum resíduo (IE, IM, endereço, chave Pix, regime tributário etc.) da
+    // empresa/certificado carregados anteriormente. Só depois disso o
+    // formulário é populado, passo a passo, com os dados deste certificado.
+    setFormData(criarEmpresaVazia());
+
     if (resultado.dadosEmpresa) {
       const dadosEmpresa = resultado.dadosEmpresa;
       setFormData(prev => ({
@@ -301,7 +417,33 @@ const handleCarregarCertificadoEPreencher = async () => {
       } as ConfiguracaoEmpresa));
     }
 
-    // 2) Envio real ao backend: criptografa (AES-256-GCM) e armazena vinculado
+    // 2) Com o CNPJ extraído do certificado, roda a MESMA consulta pública rica
+    // usada na tela "Consulta CNPJ" (Receita Federal via OpenCNPJ) — traz bem
+    // mais dado que o certificado sozinho: nome fantasia, CNAE, regime
+    // tributário (Simples/MEI) e endereço completo. Falha nessa consulta não
+    // impede o restante do fluxo — o formulário só fica com o que veio do
+    // certificado mesmo.
+    const cnpjDoCertificado = resultado.dadosEmpresa?.cnpj;
+    if (cnpjDoCertificado) {
+      setFeedbackCert({ tipo: 'info', mensagem: 'Certificado validado — consultando dados cadastrais do CNPJ...' });
+      try {
+        const consultaCnpj = await consultarCnpjConectaGov(cnpjDoCertificado);
+        if (consultaCnpj.sucesso && consultaCnpj.dados) {
+          const dadosMax = await mapConsultaCnpjParaEmpresa(consultaCnpj.dados);
+          setFormData(prev => ({
+            ...prev,
+            ...dadosMax,
+            endereco: { ...prev.endereco, ...(dadosMax.endereco || {}) },
+          } as ConfiguracaoEmpresa));
+        } else {
+          console.warn('Consulta pública de CNPJ não retornou dados (mantendo o que veio do certificado):', consultaCnpj.erro);
+        }
+      } catch (errConsulta) {
+        console.warn('Falha ao consultar dados cadastrais do CNPJ (mantendo o que veio do certificado):', errConsulta);
+      }
+    }
+
+    // 3) Envio real ao backend: criptografa (AES-256-GCM) e armazena vinculado
     // à empresa autenticada — é esse certificado que assina e transmite os
     // documentos fiscais de verdade à SEFAZ, não a validação local acima.
     setIsProcessandoCert(false);
@@ -317,16 +459,21 @@ const handleCarregarCertificadoEPreencher = async () => {
       return;
     }
 
+    // 🔥 Só o `certificado` retornado pelo servidor é aplicado aqui — NUNCA
+    // `resultadoServidor.empresa` inteiro. Esse upload só grava o certificado
+    // em si (endpoint dedicado); `empresa` ali é o registro ainda persistido
+    // no banco (da empresa/certificado anteriores), e sobrescrever com ele
+    // reintroduziria exatamente o resíduo que os passos 1-2 acabaram de
+    // limpar. Os dados cadastrais só são gravados de verdade quando o usuário
+    // clica em "Salvar Configurações" (handleSalvar).
     setFormData(prev => ({
       ...prev,
-      ...resultadoServidor.empresa,
-      endereco: { ...prev.endereco, ...(resultadoServidor.empresa?.endereco || {}) },
       certificado: { ...prev.certificado, ...resultadoServidor.certificado },
     } as ConfiguracaoEmpresa));
 
     setFeedbackCert({
       tipo: 'sucesso',
-      mensagem: `✅ Certificado ${arquivoCertificado.name} validado e enviado ao servidor com sucesso! Ele já está pronto para assinar e transmitir documentos fiscais à SEFAZ.`,
+      mensagem: `✅ Certificado ${arquivoCertificado.name} validado e enviado ao servidor com sucesso! Dados cadastrais preenchidos automaticamente a partir do CNPJ — revise e clique em "Salvar Configurações" para persistir.`,
     });
   } catch (err: unknown) {
     setFeedbackCert({
@@ -373,6 +520,20 @@ const handleCarregarCertificadoEPreencher = async () => {
       return iso;
     }
   };
+
+  // 🔥 A SEFAZ rejeita a emissão (qualquer documento fiscal) se o CNPJ-Base do
+  // emitente (cadastro da empresa) divergir do CNPJ-Base embutido no
+  // certificado digital usado pra assinar — os dois podem sair dessincronizados
+  // se o cadastro for editado manualmente, ou se uma consulta de CNPJ falhar
+  // no meio do carregamento de um certificado novo. Avisa isso ANTES de
+  // emitir, em vez de deixar o usuário só descobrir na rejeição da SEFAZ.
+  const cnpjBaseEmpresa = limparDocumento(formData.cnpj).slice(0, 8);
+  const cnpjBaseCertificado = limparDocumento(formData.certificado?.cnpjCpf || '').slice(0, 8);
+  const cnpjDivergeDoCertificado =
+    formData.certificado?.instalado &&
+    cnpjBaseEmpresa.length === 8 &&
+    cnpjBaseCertificado.length === 8 &&
+    cnpjBaseEmpresa !== cnpjBaseCertificado;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
@@ -564,6 +725,19 @@ const handleCarregarCertificadoEPreencher = async () => {
               )}
               <div className="flex-1 font-medium leading-relaxed">
                 {feedbackCert.mensagem}
+              </div>
+            </div>
+          )}
+
+          {cnpjDivergeDoCertificado && (
+            <div className="p-3 rounded-lg text-xs flex items-start gap-2.5 bg-amber-900/60 border border-amber-500 text-amber-100">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex-1 font-medium leading-relaxed">
+                ⚠️ O CNPJ cadastrado ({formatarCpfCnpj(formData.cnpj)}) é diferente do CNPJ do
+                certificado digital carregado ({formatarCpfCnpj(formData.certificado?.cnpjCpf || '')}).
+                A SEFAZ rejeita qualquer emissão nesse estado ("CNPJ-Base do Emitente difere do
+                CNPJ-Base do Certificado Digital"). Carregue o certificado correto para esta empresa,
+                ou corrija o CNPJ cadastrado antes de emitir.
               </div>
             </div>
           )}
