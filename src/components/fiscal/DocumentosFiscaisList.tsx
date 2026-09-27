@@ -292,7 +292,13 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           destinatario: doc.destinatario?.razaoSocial || 'Destinatário não informado',
           documento: doc.destinatario?.documento || 'Não informado',
           valor: paraNumero(doc.vNF),
-          data: doc.dataHoraEmissao || new Date().toISOString(),
+          // 🔥 NFe (schema.prisma) não tem campo `dataHoraEmissao` — é `dhEmi`,
+          // igual CT-e/MDF-e. Usar o nome errado fazia toda NF-e cair no
+          // fallback `new Date()` (hora do render), fazendo-a "vencer" o sort
+          // por data mais recente contra os outros tipos — por isso "Todos"
+          // aparecia fora de ordem enquanto o filtro por tipo (que não
+          // dependia da comparação entre tipos) parecia correto.
+          data: doc.dhEmi || new Date().toISOString(),
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: `${doc.itens?.length || 0} item(ns) faturado(s)`,
@@ -414,25 +420,24 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
     ...mdfes.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'MDFE')).filter(Boolean),
   ] as DocumentoUnificado[];
 
-  // 🔥 ORDENAÇÃO E FILTRO COM useMemo
-  const todosDocs = useMemo(() => {
-    // 🔥 FILTRO POR PERÍODO
+  // 🔥 Filtro por período/status/busca SEM o filtro de tipo — usado pelos
+  // badges/cards de contagem por tipo. Antes esses badges/cards liam de
+  // `todosDocs` (que já vem filtrado pelo tipo ativo), então com qualquer
+  // filtro de tipo selecionado o card "Todos" mostrava a contagem do tipo
+  // ativo e os demais tipos apareciam zerados — dava a impressão de que os
+  // outros documentos tinham sumido, quando na verdade só o rótulo/contagem
+  // estava errado (a tabela em si sempre respeitou o filtro corretamente).
+  const docsFiltradosSemTipo = useMemo(() => {
     const { inicio, fim } = getDatasPorPeriodo(periodoFiltro);
-    
-    const filtrados = todosDocsRaw.filter(d => {
-      // Filtro por tipo
-      if (tipoFiltro !== 'TODOS' && d.tipo !== tipoFiltro) return false;
-      
-      // Filtro por status
+
+    return todosDocsRaw.filter(d => {
       if (statusFiltro !== 'TODOS' && d.status !== statusFiltro) return false;
-      
-      // Filtro por período
+
       if (inicio && fim) {
         const dataDoc = new Date(d.data);
         if (dataDoc < inicio || dataDoc > fim) return false;
       }
-      
-      // Filtro por busca
+
       if (busca.trim()) {
         const q = busca.toLowerCase();
         return (
@@ -444,6 +449,14 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           d.tipoLabel.toLowerCase().includes(q)
         );
       }
+      return true;
+    });
+  }, [todosDocsRaw, busca, statusFiltro, periodoFiltro, dataInicio, dataFim]);
+
+  // 🔥 ORDENAÇÃO E FILTRO COM useMemo
+  const todosDocs = useMemo(() => {
+    const filtrados = docsFiltradosSemTipo.filter(d => {
+      if (tipoFiltro !== 'TODOS' && d.tipo !== tipoFiltro) return false;
       return true;
     });
 
@@ -486,19 +499,26 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           valorB = b.data;
       }
 
+      let resultado = 0;
       if (typeof valorA === 'number' && typeof valorB === 'number') {
-        return ordenacaoDirecao === 'asc' ? valorA - valorB : valorB - valorA;
-      }
-
-      if (typeof valorA === 'string' && typeof valorB === 'string') {
-        return ordenacaoDirecao === 'asc'
+        resultado = ordenacaoDirecao === 'asc' ? valorA - valorB : valorB - valorA;
+      } else if (typeof valorA === 'string' && typeof valorB === 'string') {
+        resultado = ordenacaoDirecao === 'asc'
           ? valorA.localeCompare(valorB)
           : valorB.localeCompare(valorA);
       }
 
-      return 0;
+      // 🔥 Desempate: quando o critério principal empata (ex.: mesma data de
+      // emissão — comum em documentos importados/testados em lote, ou tipos
+      // diferentes emitidos no mesmo segundo), usa o número da nota em ordem
+      // decrescente como segundo critério, pra ordem final ficar determinística.
+      if (resultado === 0) {
+        return b.numero - a.numero;
+      }
+
+      return resultado;
     });
-  }, [todosDocsRaw, busca, tipoFiltro, statusFiltro, periodoFiltro, dataInicio, dataFim, ordenacaoCampo, ordenacaoDirecao]);
+  }, [docsFiltradosSemTipo, tipoFiltro, ordenacaoCampo, ordenacaoDirecao]);
 
   // 🔥 FUNÇÃO PARA ORDENAR
   const handleOrdenar = (campo: OrdenacaoCampo) => {
@@ -524,13 +544,16 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
   const thClass = "py-3 px-4 text-left text-xs font-bold text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors select-none";
 
   // Métricas Consolidadas
-  const totalFaturado = todosDocs.reduce((acc, d) => acc + (d.valor || 0), 0);
-  const totalNfe = todosDocs.filter(d => d.tipo === 'NFE').reduce((acc, d) => acc + d.valor, 0);
-  const totalNfse = todosDocs.filter(d => d.tipo === 'NFSE').reduce((acc, d) => acc + d.valor, 0);
-  const totalNfce = todosDocs.filter(d => d.tipo === 'NFCE').reduce((acc, d) => acc + d.valor, 0);
-  const totalCte = todosDocs.filter(d => d.tipo === 'CTE').reduce((acc, d) => acc + d.valor, 0);
-  const totalNfae = todosDocs.filter(d => d.tipo === 'NFAE').reduce((acc, d) => acc + d.valor, 0);
-  const totalMdfe = todosDocs.filter(d => d.tipo === 'MDFE').reduce((acc, d) => acc + d.valor, 0);
+  // 🔥 Totais/contagens por tipo usam `docsFiltradosSemTipo` (período/status/
+  // busca, mas SEM o filtro de tipo) — assim os cards e badges sempre mostram
+  // o panorama completo, independente de qual filtro de tipo está ativo.
+  const totalFaturado = docsFiltradosSemTipo.reduce((acc, d) => acc + (d.valor || 0), 0);
+  const totalNfe = docsFiltradosSemTipo.filter(d => d.tipo === 'NFE').reduce((acc, d) => acc + d.valor, 0);
+  const totalNfse = docsFiltradosSemTipo.filter(d => d.tipo === 'NFSE').reduce((acc, d) => acc + d.valor, 0);
+  const totalNfce = docsFiltradosSemTipo.filter(d => d.tipo === 'NFCE').reduce((acc, d) => acc + d.valor, 0);
+  const totalCte = docsFiltradosSemTipo.filter(d => d.tipo === 'CTE').reduce((acc, d) => acc + d.valor, 0);
+  const totalNfae = docsFiltradosSemTipo.filter(d => d.tipo === 'NFAE').reduce((acc, d) => acc + d.valor, 0);
+  const totalMdfe = docsFiltradosSemTipo.filter(d => d.tipo === 'MDFE').reduce((acc, d) => acc + d.valor, 0);
 
   const handleCopiarChave = (chave: string) => {
     navigator.clipboard.writeText(chave);
@@ -744,7 +767,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalFaturado)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.length} documentos emitidos</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.length} documentos emitidos</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -755,7 +778,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfe)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFE').length} notas modelo 55</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFE').length} notas modelo 55</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -766,7 +789,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfse)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFSE').length} notas padrão DPS</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFSE').length} notas padrão DPS</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -777,7 +800,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfce)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFCE').length} cupons PDV</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFCE').length} cupons PDV</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -788,7 +811,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalCte)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'CTE').length} conhecimentos</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'CTE').length} conhecimentos</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -799,7 +822,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfae)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFAE').length} notas série 900</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFAE').length} notas série 900</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -810,7 +833,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalMdfe)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'MDFE').length} manifestos</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'MDFE').length} manifestos</div>
         </div>
       </div>
 
@@ -831,13 +854,13 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             {renderPeriodoSelector()}
 
             <div className="flex flex-wrap items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 text-xs">
-              {renderFiltroBotao('TODOS', 'Todos', todosDocs.length)}
-              {renderFiltroBotao('NFE', 'NF-e', todosDocs.filter(d => d.tipo === 'NFE').length)}
-              {renderFiltroBotao('NFSE', 'NFS-e', todosDocs.filter(d => d.tipo === 'NFSE').length)}
-              {renderFiltroBotao('NFCE', 'NFC-e', todosDocs.filter(d => d.tipo === 'NFCE').length)}
-              {renderFiltroBotao('CTE', 'CT-e', todosDocs.filter(d => d.tipo === 'CTE').length)}
-              {renderFiltroBotao('NFAE', 'NFA-e', todosDocs.filter(d => d.tipo === 'NFAE').length)}
-              {renderFiltroBotao('MDFE', 'MDF-e', todosDocs.filter(d => d.tipo === 'MDFE').length)}
+              {renderFiltroBotao('TODOS', 'Todos', docsFiltradosSemTipo.length)}
+              {renderFiltroBotao('NFE', 'NF-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFE').length)}
+              {renderFiltroBotao('NFSE', 'NFS-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFSE').length)}
+              {renderFiltroBotao('NFCE', 'NFC-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFCE').length)}
+              {renderFiltroBotao('CTE', 'CT-e', docsFiltradosSemTipo.filter(d => d.tipo === 'CTE').length)}
+              {renderFiltroBotao('NFAE', 'NFA-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFAE').length)}
+              {renderFiltroBotao('MDFE', 'MDF-e', docsFiltradosSemTipo.filter(d => d.tipo === 'MDFE').length)}
             </div>
 
             <div className="relative flex items-center gap-2">

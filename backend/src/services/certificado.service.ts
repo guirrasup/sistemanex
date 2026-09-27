@@ -156,6 +156,14 @@ export class CertificadoService {
         const codigoMunicipio = data.codigo_municipio_ibge ? String(data.codigo_municipio_ibge) : undefined
 
         return {
+          // 🔥 Sem isso, o upload de certificado atualizava razão social/endereço/UF
+          // a partir do CNPJ do certificado, mas nunca o campo `cnpj` da empresa em
+          // si — carregar um certificado de uma empresa diferente da cadastrada
+          // deixava o registro com nome/endereço da empresa NOVA e o CNPJ da
+          // ANTIGA, causando rejeição real da SEFAZ ("CNPJ-Base do Emitente difere
+          // do CNPJ-Base do Certificado Digital") só na hora de emitir, sem nenhum
+          // aviso no momento em que o certificado foi carregado.
+          cnpj,
           razaoSocial: data.razao_social || data.nome_empresarial,
           nomeFantasia: data.nome_fantasia,
           cnae: data.cnae_fiscal ? `${data.cnae_fiscal} - ${data.cnae_fiscal_descricao}` : undefined,

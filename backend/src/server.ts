@@ -23,6 +23,8 @@ import { errorMiddleware } from './middlewares/error.middleware.js';
 import transportadoraRoutes from './routes/transportadora.routes.js';
 import certificadoRoutes from './routes/certificado.routes.js';
 import empresaRoutes from './routes/empresa.routes.js';
+import cfopRoutes from './routes/cfop.routes.js';
+import ncmRoutes from './routes/ncm.routes.js';
 
 dotenv.config();
 
@@ -111,6 +113,8 @@ app.use('/api/produtos', dataLimiter, produtoRoutes);
 app.use('/api/clientes', dataLimiter, clienteRoutes);
 app.use('/api/servicos', dataLimiter, servicoRoutes);
 app.use('/api/transportadoras', dataLimiter, transportadoraRoutes);
+app.use('/api/cfop', dataLimiter, cfopRoutes);
+app.use('/api/ncm', dataLimiter, ncmRoutes);
 
 // 🔥 nfce/cte/nfae/mdfe já aplicam seus próprios limiters por rota (consultarLimiter
 // nos GETs, emitirLimiter nos POSTs de emissão/cancelamento — mesmo padrão de

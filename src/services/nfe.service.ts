@@ -1,6 +1,7 @@
 // src/services/nfe.service.ts
 import api from './api';
 import { NFeDocumento, TChNFe, TJust, TProt, TCnpj, TSerie, TNF } from '../types/fiscal';
+import { getApiErrorMessage } from '../utils/apiError';
 
 // ============================================================
 // INTERFACES
@@ -18,6 +19,7 @@ export interface NfeApiRecord {
   chaveAcesso: string;
   status: string;
   protocoloAutorizacao?: string | null;
+  motivoRejeicao?: string | null;
   natOp?: string | null;
   vNF?: string | number | null;
   destinatarioId?: string;
@@ -247,6 +249,17 @@ export const nfeService = {
       params: chaveAcesso ? { chave: chaveAcesso } : {}
     });
     return response.data;
+  },
+
+  async enviarPorEmail(id: string, destinatarioEmail: string): Promise<void> {
+    if (!id) {
+      throw new Error('ID da NF-e é obrigatório');
+    }
+    try {
+      await api.post(`/nfe/${id}/enviar-email`, { destinatarioEmail });
+    } catch (error: unknown) {
+      throw new Error(getApiErrorMessage(error, 'Erro ao enviar XML por e-mail'));
+    }
   },
 
   async enviarCartaCorrecao(params: CartaCorrecaoParams): Promise<void> {

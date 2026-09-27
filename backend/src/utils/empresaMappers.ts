@@ -56,8 +56,14 @@ export function mapEmpresaParaResposta(empresa: EmpresaComRelacoes) {
     proximoNumeroCte: empresa.proximoNumeroCte,
     serieNfae: empresa.serieNfae,
     proximoNumeroNfae: empresa.proximoNumeroNfae,
+    serieMdfe: empresa.serieMdfe,
+    proximoNumeroMdfe: empresa.proximoNumeroMdfe,
     chavePixPadrao: empresa.chavePixPadrao || '',
     bancoPadrao: empresa.bancoPadrao || '',
+    contadorNome: empresa.contadorNome || '',
+    contadorEmail: empresa.contadorEmail || '',
+    contadorTelefone: empresa.contadorTelefone || '',
+    contadorCRC: empresa.contadorCRC || '',
     endereco: empresa.endereco
       ? {
           logradouro: empresa.endereco.logradouro,
@@ -119,8 +125,14 @@ export interface AtualizarEmpresaInput {
   proximoNumeroCte?: number;
   serieNfae?: number;
   proximoNumeroNfae?: number;
+  serieMdfe?: number;
+  proximoNumeroMdfe?: number;
   chavePixPadrao?: string;
   bancoPadrao?: string;
+  contadorNome?: string;
+  contadorEmail?: string;
+  contadorTelefone?: string;
+  contadorCRC?: string;
   endereco?: {
     logradouro?: string;
     numero?: string;
@@ -162,8 +174,14 @@ export function mapAtualizacaoParaEmpresa(input: AtualizarEmpresaInput): Prisma.
   if (input.proximoNumeroCte !== undefined) data.proximoNumeroCte = input.proximoNumeroCte;
   if (input.serieNfae !== undefined) data.serieNfae = input.serieNfae;
   if (input.proximoNumeroNfae !== undefined) data.proximoNumeroNfae = input.proximoNumeroNfae;
+  if (input.serieMdfe !== undefined) data.serieMdfe = input.serieMdfe;
+  if (input.proximoNumeroMdfe !== undefined) data.proximoNumeroMdfe = input.proximoNumeroMdfe;
   if (input.chavePixPadrao !== undefined) data.chavePixPadrao = input.chavePixPadrao;
   if (input.bancoPadrao !== undefined) data.bancoPadrao = input.bancoPadrao;
+  if (input.contadorNome !== undefined) data.contadorNome = input.contadorNome;
+  if (input.contadorEmail !== undefined) data.contadorEmail = input.contadorEmail;
+  if (input.contadorTelefone !== undefined) data.contadorTelefone = input.contadorTelefone;
+  if (input.contadorCRC !== undefined) data.contadorCRC = input.contadorCRC;
 
   if (input.endereco) {
     const enderecoUpdate: Prisma.EnderecoUpdateWithoutEmpresaInput = {};

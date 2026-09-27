@@ -46,6 +46,7 @@ import { nfaeService } from './services/nfae.service';
 // 🔥 NOVO - MDF-e service
 import { mdfeService } from './services/mdfe.service';
 import { transportadoraService, Transportadora } from './services/transportadora.service';
+import { cfopService, Cfop } from './services/cfop.service';
 import { empresaService } from './services/empresa.service';
 import { LoadingDinamico } from './components/ui/LoadingDinamico';
 import api from './services/api';
@@ -112,6 +113,9 @@ export default function App() {
   const [servicos, setServicos] = useState<ServicoCatalogo[]>([]);
   const [titulos, setTitulos] = useState<TituloFinanceiro[]>([]);
   const [transportadoras, setTransportadoras] = useState<Transportadora[]>([]);
+  // 🔥 CFOP é catálogo nacional estático (Ajuste SINIEF 07/2001) — buscado uma
+  // única vez, fora do ciclo de cache/refresh de 30s dos dados transacionais.
+  const [cfops, setCfops] = useState<Cfop[]>([]);
 
   // Modal Viewers
   // 🔥 Só o id — DanfseViewer busca o registro completo (mesmo padrão do
@@ -134,6 +138,14 @@ export default function App() {
   const isRefreshing = useRef(false);
   const lastRefreshTime = useRef(0);
   const cacheRef = useRef<CacheData | null>(null);
+  // 🔥 `carregando` faz o App inteiro dar `return <LoadingScreen/>` (ver
+  // render abaixo) — ótimo pro carregamento inicial, mas um refresh forçado
+  // em segundo plano (chamado por handleNfeEmitida e equivalentes, toda vez
+  // que um documento é emitido) usava o mesmo flag e desmontava a árvore
+  // inteira por um instante, resetando qualquer state local de componente
+  // (ex.: um modal de resumo pós-emissão) antes mesmo do usuário conseguir
+  // vê-lo. Só a primeira carga (login) deve acionar a tela cheia de loading.
+  const jaCarregouUmaVez = useRef(false);
 
   // ============================================================
   // FUNÇÃO DE REFRESH COM CACHE E CONTROLE DE CONCORRÊNCIA
@@ -175,8 +187,8 @@ export default function App() {
     isRefreshing.current = true;
 
     try {
-      setCarregando(true);
-      
+      if (!jaCarregouUmaVez.current) setCarregando(true);
+
       const token = localStorage.getItem('@sup:token');
             
       if (!token) {
@@ -343,6 +355,7 @@ export default function App() {
       setTransportadoras([]);
     } finally {
       setCarregando(false);
+      jaCarregouUmaVez.current = true;
       isRefreshing.current = false;
           }
   }, []);
@@ -444,9 +457,10 @@ export default function App() {
   // ============================================================
 
   useEffect(() => {
-            
+
     if (usuarioLogado) {
             refreshData(false);
+            cfopService.listar().then(setCfops);
     } else {
             setCarregando(false);
     }
@@ -547,6 +561,7 @@ export default function App() {
                   nfces={nfces}
                   ctes={ctes}
                   nfaes={nfaes}
+                  mdfes={mdfes}
                   produtos={produtos}
                   clientes={clientes}
                   titulos={titulos}
@@ -561,6 +576,7 @@ export default function App() {
                   clientes={clientes}
                   produtos={produtos}
                   transportadoras={transportadoras}
+                  cfops={cfops}
                   onNfeEmitida={handleNfeEmitida}
                   onViewDanfe={(doc) => setViewingDanfe(doc)}
                 />
@@ -646,6 +662,7 @@ export default function App() {
               {currentView === 'produtos' && (
                 <ProdutosView
                   produtos={produtos}
+                  cfops={cfops}
                   onProdutosChange={() => {
                     cacheRef.current = null;
                     refreshData(true);

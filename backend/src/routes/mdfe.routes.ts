@@ -63,6 +63,7 @@ router.post('/emitir', emitirLimiter, controller.emitir.bind(controller));
 router.post('/cancelar/:id', emitirLimiter, controller.cancelar.bind(controller));
 
 router.post('/encerrar/:id', emitirLimiter, controller.encerrar.bind(controller));
+router.post('/:id/enviar-email', emitirLimiter, controller.enviarXmlPorEmail.bind(controller));
 
 // ============================================================
 // ROTA DE FALLBACK (DEVE SER A ÚLTIMA)

@@ -1,6 +1,7 @@
 // src/services/nfse.service.ts
 import api from './api';
 import { NFSeDocumento } from '../types/fiscal';
+import { getApiErrorMessage } from '../utils/apiError';
 
 // ============================================================
 // INTERFACES
@@ -163,6 +164,15 @@ export const nfseService = {
     } catch (error: unknown) {
       console.error('❌ NFS-e emitir erro:', error);
       throw error;
+    }
+  },
+
+  async enviarPorEmail(id: string, destinatarioEmail: string): Promise<void> {
+    if (!id) throw new Error('ID da NFS-e é obrigatório');
+    try {
+      await api.post(`/nfse/${id}/enviar-email`, { destinatarioEmail });
+    } catch (error: unknown) {
+      throw new Error(getApiErrorMessage(error, 'Erro ao enviar XML por e-mail'));
     }
   },
 

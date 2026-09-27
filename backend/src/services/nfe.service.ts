@@ -76,6 +76,17 @@ export class NfeService {
       empresa.uf === destinatario.endereco.uf ? 1 : 2;
     const prefixoCfopSaida = idDestPreCalc === 1 ? '5' : idDestPreCalc === 2 ? '6' : '7';
 
+    // 🔥 Deriva SEMPRE do endereço (mesma fonte que o XML usa no <cUF> do corpo
+    // do documento) — nunca do campo espelhado empresa.codigoUF. Os dois só
+    // ficam em sincronia quando toda atualização de endereço passa pela rota
+    // normal (empresaMappers.ts recalcula o espelho); um reparo direto no
+    // banco (feito nesta mesma sessão, num incidente anterior) corrigiu
+    // endereco.codigoMunicipio mas não o espelho, e isso sozinho já bastou pra
+    // fazer a chave de acesso (gerada com o campo desatualizado) divergir do
+    // <cUF> do corpo (gerado a partir do endereço já corrigido) — rejeição
+    // real da SEFAZ: "Erro na Chave de Acesso - Campo ID nao corresponde".
+    const cUF = empresa.endereco?.codigoMunicipio?.slice(0, 2) || empresa.codigoUF;
+
     const itensCompletos: ItemNfe[] = await Promise.all(
       (data.itens || []).map(async (item, idx) => {
         const produto = await this.produtoRepo.findById(item.produtoId, data.empresaId);
@@ -89,6 +100,18 @@ export class NfeService {
         const aliquotaICMS = Number(produto.aliquotaICMS);
         const aliquotaPIS = Number(produto.aliquotaPIS);
         const aliquotaCOFINS = Number(produto.aliquotaCOFINS);
+        // 🔥 IPI/IBS/CBS nunca eram calculados aqui — a nota real (autorizada e
+        // gravada) saía sempre com esses 3 tributos zerados, mesmo quando a tela
+        // do emissor mostrava valores diferentes de zero (que eram calculados só
+        // no preview do frontend, com números fixos no código, nunca chegando
+        // ao backend). Produto.aliquotaIBS é um campo único (não separado por
+        // UF/Município no schema) — divide 50/50, mesma convenção já usada em
+        // outros modelos do schema que têm os dois campos separados.
+        const aliquotaIPI = Number(produto.aliquotaIPI ?? 0);
+        const aliquotaIBS = Number(produto.aliquotaIBS ?? 0);
+        const aliquotaIBSUF = aliquotaIBS / 2;
+        const aliquotaIBSMun = aliquotaIBS / 2;
+        const aliquotaCBS = Number(produto.aliquotaCBS ?? 0);
 
         // CSOSN 102/103/300/400/500 não têm vBC/vICMS próprios (ICMSSN102/ICMSSN500
         // não declaram esses campos) — a SEFAZ rejeita ("Total da BC ICMS difere do
@@ -121,6 +144,16 @@ export class NfeService {
           cstCOFINS: '01',
           aliquotaCOFINS,
           valorCOFINS: (valorTotal * aliquotaCOFINS) / 100,
+          cstIPI: produto.cstIPI || undefined,
+          aliquotaIPI,
+          valorIPI: (valorTotal * aliquotaIPI) / 100,
+          cstIBSCBS: '000',
+          aliquotaIBSUF,
+          valorIBSUF: (valorTotal * aliquotaIBSUF) / 100,
+          aliquotaIBSMun,
+          valorIBSMun: (valorTotal * aliquotaIBSMun) / 100,
+          aliquotaCBS,
+          valorCBS: (valorTotal * aliquotaCBS) / 100,
           valorTributosAproximados: valorTotal * 0.314,
         };
       })
@@ -134,7 +167,7 @@ export class NfeService {
     const ambiente: 1 | 2 = empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2;
 
     const { chaveCompleta } = gerarChaveAcessoNFe({
-      codigoUf: empresa.codigoUF,
+      codigoUf: cUF,
       anoMes: aamm,
       cnpjEmitente: empresa.cnpj,
       modelo: '55',
@@ -223,7 +256,7 @@ export class NfeService {
       const resultado = await autorizarNfe({
         uf: empresa.uf,
         ambiente: ambiente === 1 ? 'producao' : 'homologacao',
-        cUF: empresa.codigoUF,
+        cUF,
         xmlAssinado: xml,
         mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
       });
@@ -248,7 +281,7 @@ export class NfeService {
       serie: empresa.serieNfe,
       numero,
       chaveAcesso: chaveCompleta,
-      cUF: empresa.codigoUF,
+      cUF,
       cNF: chaveCompleta.slice(35, 43),
       natOp: nfeDocumento.naturezaOperacao,
       indPag: '0',
@@ -566,9 +599,13 @@ export class NfeService {
 
     const ambiente: 1 | 2 = empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2;
     const ano = new Date().getFullYear().toString().slice(2, 4);
+    // 🔥 Mesma fonte única usada em emitirNfe — nunca o campo espelhado
+    // empresa.codigoUF, que pode divergir do endereço após um reparo direto
+    // no banco (ver comentário em emitirNfe).
+    const cUF = empresa.endereco?.codigoMunicipio?.slice(0, 2) || empresa.codigoUF;
 
     const xmlInutilizacao = gerarXmlInutilizacaoNFe({
-      cUF: empresa.codigoUF,
+      cUF,
       cnpjAutor: empresa.cnpj,
       ano,
       modelo: params.modelo,
@@ -619,7 +656,7 @@ export class NfeService {
       numeroInicial: params.numeroInicial,
       numeroFinal: params.numeroFinal,
       ano: Number(`20${ano}`),
-      cUF: empresa.codigoUF,
+      cUF,
       cnpj: empresa.cnpj.replace(/\D/g, ''),
       justificativa: params.justificativa,
       protocolo,

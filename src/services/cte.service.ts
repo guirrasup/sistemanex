@@ -98,6 +98,15 @@ export const cteService = {
     }
   },
 
+  async enviarPorEmail(id: string, destinatarioEmail: string): Promise<void> {
+    if (!id) throw new Error('ID do CT-e é obrigatório');
+    try {
+      await api.post(`/cte/${id}/enviar-email`, { destinatarioEmail });
+    } catch (error: unknown) {
+      throw new Error(getApiErrorMessage(error, 'Erro ao enviar XML por e-mail'));
+    }
+  },
+
   async cancelar(id: string, justificativa: string): Promise<void> {
     try {
       await api.post(`/cte/cancelar/${id}`, { motivo: justificativa });

@@ -222,6 +222,12 @@ model Empresa {
   chavePixPadrao String?
   bancoPadrao    String?
 
+  // === DADOS DO CONTADOR (envio de XML/documentos fiscais) ===
+  contadorNome     String?
+  contadorEmail    String?
+  contadorTelefone String?
+  contadorCRC      String?
+
   // === CONFIGURAÇÕES DE TRIBUTAÇÃO ===
   optanteSimples Boolean @default(true)
   optanteMEI     Boolean @default(false)
@@ -432,6 +438,61 @@ model Cliente {
 // ============================================
 // PRODUTO
 // ============================================
+
+// 🔥 Tabela de referência de CFOP (Código Fiscal de Operações e Prestações) —
+// catálogo nacional estável (Ajuste SINIEF 07/2001), não um dado que muda por
+// empresa/produto. Usado pra popular a busca de "Natureza da Operação" no
+// emissor, em vez de o usuário digitar texto livre desconectado do CFOP real.
+model Cfop {
+  id        String @id @default(cuid())
+  codigo    String @unique @db.Char(4)
+  descricao String @db.VarChar(255)
+  tipo      String @db.Char(1) // '0'=entrada, '1'=saída (mesmo enum de TpNF)
+  ambito    String @db.VarChar(20) // 'INTERNA' | 'INTERESTADUAL' | 'EXTERIOR'
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("cfops")
+}
+
+// 🔥 Tabela de referência de NCM (Nomenclatura Comum do Mercosul) — catálogo
+// nacional (TIPI/Receita Federal), mesma lógica do Cfop: não é um dado por
+// empresa/produto, é usado pra popular a busca no cadastro de produtos.
+model Ncm {
+  id        String @id @default(cuid())
+  codigo    String @unique @db.Char(8)
+  // 🔥 Text, não VarChar(n): algumas descrições oficiais (nomes científicos
+  // de espécies, por ex.) passam de 1000 caracteres.
+  descricao String @db.Text
+
+  cests Cest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ncms")
+}
+
+// 🔥 CEST (Código Especificador da Substituição Tributária, Convênio ICMS
+// 142/2018) — só se aplica a produtos sujeitos a substituição tributária, e
+// cada código é vinculado a um ou mais NCMs específicos (não é uma lista
+// solta); por isso a relação com Ncm, não um catálogo independente.
+model Cest {
+  id        String @id @default(cuid())
+  codigo    String @db.Char(7)
+  descricao String @db.Text
+  segmento  String @db.VarChar(255)
+  ncmId     String
+  ncm       Ncm    @relation(fields: [ncmId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([codigo, ncmId])
+  @@index([ncmId])
+  @@map("cests")
+}
 
 model Produto {
   id              String  @id @default(cuid())

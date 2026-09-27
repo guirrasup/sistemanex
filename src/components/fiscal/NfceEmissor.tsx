@@ -46,6 +46,7 @@ import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { nfceService, EmitirNfceItemParams } from '../../services/nfce.service';
 import { DanfceLayout } from './DanfceLayout';
+import { ResumoEmissaoModal } from './ResumoEmissaoModal';
 
 // CSOSN sem base própria (ICMSSN102/ICMSSN500 no XML) — não declaram vBC/vICMS;
 // mandar um valor aqui infla o total do documento sem lastro em nenhum item,
@@ -564,7 +565,9 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         onNfceEmitida(nfceEmitida);
         setSucessoNfce(nfceEmitida);
         setTentouEnviar(false);
-        toast.showSuccess(`✅ NFC-e Nº ${nfceEmitida.numero} emitida com sucesso!`);
+        // 🔥 O backend não lança erro quando a SEFAZ rejeita — o modal de
+        // resumo acima mostra o status real (AUTORIZADA/REJEITADA) e o
+        // motivo, então não tem mais um toast que sempre dizia "sucesso".
       }
     } catch (error: unknown) {
       console.error('❌ Erro na transmissão:', error);
@@ -624,63 +627,29 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
       </div>
 
       {sucessoNfce && (
-        <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2 className={`w-5 h-5 ${corText} shrink-0 mt-0.5`} />
-              <div>
-                <h3 className={`text-sm font-bold ${corTextDark}`}>
-                  NFC-e Nº {sucessoNfce.numero} Emitida com Sucesso!
-                </h3>
-                <p className="text-xs text-purple-800 font-mono mt-0.5">
-                  Chave: {sucessoNfce.chaveAcesso}
-                </p>
-                <div className="text-[11px] text-purple-700 mt-1">
-                  Valor Total: {formatarMoeda(sucessoNfce.valorTotalNota)} • Protocolo: {sucessoNfce.protocoloAutorizacao}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onViewDanfce(sucessoNfce.id)}
-                className={`${corBgButton} text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Visualizar Cupom</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  const blob = new Blob([sucessoNfce.xmlAssinado], { type: 'application/xml' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `NFCe_${sucessoNfce.numero}_SUP.xml`;
-                  a.click();
-                }}
-                className="bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>XML</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setSucessoNfce(null);
-                  setItens([]);
-                  setValorDesconto(0);
-                  setValorAcrescimo(0);
-                  setValorRecebido(0);
-                  setVPag(0);
-                }}
-                className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer"
-              >
-                Nova Venda
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResumoEmissaoModal
+          aberto={!!sucessoNfce}
+          onClose={() => {
+            setSucessoNfce(null);
+            setItens([]);
+            setValorDesconto(0);
+            setValorAcrescimo(0);
+            setValorRecebido(0);
+            setVPag(0);
+          }}
+          status={((sucessoNfce as unknown as { status?: string }).status as 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO') || 'PROCESSANDO'}
+          tipoDocumentoLabel="NFC-e"
+          numero={sucessoNfce.numero}
+          serie={sucessoNfce.serie}
+          chaveAcesso={sucessoNfce.chaveAcesso}
+          protocolo={sucessoNfce.protocoloAutorizacao || undefined}
+          motivoRejeicao={(sucessoNfce as unknown as { motivoRejeicao?: string }).motivoRejeicao || undefined}
+          valorTotal={Number(sucessoNfce.valorTotalNota) || 0}
+          destinatarioNome={(sucessoNfce as unknown as { consumidorNome?: string }).consumidorNome || undefined}
+          emailSugerido={empresa.contadorEmail || empresa.endereco?.email || ''}
+          onVisualizar={() => onViewDanfce(sucessoNfce.id)}
+          onEnviarEmail={(email) => nfceService.enviarPorEmail(sucessoNfce.id, email)}
+        />
       )}
 
       {erros.length > 0 && (

@@ -206,8 +206,16 @@ export class NfceService {
     const aamm = new Date().toISOString().slice(2, 4) +
       (new Date().getMonth() + 1).toString().padStart(2, '0');
 
+    // 🔥 Deriva do endereço (mesma fonte que o XML usa no <cUF> do corpo do
+    // documento), nunca do campo espelhado empresa.codigoUF — os dois só
+    // ficam em sincronia se toda atualização de endereço passar pela rota
+    // normal; um reparo direto no banco corrigiu endereco.codigoMunicipio sem
+    // recalcular o espelho, causando "Erro na Chave de Acesso - Campo ID nao
+    // corresponde" real na SEFAZ pro mesmo bug já visto e corrigido em NF-e.
+    const cUF = empresa.endereco?.codigoMunicipio?.slice(0, 2) || empresa.codigoUF;
+
     const { chaveCompleta } = gerarChaveAcessoNFe({
-      codigoUf: empresa.codigoUF,
+      codigoUf: cUF,
       anoMes: aamm,
       cnpjEmitente: empresa.cnpj,
       modelo: '65',
@@ -414,7 +422,7 @@ export class NfceService {
       const resultado = await autorizarNfe({
         uf: empresa.uf,
         ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 'producao' : 'homologacao',
-        cUF: empresa.codigoUF,
+        cUF,
         xmlAssinado: xml,
         mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
         modelo: '65',

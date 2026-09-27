@@ -22,7 +22,10 @@ import {
   Search,
   Loader2,
   Trash2,
-  Info
+  Info,
+  UserCheck,
+  Mail,
+  Phone
 } from 'lucide-react';
 import { ConfiguracaoEmpresa } from '../../types/erp';
 import { formatarCpfCnpj, formatarCEP, limparDocumento } from '../../utils/cpfCnpjValidator';
@@ -86,6 +89,10 @@ function criarEmpresaVazia(): ConfiguracaoEmpresa {
     },
     chavePixPadrao: '',
     bancoPadrao: '',
+    contadorNome: '',
+    contadorEmail: '',
+    contadorTelefone: '',
+    contadorCRC: '',
     optanteSimples: false,
     optanteMEI: false,
   };
@@ -1229,6 +1236,69 @@ const handleCarregarCertificadoEPreencher = async () => {
               </div>
             </div>
 
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <UserCheck className="w-5 h-5 text-slate-600" />
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase">
+                5. Dados do Contador
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Usado para sugerir automaticamente o destinatário ao enviar XML de documentos fiscais por e-mail
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
+            <div className="sm:col-span-6">
+              <label className="block font-medium text-slate-600 mb-1">Nome do Contador / Escritório</label>
+              <input
+                type="text"
+                value={formData.contadorNome || ''}
+                onChange={(e) => handleChange('contadorNome', e.target.value)}
+                placeholder="Nome do contador ou escritório contábil"
+                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <label className="block font-medium text-slate-600 mb-1 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-slate-600" />
+                <span>E-mail</span>
+              </label>
+              <input
+                type="email"
+                value={formData.contadorEmail || ''}
+                onChange={(e) => handleChange('contadorEmail', e.target.value)}
+                placeholder="contador@escritorio.com.br"
+                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <label className="block font-medium text-slate-600 mb-1 flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-slate-600" />
+                <span>Telefone</span>
+              </label>
+              <input
+                type="text"
+                value={formData.contadorTelefone || ''}
+                onChange={(e) => handleChange('contadorTelefone', e.target.value)}
+                placeholder="(11) 99999-9999"
+                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+              />
+            </div>
+            <div className="sm:col-span-4">
+              <label className="block font-medium text-slate-600 mb-1">CRC</label>
+              <input
+                type="text"
+                value={formData.contadorCRC || ''}
+                onChange={(e) => handleChange('contadorCRC', e.target.value)}
+                placeholder="Registro no Conselho Regional de Contabilidade"
+                className={`w-full border border-slate-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
+              />
+            </div>
           </div>
         </div>
 

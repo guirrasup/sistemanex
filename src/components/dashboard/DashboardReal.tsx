@@ -34,7 +34,8 @@ import {
   User,
   Building,
   Store,
-  ClipboardList
+  ClipboardList,
+  FileArchive
 } from 'lucide-react';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { TipoDocumentoFiltro } from '../fiscal/DocumentosFiscaisList';
@@ -63,6 +64,8 @@ interface DocumentoFiscalResumo {
   vNF?: number | string;
   vTPrest?: number | string;
   dhEmi?: string;
+  // MDF-e: schema.prisma segue o leiaute SEFAZ — `vCarga`, não valorTotalNota.
+  vCarga?: number | string;
 }
 
 // Decimal do Prisma chega como string no JSON (ex.: "1450.00") — somar direto
@@ -128,6 +131,7 @@ interface DashboardData {
     NFCE: number;
     CTE: number;
     NFAE: number;
+    MDFE: number;
   };
   ultimasNotas: Array<{
     id: string;
@@ -141,7 +145,7 @@ interface DashboardData {
     status: string;
     destinatario?: unknown;
     tomador?: unknown;
-    tipo: 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE';
+    tipo: 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE' | 'MDFE';
   }>;
   faturamentoPorMes: Array<{ mes: string; ano: number; valor: number; color: string }>;
   documentosPorStatus: { autorizadas: number; canceladas: number; pendentes: number };
@@ -153,6 +157,7 @@ interface DashboardRealProps {
   nfces: DocumentoFiscalResumo[];
   ctes: DocumentoFiscalResumo[];
   nfaes: DocumentoFiscalResumo[];
+  mdfes: DocumentoFiscalResumo[];
   produtos: ProdutoResumo[];
   clientes: ClienteResumo[];
   titulos: TituloResumo[];
@@ -177,6 +182,7 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
   nfces,
   ctes,
   nfaes,
+  mdfes,
   produtos,
   clientes,
   titulos,
@@ -221,7 +227,8 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
       const totalNfce = nfces.reduce((acc: number, n) => acc + paraNumero(n.valorTotalNota), 0);
       const totalCte = ctes.reduce((acc: number, n) => acc + paraNumero(n.vTPrest), 0);
       const totalNfae = nfaes.reduce((acc: number, n) => acc + paraNumero(n.valorTotalNota), 0);
-      const faturamentoTotal = totalNfe + totalNfse + totalNfce + totalCte + totalNfae;
+      const totalMdfe = mdfes.reduce((acc: number, n) => acc + paraNumero(n.vCarga), 0);
+      const faturamentoTotal = totalNfe + totalNfse + totalNfce + totalCte + totalNfae + totalMdfe;
 
       // 2. Contagem por tipo
       const notasPorTipo = {
@@ -229,7 +236,8 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
         NFSE: nfses.length,
         NFCE: nfces.length,
         CTE: ctes.length,
-        NFAE: nfaes.length
+        NFAE: nfaes.length,
+        MDFE: mdfes.length
       };
 
       // 3. Últimas notas
@@ -238,7 +246,8 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
         ...nfses.map((n) => ({ ...n, tipo: 'NFSE' as const, valor: paraNumero(n.valorTotalServicos), numero: n.numeroNfse, data: n.dataHoraEmissao })),
         ...nfces.map((n) => ({ ...n, tipo: 'NFCE' as const, valor: paraNumero(n.valorTotalNota), numero: n.numero, data: n.dataHoraEmissao })),
         ...ctes.map((n) => ({ ...n, tipo: 'CTE' as const, valor: paraNumero(n.vTPrest), numero: n.numero, data: n.dhEmi || n.dataHoraEmissao })),
-        ...nfaes.map((n) => ({ ...n, tipo: 'NFAE' as const, valor: paraNumero(n.valorTotalNota), numero: n.numero, data: n.dataHoraEmissao }))
+        ...nfaes.map((n) => ({ ...n, tipo: 'NFAE' as const, valor: paraNumero(n.valorTotalNota), numero: n.numero, data: n.dataHoraEmissao })),
+        ...mdfes.map((n) => ({ ...n, tipo: 'MDFE' as const, valor: paraNumero(n.vCarga), numero: n.numero, data: n.dhEmi || n.dataHoraEmissao }))
       ].sort((a, b) => new Date(b.data ?? 0).getTime() - new Date(a.data ?? 0).getTime());
 
       const totalNfes = todasNotas.length;
@@ -341,7 +350,7 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
         faturamentoPorMes,
         documentosPorStatus
       };
-  }, [nfes, nfses, nfces, ctes, nfaes, produtos, clientes, titulos, transportadoras]);
+  }, [nfes, nfses, nfces, ctes, nfaes, mdfes, produtos, clientes, titulos, transportadoras]);
 
   const {
     faturamentoTotal = 0,
@@ -355,7 +364,7 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
     crescimento = 0,
     nfesMes = 0,
     faturamentoMes = 0,
-    notasPorTipo = { NFE: 0, NFSE: 0, NFCE: 0, CTE: 0, NFAE: 0 },
+    notasPorTipo = { NFE: 0, NFSE: 0, NFCE: 0, CTE: 0, NFAE: 0, MDFE: 0 },
     ultimasNotas = [],
     faturamentoPorMes = [],
     documentosPorStatus = { autorizadas: 0, canceladas: 0, pendentes: 0 }
@@ -373,6 +382,7 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
         'NFCE': '#8b5cf6',
         'CTE': '#06b6d4',
         'NFAE': '#f59e0b',
+        'MDFE': '#f97316',
       };
       const labels: Record<string, string> = {
         'NFE': 'NF-e',
@@ -380,6 +390,7 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
         'NFCE': 'NFC-e',
         'CTE': 'CT-e',
         'NFAE': 'NFA-e',
+        'MDFE': 'MDF-e',
       };
       return {
         name: labels[tipo] || tipo,
@@ -477,6 +488,7 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
                 'NFCE': 'bg-purple-100 text-purple-700 hover:bg-purple-200',
                 'CTE': 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200',
                 'NFAE': 'bg-amber-100 text-amber-700 hover:bg-amber-200',
+                'MDFE': 'bg-orange-100 text-orange-700 hover:bg-orange-200',
               };
               return (
                 <button
@@ -763,6 +775,7 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
                 'NFCE': 'bg-purple-100 text-purple-700',
                 'CTE': 'bg-cyan-100 text-cyan-700',
                 'NFAE': 'bg-amber-100 text-amber-700',
+                'MDFE': 'bg-orange-100 text-orange-700',
               };
               const icones: Record<string, React.ReactNode> = {
                 'NFE': <Receipt className="w-3.5 h-3.5" />,
@@ -770,6 +783,7 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
                 'NFCE': <ShoppingBag className="w-3.5 h-3.5" />,
                 'CTE': <Truck className="w-3.5 h-3.5" />,
                 'NFAE': <FileCode2 className="w-3.5 h-3.5" />,
+                'MDFE': <FileArchive className="w-3.5 h-3.5" />,
               };
               const destinatario = doc.destinatario as { razaoSocial?: string } | undefined;
               const tomador = doc.tomador as { razaoSocial?: string } | undefined;

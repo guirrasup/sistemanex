@@ -251,6 +251,15 @@ export function gerarXmlNfe400(nfe: NFeDocumento): string {
         <ICMS>
           ${blocoIcmsItem(item, nfe.emitente.regimeTributario)}
         </ICMS>
+        ${item.aliquotaIPI ? `<IPI>
+          <cEnq>999</cEnq>
+          <IPITrib>
+            <CST>${item.cstIPI || '50'}</CST>
+            <vBC>${formatarNumero(item.valorTotalBruto, 2)}</vBC>
+            <pIPI>${formatarNumero(item.aliquotaIPI, 2)}</pIPI>
+            <vIPI>${formatarNumero(item.valorIPI || 0, 2)}</vIPI>
+          </IPITrib>
+        </IPI>` : ''}
         <PIS>
           <PISAliq>
             <CST>${item.cstPIS}</CST>

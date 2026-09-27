@@ -1,6 +1,7 @@
 // backend/src/controllers/cte.controller.ts
 import { Request, Response } from 'express';
 import { CteService } from '../services/cte.service.js';
+import { EmailService } from '../services/email.service.js';
 import { StatusCTe } from '@prisma/client';
 
 // ============================================================
@@ -51,9 +52,59 @@ const ANO_RESUMO_MAXIMO = 2100;
 
 export class CteController {
   private cteService: CteService;
+  private emailService: EmailService;
 
   constructor() {
     this.cteService = new CteService();
+    this.emailService = new EmailService();
+  }
+
+  async enviarXmlPorEmail(req: RequestComUsuario, res: Response) {
+    try {
+      const empresaId = req.user?.empresaId;
+      const { id } = req.params;
+      const { destinatarioEmail } = req.body as { destinatarioEmail?: string };
+
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+      if (!destinatarioEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatarioEmail)) {
+        return res.status(400).json({ sucesso: false, erro: 'Informe um e-mail de destino válido' });
+      }
+      if (!this.emailService.estaConfigurado()) {
+        return res.status(503).json({
+          sucesso: false,
+          erro: 'Envio de e-mail não configurado no servidor (SMTP_HOST/SMTP_USER/SMTP_PASS ausentes).',
+        });
+      }
+
+      const cte = await this.cteService.buscarPorId(id, empresaId);
+      if (!cte) {
+        return res.status(404).json({ sucesso: false, erro: 'CT-e não encontrado' });
+      }
+      if (!cte.xmlAssinado) {
+        return res.status(404).json({ sucesso: false, erro: 'XML do CT-e não disponível' });
+      }
+
+      await this.emailService.enviar({
+        destinatario: destinatarioEmail,
+        assunto: `CT-e nº ${cte.nCT} — ${cte.chaveAcesso}`,
+        corpoTexto:
+          `Segue em anexo o XML do CT-e nº ${cte.nCT}, série ${cte.serie}.\n\n` +
+          `Chave de acesso: ${cte.chaveAcesso}\n` +
+          `Status: ${cte.status}\n` +
+          (cte.protocoloAutorizacao ? `Protocolo: ${cte.protocoloAutorizacao}\n` : ''),
+        anexos: [{ nomeArquivo: `CTe_${cte.nCT}_${cte.chaveAcesso}.xml`, conteudo: cte.xmlAssinado, tipoConteudo: 'application/xml' }],
+      });
+
+      return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
+    } catch (error: unknown) {
+      console.error('❌ Erro ao enviar XML por e-mail:', error);
+      return res.status(400).json({
+        sucesso: false,
+        erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
+      });
+    }
   }
 
   async listar(req: RequestComUsuario, res: Response) {

@@ -23,6 +23,7 @@ router.get('/destinatario/:destinatarioId', nfaeController.findByDestinatario.bi
 // 📝 CRUD (mutações)
 router.post('/emitir', nfaeController.emitir.bind(nfaeController));
 router.post('/cancelar/:id', nfaeController.cancelar.bind(nfaeController));
+router.post('/:id/enviar-email', nfaeController.enviarXmlPorEmail.bind(nfaeController));
 router.delete('/:id', nfaeController.excluir.bind(nfaeController));
 
 // 📄 DOWNLOADS

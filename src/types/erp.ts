@@ -377,6 +377,10 @@ export interface ConfiguracaoEmpresa {
   certificado: CertificadoDigitalInfo;
   chavePixPadrao?: string;
   bancoPadrao?: string;
+  contadorNome?: string;
+  contadorEmail?: string;
+  contadorTelefone?: string;
+  contadorCRC?: string;
   
   optanteSimples: boolean;
   optanteMEI: boolean;

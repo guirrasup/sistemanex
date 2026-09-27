@@ -88,6 +88,15 @@ export const nfaeService = {
     }
   },
 
+  async enviarPorEmail(id: string, destinatarioEmail: string): Promise<void> {
+    if (!id) throw new Error('ID da NFA-e é obrigatório');
+    try {
+      await api.post(`/nfae/${id}/enviar-email`, { destinatarioEmail });
+    } catch (error: unknown) {
+      throw new Error(getApiErrorMessage(error, 'Erro ao enviar XML por e-mail'));
+    }
+  },
+
   async cancelar(id: string, justificativa: string): Promise<void> {
     try {
       await api.post(`/nfae/cancelar/${id}`, { motivo: justificativa });

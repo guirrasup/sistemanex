@@ -3,10 +3,7 @@ import React, { useState } from 'react';
 import {
   Truck,
   Send,
-  CheckCircle2,
   AlertTriangle,
-  Eye,
-  Download,
   MapPin,
   Package,
   FileText,
@@ -41,6 +38,7 @@ import { mdfeService } from '../../services/mdfe.service';
 import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { ResumoEmissaoModal } from './ResumoEmissaoModal';
 
 interface MdfeEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -728,7 +726,9 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
       if (result) {
         setSucessoMdfe(result);
         onMdfeEmitido(result);
-        toast.showSuccess(`✅ MDF-e Nº ${result.numero} emitido com sucesso!`);
+        // 🔥 O backend não lança erro quando a SEFAZ rejeita — o modal de
+        // resumo abaixo mostra o status real (AUTORIZADA/REJEITADA) e o
+        // motivo, então não tem mais um toast que sempre dizia "sucesso".
       } else {
         setErros(['Erro ao emitir MDF-e. Tente novamente.']);
         toast.showError('❌ Erro ao emitir MDF-e.');
@@ -787,61 +787,22 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
       </div>
 
       {sucessoMdfe && (
-        <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2 className={`w-5 h-5 ${corText} shrink-0 mt-0.5`} />
-              <div>
-                <h3 className={`text-sm font-bold ${corTextDark}`}>
-                  MDF-e Nº {sucessoMdfe.numero} Emitido com Sucesso!
-                </h3>
-                <p className="text-xs text-orange-800 font-mono mt-0.5">
-                  Chave: {sucessoMdfe.chaveAcesso}
-                </p>
-                <div className="text-[11px] text-orange-700 mt-1">
-                  {sucessoMdfe.UFIni} ➔ {sucessoMdfe.UFFim} • 
-                  {sucessoMdfe.municipiosCarrega.length} carregamentos • 
-                  {sucessoMdfe.municipiosDescarga.length} descargas
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onViewMdfe(sucessoMdfe)}
-                className={`${corBgButton} text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Visualizar</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  const blob = new Blob([sucessoMdfe.xmlAssinado], { type: 'application/xml' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `MDFe_${sucessoMdfe.numero}_SUP.xml`;
-                  a.click();
-                }}
-                className="bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>XML</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setSucessoMdfe(null);
-                  // Limpar formulário
-                }}
-                className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer"
-              >
-                Novo MDF-e
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResumoEmissaoModal
+          aberto={!!sucessoMdfe}
+          onClose={() => setSucessoMdfe(null)}
+          status={(sucessoMdfe.status as 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO') || 'PROCESSANDO'}
+          tipoDocumentoLabel="MDF-e"
+          numero={Number(sucessoMdfe.numero) || 0}
+          serie={Number(sucessoMdfe.serie) || 1}
+          chaveAcesso={sucessoMdfe.chaveAcesso}
+          protocolo={sucessoMdfe.protocoloAutorizacao || undefined}
+          motivoRejeicao={sucessoMdfe.motivoRejeicao || undefined}
+          valorTotal={Number(sucessoMdfe.totalizadores?.valorCarga) || 0}
+          destinatarioNome={`${sucessoMdfe.UFIni} → ${sucessoMdfe.UFFim}`}
+          emailSugerido={empresa.contadorEmail || empresa.endereco?.email || ''}
+          onVisualizar={() => onViewMdfe(sucessoMdfe)}
+          onEnviarEmail={(email) => mdfeService.enviarPorEmail(sucessoMdfe.id, email)}
+        />
       )}
 
       {erros.length > 0 && (

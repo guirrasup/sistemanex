@@ -1,6 +1,7 @@
 // backend/src/controllers/mdfe.controller.ts
 import { Request, Response } from 'express';
 import { MdfeService } from '../services/mdfe.service.js';
+import { EmailService } from '../services/email.service.js';
 import { StatusMDFe } from '@prisma/client';
 
 interface RequestComUsuario extends Request {
@@ -24,9 +25,59 @@ interface FiltrosListarMdfe {
 
 export class MdfeController {
   private mdfeService: MdfeService;
+  private emailService: EmailService;
 
   constructor() {
     this.mdfeService = new MdfeService();
+    this.emailService = new EmailService();
+  }
+
+  async enviarXmlPorEmail(req: RequestComUsuario, res: Response) {
+    try {
+      const empresaId = req.user?.empresaId;
+      const { id } = req.params;
+      const { destinatarioEmail } = req.body as { destinatarioEmail?: string };
+
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+      if (!destinatarioEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatarioEmail)) {
+        return res.status(400).json({ sucesso: false, erro: 'Informe um e-mail de destino válido' });
+      }
+      if (!this.emailService.estaConfigurado()) {
+        return res.status(503).json({
+          sucesso: false,
+          erro: 'Envio de e-mail não configurado no servidor (SMTP_HOST/SMTP_USER/SMTP_PASS ausentes).',
+        });
+      }
+
+      const mdfe = await this.mdfeService.buscarPorId(id, empresaId);
+      if (!mdfe) {
+        return res.status(404).json({ sucesso: false, erro: 'MDF-e não encontrado' });
+      }
+      if (!mdfe.xmlAssinado) {
+        return res.status(404).json({ sucesso: false, erro: 'XML do MDF-e não disponível' });
+      }
+
+      await this.emailService.enviar({
+        destinatario: destinatarioEmail,
+        assunto: `MDF-e nº ${mdfe.numero} — ${mdfe.chaveAcesso}`,
+        corpoTexto:
+          `Segue em anexo o XML do MDF-e nº ${mdfe.numero}, série ${mdfe.serie}.\n\n` +
+          `Chave de acesso: ${mdfe.chaveAcesso}\n` +
+          `Status: ${mdfe.status}\n` +
+          (mdfe.protocoloAutorizacao ? `Protocolo: ${mdfe.protocoloAutorizacao}\n` : ''),
+        anexos: [{ nomeArquivo: `MDFe_${mdfe.numero}_${mdfe.chaveAcesso}.xml`, conteudo: mdfe.xmlAssinado, tipoConteudo: 'application/xml' }],
+      });
+
+      return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
+    } catch (error: unknown) {
+      console.error('❌ Erro ao enviar XML por e-mail:', error);
+      return res.status(400).json({
+        sucesso: false,
+        erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
+      });
+    }
   }
 
   async listar(req: RequestComUsuario, res: Response) {

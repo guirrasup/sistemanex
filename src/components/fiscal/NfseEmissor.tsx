@@ -42,6 +42,7 @@ import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { nfseService } from '../../services/nfse.service';
 import { DanfseLayout } from './DanfseLayout';
+import { ResumoEmissaoModal } from './ResumoEmissaoModal';
 
 interface NfseEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -463,7 +464,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         onNfseEmitida(nfseEmitida);
         setSucessoNfse(nfseEmitida);
         setTentouEnviar(false);
-        toast.showSuccess(`✅ NFS-e Nº ${nfseEmitida.numeroNfse} emitida com sucesso!`);
+        // 🔥 O modal de resumo mostra o status real — sem toast fixo de sucesso.
       }
     } catch (err: unknown) {
       console.error('❌ Erro na transmissão:', err);
@@ -517,62 +518,27 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
       </div>
 
       {sucessoNfse && (
-        <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2 className={`w-5 h-5 ${corText} shrink-0 mt-0.5`} />
-              <div>
-                <h3 className={`text-sm font-bold ${corTextDark}`}>
-                  NFS-e Nº {sucessoNfse.numeroNfse} Autorizada!
-                </h3>
-                <p className="text-xs text-blue-800 font-mono mt-0.5">
-                  Chave: {sucessoNfse.chaveAcesso} | Cód: {sucessoNfse.codigoVerificacao}
-                </p>
-                <div className="text-[11px] text-blue-700 mt-1">
-                  Tomador: {(sucessoNfse as unknown as { tomadorRazaoSocial?: string }).tomadorRazaoSocial || sucessoNfse.tomador?.nomeRazaoSocial}
-                  {' '}• Valor: {formatarMoeda(sucessoNfse.valorTotalServicos)}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onViewDanfse(sucessoNfse.id)}
-                className={`${corBgButton} text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Visualizar DANFSe</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  const blob = new Blob([sucessoNfse.xmlAssinado], { type: 'application/xml' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `NFSe_${sucessoNfse.numeroNfse}_SUP.xml`;
-                  a.click();
-                }}
-                className="bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>XML</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setSucessoNfse(null);
-                  setValorServico(0);
-                  setDescontoIncondicionado(0);
-                  setDeducoesMateriais(0);
-                }}
-                className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer"
-              >
-                Nova Emissão
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResumoEmissaoModal
+          aberto={!!sucessoNfse}
+          onClose={() => {
+            setSucessoNfse(null);
+            setValorServico(0);
+            setDescontoIncondicionado(0);
+            setDeducoesMateriais(0);
+          }}
+          status={((sucessoNfse as unknown as { status?: string }).status as 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO') || 'PROCESSANDO'}
+          tipoDocumentoLabel="NFS-e"
+          numero={sucessoNfse.numeroNfse}
+          serie={Number(sucessoNfse.serieDPS) || 1}
+          chaveAcesso={sucessoNfse.chaveAcesso}
+          protocolo={(sucessoNfse as unknown as { protocoloAutorizacao?: string }).protocoloAutorizacao || undefined}
+          motivoRejeicao={(sucessoNfse as unknown as { motivoRejeicao?: string }).motivoRejeicao || undefined}
+          valorTotal={Number(sucessoNfse.valorTotalServicos) || 0}
+          destinatarioNome={(sucessoNfse as unknown as { tomadorRazaoSocial?: string }).tomadorRazaoSocial || sucessoNfse.tomador?.nomeRazaoSocial}
+          emailSugerido={empresa.contadorEmail || empresa.endereco?.email || ''}
+          onVisualizar={() => onViewDanfse(sucessoNfse.id)}
+          onEnviarEmail={(email) => nfseService.enviarPorEmail(sucessoNfse.id, email)}
+        />
       )}
 
       {errosValidacao.length > 0 && (

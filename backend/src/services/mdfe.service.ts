@@ -315,8 +315,14 @@ export class MdfeService {
     const aamm = new Date().toISOString().slice(2, 4) +
       (new Date().getMonth() + 1).toString().padStart(2, '0');
 
+    // 🔥 Uma única variável usada tanto na chave quanto no corpo do documento —
+    // nunca o campo espelhado empresa.codigoUF, que pode divergir do endereço
+    // (mesmo bug já visto e corrigido em NF-e/NFC-e: "Erro na Chave de Acesso
+    // - Campo ID nao corresponde" quando as duas fontes discordam).
+    const cUF = empresa.endereco?.codigoMunicipio?.slice(0, 2) || '35';
+
     const { chaveCompleta, cMDF, cDV } = gerarChaveAcessoMDFe({
-      cUF: empresa.endereco?.codigoMunicipio?.slice(0, 2) || '35',
+      cUF,
       aamm,
       cnpj: empresa.cnpj,
       modelo: '58',
@@ -331,7 +337,7 @@ export class MdfeService {
       modelo: '58',
       serie,
       numero,
-      cUF: empresa.codigoUF,
+      cUF,
       cMDF,
       cDV: cDV.toString(),
       modal: data.modal,

@@ -1,7 +1,7 @@
 // src/components/fiscal/CteEmissor.tsx
 import React, { useState } from 'react';
 import { 
-  Truck, Send, CheckCircle2, AlertTriangle, Eye, Download,
+  Truck, Send, AlertTriangle,
   MapPin, Package, FileText, UserCheck, CreditCard,
   Plus, Trash2, Navigation, Route, Weight, Box,
   User, Building, Calculator, Receipt, Barcode,
@@ -17,6 +17,7 @@ import { cteService } from '../../services/cte.service';
 import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { DacteLayout } from './DacteLayout';
+import { ResumoEmissaoModal } from './ResumoEmissaoModal';
 
 // ============================================================
 // INTERFACES
@@ -787,7 +788,9 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         onCteEmitido(response);
         setSucessoCte(response);
         setTentouEnviar(false);
-        toast.showSuccess(`✅ CT-e Nº ${numero} emitido com sucesso!`);
+        // 🔥 O backend não lança erro quando a SEFAZ rejeita — o modal de
+        // resumo abaixo mostra o status real (AUTORIZADA/REJEITADA) e o
+        // motivo, então não tem mais um toast que sempre dizia "sucesso".
       }
 
     } catch (error: unknown) {
@@ -847,58 +850,28 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
           </button>
           <div className="text-right">
             <div className="text-xs font-semibold text-slate-700">Série {serie}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próximo CT-e: Nº {empresa.proximoNumeroCte || 1}</div>
           </div>
         </div>
       </div>
 
       {sucessoCte && (
-        <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2 className={`w-5 h-5 ${corText} shrink-0 mt-0.5`} />
-              <div>
-                <h3 className={`text-sm font-bold ${corTextDark}`}>
-                  CT-e Nº {sucessoCte.nCT} Autorizado com Sucesso!
-                </h3>
-                <p className="text-xs text-cyan-800 font-mono mt-0.5">
-                  Chave: {sucessoCte.chaveAcesso}
-                </p>
-                <div className="text-[11px] text-cyan-700 mt-1">
-                  Origem: {sucessoCte.xMunIni}/{sucessoCte.UFIni} ➔ Destino: {sucessoCte.xMunFim}/{sucessoCte.UFFim} • Total: {formatarMoeda(Number(sucessoCte.vTPrest))}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => sucessoCte?.id && onViewDacte(sucessoCte.id)}
-                className={`${corBgButton} text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Visualizar DACTE</span>
-              </button>
-              <button
-                onClick={() => {
-                  const blob = new Blob([sucessoCte.xmlAssinado], { type: 'application/xml' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `CTe_${sucessoCte.nCT}_SUP.xml`;
-                  a.click();
-                }}
-                className="bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>XML</span>
-              </button>
-              <button
-                onClick={() => setSucessoCte(null)}
-                className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer"
-              >
-                Novo CT-e
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResumoEmissaoModal
+          aberto={!!sucessoCte}
+          onClose={() => setSucessoCte(null)}
+          status={((sucessoCte as unknown as { status?: string }).status as 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO') || 'PROCESSANDO'}
+          tipoDocumentoLabel="CT-e"
+          numero={Number(sucessoCte.nCT) || 0}
+          serie={Number(sucessoCte.serie) || 1}
+          chaveAcesso={sucessoCte.chaveAcesso}
+          protocolo={sucessoCte.protocoloAutorizacao || undefined}
+          motivoRejeicao={(sucessoCte as unknown as { motivoRejeicao?: string }).motivoRejeicao || undefined}
+          valorTotal={Number(sucessoCte.vTPrest) || 0}
+          destinatarioNome={sucessoCte.destinatario?.nomeRazaoSocial || undefined}
+          emailSugerido={empresa.contadorEmail || empresa.endereco?.email || ''}
+          onVisualizar={() => sucessoCte?.id && onViewDacte(sucessoCte.id)}
+          onEnviarEmail={(email) => cteService.enviarPorEmail(sucessoCte.id, email)}
+        />
       )}
 
       {erros.length > 0 && (

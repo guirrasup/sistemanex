@@ -1,7 +1,7 @@
 // src/components/fiscal/NfeEmissor.tsx
 import React, { useState } from 'react';
 import { 
-  Receipt, Plus, Trash2, Send, CheckCircle2, AlertTriangle, 
+  Receipt, Plus, Trash2, Send, CheckCircle2, AlertTriangle,
   Eye, Download, Truck, CreditCard, DollarSign, Package,
   RefreshCw, User, Building, MapPin, Calendar, Calculator,
   Barcode, XCircle, FileText, Hash, Globe, Phone, Mail,
@@ -10,10 +10,13 @@ import {
 import { NFeDocumento, ItemNfe } from '../../types/fiscal';
 import { Produto, ClienteFornecedor, ConfiguracaoEmpresa, TransportadoraERP } from '../../types/erp';
 import { DanfeLayout } from './DanfeLayout';
-import { formatarMoeda } from '../../utils/cpfCnpjValidator';
+import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { calcularTotaisNfe } from '../../utils/tributosEngine';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { nfeService, NfeApiRecord } from '../../services/nfe.service';
+import { Cfop } from '../../services/cfop.service';
+import { Combobox } from '../ui/Combobox';
+import { ResumoEmissaoModal } from './ResumoEmissaoModal';
 import { useToast } from '../../hooks/useToast';
 
 // ============================================================
@@ -25,6 +28,7 @@ interface NfeEmissorProps {
   clientes: ClienteFornecedor[];
   produtos: Produto[];
   transportadoras: TransportadoraERP[];
+  cfops: Cfop[];
   onNfeEmitida: (nfe: NFeDocumento) => void;
   onViewDanfe: (nfeId: string) => void;
 }
@@ -38,6 +42,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   clientes,
   produtos,
   transportadoras,
+  cfops,
   onNfeEmitida,
   onViewDanfe,
 }) => {
@@ -47,7 +52,10 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   // STATE - DESTINATÁRIO
   // ============================================================
   const [selectedClienteId, setSelectedClienteId] = useState<string>('');
-  
+  // 🔥 Busca por nome ou CPF/CNPJ — o <select> nativo travava a usabilidade
+  // acima de ~10 clientes/produtos (sem filtro, só rolagem).
+  const [buscaCliente, setBuscaCliente] = useState<string>('');
+
   const [destinatarioDoc, setDestinatarioDoc] = useState('');
   const [destinatarioNome, setDestinatarioNome] = useState('');
   const [destinatarioIE, setDestinatarioIE] = useState('');
@@ -68,6 +76,11 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   // STATE - DADOS GERAIS
   // ============================================================
   const [naturezaOperacao, setNaturezaOperacao] = useState('Venda de Mercadoria Adquirida de Terceiros');
+  // 🔥 Natureza da Operação era texto livre sem nenhuma tabela por trás — o
+  // próprio campo funciona como busca de CFOP (sem input extra ao lado); ao
+  // escolher, a descrição oficial do código substitui o texto (que continua
+  // editável depois, já que a SEFAZ exige texto livre no XML).
+  const [cfopSelecionado, setCfopSelecionado] = useState<Cfop | null>(null);
   const [tipoDocumento, setTipoDocumento] = useState<0 | 1>(1);
   const [finalidade, setFinalidade] = useState<1 | 2 | 3 | 4>(1);
   const [consumidorFinal, setConsumidorFinal] = useState<boolean>(true);
@@ -78,7 +91,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   // STATE - ITENS
   // ============================================================
   const [itens, setItens] = useState<ItemNfe[]>([]);
-  const [produtoSelecionado, setProdutoSelecionado] = useState<string>('');
+  const [buscaProduto, setBuscaProduto] = useState<string>('');
 
   // ============================================================
   // STATE - TRANSPORTE
@@ -192,10 +205,8 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   // HANDLERS - ITENS
   // ============================================================
 
-  const handleAddItem = () => {
-    if (!produtoSelecionado) return;
-    
-    const prod = produtos.find(p => p.id === produtoSelecionado);
+  const handleAddItem = (produtoId: string) => {
+    const prod = produtos.find(p => p.id === produtoId);
     if (!prod) return;
 
     // ✅ id = produto.id (não um id aleatório): é o que permite montar o
@@ -212,6 +223,14 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
     const aliquotaIPI = Number(prod.aliquotaIPI || 0);
     const aliquotaPIS = Number(prod.aliquotaPIS);
     const aliquotaCOFINS = Number(prod.aliquotaCOFINS);
+    // 🔥 IBS/CBS eram sempre 0,05%/0,05%/0,90% fixos no código, ignorando o que
+    // estivesse cadastrado no produto — editar a alíquota de IBS/CBS em Produtos
+    // não mudava nada aqui. aliquotaIBS é um campo único (não separado por UF/
+    // Município no schema); divide 50/50, mesma convenção do backend.
+    const aliquotaIBS = Number(prod.aliquotaIBS ?? 0);
+    const aliquotaIBSUF = aliquotaIBS / 2;
+    const aliquotaIBSMun = aliquotaIBS / 2;
+    const aliquotaCBS = Number(prod.aliquotaCBS ?? 0);
 
     const newItem: ItemNfe = {
       id: prod.id,
@@ -238,19 +257,19 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
       cstCOFINS: '01',
       aliquotaCOFINS,
       valorCOFINS: (precoVenda * aliquotaCOFINS) / 100,
-      aliquotaIBSUF: 0.05,
-      valorIBSUF: precoVenda * 0.0005,
-      aliquotaIBSMun: 0.05,
-      valorIBSMun: precoVenda * 0.0005,
-      aliquotaCBS: 0.90,
-      valorCBS: precoVenda * 0.009,
+      aliquotaIBSUF,
+      valorIBSUF: (precoVenda * aliquotaIBSUF) / 100,
+      aliquotaIBSMun,
+      valorIBSMun: (precoVenda * aliquotaIBSMun) / 100,
+      aliquotaCBS,
+      valorCBS: (precoVenda * aliquotaCBS) / 100,
       valorTributosAproximados: precoVenda * 0.31,
       codigoEAN: prod.codigoBarrasEAN || undefined,
       codigoEANTrib: prod.codigoBarrasEAN || undefined,
     };
 
     setItens(prev => [...prev, newItem]);
-    setProdutoSelecionado('');
+    setBuscaProduto('');
   };
 
   const handleUpdateItemQtd = (index: number, qtd: number) => {
@@ -266,10 +285,11 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
     item.valorIPI = (item.valorTotalBruto * Number(item.aliquotaIPI || 0)) / 100;
     // 🔥 IBS/CBS/tributos aproximados ficavam travados no valor calculado na
     // hora de adicionar o item (com quantidade=1) — mudar a quantidade nunca
-    // recalculava esses 4 campos, só ICMS/PIS/COFINS/IPI.
-    item.valorIBSUF = item.valorTotalBruto * 0.0005;
-    item.valorIBSMun = item.valorTotalBruto * 0.0005;
-    item.valorCBS = item.valorTotalBruto * 0.009;
+    // recalculava esses 4 campos, só ICMS/PIS/COFINS/IPI. Usa a alíquota já
+    // gravada no item (vinda do produto), não mais um percentual fixo.
+    item.valorIBSUF = (item.valorTotalBruto * Number(item.aliquotaIBSUF || 0)) / 100;
+    item.valorIBSMun = (item.valorTotalBruto * Number(item.aliquotaIBSMun || 0)) / 100;
+    item.valorCBS = (item.valorTotalBruto * Number(item.aliquotaCBS || 0)) / 100;
     item.valorTributosAproximados = item.valorTotalBruto * 0.31;
     setItens(newItens);
   };
@@ -286,9 +306,9 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
     item.valorCOFINS = (item.valorTotalBruto * Number(item.aliquotaCOFINS)) / 100;
     item.valorIPI = (item.valorTotalBruto * Number(item.aliquotaIPI || 0)) / 100;
     // 🔥 Mesmo problema de handleUpdateItemQtd, agora pra edição de valor unitário.
-    item.valorIBSUF = item.valorTotalBruto * 0.0005;
-    item.valorIBSMun = item.valorTotalBruto * 0.0005;
-    item.valorCBS = item.valorTotalBruto * 0.009;
+    item.valorIBSUF = (item.valorTotalBruto * Number(item.aliquotaIBSUF || 0)) / 100;
+    item.valorIBSMun = (item.valorTotalBruto * Number(item.aliquotaIBSMun || 0)) / 100;
+    item.valorCBS = (item.valorTotalBruto * Number(item.aliquotaCBS || 0)) / 100;
     item.valorTributosAproximados = item.valorTotalBruto * 0.31;
     setItens(newItens);
   };
@@ -432,12 +452,12 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           cstCOFINS: '01',
           aliquotaCOFINS: prod.aliquotaCOFINS,
           valorCOFINS: (quantidade * prod.precoVenda * Number(prod.aliquotaCOFINS)) / 100,
-          aliquotaIBSUF: 0.05,
-          valorIBSUF: quantidade * prod.precoVenda * 0.0005,
-          aliquotaIBSMun: 0.05,
-          valorIBSMun: quantidade * prod.precoVenda * 0.0005,
-          aliquotaCBS: 0.90,
-          valorCBS: quantidade * prod.precoVenda * 0.009,
+          aliquotaIBSUF: Number(prod.aliquotaIBS ?? 0) / 2,
+          valorIBSUF: (quantidade * prod.precoVenda * (Number(prod.aliquotaIBS ?? 0) / 2)) / 100,
+          aliquotaIBSMun: Number(prod.aliquotaIBS ?? 0) / 2,
+          valorIBSMun: (quantidade * prod.precoVenda * (Number(prod.aliquotaIBS ?? 0) / 2)) / 100,
+          aliquotaCBS: Number(prod.aliquotaCBS ?? 0),
+          valorCBS: (quantidade * prod.precoVenda * Number(prod.aliquotaCBS ?? 0)) / 100,
           valorTributosAproximados: quantidade * prod.precoVenda * 0.31,
           codigoEAN: prod.codigoBarrasEAN || undefined,
           codigoEANTrib: prod.codigoBarrasEAN || undefined,
@@ -490,7 +510,12 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         onNfeEmitida(nfeEmitida as unknown as NFeDocumento);
         setNfeEmitidaSucesso(nfeEmitida);
         setTentouEnviar(false);
-        toast.showSuccess(`✅ NF-e Nº ${nfeEmitida.numero} emitida e autorizada com sucesso!`);
+        // 🔥 O backend não lança erro quando a SEFAZ rejeita — grava a NF-e
+        // com status REJEITADA e devolve normalmente (é um resultado válido,
+        // não uma falha do sistema). Mostrar sempre um toast de "sucesso" aqui,
+        // sem checar o status, fazia a tela comemorar até notas rejeitadas.
+        // O modal de resumo abaixo já mostra o status real e o motivo, então
+        // não precisa mais do toast nem do banner antigo.
       }
     } catch (error: unknown) {
       const mensagemErro = getApiErrorMessage(error, 'Erro ao transmitir NF-e');
@@ -508,6 +533,37 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
 
   const cor = 'emerald';
   const isFormReady = itens.length > 0 && !!selectedClienteId;
+
+  // 🔥 Busca por nome ou CPF/CNPJ (ignora pontuação do documento) — clientes
+  // com mais de ~10 cadastros ficavam impossíveis de achar no <select> nativo.
+  const clientesFiltrados = (() => {
+    const q = buscaCliente.toLowerCase().trim();
+    if (!q) return [];
+    const qDoc = q.replace(/\D/g, '');
+    return clientes.filter(c =>
+      c.razaoSocial.toLowerCase().includes(q) ||
+      (qDoc && (c.documento || '').replace(/\D/g, '').includes(qDoc))
+    );
+  })();
+
+  const produtosFiltrados = (() => {
+    const q = buscaProduto.toLowerCase().trim();
+    if (!q) return [];
+    return produtos.filter(p =>
+      p.descricao.toLowerCase().includes(q) ||
+      p.codigo.toLowerCase().includes(q) ||
+      (p.codigoBarrasEAN && p.codigoBarrasEAN.includes(buscaProduto))
+    );
+  })();
+
+  // 🔥 Sem campo de busca separado — filtra pelo que já está digitado em
+  // "Natureza da Operação" (mínimo de 2 caracteres pra não listar tudo à toa
+  // a cada tecla no começo de uma frase livre qualquer).
+  const cfopsFiltrados = (() => {
+    const q = naturezaOperacao.toLowerCase().trim();
+    if (q.length < 2 || cfopSelecionado) return [];
+    return cfops.filter(c => c.codigo.includes(q) || c.descricao.toLowerCase().includes(q));
+  })();
 
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
@@ -545,29 +601,22 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
       </div>
 
       {nfeEmitidaSucesso && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-sm font-bold text-emerald-800">NF-e Nº {nfeEmitidaSucesso.numero} Autorizada!</h3>
-                <p className="text-xs text-emerald-800 font-mono mt-0.5">Chave: {nfeEmitidaSucesso.chaveAcesso}</p>
-                <p className="text-xs text-emerald-800 font-mono mt-0.5">Protocolo: {nfeEmitidaSucesso.protocoloAutorizacao}</p>
-                <div className="text-[11px] text-emerald-700 mt-1">
-                  Destinatário: {nfeEmitidaSucesso.destinatario?.razaoSocial} • Total: {formatarMoeda(Number(nfeEmitidaSucesso.vNF) || 0)}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => onViewDanfe(nfeEmitidaSucesso.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm">
-                <Eye className="w-3.5 h-3.5" /> <span>Visualizar DANFE</span>
-              </button>
-              <button onClick={() => setNfeEmitidaSucesso(null)} className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer">
-                Nova NF-e
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResumoEmissaoModal
+          aberto={!!nfeEmitidaSucesso}
+          onClose={() => setNfeEmitidaSucesso(null)}
+          status={(nfeEmitidaSucesso.status as 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO') || 'PROCESSANDO'}
+          tipoDocumentoLabel="NF-e"
+          numero={nfeEmitidaSucesso.numero}
+          serie={nfeEmitidaSucesso.serie}
+          chaveAcesso={nfeEmitidaSucesso.chaveAcesso}
+          protocolo={nfeEmitidaSucesso.protocoloAutorizacao || undefined}
+          motivoRejeicao={(nfeEmitidaSucesso.motivoRejeicao as string) || undefined}
+          valorTotal={Number(nfeEmitidaSucesso.vNF) || 0}
+          destinatarioNome={nfeEmitidaSucesso.destinatario?.razaoSocial}
+          emailSugerido={empresa.contadorEmail || empresa.endereco?.email || ''}
+          onVisualizar={() => onViewDanfe(nfeEmitidaSucesso.id)}
+          onEnviarEmail={(email) => nfeService.enviarPorEmail(nfeEmitidaSucesso.id, email)}
+        />
       )}
 
       {erros.length > 0 && (
@@ -588,20 +637,36 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             <User className="w-4 h-4 text-emerald-600" />
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">1. Destinatário</h3>
           </div>
-          <select
-            value={selectedClienteId}
-            onChange={(e) => handleSelectCliente(e.target.value)}
-            className={`text-xs bg-slate-50 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 font-medium text-slate-700 min-w-[200px] border ${
-              tentouEnviar && !selectedClienteId
-                ? 'border-rose-400 bg-rose-50 focus:ring-rose-500'
-                : 'border-slate-300 focus:ring-emerald-500'
-            }`}
-          >
-            <option value="">-- Escolher Cliente --</option>
-            {clientes.map(c => (
-              <option key={c.id} value={c.id}>{c.razaoSocial} ({c.documento})</option>
-            ))}
-          </select>
+          <div className="w-64">
+            <Combobox
+              value={buscaCliente}
+              onInputChange={(texto) => {
+                setBuscaCliente(texto);
+                if (selectedClienteId) handleSelectCliente('');
+              }}
+              onSelect={(c: ClienteFornecedor) => {
+                handleSelectCliente(c.id);
+                setBuscaCliente(c.razaoSocial);
+              }}
+              options={clientesFiltrados}
+              getKey={(c) => c.id}
+              placeholder="Buscar por nome ou CPF/CNPJ..."
+              emptyMessage="Nenhum cliente encontrado."
+              inputClassName={`text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 font-medium text-slate-700 w-full border ${
+                tentouEnviar && !selectedClienteId
+                  ? 'border-rose-400 bg-rose-50 focus:ring-rose-500'
+                  : 'border-slate-300 focus:ring-emerald-500'
+              }`}
+              renderOption={(c: ClienteFornecedor, destacado) => (
+                <div className={`p-2 rounded-lg border cursor-pointer transition-colors text-xs ${
+                  destacado ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                }`}>
+                  <div className="font-semibold text-slate-900">{c.razaoSocial}</div>
+                  <div className="text-[10px] text-slate-500">{formatarCpfCnpj(c.documento)}</div>
+                </div>
+              )}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 text-xs">
@@ -677,9 +742,31 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">2. Dados Gerais</h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <div>
+          <div className="sm:col-span-2">
             <label className="block font-medium text-slate-600 mb-1">Natureza da Operação</label>
-            <input type="text" value={naturezaOperacao} onChange={(e) => setNaturezaOperacao(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <Combobox
+              value={naturezaOperacao}
+              onInputChange={(texto) => {
+                setNaturezaOperacao(texto);
+                if (cfopSelecionado) setCfopSelecionado(null);
+              }}
+              onSelect={(c: Cfop) => {
+                setCfopSelecionado(c);
+                setNaturezaOperacao(c.descricao);
+              }}
+              options={cfopsFiltrados}
+              getKey={(c) => c.id}
+              placeholder="Ex.: Venda de Mercadoria Adquirida de Terceiros"
+              inputClassName="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              renderOption={(c: Cfop, destacado) => (
+                <div className={`p-2 rounded-lg border cursor-pointer transition-colors text-xs ${
+                  destacado ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                }`}>
+                  <span className="font-mono font-bold text-emerald-700">{c.codigo}</span>
+                  <span className="text-slate-700"> — {c.descricao}</span>
+                </div>
+              )}
+            />
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Tipo Documento <span className="text-[10px] text-slate-400">(TpNF)</span></label>
@@ -713,20 +800,34 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             <Package className="w-4 h-4 text-emerald-600" />
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">3. Produtos ({itens.length})</h3>
           </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={produtoSelecionado}
-              onChange={(e) => setProdutoSelecionado(e.target.value)}
-              className="text-xs bg-white border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[200px]"
-            >
-              <option value="">Selecione um produto...</option>
-              {produtos.map(p => (
-                <option key={p.id} value={p.id}>{p.codigo} - {p.descricao.slice(0, 40)} ({formatarMoeda(p.precoVenda)})</option>
-              ))}
-            </select>
-            <button onClick={handleAddItem} disabled={!produtoSelecionado} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50">
-              <Plus className="w-3.5 h-3.5" /> Adicionar
-            </button>
+          <div className="w-72">
+            <Combobox
+              value={buscaProduto}
+              onInputChange={setBuscaProduto}
+              onSelect={(p: Produto) => {
+                handleAddItem(p.id);
+                setBuscaProduto('');
+              }}
+              options={produtosFiltrados}
+              getKey={(p) => p.id}
+              placeholder="Buscar produto por código, nome ou EAN..."
+              emptyMessage="Nenhum produto encontrado."
+              inputClassName="text-xs pl-3 pr-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full"
+              renderOption={(p: Produto, destacado) => (
+                <div className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors text-xs ${
+                  destacado ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                }`}>
+                  <div>
+                    <div className="font-semibold text-slate-900">{p.descricao}</div>
+                    <div className="text-[10px] text-slate-500">Cód: {p.codigo}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-emerald-700">{formatarMoeda(p.precoVenda)}</div>
+                    <span className="text-[10px] text-emerald-600">+ Incluir</span>
+                  </div>
+                </div>
+              )}
+            />
           </div>
         </div>
 
