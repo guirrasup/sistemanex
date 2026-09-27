@@ -1,17 +1,41 @@
 // prisma/seed.ts
-import { PrismaClient } from '@prisma/client'
+// Precisa vir antes de tudo: rodando via `npx tsx prisma/seed.ts` diretamente
+// (em vez de `npx prisma db seed`), o Prisma CLI não carrega o .env sozinho —
+// sem isso, DATABASE_URL fica undefined e o PrismaClient falha ao inicializar.
+import 'dotenv/config'
+import { PrismaClient, Prisma, TipoCliente, TipoPessoa } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
-async function main() {
-  console.log('🌱 Iniciando seed completo...')
+// 🔥 LIMITES DE RECURSOS (mitigação CWE-770 / CWE-400)
+const MAX_TRANSACTION_BATCH = 500
 
-  // ============================================
-  // 1. Verificar/Criar empresa padrão
-  // ============================================
-  // O campo "cnpj" da Empresa é @db.Char(14) — só dígitos, sem máscara.
+// 🔥 CONFIGURAÇÃO VIA ENV (evita credenciais/ambiente hardcoded — CWE-798 / CWE-1188)
+const SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@suptecnologia.com.br'
+const SEED_ADMIN_SENHA = process.env.SEED_ADMIN_SENHA
+const SEED_AMBIENTE = process.env.SEED_AMBIENTE === 'PRODUCAO' ? 'PRODUCAO' : 'HOMOLOGACAO'
+
+if (!SEED_ADMIN_SENHA) {
+  console.error('❌ Defina SEED_ADMIN_SENHA no ambiente antes de rodar o seed.')
+  process.exit(1)
+}
+
+// 🔥 HELPER DE TRANSAÇÃO EM LOTES (fatia em vez de abortar — CWE-770)
+async function criarEmLotes<T>(
+  registros: T[],
+  criar: (data: T) => Prisma.PrismaPromise<unknown>,
+  tamanhoLote: number = MAX_TRANSACTION_BATCH
+): Promise<void> {
+  for (let i = 0; i < registros.length; i += tamanhoLote) {
+    const lote = registros.slice(i, i + tamanhoLote)
+    await prisma.$transaction(lote.map(criar))
+  }
+}
+
+async function main() {
   const CNPJ_EMPRESA = '18236447000190'
+
   let empresa = await prisma.empresa.findUnique({
     where: { cnpj: CNPJ_EMPRESA }
   })
@@ -19,16 +43,19 @@ async function main() {
   if (!empresa) {
     empresa = await prisma.empresa.create({
       data: {
-        razaoSocial: 'SUP TECNOLOGIA EM SISTEMAS LTDA',
-        nomeFantasia: 'SUP TECNOLOGIA',
+        razaoSocial: 'SUP TECNOLOGIA EM SISTEMAS LTDA - DEV',
+        nomeFantasia: 'SUP TECNOLOGIA DEV',
         cnpj: CNPJ_EMPRESA,
+        uf: 'SP',
         codigoUF: '35',
+        codigoMunicipio: '3550308',
+        nomeMunicipio: 'Sao Paulo',
         inscricaoEstadual: '114882901110',
         inscricaoMunicipal: '48829012',
         cnae: '6201501',
         regimeTributario: 'SIMPLES_NACIONAL',
         aliquotaSimples: 6.0,
-        ambienteEmissao: 'PRODUCAO',
+        ambienteEmissao: SEED_AMBIENTE,
         chavePixPadrao: '18236447000190',
         optanteSimples: true,
         endereco: {
@@ -66,20 +93,17 @@ async function main() {
     console.log('Empresa ja existe:', empresa.id)
   }
 
-  // ============================================
-  // 2. Verificar/Criar usuário admin
-  // ============================================
   let admin = await prisma.usuario.findUnique({
-    where: { email: 'admin@suptecnologia.com.br' }
+    where: { email: SEED_ADMIN_EMAIL }
   })
 
   if (!admin) {
-    const senhaHash = await bcrypt.hash('admin123', 12)
+    const senhaHash = await bcrypt.hash(SEED_ADMIN_SENHA, 12)
 
     admin = await prisma.usuario.create({
       data: {
         nome: 'Carlos Eduardo Nogueira',
-        email: 'admin@suptecnologia.com.br',
+        email: SEED_ADMIN_EMAIL,
         senhaHash,
         cargo: 'Administrador Fiscal',
         perfil: 'ADMIN',
@@ -93,19 +117,19 @@ async function main() {
   }
 
   // ============================================
-  // 3. Criar clientes
+  // CLIENTES (CNPJs fictícios válidos — sem empresas reais)
   // ============================================
   const clientesData = [
     {
       tipo: 'CLIENTE',
       tipoPessoa: 'PJ',
-      documento: '33000167000101',
-      razaoSocial: 'PETROLEO BRASILEIRO S A PETROBRAS',
-      nomeFantasia: 'PETROBRAS',
+      documento: '11222333000181',
+      razaoSocial: 'CLIENTE EXEMPLO ALFA LTDA - DEV',
+      nomeFantasia: 'ALFA DEV',
       inscricaoEstadual: '80002321',
       inscricaoMunicipal: '012994001',
-      indicadorIE: 'CONTRIBUINTE',
-      email: 'faturamento@petrobras.com.br',
+      indIEDest: '1',
+      email: 'faturamento@alfa-dev.local',
       telefone: '2132244477',
       endereco: {
         logradouro: 'Avenida Republica do Chile',
@@ -121,11 +145,11 @@ async function main() {
     {
       tipo: 'CLIENTE',
       tipoPessoa: 'PJ',
-      documento: '00360305000104',
-      razaoSocial: 'CAIXA ECONOMICA FEDERAL',
-      nomeFantasia: 'CAIXA',
-      indicadorIE: 'NAO_CONTRIBUINTE',
-      email: 'suprimentos@caixa.gov.br',
+      documento: '22333444000162',
+      razaoSocial: 'CLIENTE EXEMPLO BETA S/A - DEV',
+      nomeFantasia: 'BETA DEV',
+      indIEDest: '9',
+      email: 'suprimentos@beta-dev.local',
       telefone: '6132069900',
       endereco: {
         logradouro: 'SBS Quadra 4 Bloco A',
@@ -141,12 +165,12 @@ async function main() {
     {
       tipo: 'CLIENTE',
       tipoPessoa: 'PJ',
-      documento: '02558157000162',
-      razaoSocial: 'MAGAZINE LUIZA S/A',
-      nomeFantasia: 'MAGAZINE LUIZA',
+      documento: '33444555000143',
+      razaoSocial: 'CLIENTE EXEMPLO GAMA LTDA - DEV',
+      nomeFantasia: 'GAMA DEV',
       inscricaoEstadual: '110042490110',
-      indicadorIE: 'CONTRIBUINTE',
-      email: 'faturamento@magazineluiza.com.br',
+      indIEDest: '1',
+      email: 'faturamento@gama-dev.local',
       telefone: '1140044004',
       endereco: {
         logradouro: 'Avenida Brigadeiro Faria Lima',
@@ -162,13 +186,13 @@ async function main() {
     {
       tipo: 'AMBOS',
       tipoPessoa: 'PJ',
-      documento: '34274633000102',
-      razaoSocial: 'AMBEV S/A',
-      nomeFantasia: 'AMBEV',
+      documento: '44555666000124',
+      razaoSocial: 'CLIENTE EXEMPLO DELTA S/A - DEV',
+      nomeFantasia: 'DELTA DEV',
       inscricaoEstadual: '110123456110',
       inscricaoMunicipal: '21234560',
-      indicadorIE: 'CONTRIBUINTE',
-      email: 'faturamento@ambev.com.br',
+      indIEDest: '1',
+      email: 'faturamento@delta-dev.local',
       telefone: '1121221234',
       endereco: {
         logradouro: 'Rua Dr. Renato Paes de Barros',
@@ -184,12 +208,12 @@ async function main() {
     {
       tipo: 'AMBOS',
       tipoPessoa: 'PJ',
-      documento: '62494258000193',
-      razaoSocial: 'NESTLE BRASIL LTDA',
-      nomeFantasia: 'NESTLE',
+      documento: '55666777000105',
+      razaoSocial: 'CLIENTE EXEMPLO EPSILON LTDA - DEV',
+      nomeFantasia: 'EPSILON DEV',
       inscricaoEstadual: '110789456110',
-      indicadorIE: 'CONTRIBUINTE',
-      email: 'faturamento@nestle.com.br',
+      indIEDest: '1',
+      email: 'faturamento@epsilon-dev.local',
       telefone: '1130492000',
       endereco: {
         logradouro: 'Avenida das Nacoes Unidas',
@@ -204,46 +228,53 @@ async function main() {
     }
   ]
 
-  for (const data of clientesData) {
-    let cliente = await prisma.cliente.findUnique({
-      where: { documento: data.documento }
-    })
+  const documentosClientes = clientesData.map(c => c.documento)
+  const clientesExistentes = await prisma.cliente.findMany({
+    where: { documento: { in: documentosClientes } },
+    select: { documento: true }
+  })
+  const documentosClientesExistentes = new Set(clientesExistentes.map(c => c.documento))
 
-    if (!cliente) {
-      await prisma.cliente.create({
-        data: {
-          tipo: data.tipo,
-          tipoPessoa: data.tipoPessoa,
-          documento: data.documento,
-          razaoSocial: data.razaoSocial,
-          nomeFantasia: data.nomeFantasia,
-          inscricaoEstadual: data.inscricaoEstadual,
-          inscricaoMunicipal: data.inscricaoMunicipal,
-          indicadorIE: data.indicadorIE,
-          email: data.email,
-          telefone: data.telefone,
-          empresa: { connect: { id: empresa.id } },
-          endereco: { create: data.endereco }
-        }
-      })
-    }
+  const clientesParaCriar = clientesData.filter(c => !documentosClientesExistentes.has(c.documento))
+
+  if (clientesParaCriar.length > 0) {
+    await criarEmLotes(
+      clientesParaCriar,
+      (data) =>
+        prisma.cliente.create({
+          data: {
+            tipo: data.tipo as TipoCliente,
+            tipoPessoa: data.tipoPessoa as TipoPessoa,
+            documento: data.documento,
+            razaoSocial: data.razaoSocial,
+            nomeFantasia: data.nomeFantasia,
+            inscricaoEstadual: data.inscricaoEstadual,
+            inscricaoMunicipal: data.inscricaoMunicipal,
+            indIEDest: data.indIEDest,
+            email: data.email,
+            telefone: data.telefone,
+            empresa: { connect: { id: empresa.id } },
+            endereco: { create: data.endereco }
+          }
+        })
+    )
   }
 
   console.log('Clientes processados')
 
   // ============================================
-  // 4. Criar fornecedores
+  // FORNECEDORES (CNPJs fictícios válidos)
   // ============================================
   const fornecedoresData = [
     {
       tipo: 'FORNECEDOR',
       tipoPessoa: 'PJ',
-      documento: '49067965000120',
-      razaoSocial: 'MICROSOFT BRASIL LTDA',
-      nomeFantasia: 'MICROSOFT',
+      documento: '66777888000196',
+      razaoSocial: 'FORNECEDOR EXEMPLO ZETA LTDA - DEV',
+      nomeFantasia: 'ZETA DEV',
       inscricaoEstadual: '110345678110',
-      indicadorIE: 'CONTRIBUINTE',
-      email: 'fornecedor@microsoft.com.br',
+      indIEDest: '1',
+      email: 'fornecedor@zeta-dev.local',
       telefone: '1147027000',
       endereco: {
         logradouro: 'Avenida Nacoes Unidas',
@@ -259,12 +290,12 @@ async function main() {
     {
       tipo: 'FORNECEDOR',
       tipoPessoa: 'PJ',
-      documento: '04263233000169',
-      razaoSocial: 'DELL COMPUTADORES DO BRASIL LTDA',
-      nomeFantasia: 'DELL',
+      documento: '77888999000177',
+      razaoSocial: 'FORNECEDOR EXEMPLO ETA LTDA - DEV',
+      nomeFantasia: 'ETA DEV',
       inscricaoEstadual: '114882901110',
-      indicadorIE: 'CONTRIBUINTE',
-      email: 'fornecedor@dell.com.br',
+      indIEDest: '1',
+      email: 'fornecedor@eta-dev.local',
       telefone: '1139983200',
       endereco: {
         logradouro: 'Avenida das Nacoes Unidas',
@@ -280,12 +311,12 @@ async function main() {
     {
       tipo: 'FORNECEDOR',
       tipoPessoa: 'PJ',
-      documento: '02214286000100',
-      razaoSocial: 'HP BRASIL INDUSTRIA E COMERCIO LTDA',
-      nomeFantasia: 'HP',
+      documento: '88999000000158',
+      razaoSocial: 'FORNECEDOR EXEMPLO THETA LTDA - DEV',
+      nomeFantasia: 'THETA DEV',
       inscricaoEstadual: '110456789110',
-      indicadorIE: 'CONTRIBUINTE',
-      email: 'fornecedor@hp.com.br',
+      indIEDest: '1',
+      email: 'fornecedor@theta-dev.local',
       telefone: '1140044004',
       endereco: {
         logradouro: 'Avenida das Nacoes Unidas',
@@ -301,12 +332,12 @@ async function main() {
     {
       tipo: 'FORNECEDOR',
       tipoPessoa: 'PJ',
-      documento: '03570683000140',
-      razaoSocial: 'CISCO SYSTEMS DO BRASIL LTDA',
-      nomeFantasia: 'CISCO',
+      documento: '99000111000139',
+      razaoSocial: 'FORNECEDOR EXEMPLO IOTA LTDA - DEV',
+      nomeFantasia: 'IOTA DEV',
       inscricaoEstadual: '110567890110',
-      indicadorIE: 'CONTRIBUINTE',
-      email: 'fornecedor@cisco.com.br',
+      indIEDest: '1',
+      email: 'fornecedor@iota-dev.local',
       telefone: '1135097000',
       endereco: {
         logradouro: 'Avenida das Nacoes Unidas',
@@ -322,12 +353,12 @@ async function main() {
     {
       tipo: 'FORNECEDOR',
       tipoPessoa: 'PJ',
-      documento: '04150884000110',
-      razaoSocial: 'IBM BRASIL INDUSTRIA MAQUINAS E SERVICOS LTDA',
-      nomeFantasia: 'IBM',
+      documento: '10111213000110',
+      razaoSocial: 'FORNECEDOR EXEMPLO KAPPA LTDA - DEV',
+      nomeFantasia: 'KAPPA DEV',
       inscricaoEstadual: '110678901110',
-      indicadorIE: 'CONTRIBUINTE',
-      email: 'fornecedor@ibm.com.br',
+      indIEDest: '1',
+      email: 'fornecedor@kappa-dev.local',
       telefone: '1121321000',
       endereco: {
         logradouro: 'Avenida das Nacoes Unidas',
@@ -342,39 +373,46 @@ async function main() {
     }
   ]
 
-  for (const data of fornecedoresData) {
-    let fornecedor = await prisma.cliente.findUnique({
-      where: { documento: data.documento }
-    })
+  const documentosFornecedores = fornecedoresData.map(f => f.documento)
+  const fornecedoresExistentes = await prisma.cliente.findMany({
+    where: { documento: { in: documentosFornecedores } },
+    select: { documento: true }
+  })
+  const documentosFornecedoresExistentes = new Set(fornecedoresExistentes.map(f => f.documento))
 
-    if (!fornecedor) {
-      await prisma.cliente.create({
-        data: {
-          tipo: data.tipo,
-          tipoPessoa: data.tipoPessoa,
-          documento: data.documento,
-          razaoSocial: data.razaoSocial,
-          nomeFantasia: data.nomeFantasia,
-          inscricaoEstadual: data.inscricaoEstadual,
-          indicadorIE: data.indicadorIE,
-          email: data.email,
-          telefone: data.telefone,
-          empresa: { connect: { id: empresa.id } },
-          endereco: { create: data.endereco }
-        }
-      })
-    }
+  const fornecedoresParaCriar = fornecedoresData.filter(f => !documentosFornecedoresExistentes.has(f.documento))
+
+  if (fornecedoresParaCriar.length > 0) {
+    await criarEmLotes(
+      fornecedoresParaCriar,
+      (data) =>
+        prisma.cliente.create({
+          data: {
+            tipo: data.tipo as TipoCliente,
+            tipoPessoa: data.tipoPessoa as TipoPessoa,
+            documento: data.documento,
+            razaoSocial: data.razaoSocial,
+            nomeFantasia: data.nomeFantasia,
+            inscricaoEstadual: data.inscricaoEstadual,
+            indIEDest: data.indIEDest,
+            email: data.email,
+            telefone: data.telefone,
+            empresa: { connect: { id: empresa.id } },
+            endereco: { create: data.endereco }
+          }
+        })
+    )
   }
 
   console.log('Fornecedores processados')
 
   // ============================================
-  // 5. Criar produtos
+  // PRODUTOS
   // ============================================
   const produtosData = [
     {
       codigo: 'SUP-SRV-RACK',
-      descricao: 'Servidor Dell PowerEdge R650xs Xeon Silver 32GB RAM 2x960GB SSD Enterprise',
+      descricao: 'Servidor Rack 1U Xeon Silver 32GB RAM 2x960GB SSD Enterprise',
       categoria: 'Hardware & Servidores',
       unidade: 'UN',
       ncm: '84714100',
@@ -407,8 +445,8 @@ async function main() {
       aliquotaIPI: 10.0
     },
     {
-      codigo: 'SUP-NOTE-DELL',
-      descricao: 'Notebook Dell Latitude 5430 Intel Core i7 16GB RAM 512GB SSD 14"',
+      codigo: 'SUP-NOTE-PRO',
+      descricao: 'Notebook Corporativo Intel Core i7 16GB RAM 512GB SSD 14"',
       categoria: 'Informatica',
       unidade: 'UN',
       ncm: '84713012',
@@ -425,7 +463,7 @@ async function main() {
     },
     {
       codigo: 'SUP-MONITOR-24',
-      descricao: 'Monitor Dell 24" P2422H Full HD LED IPS',
+      descricao: 'Monitor 24" Full HD LED IPS',
       categoria: 'Perifericos',
       unidade: 'UN',
       ncm: '85285210',
@@ -442,7 +480,7 @@ async function main() {
     },
     {
       codigo: 'SUP-SWITCH-48P',
-      descricao: 'Switch Gigabit 48 Portas Gerenciavel Cisco SG350-48',
+      descricao: 'Switch Gigabit 48 Portas Gerenciavel',
       categoria: 'Redes',
       unidade: 'UN',
       ncm: '85176262',
@@ -459,32 +497,46 @@ async function main() {
     }
   ]
 
-  for (const data of produtosData) {
-    let produto = await prisma.produto.findUnique({
-      where: { codigo: data.codigo }
-    })
+  const codigosProdutos = produtosData.map(p => p.codigo)
+  const produtosExistentes = await prisma.produto.findMany({
+    where: { codigo: { in: codigosProdutos } },
+    select: { codigo: true }
+  })
+  const codigosProdutosExistentes = new Set(produtosExistentes.map(p => p.codigo))
 
-    if (!produto) {
-      await prisma.produto.create({
-        data: {
-          ...data,
-          empresa: { connect: { id: empresa.id } }
-        }
-      })
-    }
+  const produtosParaCriar = produtosData.filter(p => !codigosProdutosExistentes.has(p.codigo))
+
+  if (produtosParaCriar.length > 0) {
+    await criarEmLotes(
+      produtosParaCriar,
+      (data) =>
+        prisma.produto.create({
+          data: {
+            // csosnICMS não tem default no schema (cstICMS tem, "00") — sem isso,
+            // a emissão de NF-e/NFC-e rejeita todo item desse produto ("sem CSOSN
+            // informado, obrigatório para emitente do Simples Nacional, CRT=1").
+            // A empresa seedada aqui é Simples Nacional, então todo produto
+            // precisa de um CSOSN; 102 (tributada, sem crédito) é o padrão mais
+            // comum pra revenda de mercadoria.
+            csosnICMS: '102',
+            ...data,
+            empresa: { connect: { id: empresa.id } }
+          }
+        })
+    )
   }
 
   console.log('Produtos processados')
 
   // ============================================
-  // 6. Criar serviços
+  // SERVIÇOS
   // ============================================
   const servicosData = [
     {
       codigoInterno: 'SRV-DEV-01',
       descricao: 'Desenvolvimento e customizacao de sistemas sob medida e integracoes de APIs fiscais',
       codigoTributacaoNacional: '010701',
-      codigoTributacaoMunicipal: '0107',
+      codigoTributacaoMunicipal: '000',
       codigoNBS: '1.1403.21.10',
       cListServ: '01.01',
       valorUnitario: 3500.00,
@@ -500,7 +552,7 @@ async function main() {
       codigoInterno: 'SRV-CONS-03',
       descricao: 'Consultoria tecnica em conformidade fiscal SPED, NFS-e Padrao Nacional e Reforma Tributaria 2026',
       codigoTributacaoNacional: '170101',
-      codigoTributacaoMunicipal: '1701',
+      codigoTributacaoMunicipal: '000',
       codigoNBS: '1.1404.10.00',
       cListServ: '17.01',
       valorUnitario: 4800.00,
@@ -516,7 +568,7 @@ async function main() {
       codigoInterno: 'SRV-SUPT-02',
       descricao: 'Suporte tecnico especializado em ambientes Windows Server, Linux e redes corporativas',
       codigoTributacaoNacional: '010701',
-      codigoTributacaoMunicipal: '0107',
+      codigoTributacaoMunicipal: '000',
       codigoNBS: '1.1403.22.00',
       cListServ: '01.01',
       valorUnitario: 2500.00,
@@ -532,7 +584,7 @@ async function main() {
       codigoInterno: 'SRV-CLOUD-04',
       descricao: 'Migracao e gerenciamento de infraestrutura para nuvem AWS e Azure com DevOps',
       codigoTributacaoNacional: '010701',
-      codigoTributacaoMunicipal: '0107',
+      codigoTributacaoMunicipal: '000',
       codigoNBS: '1.1403.21.50',
       cListServ: '01.01',
       valorUnitario: 6000.00,
@@ -548,7 +600,7 @@ async function main() {
       codigoInterno: 'SRV-TREIN-05',
       descricao: 'Treinamento corporativo para equipes fiscais e contabeis sobre SPED e obrigacoes acessorias',
       codigoTributacaoNacional: '180101',
-      codigoTributacaoMunicipal: '1801',
+      codigoTributacaoMunicipal: '000',
       codigoNBS: '1.1404.30.00',
       cListServ: '18.01',
       valorUnitario: 3200.00,
@@ -562,36 +614,44 @@ async function main() {
     }
   ]
 
-  for (const data of servicosData) {
-    let servico = await prisma.servico.findUnique({
-      where: { codigoInterno: data.codigoInterno }
-    })
+  const codigosServicos = servicosData.map(s => s.codigoInterno)
+  const servicosExistentes = await prisma.servico.findMany({
+    where: { codigoInterno: { in: codigosServicos } },
+    select: { codigoInterno: true }
+  })
+  const codigosServicosExistentes = new Set(servicosExistentes.map(s => s.codigoInterno))
 
-    if (!servico) {
-      await prisma.servico.create({
-        data: {
-          ...data,
-          empresa: { connect: { id: empresa.id } }
-        }
-      })
-    }
+  const servicosParaCriar = servicosData.filter(s => !codigosServicosExistentes.has(s.codigoInterno))
+
+  if (servicosParaCriar.length > 0) {
+    await criarEmLotes(
+      servicosParaCriar,
+      (data) =>
+        prisma.servico.create({
+          data: {
+            ...data,
+            empresa: { connect: { id: empresa.id } }
+          }
+        })
+    )
   }
 
   console.log('Servicos processados')
 
   // ============================================
-  // 7. Criar transportadoras
+  // TRANSPORTADORAS (CNPJs fictícios)
+  // ✅ CORREÇÃO: buscar por cnpj SEM filtrar empresaId — o @unique é global no schema
   // ============================================
   const transportadorasData = [
     {
       tipoPessoa: 'PJ',
-      cnpj: '12345678000190',
-      razaoSocial: 'TRANSPORTADORA RAPIDA LTDA',
-      nomeFantasia: 'RAPIDA CARGAS',
+      cnpj: '11222333000181',
+      razaoSocial: 'TRANSPORTADORA EXEMPLO UM LTDA - DEV',
+      nomeFantasia: 'TRANSP UM DEV',
       inscricaoEstadual: '123456789',
-      rntrc: '1234567',
+      rntrc: '12345678',
       tipoTransportador: 'RODOVIARIO',
-      email: 'contato@rapidacargas.com.br',
+      email: 'contato@transp-um-dev.local',
       telefone: '1134567890',
       celularWhatsApp: '11987654321',
       contato: 'Joao Silva',
@@ -606,18 +666,18 @@ async function main() {
         codigoUF: '35',
         cep: '02000000',
         telefone: '1134567890',
-        email: 'contato@rapidacargas.com.br'
+        email: 'contato@transp-um-dev.local'
       }
     },
     {
       tipoPessoa: 'PJ',
-      cnpj: '98765432000110',
-      razaoSocial: 'TRANSPORTADORA EXPRESSA LTDA',
-      nomeFantasia: 'EXPRESSA CARGAS',
+      cnpj: '22333444000162',
+      razaoSocial: 'TRANSPORTADORA EXEMPLO DOIS LTDA - DEV',
+      nomeFantasia: 'TRANSP DOIS DEV',
       inscricaoEstadual: '987654321',
-      rntrc: '7654321',
+      rntrc: '76543210',
       tipoTransportador: 'RODOVIARIO',
-      email: 'contato@expressacargas.com.br',
+      email: 'contato@transp-dois-dev.local',
       telefone: '1145678901',
       celularWhatsApp: '11876543210',
       contato: 'Maria Santos',
@@ -632,18 +692,18 @@ async function main() {
         codigoUF: '35',
         cep: '03000000',
         telefone: '1145678901',
-        email: 'contato@expressacargas.com.br'
+        email: 'contato@transp-dois-dev.local'
       }
     },
     {
       tipoPessoa: 'PJ',
-      cnpj: '45678901000123',
-      razaoSocial: 'TRANSPORTADORA FELIX LTDA',
-      nomeFantasia: 'FELIX LOGISTICA',
+      cnpj: '33444555000143',
+      razaoSocial: 'TRANSPORTADORA EXEMPLO TRES LTDA - DEV',
+      nomeFantasia: 'TRANSP TRES DEV',
       inscricaoEstadual: '456789123',
-      rntrc: '4567890',
+      rntrc: '45678901',
       tipoTransportador: 'RODOVIARIO',
-      email: 'contato@felixlogistica.com.br',
+      email: 'contato@transp-tres-dev.local',
       telefone: '1156789012',
       celularWhatsApp: '11765432109',
       contato: 'Pedro Felix',
@@ -658,18 +718,18 @@ async function main() {
         codigoUF: '35',
         cep: '04000000',
         telefone: '1156789012',
-        email: 'contato@felixlogistica.com.br'
+        email: 'contato@transp-tres-dev.local'
       }
     },
     {
       tipoPessoa: 'PJ',
-      cnpj: '67890123000145',
-      razaoSocial: 'TRANSPORTADORA UNIAO LTDA',
-      nomeFantasia: 'UNIAO FRETES',
+      cnpj: '44555666000124',
+      razaoSocial: 'TRANSPORTADORA EXEMPLO QUATRO LTDA - DEV',
+      nomeFantasia: 'TRANSP QUATRO DEV',
       inscricaoEstadual: '678901234',
-      rntrc: '6789012',
+      rntrc: '67890123',
       tipoTransportador: 'RODOVIARIO',
-      email: 'contato@uniaofretes.com.br',
+      email: 'contato@transp-quatro-dev.local',
       telefone: '1167890123',
       celularWhatsApp: '11654321098',
       contato: 'Ana Oliveira',
@@ -684,18 +744,18 @@ async function main() {
         codigoUF: '35',
         cep: '05000000',
         telefone: '1167890123',
-        email: 'contato@uniaofretes.com.br'
+        email: 'contato@transp-quatro-dev.local'
       }
     },
     {
       tipoPessoa: 'PJ',
-      cnpj: '89012345000167',
-      razaoSocial: 'TRANSPORTADORA GLOBAL LTDA',
-      nomeFantasia: 'GLOBAL LOG',
+      cnpj: '55666777000105',
+      razaoSocial: 'TRANSPORTADORA EXEMPLO CINCO LTDA - DEV',
+      nomeFantasia: 'TRANSP CINCO DEV',
       inscricaoEstadual: '890123456',
-      rntrc: '8901234',
+      rntrc: '89012345',
       tipoTransportador: 'MULTIMODAL',
-      email: 'contato@globallog.com.br',
+      email: 'contato@transp-cinco-dev.local',
       telefone: '1178901234',
       celularWhatsApp: '11543210987',
       contato: 'Roberto Costa',
@@ -710,30 +770,39 @@ async function main() {
         codigoUF: '35',
         cep: '06000000',
         telefone: '1178901234',
-        email: 'contato@globallog.com.br'
+        email: 'contato@transp-cinco-dev.local'
       }
     }
   ]
 
-  for (const data of transportadorasData) {
-    let transportadora = await prisma.transportadora.findFirst({
-      where: {
-        cnpj: data.cnpj.replace(/\D/g, ''),
-        empresaId: empresa.id
-      }
-    })
+  const cnpjsTransportadoras = transportadorasData.map(t => t.cnpj.replace(/\D/g, ''))
+  const transportadorasExistentes = await prisma.transportadora.findMany({
+    where: {
+      // ✅ CORREÇÃO: sem empresaId — o @unique de cnpj é global no schema
+      cnpj: { in: cnpjsTransportadoras }
+    },
+    select: { cnpj: true }
+  })
+  const cnpjsTransportadorasExistentes = new Set(transportadorasExistentes.map(t => t.cnpj))
 
-    if (!transportadora) {
-      await prisma.transportadora.create({
-        data: {
-          ...data,
-          // Campo é @db.Char(14) — só dígitos, sem máscara.
-          cnpj: data.cnpj.replace(/\D/g, ''),
-          empresa: { connect: { id: empresa.id } },
-          endereco: { create: data.endereco }
-        }
-      })
-    }
+  const transportadorasParaCriar = transportadorasData.filter(
+    t => !cnpjsTransportadorasExistentes.has(t.cnpj.replace(/\D/g, ''))
+  )
+
+  if (transportadorasParaCriar.length > 0) {
+    await criarEmLotes(
+      transportadorasParaCriar,
+      (data) =>
+        prisma.transportadora.create({
+          data: {
+            ...data,
+            tipoPessoa: data.tipoPessoa as TipoPessoa,
+            cnpj: data.cnpj.replace(/\D/g, ''),
+            empresa: { connect: { id: empresa.id } },
+            endereco: { create: data.endereco }
+          }
+        })
+    )
   }
 
   console.log('Transportadoras processadas')
@@ -741,8 +810,9 @@ async function main() {
   console.log('\n========================================')
   console.log('RESUMO DO SEED')
   console.log('========================================')
-  console.log('Empresa: SUP TECNOLOGIA EM SISTEMAS LTDA')
-  console.log('Usuario Admin: admin@suptecnologia.com.br (senha: admin123)')
+  console.log(`Empresa: SUP TECNOLOGIA EM SISTEMAS LTDA - DEV`)
+  console.log(`Ambiente de emissao: ${SEED_AMBIENTE}`)
+  console.log(`Usuario Admin: ${SEED_ADMIN_EMAIL} (senha definida via SEED_ADMIN_SENHA)`)
   console.log('Seed concluido com sucesso!')
   console.log('========================================')
 }
