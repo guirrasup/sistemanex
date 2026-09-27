@@ -10,14 +10,8 @@ async function main() {
   // ============================================
   // 1. Verificar/Criar empresa padrão
   // ============================================
-<<<<<<< HEAD
-  const CNPJ_EMPRESA = '18236447000190'
-
-=======
   // O campo "cnpj" da Empresa é @db.Char(14) — só dígitos, sem máscara.
   const CNPJ_EMPRESA = '18236447000190'
-  
->>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
   let empresa = await prisma.empresa.findUnique({
     where: { cnpj: CNPJ_EMPRESA }
   })
@@ -724,11 +718,7 @@ async function main() {
   for (const data of transportadorasData) {
     let transportadora = await prisma.transportadora.findFirst({
       where: {
-<<<<<<< HEAD
-        cnpj: data.cnpj,
-=======
         cnpj: data.cnpj.replace(/\D/g, ''),
->>>>>>> 45de1e20cc1feadd2ba63ddd53c3cf08c6821ee7
         empresaId: empresa.id
       }
     })
