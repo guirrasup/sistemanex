@@ -3,6 +3,9 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333/api';
 
+// Disparado quando o backend recusa a sessão; o App volta para a tela de login.
+export const EVENTO_SESSAO_EXPIRADA = 'sup:sessao-expirada';
+
 export const api = axios.create({
   baseURL: API_URL,
   timeout: 35000,
@@ -80,11 +83,15 @@ api.interceptors.response.use(
       return api.request(config);
     }
     
-    // 🔥 LOG DE ERROS MAS NÃO REMOVE O TOKEN
-    if (error.response?.status === 401) {
-      console.warn('⚠️ Erro 401 na rota:', error.config?.url);
-      console.warn('⚠️ O token pode estar inválido, mas NÃO vamos removê-lo automaticamente.');
-      // 🔥 NÃO REMOVE O TOKEN - DEIXA O USUÁRIO DECIDIR
+    // Sessão expirada/inválida: só quando o middleware de autenticação diz isso
+    // explicitamente (codigo SESSAO_INVALIDA). Outros 401 — ex.: senha errada no
+    // login — não derrubam a sessão. Antes o token morto era mantido e toda
+    // chamada seguinte falhava com "Token inválido" sem o usuário saber o motivo.
+    if (error.response?.status === 401 && error.response?.data?.codigo === 'SESSAO_INVALIDA') {
+      localStorage.removeItem('@sup:token');
+      localStorage.removeItem('token');
+      localStorage.removeItem('@sup:user');
+      window.dispatchEvent(new CustomEvent(EVENTO_SESSAO_EXPIRADA));
     }
     
     console.error('❌ Erro na resposta:', error.response?.status, error.config?.url);

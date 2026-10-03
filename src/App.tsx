@@ -50,7 +50,7 @@ import { transportadoraService, Transportadora } from './services/transportadora
 import { cfopService, Cfop } from './services/cfop.service';
 import { empresaService } from './services/empresa.service';
 import { LoadingDinamico } from './components/ui/LoadingDinamico';
-import api from './services/api';
+import api, { EVENTO_SESSAO_EXPIRADA } from './services/api';
 
 // 🔥 CACHE DE DADOS PARA EVITAR REQUISIÇÕES DUPLICADAS
 interface CacheData {
@@ -101,6 +101,7 @@ export default function App() {
   const [telaNaoLogado, setTelaNaoLogado] = useState<'landing' | 'login'>(() =>
     tokenRedefinicao ? 'login' : 'landing'
   );
+  const [avisoLogin, setAvisoLogin] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [carregando, setCarregando] = useState<boolean>(true);
@@ -375,7 +376,7 @@ export default function App() {
   // ============================================================
 
   const handleLogin = async (user: UsuarioAuth) => {
-            
+    setAvisoLogin(null);
     StorageService.saveUsuarioLogado(user);
     setUsuarioLogado(user);
     setCurrentView('dashboard');
@@ -408,6 +409,20 @@ export default function App() {
     setTransportadoras([]);
     cacheRef.current = null;
   };
+
+  // O backend recusou a sessão (token expirado ou JWT_SECRET trocado no
+  // servidor): o api.ts já limpou o token — aqui volta para o login com aviso.
+  // handleLogout só usa setters e localStorage, então a closure inicial basta.
+  useEffect(() => {
+    const handleSessaoExpirada = () => {
+      handleLogout();
+      setTelaNaoLogado('login');
+      setAvisoLogin('Sua sessão expirou ou é inválida. Faça login novamente.');
+    };
+    window.addEventListener(EVENTO_SESSAO_EXPIRADA, handleSessaoExpirada);
+    return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, handleSessaoExpirada);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleExportBackup = () => {
     const jsonStr = StorageService.exportBackupJson();
@@ -517,6 +532,7 @@ export default function App() {
         onLogin={handleLogin} 
         onBackToLanding={() => setTelaNaoLogado('landing')}
         tokenRedefinicao={tokenRedefinicao}
+        aviso={avisoLogin}
         onRedefinicaoConcluida={() => {
           setTokenRedefinicao(null);
           window.history.replaceState(null, '', '/');

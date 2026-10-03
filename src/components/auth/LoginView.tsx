@@ -32,6 +32,8 @@ interface LoginViewProps {
   // Token recebido pelo link do e-mail de recuperação (/redefinir-senha?token=...)
   tokenRedefinicao?: string | null;
   onRedefinicaoConcluida?: () => void;
+  // Mensagem exibida ao abrir o login (ex.: sessão expirada)
+  aviso?: string | null;
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({
@@ -40,6 +42,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
   onBackToLanding,
   tokenRedefinicao,
   onRedefinicaoConcluida,
+  aviso,
 }) => {
   const toast = useToast();
 
@@ -65,7 +68,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
   });
 
   const [loading, setLoading] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(aviso ?? null);
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
   useEffect(() => {

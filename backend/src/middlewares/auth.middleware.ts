@@ -30,6 +30,7 @@ export async function authMiddleware(
     if (!authHeader) {
       return res.status(401).json({
         sucesso: false,
+        codigo: 'SESSAO_INVALIDA',
         erro: 'Token não fornecido',
       });
     }
@@ -39,6 +40,7 @@ export async function authMiddleware(
     if (!token) {
       return res.status(401).json({
         sucesso: false,
+        codigo: 'SESSAO_INVALIDA',
         erro: 'Token não fornecido',
       });
     }
@@ -48,10 +50,12 @@ export async function authMiddleware(
 
     next();
   } catch (error) {
-    logger.error('❌ Erro na autenticação:', error);
+    logger.warn('⚠️ Sessão recusada em', req.method, req.originalUrl, '-', error instanceof Error ? error.message : error);
+    // codigo SESSAO_INVALIDA: o frontend encerra a sessão e volta ao login.
     return res.status(401).json({
       sucesso: false,
-      erro: 'Token inválido',
+      codigo: 'SESSAO_INVALIDA',
+      erro: 'Sua sessão expirou ou é inválida. Faça login novamente.',
     });
   }
 }

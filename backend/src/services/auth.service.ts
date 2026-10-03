@@ -74,8 +74,11 @@ export class AuthService {
         empresaId: string;
         perfil?: string;
       };
-    } catch {
-      throw new Error('Token inválido');
+    } catch (erro) {
+      // Mantém o motivo real (TokenExpiredError / "invalid signature" quando o
+      // JWT_SECRET mudou) para o log do middleware.
+      const motivo = erro instanceof Error ? `${erro.name}: ${erro.message}` : String(erro);
+      throw new Error(`Token inválido (${motivo})`);
     }
   }
 
