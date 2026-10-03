@@ -25,7 +25,11 @@ import {
   Info,
   UserCheck,
   Mail,
-  Phone
+  Phone,
+  ShoppingCart,
+  Truck,
+  Map as MapIcon,
+  FileBadge2
 } from 'lucide-react';
 import { ConfiguracaoEmpresa } from '../../types/erp';
 import { formatarCpfCnpj, formatarCEP, limparDocumento } from '../../utils/cpfCnpjValidator';
@@ -65,6 +69,12 @@ function criarEmpresaVazia(): ConfiguracaoEmpresa {
     proximoNumeroNfse: 1,
     serieNfce: 1,
     proximoNumeroNfce: 1,
+    serieCte: 1,
+    proximoNumeroCte: 1,
+    serieMdfe: 1,
+    proximoNumeroMdfe: 1,
+    serieNfae: 900,
+    proximoNumeroNfae: 1,
     endereco: {
       logradouro: '',
       numero: '',
@@ -192,6 +202,30 @@ async function mapConsultaCnpjParaEmpresa(
     },
   } as Partial<ConfiguracaoEmpresa>;
 }
+
+type CampoNumeroDoc =
+  | 'proximoNumeroNfse' | 'proximoNumeroNfe' | 'proximoNumeroNfce'
+  | 'proximoNumeroCte' | 'proximoNumeroMdfe' | 'proximoNumeroNfae';
+type CampoSerieDoc =
+  | 'serieNfse' | 'serieNfe' | 'serieNfce' | 'serieCte' | 'serieMdfe' | 'serieNfae';
+
+// Seção "Séries e Numeração Fiscal": um cartão por modelo de documento emitido.
+const DOCUMENTOS_NUMERACAO: Array<{
+  titulo: string;
+  rotuloSerie: string;
+  campoNumero: CampoNumeroDoc;
+  campoSerie: CampoSerieDoc;
+  serieMinima: number;
+  Icone: React.ComponentType<{ className?: string }>;
+  corIcone: string;
+}> = [
+  { titulo: 'NFS-e (Padrão Nacional)', rotuloSerie: 'Série DPS', campoNumero: 'proximoNumeroNfse', campoSerie: 'serieNfse', serieMinima: 1, Icone: FileText, corIcone: 'text-blue-600' },
+  { titulo: 'NF-e (Modelo 55)', rotuloSerie: 'Série NF-e', campoNumero: 'proximoNumeroNfe', campoSerie: 'serieNfe', serieMinima: 1, Icone: Receipt, corIcone: 'text-emerald-600' },
+  { titulo: 'NFC-e (Modelo 65)', rotuloSerie: 'Série NFC-e', campoNumero: 'proximoNumeroNfce', campoSerie: 'serieNfce', serieMinima: 1, Icone: ShoppingCart, corIcone: 'text-amber-600' },
+  { titulo: 'CT-e (Modelo 57)', rotuloSerie: 'Série CT-e', campoNumero: 'proximoNumeroCte', campoSerie: 'serieCte', serieMinima: 1, Icone: Truck, corIcone: 'text-cyan-600' },
+  { titulo: 'MDF-e (Modelo 58)', rotuloSerie: 'Série MDF-e', campoNumero: 'proximoNumeroMdfe', campoSerie: 'serieMdfe', serieMinima: 1, Icone: MapIcon, corIcone: 'text-indigo-600' },
+  { titulo: 'NFA-e (Modelo 63)', rotuloSerie: 'Série NFA-e', campoNumero: 'proximoNumeroNfae', campoSerie: 'serieNfae', serieMinima: 1, Icone: FileBadge2, corIcone: 'text-rose-600' },
+];
 
 export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> = ({
   empresa,
@@ -1194,67 +1228,42 @@ const handleCarregarCertificadoEPreencher = async () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600" />
-                <span className="font-bold text-slate-900 text-xs uppercase">
-                  NFS-e (Padrão Nacional)
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <label className="block text-slate-600 mb-1">Próximo Número:</label>
-                  <input
-                    type="number"
-                    value={formData.proximoNumeroNfse}
-                    onChange={(e) => handleChange('proximoNumeroNfse', parseInt(e.target.value) || 1)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
-                  />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {DOCUMENTOS_NUMERACAO.map(({ titulo, rotuloSerie, campoNumero, campoSerie, serieMinima, Icone, corIcone }) => (
+              <div key={campoNumero} className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Icone className={`w-4 h-4 ${corIcone}`} />
+                  <span className="font-bold text-slate-900 text-xs uppercase">{titulo}</span>
                 </div>
-                <div>
-                  <label className="block text-slate-600 mb-1">Série DPS:</label>
-                  <input
-                    type="number"
-                    value={formData.serieNfse}
-                    onChange={(e) => handleChange('serieNfse', parseInt(e.target.value) || 1)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
-              <div className="flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-emerald-600" />
-                <span className="font-bold text-slate-900 text-xs uppercase">
-                  NF-e (Modelo 55)
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <label className="block text-slate-600 mb-1">Próximo Número:</label>
-                  <input
-                    type="number"
-                    value={formData.proximoNumeroNfe}
-                    onChange={(e) => handleChange('proximoNumeroNfe', parseInt(e.target.value) || 1)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 mb-1">Série NF-e:</label>
-                  <input
-                    type="number"
-                    value={formData.serieNfe}
-                    onChange={(e) => handleChange('serieNfe', parseInt(e.target.value) || 1)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
-                  />
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="block text-slate-600 mb-1">Próximo Número:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={formData[campoNumero] ?? 1}
+                      onChange={(e) => handleChange(campoNumero, parseInt(e.target.value) || 1)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 mb-1">{rotuloSerie}:</label>
+                    <input
+                      type="number"
+                      min={serieMinima}
+                      value={formData[campoSerie] ?? serieMinima}
+                      onChange={(e) => handleChange(campoSerie, parseInt(e.target.value) || serieMinima)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-
+            ))}
           </div>
+          <p className="text-[11px] text-slate-500">
+            O próximo número avança sozinho a cada emissão e nunca pode voltar para um número já usado —
+            o servidor ignora valores menores que o atual.
+          </p>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
