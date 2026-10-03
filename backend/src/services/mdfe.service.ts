@@ -206,6 +206,17 @@ function obrigatorio<T>(valor: T | undefined | null, campo: string): T {
   return valor;
 }
 
+// Placa no leiaute (TPlaca): 7 caracteres alfanuméricos — padrão antigo
+// (ABC1234) ou Mercosul (ABC1D23). Aceita a digitação com hífen/espaço.
+function normalizarPlaca(placa: string | undefined): string | undefined {
+  if (!placa) return undefined;
+  const normalizada = placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  if (!/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(normalizada)) {
+    throw new Error(`Placa do veículo inválida: "${placa}". Use o formato ABC1234 ou ABC1D23.`);
+  }
+  return normalizada;
+}
+
 export class MdfeService {
   private mdfeRepo: MdfeRepository;
   private componentRepo: MdfeComponentRepository;
@@ -377,7 +388,7 @@ export class MdfeService {
 
       // Modal rodoviário (rodo/infANTT/veicTracao)
       rntrc: data.rntrc,
-      veicTracaoPlaca: data.veiculo?.placa,
+      veicTracaoPlaca: normalizarPlaca(data.veiculo?.placa),
       veicTracaoRenavam: data.veiculo?.renavam,
       veicTracaoTara: data.veiculo?.tara !== undefined ? String(data.veiculo.tara) : undefined,
       veicTracaoTpRod: data.veiculo?.tpRod,

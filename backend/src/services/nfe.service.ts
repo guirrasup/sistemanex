@@ -327,7 +327,8 @@ export class NfeService {
       empresaId: data.empresaId,
       destinatarioId: data.destinatarioId,
       itens: {
-        create: itensCompletos.map((item) => ({
+        create: itensCompletos.map((item, idx) => ({
+          nItem: idx + 1,
           codigoProduto: item.codigoProduto,
           descricao: item.descricao,
           ncm: item.ncm,

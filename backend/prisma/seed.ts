@@ -230,7 +230,7 @@ async function main() {
 
   const documentosClientes = clientesData.map(c => c.documento)
   const clientesExistentes = await prisma.cliente.findMany({
-    where: { documento: { in: documentosClientes } },
+    where: { empresaId: empresa.id, documento: { in: documentosClientes } },
     select: { documento: true }
   })
   const documentosClientesExistentes = new Set(clientesExistentes.map(c => c.documento))
@@ -375,7 +375,7 @@ async function main() {
 
   const documentosFornecedores = fornecedoresData.map(f => f.documento)
   const fornecedoresExistentes = await prisma.cliente.findMany({
-    where: { documento: { in: documentosFornecedores } },
+    where: { empresaId: empresa.id, documento: { in: documentosFornecedores } },
     select: { documento: true }
   })
   const documentosFornecedoresExistentes = new Set(fornecedoresExistentes.map(f => f.documento))
@@ -778,7 +778,8 @@ async function main() {
   const cnpjsTransportadoras = transportadorasData.map(t => t.cnpj.replace(/\D/g, ''))
   const transportadorasExistentes = await prisma.transportadora.findMany({
     where: {
-      // ✅ CORREÇÃO: sem empresaId — o @unique de cnpj é global no schema
+      // CNPJ é único por empresa (@@unique([empresaId, cnpj]))
+      empresaId: empresa.id,
       cnpj: { in: cnpjsTransportadoras }
     },
     select: { cnpj: true }

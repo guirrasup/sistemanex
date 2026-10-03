@@ -46,7 +46,7 @@ export class NfceRepository extends BaseRepository {
         consumidor: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         pagamentos: true
       }
     });
@@ -66,7 +66,7 @@ export class NfceRepository extends BaseRepository {
         consumidor: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         pagamentos: true
       }
     });
@@ -86,7 +86,7 @@ export class NfceRepository extends BaseRepository {
         consumidor: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         pagamentos: true
       }
     });
@@ -165,7 +165,7 @@ export class NfceRepository extends BaseRepository {
           consumidor: {
             include: { endereco: true }
           },
-          itens: true,
+          itens: { orderBy: { nItem: 'asc' } },
           pagamentos: true
         },
         skip,
@@ -205,7 +205,7 @@ export class NfceRepository extends BaseRepository {
         consumidor: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         pagamentos: true
       }
     });
@@ -260,7 +260,7 @@ export class NfceRepository extends BaseRepository {
         consumidor: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         pagamentos: true
       }
     });
@@ -307,7 +307,7 @@ export class NfceRepository extends BaseRepository {
         consumidor: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         pagamentos: true
       }
     });
@@ -439,7 +439,7 @@ export class NfceRepository extends BaseRepository {
         consumidor: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         pagamentos: true
       },
       take: 500,
@@ -464,7 +464,7 @@ export class NfceRepository extends BaseRepository {
     const nfces = await this.prisma.nFCe.findMany({
       where,
       include: {
-        itens: true
+        itens: { orderBy: { nItem: 'asc' } }
       },
       take: 500
     });

@@ -9,7 +9,7 @@ const MAX_ITENS_INCLUDE = 500;
 
 // 🔥 INCLUDE PADRONIZADO
 const NFAE_INCLUDE = {
-  itens: true,
+  itens: { orderBy: { nItem: 'asc' } },
   destinatario: true,
   historicoStatus: true,
 } as const;

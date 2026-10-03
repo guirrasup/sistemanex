@@ -323,6 +323,8 @@ model CertificadoDigital {
   diasRestantes        Int
   arquivoCarregadoNome String?
   status               String   @default("VALIDO")
+  // arquivoBase64 e senha são gravados cifrados (AES-256-GCM, utils/crypto.ts,
+  // chave CERTIFICADO_ENCRYPTION_KEY) — nunca em texto plano.
   arquivoBase64        String?  @db.Text
   senha                String?  @db.Text
   empresa              Empresa?
@@ -394,7 +396,7 @@ model Cliente {
   id                  String      @id @default(cuid())
   tipo                TipoCliente @default(CLIENTE)
   tipoPessoa          TipoPessoa  @default(PJ)
-  documento           String      @unique
+  documento           String
   razaoSocial         String
   nomeFantasia        String?
   inscricaoEstadual   String?
@@ -432,6 +434,8 @@ model Cliente {
   // === MDF-e ===
   mdfesEmitente MDFe[] @relation("MDFeEmitente")
 
+  // Único por empresa: o mesmo cliente pode estar cadastrado em empresas diferentes.
+  @@unique([empresaId, documento])
   @@map("clientes")
 }
 
@@ -923,6 +927,8 @@ model NFe {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([empresaId, dhEmi])
+  @@index([destinatarioId])
   @@map("nfes")
 }
 
@@ -938,7 +944,7 @@ model HistoricoStatusNFe {
   statusNovo     StatusDocumento
   dataHora       DateTime        @default(now())
   usuario        String
-  motivo         String?
+  motivo         String?         @db.VarChar(500)
 
   @@index([nfeId])
   @@map("historico_status_nfe")
@@ -968,6 +974,7 @@ model NFeReferencia {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([nfeId, tipoRef, chaveNFe])
   @@map("nfes_referencias")
 }
 
@@ -1027,7 +1034,9 @@ model HistoricoBackup {
 // ============================================
 
 model ItemNFe {
-  id String @id @default(cuid())
+  id    String @id @default(cuid())
+  // Número sequencial do item no documento (nItem do leiaute SEFAZ, 1..990)
+  nItem Int
 
   // === IDENTIFICAÇÃO DO PRODUTO ===
   codigoProduto String
@@ -1139,6 +1148,7 @@ model ItemNFe {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([nfeId, nItem])
   @@map("itens_nfe")
 }
 
@@ -1379,6 +1389,9 @@ model TransporteNFe {
 
   transportadoraId        String?
   transportadora          Transportadora? @relation(fields: [transportadoraId], references: [id])
+  // Snapshot dos dados da transportadora no momento da emissão (como saíram no
+  // XML). Intencionalmente sem FK: se o cadastro mudar ou for excluído, a nota
+  // continua refletindo o que foi transmitido à SEFAZ.
   transportadoraCnpj      String?         @db.Char(14)
   transportadoraNome      String?
   transportadoraIE        String?
@@ -1882,7 +1895,9 @@ model NFCe {
 // ============================================
 
 model ItemNFCe {
-  id String @id @default(cuid())
+  id    String @id @default(cuid())
+  // Número sequencial do item no documento (nItem do leiaute SEFAZ, 1..990)
+  nItem Int
 
   // === IDENTIFICAÇÃO DO PRODUTO ===
   codigoProduto   String
@@ -1977,7 +1992,7 @@ model ItemNFCe {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([nfceId])
+  @@unique([nfceId, nItem])
   @@map("itens_nfce")
 }
 
@@ -2754,7 +2769,7 @@ model PagamentoVinculadoCTe {
 model Transportadora {
   id                 String          @id @default(cuid())
   tipoPessoa         TipoPessoa      @default(PJ)
-  cnpj               String          @unique @db.Char(14)
+  cnpj               String          @db.Char(14)
   razaoSocial        String
   nomeFantasia       String?
   inscricaoEstadual  String?
@@ -2786,7 +2801,8 @@ model Transportadora {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  @@index([empresaId])
+  // Única por empresa: a mesma transportadora pode atender empresas diferentes.
+  @@unique([empresaId, cnpj])
   @@index([cnpj])
   @@index([rntrc])
   @@map("transportadoras")
@@ -2913,6 +2929,8 @@ model NFAe {
 
 model NFAeItem {
   id     String @id @default(cuid())
+  // Número sequencial do item no documento (nItem do leiaute SEFAZ, 1..990)
+  nItem  Int
   nfaeId String
   nfae   NFAe   @relation(fields: [nfaeId], references: [id])
 
@@ -2937,7 +2955,7 @@ model NFAeItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([nfaeId])
+  @@unique([nfaeId, nItem])
   @@map("nfaes_itens")
 }
 
@@ -3215,13 +3233,13 @@ model MDFe {
   ipEnvio    String?   @db.VarChar(45)
 
   // === MODAL RODOVIÁRIO (rodo/infANTT/veicTracao) ===
-  rntrc            String? @db.VarChar(8) // Registro Nacional de Transportadores Rodoviários de Carga
-  veicTracaoPlaca  String? @db.VarChar(8)
+  rntrc             String? @db.VarChar(8) // Registro Nacional de Transportadores Rodoviários de Carga
+  veicTracaoPlaca   String? @db.VarChar(7)
   veicTracaoRenavam String? @db.VarChar(11)
-  veicTracaoTara   String? @db.VarChar(6)
-  veicTracaoTpRod  String? @db.Char(2) // 01-06
-  veicTracaoTpCar  String? @db.Char(2) // 00-05
-  veicTracaoUF     String? @db.Char(2)
+  veicTracaoTara    String? @db.VarChar(6)
+  veicTracaoTpRod   String? @db.Char(2) // 01-06
+  veicTracaoTpCar   String? @db.Char(2) // 00-05
+  veicTracaoUF      String? @db.Char(2)
 
   // === RELACIONAMENTOS ===
   empresaId  String

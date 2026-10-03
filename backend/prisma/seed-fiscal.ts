@@ -9,11 +9,8 @@ import { gerarChaveAcessoNFe, gerarChaveAcessoNFSe } from '../src/utils/chaveAce
 
 const prisma = new PrismaClient()
 
-// 🔥 CNPJ da empresa alvo — configurável via env porque o cadastro de
-// clientes tem `documento` globalmente único no schema (não por empresa):
-// se a empresa "padrão" abaixo já tiver esses documentos fictícios
-// reservados por outra empresa no banco, ela nunca ganha clientes pelo
-// seed.ts e este script falha com "Nenhum cliente encontrado".
+// 🔥 CNPJ da empresa alvo — configurável via env para popular uma empresa
+// específica (os clientes usados aqui vêm do seed.ts dessa mesma empresa).
 const CNPJ_EMPRESA_FISCAL = process.env.SEED_FISCAL_CNPJ || '18236447000190'
 
 // 🔥 LIMITES DE SEGURANÇA (mitigação CWE-770 / CWE-400)
@@ -431,7 +428,7 @@ async function main() {
       xmlAssinado: gerarXmlAssinado('NFe', numeroNfe, chaveCompleta),
       empresaId: empresa.id,
       destinatarioId: cliente.id,
-      itens: { create: itens },
+      itens: { create: itens.map((item, idx) => ({ ...item, nItem: idx + 1 })) },
       duplicatas: {
         create: [{
           numero: `${numeroNfe}/01`,
@@ -684,7 +681,7 @@ async function main() {
       xmlAssinado: gerarXmlAssinado('NFCe', numeroNfce, chaveAcesso),
       empresaId: empresa.id,
       consumidorId: i % 2 === 0 ? cliente.id : null,
-      itens: { create: itens }
+      itens: { create: itens.map((item, idx) => ({ ...item, nItem: idx + 1 })) }
     })
 
     numeroNfce++

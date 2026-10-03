@@ -18,7 +18,7 @@ const MAX_STRING_FILTRO = 200;
 
 // 🔥 INCLUDE PADRONIZADO
 const NFAE_INCLUDE = {
-  itens: true,
+  itens: { orderBy: { nItem: 'asc' } },
   destinatario: true,
   historicoStatus: true,
 } as const;
@@ -412,7 +412,8 @@ export class NFAeService {
       // 4. Criar itens em lote (createMany)
       if (itens.length > 0) {
         await tx.nFAeItem.createMany({
-          data: itens.map((item) => ({
+          data: itens.map((item, idx) => ({
+            nItem: idx + 1,
             nfaeId: novaNfae.id,
             codigo: item.codigo,
             descricao: item.descricao,

@@ -21,7 +21,7 @@ export class ClienteService {
     return this.clienteRepo.findById(id, empresaId);
   }
 
-  async buscarPorDocumento(documento: string, empresaId?: string) {
+  async buscarPorDocumento(documento: string, empresaId: string) {
     return this.clienteRepo.findByDocumento(documento, empresaId);
   }
 

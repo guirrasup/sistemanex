@@ -51,7 +51,7 @@ export class NfeRepository extends BaseRepository {
         destinatario: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         duplicatas: true,
         transporte: {
           include: {
@@ -79,7 +79,7 @@ export class NfeRepository extends BaseRepository {
         destinatario: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         duplicatas: true,
         transporte: {
           include: {
@@ -162,7 +162,7 @@ export class NfeRepository extends BaseRepository {
           destinatario: {
             include: { endereco: true }
           },
-          itens: true,
+          itens: { orderBy: { nItem: 'asc' } },
           duplicatas: true,
           transporte: {
             include: {
@@ -212,7 +212,7 @@ export class NfeRepository extends BaseRepository {
         destinatario: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         duplicatas: true,
         transporte: {
           include: {
@@ -254,7 +254,7 @@ export class NfeRepository extends BaseRepository {
         destinatario: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         duplicatas: true,
         transporte: {
           include: {
@@ -308,7 +308,7 @@ export class NfeRepository extends BaseRepository {
         destinatario: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         duplicatas: true,
         transporte: {
           include: {
@@ -477,7 +477,7 @@ export class NfeRepository extends BaseRepository {
         destinatario: {
           include: { endereco: true }
         },
-        itens: true,
+        itens: { orderBy: { nItem: 'asc' } },
         duplicatas: true,
         transporte: {
           include: {

@@ -192,7 +192,7 @@ export class NfceService {
     // Valida consumidor identificado
     let consumidorId = null;
     if (data.consumidorIdentificado && data.consumidorDoc) {
-      const consumidor = await this.clienteRepo.findByDocumento(data.consumidorDoc);
+      const consumidor = await this.clienteRepo.findByDocumento(data.consumidorDoc, data.empresaId);
       if (!consumidor) {
         throw new Error('Consumidor não encontrado. Cadastre-o primeiro ou desmarque a identificação.');
       }
@@ -302,8 +302,8 @@ export class NfceService {
 
     // Cria itens (usando os mesmos valores resolvidos já somados nos totais acima)
     const itensCriados = [];
-    for (const item of itensResolvidos) {
-      itensCriados.push(await this.criarItem(nfce.id, item));
+    for (const [idx, item] of itensResolvidos.entries()) {
+      itensCriados.push(await this.criarItem(nfce.id, idx + 1, item));
     }
 
     // Cria pagamentos
@@ -532,8 +532,9 @@ export class NfceService {
     };
   }
 
-  private async criarItem(nfceId: string, item: ItemNfceInput) {
+  private async criarItem(nfceId: string, nItem: number, item: ItemNfceInput) {
     return this.nfceRepo.createItem(nfceId, {
+      nItem,
       codigoProduto: item.codigoProduto || '',
       descricao: item.descricao || '',
       ncm: item.ncm || '',

@@ -12,9 +12,11 @@ export class ClienteRepository extends BaseRepository {
     })
   }
 
-  async findByDocumento(documento: string, empresaId?: string) {
+  // empresaId obrigatório: o documento é único só dentro da empresa, e sem o
+  // filtro a busca podia devolver o cliente de outra empresa.
+  async findByDocumento(documento: string, empresaId: string) {
     return this.prisma.cliente.findFirst({
-      where: empresaId ? { documento, empresaId } : { documento },
+      where: { documento, empresaId },
       include: {
         endereco: true
       }
