@@ -72,7 +72,18 @@ export class CertificadoService {
         (validadeFim.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
       ))
 
-      // Busca dados da empresa pela BrasilAPI
+      // O CNPJ é único entre empresas: se o certificado for de uma empresa já
+      // cadastrada com outro login, avisa em vez de falhar com erro genérico.
+      if (cnpj) {
+        const outraEmpresa = await this.empresaRepo.findByCnpj(cnpj)
+        if (outraEmpresa && outraEmpresa.id !== empresaId) {
+          throw new Error(
+            `O CNPJ ${cnpj} deste certificado já pertence a outra empresa cadastrada no sistema (${outraEmpresa.razaoSocial}).`
+          )
+        }
+      }
+
+      // Busca dados da empresa pela BrasilAPI (opcional — pode falhar)
       const dadosEmpresa = await this.buscarDadosCnpj(cnpj)
 
       // Salva o certificado (arquivo e senha sempre criptografados em repouso)
@@ -98,7 +109,11 @@ export class CertificadoService {
             update: certificadoData
           }
         },
-        ...dadosEmpresa
+        ...dadosEmpresa,
+        // O CNPJ vem SEMPRE do próprio certificado — antes só era gravado quando
+        // a BrasilAPI respondia; se ela falhasse (ex.: 429), o certificado novo
+        // ficava salvo com o CNPJ antigo da empresa e a SEFAZ rejeitava a emissão.
+        ...(cnpj && { cnpj })
       })
 
       return {
@@ -192,6 +207,7 @@ export class CertificadoService {
           }
         }
       }
+      logger.warn(`BrasilAPI respondeu HTTP ${response.status} para o CNPJ ${cnpj} — dados cadastrais não atualizados pelo certificado.`)
     } catch (error) {
       logger.warn('Erro ao buscar dados do CNPJ:', error)
     }
