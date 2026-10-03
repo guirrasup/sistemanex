@@ -21,14 +21,33 @@ import { getApiErrorMessage } from '../../utils/apiError';
 // 🔥 IMAGEM DE FUNDO BUSINESS
 const BACKGROUND_IMAGE = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1920&q=80';
 
+const SENHA_MIN_LENGTH = 6;
+
+type ModoLogin = 'login' | 'recuperar' | 'redefinir';
+
 interface LoginViewProps {
   empresa: ConfiguracaoEmpresa;
   onLogin: (user: UsuarioAuth) => void;
   onBackToLanding?: () => void;
+  // Token recebido pelo link do e-mail de recuperação (/redefinir-senha?token=...)
+  tokenRedefinicao?: string | null;
+  onRedefinicaoConcluida?: () => void;
 }
 
-export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackToLanding }) => {
+export const LoginView: React.FC<LoginViewProps> = ({
+  empresa,
+  onLogin,
+  onBackToLanding,
+  tokenRedefinicao,
+  onRedefinicaoConcluida,
+}) => {
   const toast = useToast();
+
+  const [modo, setModo] = useState<ModoLogin>(tokenRedefinicao ? 'redefinir' : 'login');
+  const [emailRecuperacao, setEmailRecuperacao] = useState('');
+  const [recuperacaoEnviada, setRecuperacaoEnviada] = useState(false);
+  const [novaSenha, setNovaSenha] = useState('');
+  const [confirmacaoSenha, setConfirmacaoSenha] = useState('');
 
   const [email, setEmail] = useState(() => {
     const saved = localStorage.getItem('@sup:login_email');
@@ -105,6 +124,66 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
       setLoading(false);
     }
   };
+
+  const irPara = (novoModo: ModoLogin) => {
+    setErro(null);
+    setRecuperacaoEnviada(false);
+    setModo(novoModo);
+  };
+
+  const handleRecuperarSenha = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro(null);
+
+    if (!emailRecuperacao.trim()) {
+      toast.showWarning('⚠️ Informe o e-mail cadastrado.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.post('/auth/recuperar-senha', { email: emailRecuperacao.trim() });
+      setRecuperacaoEnviada(true);
+    } catch (error: unknown) {
+      setErro(getApiErrorMessage(error, 'Erro ao solicitar recuperação de senha. Tente novamente.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRedefinirSenha = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro(null);
+
+    if (novaSenha.length < SENHA_MIN_LENGTH) {
+      setErro(`A nova senha deve ter pelo menos ${SENHA_MIN_LENGTH} caracteres.`);
+      return;
+    }
+    if (novaSenha !== confirmacaoSenha) {
+      setErro('As senhas não conferem.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.post('/auth/redefinir-senha', { token: tokenRedefinicao, novaSenha });
+      toast.showSuccess('✅ Senha redefinida! Entre com a nova senha.');
+      setNovaSenha('');
+      setConfirmacaoSenha('');
+      setSenha('');
+      onRedefinicaoConcluida?.();
+      irPara('login');
+    } catch (error: unknown) {
+      setErro(getApiErrorMessage(error, 'Erro ao redefinir senha. Solicite um novo link.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const classeInput =
+    'w-full pl-9 pr-3 py-2.5 bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/30 transition-all';
+  const classeBotaoPrimario =
+    'w-full py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 
   return (
     <div className="min-h-screen w-full flex bg-slate-900">
@@ -193,10 +272,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
 
           <div className="bg-white/10 backdrop-blur-xl lg:backdrop-blur-2xl rounded-2xl border border-white/15 shadow-2xl p-6 sm:p-8 space-y-5">
             
-            {onBackToLanding && (
+            {(modo !== 'login' || onBackToLanding) && (
               <button
                 type="button"
-                onClick={onBackToLanding}
+                onClick={() => (modo !== 'login' ? irPara('login') : onBackToLanding?.())}
                 className="inline-flex items-center gap-1.5 text-white/60 hover:text-white text-xs font-medium transition-colors cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
@@ -205,8 +284,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
             )}
 
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">Bem-vindo de volta</h2>
-              <p className="text-sm text-white/50">Acesse sua conta para gerenciar suas notas fiscais</p>
+              <h2 className="text-xl font-bold text-white tracking-tight">
+                {modo === 'login' && 'Bem-vindo de volta'}
+                {modo === 'recuperar' && 'Recuperar senha'}
+                {modo === 'redefinir' && 'Definir nova senha'}
+              </h2>
+              <p className="text-sm text-white/50">
+                {modo === 'login' && 'Acesse sua conta para gerenciar suas notas fiscais'}
+                {modo === 'recuperar' && 'Informe seu e-mail para receber o link de redefinição'}
+                {modo === 'redefinir' && 'Escolha uma nova senha para acessar o sistema'}
+              </p>
             </div>
 
             {erro && (
@@ -216,6 +303,121 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
               </div>
             )}
 
+            {modo === 'recuperar' && (
+              recuperacaoEnviada ? (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-500/20 backdrop-blur-sm border border-emerald-500/30 text-emerald-100 text-xs">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>
+                      Se o e-mail estiver cadastrado, você receberá em instantes um link para redefinir a senha.
+                      O link vale por 1 hora — confira também a caixa de spam.
+                    </span>
+                  </div>
+                  <button type="button" onClick={() => irPara('login')} className={classeBotaoPrimario}>
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Voltar ao login</span>
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleRecuperarSenha} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="block font-medium text-white/80 text-sm">E-mail Corporativo</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/40">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="email"
+                        value={emailRecuperacao}
+                        onChange={(e) => setEmailRecuperacao(e.target.value)}
+                        placeholder="seu.email@empresa.com.br"
+                        className={classeInput}
+                        required
+                        autoFocus
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" disabled={loading} className={classeBotaoPrimario}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Enviando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Enviar link de redefinição</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )
+            )}
+
+            {modo === 'redefinir' && (
+              <form onSubmit={handleRedefinirSenha} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block font-medium text-white/80 text-sm">Nova Senha</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/40">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <input
+                      type={mostrarSenha ? 'text' : 'password'}
+                      value={novaSenha}
+                      onChange={(e) => setNovaSenha(e.target.value)}
+                      placeholder={`Mínimo de ${SENHA_MIN_LENGTH} caracteres`}
+                      className={`${classeInput} pr-10`}
+                      required
+                      autoFocus
+                      autoComplete="new-password"
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setMostrarSenha(!mostrarSenha)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/40 hover:text-white/70 transition-colors cursor-pointer"
+                    >
+                      {mostrarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block font-medium text-white/80 text-sm">Confirmar Nova Senha</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/40">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <input
+                      type={mostrarSenha ? 'text' : 'password'}
+                      value={confirmacaoSenha}
+                      onChange={(e) => setConfirmacaoSenha(e.target.value)}
+                      placeholder="Repita a nova senha"
+                      className={classeInput}
+                      required
+                      autoComplete="new-password"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                <button type="submit" disabled={loading} className={classeBotaoPrimario}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Redefinir senha</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+
+            {modo === 'login' && (
             <form onSubmit={handleSubmit} className="space-y-4">
               
               <div className="space-y-1.5">
@@ -239,9 +441,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="block font-medium text-white/80 text-sm">Senha de Acesso</label>
-                  <span className="text-[11px] text-blue-400 hover:text-blue-300 cursor-pointer hover:underline transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmailRecuperacao(email);
+                      irPara('recuperar');
+                    }}
+                    className="text-[11px] text-blue-400 hover:text-blue-300 cursor-pointer hover:underline transition-colors"
+                  >
                     Esqueceu a senha?
-                  </span>
+                  </button>
                 </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/40">
@@ -301,7 +510,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ empresa, onLogin, onBackTo
                 )}
               </button>
             </form>
-
+            )}
 
             <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-white/30">
               <div className="flex items-center gap-1.5">

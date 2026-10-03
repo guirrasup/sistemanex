@@ -90,7 +90,16 @@ export default function App() {
     return null;
   });
 
-  const [telaNaoLogado, setTelaNaoLogado] = useState<'landing' | 'login'>('landing');
+  // Link do e-mail de recuperação: /redefinir-senha?token=... abre direto o
+  // formulário de nova senha (nginx e vite já fazem fallback para o index.html).
+  const [tokenRedefinicao, setTokenRedefinicao] = useState<string | null>(() =>
+    window.location.pathname.replace(/\/+$/, '') === '/redefinir-senha'
+      ? new URLSearchParams(window.location.search).get('token')
+      : null
+  );
+  const [telaNaoLogado, setTelaNaoLogado] = useState<'landing' | 'login'>(() =>
+    tokenRedefinicao ? 'login' : 'landing'
+  );
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [carregando, setCarregando] = useState<boolean>(true);
@@ -505,7 +514,12 @@ export default function App() {
       <LoginView 
         empresa={empresa} 
         onLogin={handleLogin} 
-        onBackToLanding={() => setTelaNaoLogado('landing')} 
+        onBackToLanding={() => setTelaNaoLogado('landing')}
+        tokenRedefinicao={tokenRedefinicao}
+        onRedefinicaoConcluida={() => {
+          setTokenRedefinicao(null);
+          window.history.replaceState(null, '', '/');
+        }}
       />
     );
   }
