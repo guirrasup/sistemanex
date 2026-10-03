@@ -1,4 +1,5 @@
 // backend/src/services/conectagov.service.ts
+import { logger } from '../lib/logger.js';
 import axios from 'axios';
 import * as jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
@@ -70,11 +71,11 @@ export class ConectaGovService {
             return this.token;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        console.error('❌ Erro ao obter token ConectaGov:', error.response?.data || error.message);
+        logger.error('❌ Erro ao obter token ConectaGov:', error.response?.data || error.message);
         throw new Error(`Erro na autenticação ConectaGov: ${error.response?.data?.message || error.message}`);
       }
       const mensagem = error instanceof Error ? error.message : 'Erro desconhecido';
-      console.error('❌ Erro ao obter token ConectaGov:', mensagem);
+      logger.error('❌ Erro ao obter token ConectaGov:', mensagem);
       throw new Error(`Erro na autenticação ConectaGov: ${mensagem}`);
     }
   }
@@ -140,7 +141,7 @@ export class ConectaGovService {
 
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        console.error('❌ Erro ao consultar ConectaGov:', error.response?.data || error.message);
+        logger.error('❌ Erro ao consultar ConectaGov:', error.response?.data || error.message);
 
         if (error.response?.status === 401) {
           this.token = null;
@@ -152,7 +153,7 @@ export class ConectaGovService {
       }
 
       const mensagem = error instanceof Error ? error.message : 'Erro na consulta';
-      console.error('❌ Erro ao consultar ConectaGov:', mensagem);
+      logger.error('❌ Erro ao consultar ConectaGov:', mensagem);
       throw new Error(mensagem);
     }
   }

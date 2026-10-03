@@ -1,4 +1,5 @@
 // backend/src/middlewares/error.middleware.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response, NextFunction } from 'express';
 
 interface ErroHttp {
@@ -17,7 +18,7 @@ export function errorMiddleware(
   res: Response,
   next: NextFunction
 ) {
-  console.error('❌ Erro:', err);
+  logger.error('❌ Erro:', err);
 
   const erro: ErroHttp = isErroHttp(err) ? err : {};
   const status = erro.status || 500;

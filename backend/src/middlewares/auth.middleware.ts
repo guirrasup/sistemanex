@@ -1,4 +1,5 @@
 // backend/src/middlewares/auth.middleware.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service.js';
 
@@ -47,7 +48,7 @@ export async function authMiddleware(
 
     next();
   } catch (error) {
-    console.error('❌ Erro na autenticação:', error);
+    logger.error('❌ Erro na autenticação:', error);
     return res.status(401).json({
       sucesso: false,
       erro: 'Token inválido',

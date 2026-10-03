@@ -1,4 +1,5 @@
 // backend/src/controllers/nfse.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { NfseService } from '../services/nfse.service.js';
 import { EmailService } from '../services/email.service.js';
@@ -89,7 +90,7 @@ export class NfseController {
 
       return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
     } catch (error: unknown) {
-      console.error('❌ Erro ao enviar XML por e-mail:', error);
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
@@ -160,7 +161,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro no NFS-e listar:', error);
+      logger.error('❌ Erro no NFS-e listar:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao listar NFS-e',
@@ -209,7 +210,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar NFS-e por ID:', error);
+      logger.error('❌ Erro ao buscar NFS-e por ID:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e'
@@ -259,7 +260,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar NFS-e por chave:', error);
+      logger.error('❌ Erro ao buscar NFS-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e'
@@ -309,7 +310,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar NFS-e por protocolo:', error);
+      logger.error('❌ Erro ao buscar NFS-e por protocolo:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e'
@@ -375,7 +376,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro no NFS-e emitir:', error);
+      logger.error('❌ Erro no NFS-e emitir:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao emitir NFS-e',
@@ -427,7 +428,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro no NFS-e cancelar:', error);
+      logger.error('❌ Erro no NFS-e cancelar:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao cancelar NFS-e',
@@ -458,7 +459,7 @@ export class NfseController {
       return res.send(xml);
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao baixar XML:', error);
+      logger.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
@@ -486,7 +487,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao gerar DANFSe:', error);
+      logger.error('❌ Erro ao gerar DANFSe:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao gerar DANFSe'
@@ -513,7 +514,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar estatísticas:', error);
+      logger.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
@@ -543,7 +544,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar total faturado:', error);
+      logger.error('❌ Erro ao buscar total faturado:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar total faturado'
@@ -587,7 +588,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar resumo mensal:', error);
+      logger.error('❌ Erro ao buscar resumo mensal:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar resumo mensal'
@@ -623,7 +624,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar serviços mais prestados:', error);
+      logger.error('❌ Erro ao buscar serviços mais prestados:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar serviços mais prestados'
@@ -657,7 +658,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar NFS-e por tomador:', error);
+      logger.error('❌ Erro ao buscar NFS-e por tomador:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e por tomador'
@@ -691,7 +692,7 @@ export class NfseController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar NFS-e por serviço:', error);
+      logger.error('❌ Erro ao buscar NFS-e por serviço:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e por serviço'

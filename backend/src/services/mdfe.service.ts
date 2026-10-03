@@ -1,4 +1,5 @@
 // backend/src/services/mdfe.service.ts
+import { logger } from '../lib/logger.js';
 import { Prisma, StatusMDFe, ModalMDFe, TipoEmitenteMDFe, TipoTransportadorMDFe, TipoCargaMDFe } from '@prisma/client';
 import { MdfeRepository } from '../repositories/mdfe.repository.js';
 import { MdfeComponentRepository } from '../repositories/mdfe.component.repository.js';
@@ -496,7 +497,7 @@ export class MdfeService {
         motivoRejeicaoFinal = resultado.xMotivo || 'Rejeitado pela SEFAZ sem motivo informado';
       }
     } else {
-      console.warn('[MDFe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (assinado, mas não transmitido).');
+      logger.warn('[MDFe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (assinado, mas não transmitido).');
     }
 
     // Atualiza com XML e o resultado real (ou mock) da transmissão
@@ -812,7 +813,7 @@ export class MdfeService {
 
       protocoloFinal = resultado.nProt || protocolo;
     } else {
-      console.warn('[MDFe] SEFAZ_TRANSMISSAO_REAL não está ativo — encerramento em modo mock (não transmitido).');
+      logger.warn('[MDFe] SEFAZ_TRANSMISSAO_REAL não está ativo — encerramento em modo mock (não transmitido).');
     }
 
     const result = await this.mdfeRepo.encerrar(id, protocoloFinal, municipioEncerramento);
@@ -877,7 +878,7 @@ export class MdfeService {
         throw new Error(`SEFAZ rejeitou o cancelamento: ${resultado.xMotivo || 'motivo não informado'} (cStat ${resultado.cStat})`);
       }
     } else {
-      console.warn('[MDFe] SEFAZ_TRANSMISSAO_REAL não está ativo — cancelamento em modo mock (não transmitido).');
+      logger.warn('[MDFe] SEFAZ_TRANSMISSAO_REAL não está ativo — cancelamento em modo mock (não transmitido).');
     }
 
     const result = await this.mdfeRepo.cancelar(id, motivo);

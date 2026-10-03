@@ -1,4 +1,5 @@
 // backend/src/controllers/mdfe.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { MdfeService } from '../services/mdfe.service.js';
 import { EmailService } from '../services/email.service.js';
@@ -72,7 +73,7 @@ export class MdfeController {
 
       return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
     } catch (error: unknown) {
-      console.error('❌ Erro ao enviar XML por e-mail:', error);
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
@@ -118,7 +119,7 @@ export class MdfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao listar MDF-e:', error);
+      logger.error('❌ Erro ao listar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao listar MDF-e'
@@ -160,7 +161,7 @@ export class MdfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar MDF-e:', error);
+      logger.error('❌ Erro ao buscar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar MDF-e'
@@ -209,7 +210,7 @@ export class MdfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar MDF-e por chave:', error);
+      logger.error('❌ Erro ao buscar MDF-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar MDF-e'
@@ -273,7 +274,7 @@ export class MdfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao emitir MDF-e:', error);
+      logger.error('❌ Erro ao emitir MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao emitir MDF-e'
@@ -324,7 +325,7 @@ export class MdfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao cancelar MDF-e:', error);
+      logger.error('❌ Erro ao cancelar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao cancelar MDF-e'
@@ -374,7 +375,7 @@ export class MdfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao encerrar MDF-e:', error);
+      logger.error('❌ Erro ao encerrar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao encerrar MDF-e'
@@ -400,7 +401,7 @@ export class MdfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar estatísticas:', error);
+      logger.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
@@ -429,7 +430,7 @@ export class MdfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar total de carga:', error);
+      logger.error('❌ Erro ao buscar total de carga:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar total de carga'
@@ -481,7 +482,7 @@ export class MdfeController {
       return res.send(mdfe.xmlAssinado);
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao baixar XML:', error);
+      logger.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao baixar XML'

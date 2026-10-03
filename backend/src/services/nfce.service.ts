@@ -1,4 +1,5 @@
 // backend/src/services/nfce.service.ts
+import { logger } from '../lib/logger.js';
 import { Prisma, StatusDocumento } from '@prisma/client';
 import { NfceRepository } from '../repositories/nfce.repository.js';
 import { ClienteRepository } from '../repositories/cliente.repository.js';
@@ -441,7 +442,7 @@ export class NfceService {
         throw new Error(`SEFAZ rejeitou a NFC-e: ${motivo} (cStat ${resultado.cStat})`);
       }
     } else {
-      console.warn('[NFCe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
+      logger.warn('[NFCe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
     }
 
     await this.nfceRepo.updateStatus(nfce.id, statusFinal, protocolo, xml, undefined, xmlRetorno);
@@ -668,7 +669,7 @@ export class NfceService {
         await this.financeiroRepo.cancelarTitulo(titulo.id, motivo);
       }
     } catch (error) {
-      console.warn('⚠️ Erro ao cancelar título financeiro:', error);
+      logger.warn('⚠️ Erro ao cancelar título financeiro:', error);
     }
 
     return this.nfceRepo.cancelar(id, motivo);

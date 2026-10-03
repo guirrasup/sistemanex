@@ -1,4 +1,5 @@
 // backend/src/controllers/nfce.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { NfceService } from '../services/nfce.service.js';
 import { EmailService } from '../services/email.service.js';
@@ -99,7 +100,7 @@ export class NfceController {
 
       return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
     } catch (error: unknown) {
-      console.error('❌ Erro ao enviar XML por e-mail:', error);
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
@@ -186,7 +187,7 @@ export class NfceController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro no NFC-e listar:', error);
+      logger.error('❌ Erro no NFC-e listar:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao listar NFC-e',
@@ -235,7 +236,7 @@ export class NfceController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar NFC-e por ID:', error);
+      logger.error('❌ Erro ao buscar NFC-e por ID:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar NFC-e'
@@ -285,7 +286,7 @@ export class NfceController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar NFC-e por chave:', error);
+      logger.error('❌ Erro ao buscar NFC-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar NFC-e'
@@ -335,7 +336,7 @@ export class NfceController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar NFC-e por protocolo:', error);
+      logger.error('❌ Erro ao buscar NFC-e por protocolo:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar NFC-e'
@@ -432,7 +433,7 @@ export class NfceController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro no NFC-e emitir:', error);
+      logger.error('❌ Erro no NFC-e emitir:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao emitir NFC-e',
@@ -484,7 +485,7 @@ export class NfceController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro no NFC-e cancelar:', error);
+      logger.error('❌ Erro no NFC-e cancelar:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao cancelar NFC-e',
@@ -515,7 +516,7 @@ export class NfceController {
       return res.send(xml);
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao baixar XML:', error);
+      logger.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
@@ -543,7 +544,7 @@ export class NfceController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao gerar DANFE NFC-e:', error);
+      logger.error('❌ Erro ao gerar DANFE NFC-e:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao gerar DANFE'
@@ -570,7 +571,7 @@ export class NfceController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar estatísticas:', error);
+      logger.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
@@ -600,7 +601,7 @@ export class NfceController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar total de vendas:', error);
+      logger.error('❌ Erro ao buscar total de vendas:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar total de vendas'
@@ -644,7 +645,7 @@ export class NfceController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar resumo mensal:', error);
+      logger.error('❌ Erro ao buscar resumo mensal:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar resumo mensal'
@@ -680,7 +681,7 @@ export class NfceController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar produtos mais vendidos:', error);
+      logger.error('❌ Erro ao buscar produtos mais vendidos:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar produtos mais vendidos'

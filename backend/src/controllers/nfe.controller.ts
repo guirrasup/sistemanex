@@ -1,4 +1,5 @@
 // backend/src/controllers/nfe.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { NfeService } from '../services/nfe.service.js';
 import { EmailService } from '../services/email.service.js';
@@ -130,7 +131,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao emitir NF-e:', error);
+      logger.error('❌ Erro ao emitir NF-e:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao emitir NF-e'
@@ -182,7 +183,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao cancelar NF-e:', error);
+      logger.error('❌ Erro ao cancelar NF-e:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao cancelar NF-e'
@@ -268,7 +269,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao listar NF-e:', error);
+      logger.error('❌ Erro ao listar NF-e:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao listar NF-e'
@@ -310,7 +311,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar NF-e por ID:', error);
+      logger.error('❌ Erro ao buscar NF-e por ID:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar NF-e'
@@ -353,7 +354,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar NF-e por chave:', error);
+      logger.error('❌ Erro ao buscar NF-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar NF-e'
@@ -396,7 +397,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar NF-e por protocolo:', error);
+      logger.error('❌ Erro ao buscar NF-e por protocolo:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar NF-e'
@@ -423,7 +424,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar estatísticas:', error);
+      logger.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
@@ -467,7 +468,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar resumo mensal:', error);
+      logger.error('❌ Erro ao buscar resumo mensal:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar resumo mensal'
@@ -512,7 +513,7 @@ export class NfeController {
       return res.send(nfe.xmlAssinado);
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao baixar XML:', error);
+      logger.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
@@ -564,7 +565,7 @@ export class NfeController {
 
       return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
     } catch (error: unknown) {
-      console.error('❌ Erro ao enviar XML por e-mail:', error);
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
@@ -612,7 +613,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao gerar DANFE:', error);
+      logger.error('❌ Erro ao gerar DANFE:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao gerar DANFE'
@@ -670,7 +671,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao enviar Carta de Correção:', error);
+      logger.error('❌ Erro ao enviar Carta de Correção:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao enviar Carta de Correção'
@@ -706,7 +707,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao consultar situação:', error);
+      logger.error('❌ Erro ao consultar situação:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao consultar situação'
@@ -759,7 +760,7 @@ export class NfeController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao inutilizar numeração:', error);
+      logger.error('❌ Erro ao inutilizar numeração:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao inutilizar numeração'

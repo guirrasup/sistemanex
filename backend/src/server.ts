@@ -1,4 +1,5 @@
 // backend/src/server.ts
+import { logger } from './lib/logger.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -166,22 +167,22 @@ app.use(errorMiddleware);
 
 // Start server
 const server = app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  logger.info(`Servidor rodando na porta ${PORT}`);
 });
 
 process.on("SIGTERM", () => {
-  console.log("SIGTERM recebido, encerrando graciosamente...");
+  logger.info("SIGTERM recebido, encerrando graciosamente...");
   server.close(() => {
-    console.log("Servidor encerrado.");
+    logger.info("Servidor encerrado.");
     process.exit(0);
   });
   setTimeout(() => process.exit(1), 10_000);
 });
 
 process.on("SIGINT", () => {
-  console.log("SIGINT recebido, encerrando graciosamente...");
+  logger.info("SIGINT recebido, encerrando graciosamente...");
   server.close(() => {
-    console.log("Servidor encerrado.");
+    logger.info("Servidor encerrado.");
     process.exit(0);
   });
   setTimeout(() => process.exit(1), 10_000);

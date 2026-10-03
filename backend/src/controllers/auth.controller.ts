@@ -1,4 +1,5 @@
 // backend/src/controllers/auth.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service.js';
 
@@ -83,7 +84,7 @@ export class AuthController {
       }
 
       // ✅ Erros internos (banco, JWT, etc.) → 500 com log real
-      console.error('❌ Erro interno no login:', error);
+      logger.error('❌ Erro interno no login:', error);
       return res.status(500).json({
         sucesso: false,
         erro: 'Erro interno ao processar login',
@@ -167,7 +168,7 @@ export class AuthController {
         });
       }
 
-      console.error('❌ Erro no registro:', error);
+      logger.error('❌ Erro no registro:', error);
       return res.status(500).json({
         sucesso: false,
         erro: 'Erro interno ao criar usuário',
@@ -207,7 +208,7 @@ export class AuthController {
         dados: usuario,
       });
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar usuário logado:', error);
+      logger.error('❌ Erro ao buscar usuário logado:', error);
       return res.status(500).json({
         sucesso: false,
         erro: 'Erro interno ao buscar usuário',
@@ -256,7 +257,7 @@ export class AuthController {
         });
       }
 
-      console.error('❌ Erro ao alterar senha:', error);
+      logger.error('❌ Erro ao alterar senha:', error);
       return res.status(500).json({
         sucesso: false,
         erro: 'Erro interno ao alterar senha',
@@ -288,7 +289,7 @@ export class AuthController {
         await this.authService.solicitarRecuperacaoSenha(email);
       } catch (err: unknown) {
         // Log interno, mas resposta genérica pro cliente
-        console.warn('⚠️ Falha silenciosa em recuperar-senha:', err instanceof Error ? err.message : err);
+        logger.warn('⚠️ Falha silenciosa em recuperar-senha:', err instanceof Error ? err.message : err);
       }
 
       return res.json({
@@ -297,7 +298,7 @@ export class AuthController {
           'Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.',
       });
     } catch (error: unknown) {
-      console.error('❌ Erro inesperado em recuperar-senha:', error);
+      logger.error('❌ Erro inesperado em recuperar-senha:', error);
       // Mesmo em erro inesperado, resposta genérica
       return res.json({
         sucesso: true,
@@ -341,7 +342,7 @@ export class AuthController {
         });
       }
 
-      console.error('❌ Erro ao redefinir senha:', error);
+      logger.error('❌ Erro ao redefinir senha:', error);
       return res.status(500).json({
         sucesso: false,
         erro: 'Erro interno ao redefinir senha',

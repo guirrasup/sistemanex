@@ -1,4 +1,5 @@
 // backend/src/controllers/cte.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { CteService } from '../services/cte.service.js';
 import { EmailService } from '../services/email.service.js';
@@ -99,7 +100,7 @@ export class CteController {
 
       return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
     } catch (error: unknown) {
-      console.error('❌ Erro ao enviar XML por e-mail:', error);
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
@@ -187,7 +188,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro no CT-e listar:', error);
+      logger.error('❌ Erro no CT-e listar:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao listar CT-e',
@@ -236,7 +237,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar CT-e por ID:', error);
+      logger.error('❌ Erro ao buscar CT-e por ID:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e'
@@ -285,7 +286,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar CT-e por chave:', error);
+      logger.error('❌ Erro ao buscar CT-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e'
@@ -334,7 +335,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar CT-e por protocolo:', error);
+      logger.error('❌ Erro ao buscar CT-e por protocolo:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e'
@@ -462,7 +463,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro no CT-e emitir:', error);
+      logger.error('❌ Erro no CT-e emitir:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao emitir CT-e',
@@ -513,7 +514,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro no CT-e cancelar:', error);
+      logger.error('❌ Erro no CT-e cancelar:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao cancelar CT-e',
@@ -544,7 +545,7 @@ export class CteController {
       return res.send(xml);
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao baixar XML:', error);
+      logger.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
@@ -572,7 +573,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao gerar DACTE:', error);
+      logger.error('❌ Erro ao gerar DACTE:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao gerar DACTE'
@@ -599,7 +600,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar estatísticas:', error);
+      logger.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
@@ -629,7 +630,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar total de frete:', error);
+      logger.error('❌ Erro ao buscar total de frete:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar total de frete'
@@ -672,7 +673,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar resumo mensal:', error);
+      logger.error('❌ Erro ao buscar resumo mensal:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar resumo mensal'
@@ -705,7 +706,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar CT-e por cliente:', error);
+      logger.error('❌ Erro ao buscar CT-e por cliente:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e por cliente'
@@ -737,7 +738,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar CT-e por transportadora:', error);
+      logger.error('❌ Erro ao buscar CT-e por transportadora:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e por transportadora'
@@ -777,7 +778,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar CT-e por modal:', error);
+      logger.error('❌ Erro ao buscar CT-e por modal:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e por modal'
@@ -817,7 +818,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar CT-e por status:', error);
+      logger.error('❌ Erro ao buscar CT-e por status:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e por status'
@@ -866,7 +867,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar CT-e substituído:', error);
+      logger.error('❌ Erro ao buscar CT-e substituído:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e substituído'
@@ -915,7 +916,7 @@ export class CteController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar CT-e complementado:', error);
+      logger.error('❌ Erro ao buscar CT-e complementado:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e complementado'

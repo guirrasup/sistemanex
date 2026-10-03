@@ -1,4 +1,5 @@
 // backend/src/services/cte.service.ts
+import { logger } from '../lib/logger.js';
 import { CteRepository, FiltroCte } from '../repositories/cte.repository.js';
 import { StatusCTe } from '@prisma/client';
 import { gerarChaveAcessoNFe, calcularDVMod11NFe } from '../utils/chaveAcesso.js';
@@ -346,7 +347,7 @@ export class CteService {
         motivoRejeicaoFinal = resultado.xMotivo || 'Rejeitado pela SEFAZ sem motivo informado';
       }
     } else {
-      console.warn('[CTe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
+      logger.warn('[CTe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
     }
 
     const cteAtualizado = await this.cteRepo.update(cte.id, data.empresaId, {
@@ -418,7 +419,7 @@ export class CteService {
         throw new Error(`SEFAZ rejeitou o cancelamento: ${resultado.xMotivo || 'motivo não informado'} (cStat ${resultado.cStat})`);
       }
     } else {
-      console.warn('[CTe] SEFAZ_TRANSMISSAO_REAL não está ativo — cancelamento em modo mock (não transmitido).');
+      logger.warn('[CTe] SEFAZ_TRANSMISSAO_REAL não está ativo — cancelamento em modo mock (não transmitido).');
     }
 
     return this.cteRepo.updateStatus(id, empresaId, 'CANCELADA', motivo);

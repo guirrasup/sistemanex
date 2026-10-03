@@ -1,4 +1,5 @@
 // backend/src/controllers/certificado.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { CertificadoService } from '../services/certificado.service.js';
 
@@ -72,7 +73,7 @@ export class CertificadoController {
 
       return res.status(201).json(resultado);
     } catch (error: unknown) {
-      console.error('❌ Erro ao processar certificado:', error);
+      logger.error('❌ Erro ao processar certificado:', error);
       return res.status(500).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao processar certificado'
@@ -97,7 +98,7 @@ export class CertificadoController {
 
       return res.json(resultado);
     } catch (error: unknown) {
-      console.error('❌ Erro ao renovar certificado:', error);
+      logger.error('❌ Erro ao renovar certificado:', error);
       return res.status(500).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao renovar certificado'
@@ -120,7 +121,7 @@ export class CertificadoController {
 
       return res.json({ sucesso: true, dados: certificado });
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar status do certificado:', error);
+      logger.error('❌ Erro ao buscar status do certificado:', error);
       return res.status(500).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar status do certificado'

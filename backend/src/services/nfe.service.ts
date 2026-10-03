@@ -1,4 +1,5 @@
 // backend/src/services/nfe.service.ts
+import { logger } from '../lib/logger.js';
 import { Prisma } from '@prisma/client';
 import { NfeRepository } from '../repositories/nfe.repository.js';
 import { ClienteRepository } from '../repositories/cliente.repository.js';
@@ -273,7 +274,7 @@ export class NfeService {
         motivoRejeicaoFinal = resultado.xMotivo || 'Rejeitado pela SEFAZ sem motivo informado';
       }
     } else {
-      console.warn('[NFe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
+      logger.warn('[NFe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
     }
 
     const nfeCreateData: Prisma.NFeUncheckedCreateInput = {
@@ -559,7 +560,7 @@ export class NfeService {
         throw new Error(`SEFAZ rejeitou a carta de correção: ${xMotivo} (cStat ${cStat})`);
       }
     } else {
-      console.warn('[NFe] SEFAZ_TRANSMISSAO_REAL não está ativo — CC-e registrada em modo mock (não transmitida).');
+      logger.warn('[NFe] SEFAZ_TRANSMISSAO_REAL não está ativo — CC-e registrada em modo mock (não transmitida).');
     }
 
     return this.nfeRepo.criarEvento({
@@ -647,7 +648,7 @@ export class NfeService {
         motivoRejeicao = resultado.xMotivo || 'Rejeitado pela SEFAZ sem motivo informado';
       }
     } else {
-      console.warn('[NFe] SEFAZ_TRANSMISSAO_REAL não está ativo — inutilização registrada em modo mock (não transmitida).');
+      logger.warn('[NFe] SEFAZ_TRANSMISSAO_REAL não está ativo — inutilização registrada em modo mock (não transmitida).');
     }
 
     const inutilizacaoCriada = await this.nfeRepo.criarInutilizacao({

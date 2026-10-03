@@ -1,4 +1,5 @@
 // backend/src/controllers/transportadora.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { TransportadoraService } from '../services/transportadora.service.js';
 
@@ -32,7 +33,7 @@ export class TransportadoraController {
 
       return res.json({ sucesso: true, dados });
     } catch (error: unknown) {
-      console.error('❌ Erro ao listar transportadoras:', error);
+      logger.error('❌ Erro ao listar transportadoras:', error);
       return res.status(500).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao listar transportadoras'
@@ -165,7 +166,7 @@ export class TransportadoraController {
         mensagem: 'Transportadora criada com sucesso'
       });
     } catch (error: unknown) {
-      console.error('❌ Erro ao criar transportadora:', error);
+      logger.error('❌ Erro ao criar transportadora:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao criar transportadora'
@@ -228,7 +229,7 @@ export class TransportadoraController {
       });
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao excluir transportadora:', error);
+      logger.error('❌ Erro ao excluir transportadora:', error);
 
       const mensagem = error instanceof Error ? error.message : 'Erro interno ao excluir transportadora';
 

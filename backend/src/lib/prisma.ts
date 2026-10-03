@@ -1,4 +1,5 @@
 // backend/src/lib/prisma.ts
+import { logger } from './logger.js';
 import { PrismaClient } from '@prisma/client';
 
 declare global {
@@ -25,7 +26,7 @@ process.on('beforeExit', async () => {
   try {
   await prisma.$disconnect()
 } catch (error) {
-  console.error("[AutoPatch] Falha capturada:", error);
+  logger.error("[AutoPatch] Falha capturada:", error);
   throw error;
 };
 });

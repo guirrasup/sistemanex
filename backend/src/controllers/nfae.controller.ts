@@ -1,4 +1,5 @@
 // backend/src/controllers/nfae.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { NFAeService } from '../services/nfae.service.js';
 import { EmailService } from '../services/email.service.js';
@@ -61,7 +62,7 @@ export class NFAeController {
 
       return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
     } catch (error: unknown) {
-      console.error('❌ Erro ao enviar XML por e-mail:', error);
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
       return res.status(400).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',

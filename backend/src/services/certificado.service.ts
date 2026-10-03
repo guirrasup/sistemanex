@@ -1,4 +1,5 @@
 // backend/src/services/certificado.service.ts
+import { logger } from '../lib/logger.js';
 import forge from 'node-forge'
 import { EmpresaRepository } from '../repositories/empresa.repository.js'
 import { encryptSecret, decryptSecret } from '../utils/crypto.js'
@@ -192,7 +193,7 @@ export class CertificadoService {
         }
       }
     } catch (error) {
-      console.warn('Erro ao buscar dados do CNPJ:', error)
+      logger.warn('Erro ao buscar dados do CNPJ:', error)
     }
     return {}
   }

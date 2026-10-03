@@ -1,4 +1,5 @@
 // backend/src/controllers/cnpj.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { ConectaGovService } from '../services/conectagov.service.js';
 
@@ -107,7 +108,7 @@ export class CnpjController {
       });
 
     } catch (error: unknown) {
-      console.error('Erro na consulta CNPJ:', error);
+      logger.error('Erro na consulta CNPJ:', error);
 
       let mensagem = error instanceof Error ? error.message : 'Erro desconhecido';
       let status = 500;
@@ -154,7 +155,7 @@ export class CnpjController {
       });
 
     } catch (error: unknown) {
-      console.error('Erro na consulta completa:', error);
+      logger.error('Erro na consulta completa:', error);
       return res.status(500).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro na consulta'

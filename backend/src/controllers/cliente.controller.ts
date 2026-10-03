@@ -1,4 +1,5 @@
 // backend/src/controllers/cliente.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { ClienteService } from '../services/cliente.service.js';
@@ -60,7 +61,7 @@ export class ClienteController {
       const dados = await this.clienteService.listar(empresaId, page, limit, busca);
       return res.json({ sucesso: true, dados });
     } catch (error: unknown) {
-      console.error('❌ Erro ao listar clientes:', error);
+      logger.error('❌ Erro ao listar clientes:', error);
       return res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
@@ -137,7 +138,7 @@ export class ClienteController {
       
       return res.status(201).json({ sucesso: true, dados });
     } catch (error: unknown) {
-      console.error('❌ Erro ao criar cliente:', error);
+      logger.error('❌ Erro ao criar cliente:', error);
       return res.status(400).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }

@@ -1,4 +1,5 @@
 // backend/src/controllers/empresa.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { EmpresaRepository } from '../repositories/empresa.repository.js';
 import { mapEmpresaParaResposta, mapAtualizacaoParaEmpresa, type AtualizarEmpresaInput } from '../utils/empresaMappers.js';
@@ -35,7 +36,7 @@ export class EmpresaController {
 
       return res.json({ sucesso: true, dados: mapEmpresaParaResposta(empresa) });
     } catch (error: unknown) {
-      console.error('❌ Erro ao buscar empresa:', error);
+      logger.error('❌ Erro ao buscar empresa:', error);
       return res.status(500).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao buscar empresa',
@@ -84,7 +85,7 @@ export class EmpresaController {
             const novoValor = dadosAtualizacao[campo];
             const valorAtual = empresaAtual[campo];
             if (typeof novoValor === 'number' && typeof valorAtual === 'number' && novoValor < valorAtual) {
-              console.warn(`⚠️ Ignorado retrocesso de ${campo}: formulário enviou ${novoValor}, mantido ${valorAtual}`);
+              logger.warn(`⚠️ Ignorado retrocesso de ${campo}: formulário enviou ${novoValor}, mantido ${valorAtual}`);
               delete dadosAtualizacao[campo];
             }
           }
@@ -95,7 +96,7 @@ export class EmpresaController {
 
       return res.json({ sucesso: true, dados: mapEmpresaParaResposta(empresaAtualizada) });
     } catch (error: unknown) {
-      console.error('❌ Erro ao atualizar empresa:', error);
+      logger.error('❌ Erro ao atualizar empresa:', error);
       return res.status(500).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao atualizar empresa',

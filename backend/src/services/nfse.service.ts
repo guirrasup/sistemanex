@@ -1,5 +1,6 @@
 // backend/src/services/nfse.service.ts
 ﻿import { Prisma, StatusDocumento } from '@prisma/client';
+import { logger } from '../lib/logger.js';
 import { NfseRepository } from '../repositories/nfse.repository.js';
 import { ClienteRepository } from '../repositories/cliente.repository.js';
 import { EmpresaRepository } from '../repositories/empresa.repository.js';
@@ -453,7 +454,7 @@ export class NfseService {
         motivoRejeicaoFinal = resultado.erro || 'Rejeitado pelo Sistema Nacional NFS-e sem motivo informado';
       }
     } else {
-      console.warn('[NFSe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
+      logger.warn('[NFSe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
       const xmlLocalSemAssinatura = gerarXmlNfseNacional(nfseDocumento);
       xmlAssinadoFinal = assinarXmlEnvelopado(xmlLocalSemAssinatura, 'infNFSe', chaveECertPem);
     }
@@ -580,7 +581,7 @@ export class NfseService {
         await this.financeiroRepo.cancelarTitulo(titulo.id, motivo);
       }
     } catch (error) {
-      console.warn('⚠️ Erro ao cancelar título financeiro:', error);
+      logger.warn('⚠️ Erro ao cancelar título financeiro:', error);
     }
 
     return nfseCancelada;

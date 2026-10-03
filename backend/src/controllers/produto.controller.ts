@@ -1,4 +1,5 @@
 // backend/src/controllers/produto.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { ProdutoService } from '../services/produto.service.js';
 
@@ -43,7 +44,7 @@ export class ProdutoController {
         }
       });
     } catch (error: unknown) {
-      console.error('❌ Erro ao listar produtos:', error);
+      logger.error('❌ Erro ao listar produtos:', error);
       return res.status(500).json({
         sucesso: false,
         erro: error instanceof Error ? error.message : 'Erro ao listar produtos'
