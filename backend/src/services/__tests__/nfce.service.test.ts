@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   produtoUpdate: vi.fn(),
   empresaFindById: vi.fn(),
   empresaUpdate: vi.fn(),
+  empresaReservarNumero: vi.fn(),
+  produtoBaixarEstoque: vi.fn(),
   financeiroCreate: vi.fn(),
   financeiroFindManyByDocumentoOrigem: vi.fn(),
   financeiroCancelarTitulo: vi.fn(),
@@ -45,12 +47,14 @@ vi.mock('../../repositories/produto.repository.js', () => ({
   ProdutoRepository: vi.fn().mockImplementation(() => ({
     findByIds: mocks.produtoFindByIds,
     update: mocks.produtoUpdate,
+    baixarEstoque: mocks.produtoBaixarEstoque,
   })),
 }));
 vi.mock('../../repositories/empresa.repository.js', () => ({
   EmpresaRepository: vi.fn().mockImplementation(() => ({
     findById: mocks.empresaFindById,
     update: mocks.empresaUpdate,
+    reservarNumero: mocks.empresaReservarNumero,
   })),
 }));
 vi.mock('../../repositories/financeiro.repository.js', () => ({
@@ -141,6 +145,8 @@ beforeEach(() => {
   mocks.obterCertificadoDecriptado.mockResolvedValue({ pfxBuffer: Buffer.from('pfx'), senha: 'senha' });
   mocks.empresaFindById.mockResolvedValue(criarEmpresa());
   mocks.empresaUpdate.mockResolvedValue({});
+  mocks.empresaReservarNumero.mockResolvedValue(1);
+  mocks.produtoBaixarEstoque.mockResolvedValue(undefined);
   mocks.nfceCreate.mockResolvedValue({ id: 'nfce-1', dataHoraEmissao: new Date('2026-09-22T10:00:00-03:00') });
   mocks.nfceCreateItem.mockImplementation((_id: string, item: any) => Promise.resolve({ id: 'item-1', ...item }));
   mocks.nfceCreatePagamento.mockResolvedValue({});
@@ -232,7 +238,8 @@ describe('NfceService.emitirNfce', () => {
     const service = new NfceService();
     await service.emitirNfce({ empresaId: 'empresa-1', itens: [criarItemInput({ produtoId: 'produto-1', quantidade: 3 })] });
 
-    expect(mocks.produtoUpdate).toHaveBeenCalledWith('produto-1', 'empresa-1', { estoqueAtual: 47 });
+    expect(mocks.produtoBaixarEstoque).toHaveBeenCalledWith('empresa-1', [{ produtoId: 'produto-1', quantidade: 3 }]);
+    expect(mocks.produtoUpdate).not.toHaveBeenCalled();
   });
 
   it('não cria título financeiro para pagamento em dinheiro, PIX ou "sem pagamento" (01/17/90)', async () => {

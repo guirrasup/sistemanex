@@ -764,6 +764,8 @@ model NFSe {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Número único por empresa e série — trava de segurança contra numeração duplicada.
+  @@unique([empresaId, serieDPS, numeroNfse])
   @@index([empresaId])
   @@index([chaveAcesso])
   @@index([status])
@@ -927,6 +929,8 @@ model NFe {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Número único por empresa e série — trava de segurança contra numeração duplicada.
+  @@unique([empresaId, modelo, serie, numero])
   @@index([empresaId, dhEmi])
   @@index([destinatarioId])
   @@map("nfes")
@@ -1880,6 +1884,8 @@ model NFCe {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Número único por empresa e série — trava de segurança contra numeração duplicada.
+  @@unique([empresaId, serie, numero])
   @@index([empresaId])
   @@index([chaveAcesso])
   @@index([status])
@@ -2366,6 +2372,8 @@ model CTe {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Número único por empresa e série — trava de segurança contra numeração duplicada.
+  @@unique([empresaId, serie, nCT])
   @@index([empresaId])
   @@index([chaveAcesso])
   @@index([status])
@@ -2915,6 +2923,8 @@ model NFAe {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Número único por empresa e série — trava de segurança contra numeração duplicada.
+  @@unique([empresaId, serie, numero])
   @@index([empresaId])
   @@index([chaveAcesso])
   @@index([status])
@@ -3263,6 +3273,8 @@ model MDFe {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Número único por empresa e série — trava de segurança contra numeração duplicada.
+  @@unique([empresaId, serie, numero])
   @@index([empresaId])
   @@index([chaveAcesso])
   @@index([status])

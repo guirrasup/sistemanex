@@ -14,7 +14,7 @@ import type { FiltroNFe } from '../repositories/nfe.repository.js';
 import { mapEmpresaParaEmitente, mapClienteParaTomador } from '../utils/fiscalMappers.js';
 import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
-import { autorizarNfe, enviarEvento, inutilizarNfe } from './nfeSefazClient.js';
+import { autorizarNfe, consultarRecibo, enviarEvento, inutilizarNfe } from './nfeSefazClient.js';
 import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
 
 interface ItemNfeRequestInput {
@@ -23,10 +23,6 @@ interface ItemNfeRequestInput {
   valorUnitario?: number;
 }
 
-interface ProdutoEstoqueRef {
-  id: string;
-  estoqueAtual: number;
-}
 
 interface EmitirNfeInput {
   empresaId: string;
@@ -161,7 +157,14 @@ export class NfeService {
     );
 
     const totais = calcularTotaisNfe(itensCompletos, 0, 0, 0, 0);
-    const numero = await this.getProximoNumero(data.empresaId);
+    // Certificado decifrado ANTES de reservar o número: uma falha aqui não pode
+    // queimar um número da sequência (a reserva é definitiva).
+    const certificado = await this.certificadoService.obterCertificadoDecriptado(data.empresaId);
+    if (!certificado) {
+      throw new Error('Certificado digital não configurado para esta empresa');
+    }
+    const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+    const numero = await this.empresaRepo.reservarNumero(data.empresaId, 'proximoNumeroNfe');
     const aamm = new Date().toISOString().slice(2, 4) +
                  (new Date().getMonth() + 1).toString().padStart(2, '0');
 
@@ -236,11 +239,6 @@ export class NfeService {
 
     const xmlSemAssinatura = gerarXmlNfe400(nfeDocumento);
 
-    const certificado = await this.certificadoService.obterCertificadoDecriptado(data.empresaId);
-    if (!certificado) {
-      throw new Error('Certificado digital não configurado para esta empresa');
-    }
-    const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
     const xml = assinarXmlEnvelopado(xmlSemAssinatura, 'infNFe', chaveECertPem);
 
     // Transmissão real à SEFAZ, controlada por variável de ambiente: enquanto a empresa
@@ -252,6 +250,7 @@ export class NfeService {
     let protocoloFinal: string | null = null;
     let motivoRejeicaoFinal: string | undefined;
     let xmlRetornoFinal: string | undefined;
+    let reciboLoteFinal: string | undefined;
 
     if (transmissaoReal) {
       const resultado = await autorizarNfe({
@@ -267,8 +266,10 @@ export class NfeService {
         statusFinal = 'AUTORIZADA';
         protocoloFinal = resultado.nProt;
       } else if (resultado.nRec) {
-        // SEFAZ processou em lote (assíncrono) — precisa de NFeRetAutorizacao4 depois.
+        // SEFAZ processou em lote (assíncrono) — o recibo é guardado e consultado
+        // via NFeRetAutorizacao4 em consultarSituacao().
         statusFinal = 'PROCESSANDO';
+        reciboLoteFinal = resultado.nRec;
       } else {
         statusFinal = 'REJEITADA';
         motivoRejeicaoFinal = resultado.xMotivo || 'Rejeitado pela SEFAZ sem motivo informado';
@@ -324,6 +325,7 @@ export class NfeService {
       dataHoraAutorizacao: statusFinal === 'AUTORIZADA' ? new Date() : null,
       protocoloAutorizacao: protocoloFinal,
       motivoRejeicao: motivoRejeicaoFinal,
+      reciboLote: reciboLoteFinal,
       empresaId: data.empresaId,
       destinatarioId: data.destinatarioId,
       itens: {
@@ -359,23 +361,11 @@ export class NfeService {
 
     const nfeCriada = await this.nfeRepo.create(nfeCreateData);
 
-    await this.empresaRepo.update(data.empresaId, {
-      proximoNumeroNfe: numero + 1
-    });
 
-    const itensValidos = (data.itens || []).filter((i) => i.produtoId);
-    if (itensValidos.length > 0) {
-      const produtos = await this.produtoRepo.findByIds(itensValidos.map((i) => i.produtoId), data.empresaId) as unknown as ProdutoEstoqueRef[];
-      const produtoMap = new Map(produtos.map((p) => [p.id, p]));
-      for (const item of itensValidos) {
-        const produto = produtoMap.get(item.produtoId);
-        if (produto) {
-          await this.produtoRepo.update(item.produtoId, data.empresaId, {
-            estoqueAtual: Math.max(0, Number(produto.estoqueAtual) - (item.quantidade || 0))
-          });
-        }
-      }
-    }
+    await this.produtoRepo.baixarEstoque(
+      data.empresaId,
+      (data.itens || []).map((i) => ({ produtoId: i.produtoId, quantidade: i.quantidade || 0 }))
+    );
 
     await this.financeiroRepo.create({
       tipo: 'RECEBER',
@@ -398,11 +388,6 @@ export class NfeService {
     return { ...nfeCriada, xml };
   }
 
-  async getProximoNumero(empresaId: string): Promise<number> {
-    const empresa = await this.empresaRepo.findById(empresaId);
-    if (!empresa) throw new Error('Empresa não encontrada');
-    return (empresa.proximoNumeroNfe || 1);
-  }
 
   async cancelarNfe(id: string, motivo: string, empresaId: string) {
     const nfe = await this.nfeRepo.findById(id);
@@ -683,9 +668,20 @@ export class NfeService {
    * de homologação/produção.
    */
   async consultarSituacao(chave: string, empresaId: string) {
-    const nfe = await this.nfeRepo.findByChave(chave);
+    let nfe = await this.nfeRepo.findByChave(chave);
     if (!nfe) throw new Error('NF-e não encontrada');
     if (nfe.empresaId !== empresaId) throw new Error('Acesso negado');
+
+    // NF-e enviada em lote assíncrono: consulta o recibo na SEFAZ e grava o
+    // resultado — sem isso a nota ficava em PROCESSANDO para sempre.
+    if (
+      nfe.status === 'PROCESSANDO' &&
+      nfe.reciboLote &&
+      process.env.SEFAZ_TRANSMISSAO_REAL === 'true'
+    ) {
+      await this.processarRecibo(nfe.id, nfe.reciboLote, empresaId);
+      nfe = (await this.nfeRepo.findByChave(chave))!;
+    }
 
     return {
       chaveAcesso: nfe.chaveAcesso,
@@ -694,5 +690,44 @@ export class NfeService {
       dataHoraAutorizacao: nfe.dataHoraAutorizacao,
       motivoRejeicao: nfe.motivoRejeicao,
     };
+  }
+
+  private async processarRecibo(nfeId: string, nRec: string, empresaId: string): Promise<void> {
+    const empresa = await this.empresaRepo.findById(empresaId);
+    if (!empresa) throw new Error('Empresa não encontrada');
+    const certificado = await this.certificadoService.obterCertificadoDecriptado(empresaId);
+    if (!certificado) throw new Error('Certificado digital não configurado para esta empresa');
+    const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+
+    const resultado = await consultarRecibo({
+      uf: empresa.uf,
+      ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 'producao' : 'homologacao',
+      nRec,
+      mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
+    });
+
+    // cStat 105 = lote ainda em processamento: mantém PROCESSANDO para a próxima consulta.
+    if (!resultado.autorizado && resultado.cStat === '105') {
+      await this.nfeRepo.registrarResultadoProcessamento(nfeId, {
+        status: 'PROCESSANDO',
+        xmlRetorno: resultado.xmlRetorno,
+      });
+      return;
+    }
+
+    if (resultado.autorizado && resultado.nProt) {
+      await this.nfeRepo.registrarResultadoProcessamento(nfeId, {
+        status: 'AUTORIZADA',
+        protocoloAutorizacao: resultado.nProt,
+        xmlRetorno: resultado.xmlRetorno,
+      });
+      return;
+    }
+
+    await this.nfeRepo.registrarResultadoProcessamento(nfeId, {
+      status: 'REJEITADA',
+      motivoRejeicao: `${resultado.xMotivo || 'Rejeitada pela SEFAZ sem motivo informado'} (cStat ${resultado.cStat || '?'})`,
+      xmlRetorno: resultado.xmlRetorno,
+    });
   }
 }

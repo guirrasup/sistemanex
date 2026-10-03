@@ -320,7 +320,7 @@ export class MdfeService {
     if (totalMDFe > MAX_DOCUMENTOS_POR_MDFE) throw new Error(`Máximo de ${MAX_DOCUMENTOS_POR_MDFE} MDF-e por MDF-e (Aquaviário)`);
 
     // Gera número e série
-    const numero = await this.getProximoNumero(data.empresaId);
+    const numero = await this.empresaRepo.reservarNumero(data.empresaId, 'proximoNumeroMdfe');
     const serie = empresa.serieMdfe || 1;
 
     // Gera chave de acesso
@@ -412,10 +412,6 @@ export class MdfeService {
     // Cria componentes em transação
     await this.criarComponentesMDFe(mdfe.id, data);
 
-    // Atualiza número
-    await this.empresaRepo.update(data.empresaId, {
-      proximoNumeroMdfe: numero + 1
-    });
 
     // Gera XML
     // O emit do MDF-e precisa ser a própria empresa (o CNPJ deve bater com o do
@@ -913,9 +909,4 @@ export class MdfeService {
     return this.mdfeRepo.getTotalCarga(empresaId, startDate, endDate);
   }
 
-  private async getProximoNumero(empresaId: string): Promise<number> {
-    const empresa = await this.empresaRepo.findById(empresaId);
-    if (!empresa) throw new Error('Empresa não encontrada');
-    return (empresa.proximoNumeroMdfe || 1);
-  }
 }

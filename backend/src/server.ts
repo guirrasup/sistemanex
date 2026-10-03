@@ -1,4 +1,5 @@
 // backend/src/server.ts
+import { prisma } from './lib/prisma.js';
 import { logger } from './lib/logger.js';
 import express from 'express';
 import cors from 'cors';
@@ -170,20 +171,22 @@ const server = app.listen(PORT, () => {
   logger.info(`Servidor rodando na porta ${PORT}`);
 });
 
-process.on("SIGTERM", () => {
-  logger.info("SIGTERM recebido, encerrando graciosamente...");
-  server.close(() => {
+// Encerramento gracioso: para de aceitar conexões, espera as requisições em
+// andamento terminarem e fecha o pool do Prisma antes de sair. (O antigo
+// "beforeExit" do lib/prisma.ts nunca disparava em SIGTERM/SIGINT.)
+function encerrar(sinal: string) {
+  logger.info(`${sinal} recebido, encerrando graciosamente...`);
+  setTimeout(() => process.exit(1), 10_000).unref();
+  server.close(async () => {
+    try {
+      await prisma.$disconnect();
+    } catch (error) {
+      logger.error('Falha ao desconectar o Prisma:', error);
+    }
     logger.info("Servidor encerrado.");
     process.exit(0);
   });
-  setTimeout(() => process.exit(1), 10_000);
-});
+}
 
-process.on("SIGINT", () => {
-  logger.info("SIGINT recebido, encerrando graciosamente...");
-  server.close(() => {
-    logger.info("Servidor encerrado.");
-    process.exit(0);
-  });
-  setTimeout(() => process.exit(1), 10_000);
-});;
+process.on("SIGTERM", () => encerrar("SIGTERM"));
+process.on("SIGINT", () => encerrar("SIGINT"));

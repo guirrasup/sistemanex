@@ -106,7 +106,9 @@ export class ConectaGovService {
     return jwt.sign(payload, privateKey, { algorithm: 'RS256' });
   }
 
-  async consultarCnpj(cnpj: string, cpfUsuario?: string): Promise<ConectaGovEmpresaResponse> {
+  // jaRenovouToken: no 401 renova o token e tenta UMA vez; se o novo token também
+  // for recusado, propaga o erro em vez de repetir indefinidamente.
+  async consultarCnpj(cnpj: string, cpfUsuario?: string, jaRenovouToken = false): Promise<ConectaGovEmpresaResponse> {
     const cnpjLimpo = cnpj.replace(/\D/g, '');
     
     if (cnpjLimpo.length !== 14) {
@@ -143,10 +145,10 @@ export class ConectaGovService {
       if (axios.isAxiosError(error)) {
         logger.error('❌ Erro ao consultar ConectaGov:', error.response?.data || error.message);
 
-        if (error.response?.status === 401) {
+        if (error.response?.status === 401 && !jaRenovouToken) {
           this.token = null;
           this.tokenExpiresAt = 0;
-          return this.consultarCnpj(cnpj, cpfUsuario);
+          return this.consultarCnpj(cnpj, cpfUsuario, true);
         }
 
         throw new Error(error.response?.data?.message || error.message || 'Erro na consulta');

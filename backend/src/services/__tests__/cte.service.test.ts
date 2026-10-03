@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   cteUpdate: vi.fn(),
   cteFindById: vi.fn(),
   cteUpdateStatus: vi.fn(),
-  cteGetProximoNumero: vi.fn(),
+  empresaReservarNumero: vi.fn(),
   empresaFindById: vi.fn(),
   obterCertificadoDecriptado: vi.fn(),
   extrairChaveECertificadoDoPfx: vi.fn(),
@@ -27,11 +27,13 @@ vi.mock('../../repositories/cte.repository.js', () => ({
     update: mocks.cteUpdate,
     findById: mocks.cteFindById,
     updateStatus: mocks.cteUpdateStatus,
-    getProximoNumero: mocks.cteGetProximoNumero,
   })),
 }));
 vi.mock('../../repositories/empresa.repository.js', () => ({
-  EmpresaRepository: vi.fn().mockImplementation(() => ({ findById: mocks.empresaFindById })),
+  EmpresaRepository: vi.fn().mockImplementation(() => ({
+    findById: mocks.empresaFindById,
+    reservarNumero: mocks.empresaReservarNumero,
+  })),
 }));
 vi.mock('../certificado.service.js', () => ({
   CertificadoService: vi.fn().mockImplementation(() => ({
@@ -86,7 +88,7 @@ beforeEach(() => {
   mocks.assinarXmlEnvelopado.mockImplementation((xml: string) => `${xml}<Signature>MOCK</Signature>`);
   mocks.obterCertificadoDecriptado.mockResolvedValue({ pfxBuffer: Buffer.from('pfx'), senha: 'senha' });
   mocks.empresaFindById.mockResolvedValue(criarEmpresa());
-  mocks.cteGetProximoNumero.mockResolvedValue(1);
+  mocks.empresaReservarNumero.mockResolvedValue(1);
   // O repositório real persiste o registro e devolve os relacionamentos carregados;
   // aqui simulamos o resultado ecoando o que foi passado para create(), que já tem
   // tudo que gerarXmlCte400() precisa (chaveAcesso, CST00, etc.).

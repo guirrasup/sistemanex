@@ -233,7 +233,7 @@ export class NFAeService {
 
     // 1. Gerar chave de acesso
     const aamm = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
-    const numero = data.numero || await this.getProximoNumero(data.empresaId, data.serie || 900);
+    const numero = data.numero || await this.empresaRepo.reservarNumero(data.empresaId, 'proximoNumeroNfae');
 
     const { chaveCompleta, codigoNumerico, dv } = gerarChaveAcessoNFe({
       codigoUf: data.requerente?.municipioIbge?.slice(0, 2) || '35',
@@ -549,16 +549,6 @@ export class NFAeService {
       totalFaturamento: Number(agregado._sum.valorTotalNota) || 0,
       totalICMS: Number(agregado._sum.valorTotalICMS) || 0,
     };
-  }
-
-  async getProximoNumero(empresaId: string, serie: number = 900): Promise<number> {
-    const last = await prisma.nFAe.findFirst({
-      where: { empresaId, serie },
-      orderBy: { numero: 'desc' },
-      select: { numero: true },
-    });
-
-    return (last?.numero || 0) + 1;
   }
 
 }

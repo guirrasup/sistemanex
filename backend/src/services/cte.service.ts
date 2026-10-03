@@ -113,7 +113,7 @@ export class CteService {
     const aamm = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
     const cnpjEmitente = empresa.cnpj || '00000000000000';
     const serie = data.serie || 1;
-    const numero = data.nCT || (await this.cteRepo.getProximoNumero(data.empresaId, serie));
+    const numero = data.nCT || (await this.empresaRepo.reservarNumero(data.empresaId, 'proximoNumeroCte'));
     const tipoEmissao = data.tpEmis || 1;
 
     const { chaveCompleta, codigoNumerico, dv } = gerarChaveAcessoNFe({

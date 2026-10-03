@@ -175,7 +175,14 @@ export class NfseService {
       aliquotaINSS: data.servico?.aliquotaINSS || Number(servico?.aliquotaINSS) || 0,
     });
 
-    const numeroNfse = await this.getProximoNumero(data.empresaId);
+    // Certificado decifrado ANTES de reservar o número: uma falha aqui não pode
+    // queimar um número da sequência (a reserva é definitiva).
+    const certificado = await this.certificadoService.obterCertificadoDecriptado(data.empresaId);
+    if (!certificado) {
+      throw new Error('Certificado digital não configurado para esta empresa');
+    }
+    const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+    const numeroNfse = await this.empresaRepo.reservarNumero(data.empresaId, 'proximoNumeroNfse');
     const serieDPS = empresa.serieNfse || 1;
     const aamm = new Date().toISOString().slice(2, 4) +
                  (new Date().getMonth() + 1).toString().padStart(2, '0');
@@ -403,11 +410,6 @@ export class NfseService {
       xmlAssinado: '',
     };
 
-    const certificado = await this.certificadoService.obterCertificadoDecriptado(data.empresaId);
-    if (!certificado) {
-      throw new Error('Certificado digital não configurado para esta empresa');
-    }
-    const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
 
     // Transmissão real ao Sistema Nacional NFS-e (SefinNacional/ADN), controlada por
     // SEFAZ_TRANSMISSAO_REAL (ver nfe.service.ts). O documento realmente exigido pela
@@ -471,10 +473,6 @@ export class NfseService {
       throw new Error(`Sistema Nacional NFS-e rejeitou a emissão: ${motivoRejeicaoFinal}`);
     }
 
-    // Atualiza número
-    await this.empresaRepo.update(data.empresaId, {
-      proximoNumeroNfse: numeroNfse + 1
-    });
 
     // Cria histórico de status
     await this.nfseRepo.createHistoricoStatus({
@@ -513,11 +511,6 @@ export class NfseService {
     };
   }
 
-  async getProximoNumero(empresaId: string): Promise<number> {
-    const empresa = await this.empresaRepo.findById(empresaId);
-    if (!empresa) throw new Error('Empresa não encontrada');
-    return (empresa.proximoNumeroNfse || 1);
-  }
 
   async cancelarNfse(id: string, motivo: string, empresaId: string) {
     const nfse = await this.nfseRepo.findById(id);

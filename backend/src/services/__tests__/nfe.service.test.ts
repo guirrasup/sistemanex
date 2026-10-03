@@ -24,6 +24,8 @@ const mocks = vi.hoisted(() => ({
   produtoUpdate: vi.fn(),
   empresaFindById: vi.fn(),
   empresaUpdate: vi.fn(),
+  empresaReservarNumero: vi.fn(),
+  produtoBaixarEstoque: vi.fn(),
   financeiroCreate: vi.fn(),
   financeiroFindByDocumentoOrigem: vi.fn(),
   financeiroCancelarTitulo: vi.fn(),
@@ -54,12 +56,14 @@ vi.mock('../../repositories/produto.repository.js', () => ({
     findById: mocks.produtoFindById,
     findByIds: mocks.produtoFindByIds,
     update: mocks.produtoUpdate,
+    baixarEstoque: mocks.produtoBaixarEstoque,
   })),
 }));
 vi.mock('../../repositories/empresa.repository.js', () => ({
   EmpresaRepository: vi.fn().mockImplementation(() => ({
     findById: mocks.empresaFindById,
     update: mocks.empresaUpdate,
+    reservarNumero: mocks.empresaReservarNumero,
   })),
 }));
 vi.mock('../../repositories/financeiro.repository.js', () => ({
@@ -161,6 +165,8 @@ beforeEach(() => {
   mocks.produtoFindByIds.mockResolvedValue([criarProduto()]);
   mocks.nfeCreate.mockResolvedValue({ id: 'nfe-criada-1' });
   mocks.empresaUpdate.mockResolvedValue({});
+  mocks.empresaReservarNumero.mockResolvedValue(1);
+  mocks.produtoBaixarEstoque.mockResolvedValue(undefined);
   mocks.produtoUpdate.mockResolvedValue({});
   mocks.financeiroCreate.mockResolvedValue({});
 });
@@ -255,12 +261,22 @@ describe('NfeService.emitirNfe', () => {
     expect(dadosCriados.status).toBe('PROCESSANDO');
   });
 
-  it('incrementa o próximo número de NF-e da empresa após a emissão', async () => {
-    mocks.empresaFindById.mockResolvedValue(criarEmpresa({ proximoNumeroNfe: 7 }));
+  it('reserva o número da NF-e de forma atômica e usa o número reservado no documento', async () => {
+    mocks.empresaReservarNumero.mockResolvedValue(7);
     const service = new NfeService();
     await service.emitirNfe({ empresaId: 'empresa-1', destinatarioId: 'cliente-1', itens: [{ produtoId: 'produto-1' }] });
 
-    expect(mocks.empresaUpdate).toHaveBeenCalledWith('empresa-1', { proximoNumeroNfe: 8 });
+    expect(mocks.empresaReservarNumero).toHaveBeenCalledWith('empresa-1', 'proximoNumeroNfe');
+    expect(mocks.nfeCreate.mock.calls[0][0].numero).toBe(7);
+    // O contador não é mais regravado depois (era a origem da corrida entre emissões).
+    expect(mocks.empresaUpdate).not.toHaveBeenCalledWith('empresa-1', expect.objectContaining({ proximoNumeroNfe: expect.anything() }));
+  });
+
+  it('não reserva número quando o certificado não pode ser decriptado', async () => {
+    mocks.obterCertificadoDecriptado.mockResolvedValue(null);
+    const service = new NfeService();
+    await expect(service.emitirNfe({ empresaId: 'empresa-1', destinatarioId: 'cliente-1', itens: [{ produtoId: 'produto-1' }] })).rejects.toThrow();
+    expect(mocks.empresaReservarNumero).not.toHaveBeenCalled();
   });
 
   it('cria um título a receber no financeiro vinculado à chave de acesso da NF-e emitida', async () => {
@@ -274,12 +290,12 @@ describe('NfeService.emitirNfe', () => {
     expect(dadosFinanceiro.documentoOrigemChave).toHaveLength(44);
   });
 
-  it('baixa o estoque do produto proporcionalmente à quantidade vendida', async () => {
-    mocks.produtoFindByIds.mockResolvedValue([criarProduto({ id: 'produto-1', estoqueAtual: 50 })]);
+  it('baixa o estoque do produto pela quantidade vendida (decremento atômico no banco)', async () => {
     const service = new NfeService();
     await service.emitirNfe({ empresaId: 'empresa-1', destinatarioId: 'cliente-1', itens: [{ produtoId: 'produto-1', quantidade: 5 }] });
 
-    expect(mocks.produtoUpdate).toHaveBeenCalledWith('produto-1', 'empresa-1', { estoqueAtual: 45 });
+    expect(mocks.produtoBaixarEstoque).toHaveBeenCalledWith('empresa-1', [{ produtoId: 'produto-1', quantidade: 5 }]);
+    expect(mocks.produtoUpdate).not.toHaveBeenCalled();
   });
 });
 

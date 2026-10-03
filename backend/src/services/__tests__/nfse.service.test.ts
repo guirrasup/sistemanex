@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   clienteFindById: vi.fn(),
   empresaFindById: vi.fn(),
   empresaUpdate: vi.fn(),
+  empresaReservarNumero: vi.fn(),
   servicoFindById: vi.fn(),
   financeiroCreate: vi.fn(),
   financeiroFindManyByDocumentoOrigem: vi.fn(),
@@ -45,6 +46,7 @@ vi.mock('../../repositories/empresa.repository.js', () => ({
   EmpresaRepository: vi.fn().mockImplementation(() => ({
     findById: mocks.empresaFindById,
     update: mocks.empresaUpdate,
+    reservarNumero: mocks.empresaReservarNumero,
   })),
 }));
 vi.mock('../../repositories/financeiro.repository.js', () => ({
@@ -126,6 +128,7 @@ beforeEach(() => {
   mocks.obterCertificadoDecriptado.mockResolvedValue({ pfxBuffer: Buffer.from('pfx'), senha: 'senha' });
   mocks.empresaFindById.mockResolvedValue(criarEmpresa());
   mocks.empresaUpdate.mockResolvedValue({});
+  mocks.empresaReservarNumero.mockResolvedValue(1);
   mocks.clienteFindById.mockResolvedValue(criarTomador());
   mocks.nfseCreate.mockImplementation((dados: any) => Promise.resolve({ id: 'nfse-1', ...dados }));
   mocks.nfseUpdateStatus.mockResolvedValue({});
@@ -214,10 +217,19 @@ describe('NfseService.emitirNfse', () => {
     expect(mocks.financeiroCreate).not.toHaveBeenCalled();
   });
 
-  it('incrementa o próximo número de NFS-e apenas quando a emissão é bem-sucedida', async () => {
+  it('reserva o número da NFS-e de forma atômica e usa o número reservado', async () => {
+    mocks.empresaReservarNumero.mockResolvedValue(9);
     const service = new NfseService();
     await service.emitirNfse({ empresaId: 'empresa-1', tomadorId: 'tomador-1', servico: { valorServico: 1000 } });
-    expect(mocks.empresaUpdate).toHaveBeenCalledWith('empresa-1', { proximoNumeroNfse: 2 });
+    expect(mocks.empresaReservarNumero).toHaveBeenCalledWith('empresa-1', 'proximoNumeroNfse');
+    expect(mocks.nfseCreate.mock.calls[0][0].numeroNfse).toBe(9);
+  });
+
+  it('não reserva número quando o certificado não pode ser decriptado', async () => {
+    mocks.obterCertificadoDecriptado.mockResolvedValue(null);
+    const service = new NfseService();
+    await expect(service.emitirNfse({ empresaId: 'empresa-1', tomadorId: 'tomador-1', servico: { valorServico: 1000 } })).rejects.toThrow();
+    expect(mocks.empresaReservarNumero).not.toHaveBeenCalled();
   });
 
   it('cria um título a receber no financeiro com o valor líquido calculado', async () => {

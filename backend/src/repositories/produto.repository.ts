@@ -130,6 +130,21 @@ export class ProdutoRepository extends BaseRepository {
     });
   }
 
+  // Baixa de estoque atômica: a subtração acontece no próprio UPDATE, então duas
+  // vendas simultâneas do mesmo produto não se sobrescrevem (o antigo "ler o
+  // saldo e gravar saldo - qtd" perdia uma das baixas). Nunca fica negativo.
+  async baixarEstoque(empresaId: string, itens: Array<{ produtoId: string; quantidade: number }>) {
+    for (const item of itens) {
+      if (!item.produtoId || !(item.quantidade > 0)) continue;
+      await prisma.$executeRaw`
+        UPDATE "produtos"
+        SET "estoqueAtual" = GREATEST("estoqueAtual" - ${item.quantidade}::numeric, 0),
+            "updatedAt" = NOW()
+        WHERE "id" = ${item.produtoId} AND "empresaId" = ${empresaId}
+      `;
+    }
+  }
+
   // 🔒 IDOR: exige empresaId e limita lote de IDs
   async findByIds(ids: string[], empresaId: string) {
     if (!Array.isArray(ids) || ids.length === 0) {

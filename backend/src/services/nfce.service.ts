@@ -106,10 +106,6 @@ interface EmitirNfceInput {
   [key: string]: unknown;
 }
 
-interface ProdutoEstoqueRef {
-  id: string;
-  estoqueAtual: number;
-}
 
 const PROTOCOLO_MOCK_SUFIXO_BASE = 1000000;
 const PROTOCOLO_MOCK_SUFIXO_RANGE = 9000000;
@@ -200,7 +196,7 @@ export class NfceService {
     }
 
     // Gera número e série
-    const numero = await this.getProximoNumero(data.empresaId);
+    const numero = await this.empresaRepo.reservarNumero(data.empresaId, 'proximoNumeroNfce');
     const serie = empresa.serieNfce || 1;
 
     // Gera chave de acesso
@@ -327,10 +323,6 @@ export class NfceService {
       });
     }
 
-    // Atualiza número
-    await this.empresaRepo.update(data.empresaId, {
-      proximoNumeroNfce: numero + 1
-    });
 
     // Monta o DTO fiscal e gera o XML (ainda não transmitido à SEFAZ)
     const itensParaXml: ItemNfe[] = itensCriados.map((item) => ({
@@ -448,21 +440,12 @@ export class NfceService {
     await this.nfceRepo.updateStatus(nfce.id, statusFinal, protocolo, xml, undefined, xmlRetorno);
 
     // Baixa estoque
-    const itensValidos = data.itens.filter(
-      (i): i is ItemNfceInput & { produtoId: string } => Boolean(i.produtoId)
+    await this.produtoRepo.baixarEstoque(
+      data.empresaId,
+      data.itens
+        .filter((i): i is ItemNfceInput & { produtoId: string } => Boolean(i.produtoId))
+        .map((i) => ({ produtoId: i.produtoId, quantidade: i.quantidade || 0 }))
     );
-    if (itensValidos.length > 0) {
-      const produtos = await this.produtoRepo.findByIds(itensValidos.map((i) => i.produtoId), data.empresaId) as unknown as ProdutoEstoqueRef[];
-      const produtoMap = new Map(produtos.map((p) => [p.id, p]));
-      for (const item of itensValidos) {
-        const produto = produtoMap.get(item.produtoId);
-        if (produto) {
-          await this.produtoRepo.update(item.produtoId, data.empresaId, {
-            estoqueAtual: Math.max(0, Number(produto.estoqueAtual) - (item.quantidade || 0))
-          });
-        }
-      }
-    }
 
     // Cria título financeiro se for a prazo (não dinheiro e não PIX)
     if (data.formaPagamento !== '01' && data.formaPagamento !== '17' && data.formaPagamento !== '90') {
@@ -577,11 +560,6 @@ export class NfceService {
     });
   }
 
-  private async getProximoNumero(empresaId: string): Promise<number> {
-    const empresa = await this.empresaRepo.findById(empresaId);
-    if (!empresa) throw new Error('Empresa não encontrada');
-    return (empresa.proximoNumeroNfce || 1);
-  }
 
   private getDescricaoPagamento(codigo: string): string {
     const descricoes: Record<string, string> = {

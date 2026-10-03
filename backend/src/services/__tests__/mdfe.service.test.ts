@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   clienteFindById: vi.fn(),
   empresaFindById: vi.fn(),
   empresaUpdate: vi.fn(),
+  empresaReservarNumero: vi.fn(),
   obterCertificadoDecriptado: vi.fn(),
   extrairChaveECertificadoDoPfx: vi.fn(),
   assinarXmlEnvelopado: vi.fn(),
@@ -48,6 +49,7 @@ vi.mock('../../repositories/empresa.repository.js', () => ({
   EmpresaRepository: vi.fn().mockImplementation(() => ({
     findById: mocks.empresaFindById,
     update: mocks.empresaUpdate,
+    reservarNumero: mocks.empresaReservarNumero,
   })),
 }));
 vi.mock('../certificado.service.js', () => ({
@@ -117,6 +119,7 @@ beforeEach(() => {
   mocks.obterCertificadoDecriptado.mockResolvedValue({ pfxBuffer: Buffer.from('pfx'), senha: 'senha' });
   mocks.empresaFindById.mockResolvedValue(criarEmpresa());
   mocks.empresaUpdate.mockResolvedValue({});
+  mocks.empresaReservarNumero.mockResolvedValue(1);
   mocks.clienteFindById.mockResolvedValue({ id: 'emitente-1', empresaId: 'empresa-1', razaoSocial: 'Transportadora Teste', documento: '18236447000190', endereco: { logradouro: 'Rua X', numero: '1', bairro: 'Centro', codigoMunicipio: '3550308', nomeMunicipio: 'São Paulo', uf: 'SP', cep: '01000000' } });
   mocks.mdfeCreate.mockImplementation((dados: any) => Promise.resolve({ id: 'mdfe-1', ...dados, dhEmi: new Date() }));
   mocks.createManyMunCarrega.mockResolvedValue({});
@@ -209,11 +212,12 @@ describe('MdfeService.emitirMdfe', () => {
     expect(mocks.createHistoricoStatus).toHaveBeenCalledWith(expect.objectContaining({ statusNovo: 'REJEITADA' }));
   });
 
-  it('incrementa o próximo número de MDF-e da empresa', async () => {
-    mocks.empresaFindById.mockResolvedValue(criarEmpresa({ proximoNumeroMdfe: 4 }));
+  it('reserva o número do MDF-e de forma atômica e usa o número reservado', async () => {
+    mocks.empresaReservarNumero.mockResolvedValue(4);
     const service = new MdfeService();
     await service.emitirMdfe(criarInputBase());
-    expect(mocks.empresaUpdate).toHaveBeenCalledWith('empresa-1', { proximoNumeroMdfe: 5 });
+    expect(mocks.empresaReservarNumero).toHaveBeenCalledWith('empresa-1', 'proximoNumeroMdfe');
+    expect(mocks.mdfeCreate.mock.calls[0][0].numero).toBe(4);
   });
 });
 

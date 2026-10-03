@@ -225,6 +225,30 @@ export class NfeRepository extends BaseRepository {
     });
   }
 
+  // Grava o resultado da consulta do recibo de lote (NFeRetAutorizacao4).
+  async registrarResultadoProcessamento(
+    id: string,
+    resultado: {
+      status: StatusDocumento;
+      protocoloAutorizacao?: string;
+      motivoRejeicao?: string;
+      xmlRetorno?: string;
+    }
+  ) {
+    return this.prisma.nFe.update({
+      where: { id },
+      data: {
+        status: resultado.status,
+        xmlRetorno: resultado.xmlRetorno,
+        ...(resultado.protocoloAutorizacao
+          ? { protocoloAutorizacao: resultado.protocoloAutorizacao, dataHoraAutorizacao: new Date() }
+          : {}),
+        ...(resultado.motivoRejeicao ? { motivoRejeicao: resultado.motivoRejeicao.slice(0, 500) } : {}),
+      },
+      select: { id: true, status: true },
+    });
+  }
+
   async updateStatus(id: string, status: StatusDocumento, protocolo?: string) {
     if (!id) {
       throw new Error('ID da NF-e é obrigatório');

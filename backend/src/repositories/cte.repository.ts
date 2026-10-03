@@ -112,15 +112,6 @@ export class CteRepository {
     };
   }
 
-  async getProximoNumero(empresaId: string, _serie: number): Promise<number> {
-    const empresa = await prisma.empresa.findUnique({
-      where: { id: empresaId },
-      select: { proximoNumeroCte: true }
-    });
-    if (!empresa) throw new Error('Empresa não encontrada');
-    return empresa.proximoNumeroCte || 1;
-  }
-
   async findById(id: string, empresaId: string) {
     return prisma.cTe.findFirst({
       where: { id, empresaId },
