@@ -283,13 +283,23 @@ export class AuthController {
         });
       }
 
+      // Verificado antes de consultar o usuário: a resposta é a mesma para
+      // qualquer e-mail, então não revela se a conta existe.
+      if (!this.authService.envioEmailConfigurado()) {
+        logger.error('❌ Recuperação de senha indisponível: SMTP_HOST/SMTP_USER/SMTP_PASS não configurados no .env do backend.');
+        return res.status(503).json({
+          sucesso: false,
+          erro: 'Envio de e-mail não configurado no servidor. Contate o administrador do sistema.',
+        });
+      }
+
       // ✅ Service já é silencioso para e-mail inexistente.
-      // ✅ Capturamos erro de "inativo" para não vazar via 400.
+      // ✅ Capturamos erros (usuário inativo, falha de SMTP) para não vazar se a conta existe.
       try {
         await this.authService.solicitarRecuperacaoSenha(email);
       } catch (err: unknown) {
         // Log interno, mas resposta genérica pro cliente
-        logger.warn('⚠️ Falha silenciosa em recuperar-senha:', err instanceof Error ? err.message : err);
+        logger.error('❌ Falha ao enviar e-mail de recuperação de senha:', err);
       }
 
       return res.json({

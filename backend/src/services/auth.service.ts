@@ -136,6 +136,10 @@ export class AuthService {
     await this.usuarioRepo.updateSenha(userId, novaSenhaHash);
   }
 
+  envioEmailConfigurado(): boolean {
+    return this.emailService.estaConfigurado();
+  }
+
   async solicitarRecuperacaoSenha(email: string) {
     const usuario = await this.usuarioRepo.findByEmail(email.toLowerCase().trim());
 
