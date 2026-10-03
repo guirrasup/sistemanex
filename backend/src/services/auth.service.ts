@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PerfilUsuario } from '@prisma/client';
 import { UsuarioRepository } from '../repositories/usuario.repository.js';
+import { EmailService } from './email.service.js';
 
 // Segurança (P1): fail-fast — a API nunca deve subir com segredo conhecido/padrão.
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
@@ -14,11 +15,22 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 const JWT_SECRET = process.env.JWT_SECRET;
 const RESET_TOKEN_EXPIRES = '1h'; // tempo do token de redefinição
 
+function escaparHtml(valor: string): string {
+  return valor
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export class AuthService {
   private usuarioRepo: UsuarioRepository;
+  private emailService: EmailService;
 
   constructor() {
     this.usuarioRepo = new UsuarioRepository();
+    this.emailService = new EmailService();
   }
 
   async login(email: string, senha: string) {
@@ -147,14 +159,23 @@ export class AuthService {
       { expiresIn: RESET_TOKEN_EXPIRES }
     );
 
-    // [AutoPatch Backlog] TODO: Integrar provedor de e-mail transacional (ex.: SES, SendGrid, Postmark) para
-    // enviar o link de redefinição de senha ao usuário. Requer criar um EmailService com
-    // credenciais/API key via variável de ambiente e um template de e-mail.
-    // Link que o frontend deve consumir:
-    // `${process.env.FRONTEND_URL}/redefinir-senha?token=${resetToken}`
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
+    const link = `${frontendUrl}/redefinir-senha?token=${encodeURIComponent(resetToken)}`;
 
-    // Em produção você faria algo como:
-    // await emailService.enviarRecuperacaoSenha(usuario.email, resetToken);
+    await this.emailService.enviar({
+      destinatario: usuario.email,
+      assunto: 'Redefinição de senha',
+      corpoTexto:
+        `Olá, ${usuario.nome}.\n\n` +
+        `Recebemos uma solicitação para redefinir sua senha. Acesse o link abaixo (válido por 1 hora):\n\n` +
+        `${link}\n\n` +
+        `Se você não fez essa solicitação, ignore este e-mail.`,
+      corpoHtml:
+        `<p>Olá, ${escaparHtml(usuario.nome)}.</p>` +
+        `<p>Recebemos uma solicitação para redefinir sua senha. Clique no link abaixo (válido por 1 hora):</p>` +
+        `<p><a href="${escaparHtml(link)}">Redefinir minha senha</a></p>` +
+        `<p>Se você não fez essa solicitação, ignore este e-mail.</p>`,
+    });
   }
 
   async redefinirSenha(token: string, novaSenha: string) {

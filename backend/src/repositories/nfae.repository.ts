@@ -1,7 +1,7 @@
 // backend/src/repositories/nfae.repository.ts
-import { Prisma, PrismaClient, StatusNFAe } from '@prisma/client';
+import { Prisma, StatusNFAe } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma.js';
 
 // 🔥 LIMITES DE PAGINAÇÃO (mitigação CWE-770 / CWE-400)
 const MAX_PAGE_SIZE = 100;

@@ -47,7 +47,7 @@ export class ConectaGovService {
         : 'https://h-apigateway.conectagov.np.estaleiro.serpro.gov.br/oauth2/jwt-token';
 
       // 🔥 GERA JWT PARA AUTENTICAÇÃO (client_assertion)
-      const clientAssertion = this.generateClientAssertion(clientId);
+      const clientAssertion = this.generateClientAssertion(clientId, tokenUrl);
 
       const params = new URLSearchParams();
       params.append('grant_type', 'client_credentials');
@@ -79,14 +79,14 @@ export class ConectaGovService {
     }
   }
 
-  private generateClientAssertion(clientId: string): string {
+  private generateClientAssertion(clientId: string, audience: string): string {
     const now = Math.floor(Date.now() / 1000);
     const jti = randomBytes(16).toString('hex');
 
     const payload = {
       iss: clientId,
       sub: clientId,
-      aud: 'https://apigateway.conectagov.estaleiro.serpro.gov.br/oauth2/jwt-token',
+      aud: audience,
       jti: jti,
       iat: now,
       exp: now + 300,

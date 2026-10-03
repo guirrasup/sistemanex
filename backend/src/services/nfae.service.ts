@@ -1,5 +1,5 @@
 // backend/src/services/nfae.service.ts
-import { PrismaClient, StatusNFAe, Prisma, MotivoEmissaoNFAe, TipoPessoaNFAe } from '@prisma/client';
+import { StatusNFAe, Prisma, MotivoEmissaoNFAe, TipoPessoaNFAe } from '@prisma/client';
 import { NFAeDocumento, NFAeItem } from '../types/nfae.types.js';
 import { gerarChaveAcessoNFe } from '../utils/chaveAcesso.js';
 import { gerarXmlNfae, type NfaeParaXml } from '../utils/xmlNfaeGenerator.js';
@@ -8,7 +8,7 @@ import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xm
 import { EmpresaRepository } from '../repositories/empresa.repository.js';
 import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
 
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma.js';
 
 // 🔥 LIMITES DE RECURSOS (mitigação CWE-770 / CWE-400)
 const MAX_PAGE_SIZE = 100;

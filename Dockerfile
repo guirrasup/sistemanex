@@ -12,7 +12,7 @@ RUN rm -rf backend
 ENV VITE_API_URL=/api
 RUN npm run build
 
-# ---- Backend build (gera o Prisma Client) ----
+# ---- Backend build (gera o Prisma Client e compila com tsc) ----
 FROM node:20-alpine AS backend-builder
 WORKDIR /app
 # Alpine não vem com OpenSSL por padrão — sem isso o "prisma generate" baixa
@@ -22,24 +22,22 @@ COPY backend/package*.json ./
 RUN npm ci
 COPY backend/ .
 RUN npx prisma generate
+RUN npm run build
 
 # ---- Backend runtime ----
-# O build estrito (tsc) do backend ainda tem erros de tipo e de resolução de
-# módulos ESM sem extensão ".js" (incompatível com "moduleResolution": "NodeNext").
-# Até isso ser corrigido no código-fonte, rodamos via "tsx" (o mesmo executor
-# que o "npm run dev" já usa) em vez de compilar com tsc.
+# Roda o JavaScript compilado (dist/). O node_modules completo é mantido para
+# que o Prisma CLI e o tsx continuem disponíveis para migrations e seeds via
+# "docker compose exec backend npx prisma migrate deploy" / "npm run db:seed".
 FROM node:20-alpine AS backend-runner
 WORKDIR /app
 RUN apk add --no-cache openssl
 ENV NODE_ENV=production
-COPY backend/package*.json ./
-# "tsx" (usado pra rodar o servidor) está em devDependencies, então instala tudo.
-RUN npm ci
-COPY --from=backend-builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=backend-builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY backend/ .
+COPY --from=backend-builder /app/package*.json ./
+COPY --from=backend-builder /app/node_modules ./node_modules
+COPY --from=backend-builder /app/dist ./dist
+COPY --from=backend-builder /app/prisma ./prisma
 EXPOSE 3333
-CMD ["npx", "tsx", "src/server.ts"]
+CMD ["node", "dist/server.js"]
 
 # ---- Frontend runtime (nginx) ----
 FROM nginx:alpine AS frontend-runner
