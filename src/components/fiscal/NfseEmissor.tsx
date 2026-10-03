@@ -512,7 +512,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           </button>
           <div className="text-right">
             <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfse || 1}</div>
-            <div className={`text-[10px] font-medium ${corText}`}>Próxima NFS-e: Nº {empresa.proximoNumeroNfse || 1}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próxima NFS-e: Nº previsto {empresa.proximoNumeroNfse || 1}</div>
           </div>
         </div>
       </div>

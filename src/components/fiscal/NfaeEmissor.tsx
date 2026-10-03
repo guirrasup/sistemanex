@@ -498,7 +498,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
           </button>
           <div className="text-right">
             <div className="text-xs font-semibold text-slate-700">Série {serie || 900}</div>
-            <div className={`text-[10px] font-medium ${corText}`}>Próxima NFA-e: Nº {empresa.proximoNumeroNfae || 1}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próxima NFA-e: Nº previsto {empresa.proximoNumeroNfae || 1}</div>
           </div>
         </div>
       </div>

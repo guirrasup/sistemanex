@@ -18,10 +18,10 @@ export const LoadingDinamico: React.FC = () => {
   const [exibindo, setExibindo] = useState(true);
 
   const frases = [
-    { 
-      texto: 'Conectando ao servidor SEFAZ...', 
+    {
+      texto: 'Conectando ao servidor...',
       icone: <ShieldCheck className="w-5 h-5 text-blue-400" />,
-      detalhe: 'Estabelecendo comunicação com o ambiente de produção'
+      detalhe: 'Estabelecendo comunicação com a API do sistema'
     },
     { 
       texto: 'Carregando módulo fiscal...', 
@@ -127,19 +127,14 @@ export const LoadingDinamico: React.FC = () => {
           </div>
         </div>
 
+        {/* Barra indeterminada: as frases ilustram as etapas, mas não medem o
+            progresso real do carregamento — um "X de 10" que volta ao início
+            dava a impressão de que o sistema tinha travado. */}
         <div className="mt-4 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-          <div 
-            className="h-full bg-gradient-to-r from-blue-600 via-purple-600 to-emerald-600 rounded-full transition-all duration-1000"
-            style={{ 
-              width: `${((fraseAtual + 1) / frases.length) * 100}%`
-            }}
-          ></div>
+          <div className="h-full w-full bg-gradient-to-r from-blue-600 via-purple-600 to-emerald-600 rounded-full animate-pulse"></div>
         </div>
 
-        <div className="flex items-center justify-between mt-3">
-          <span className="text-[10px] font-medium text-slate-400">
-            {fraseAtual + 1} de {frases.length}
-          </span>
+        <div className="flex items-center justify-end mt-3">
           <span className="text-[10px] font-medium text-blue-600 flex items-center gap-1">
             <RefreshCw className="w-3 h-3 animate-spin" />
             Carregando...
@@ -149,7 +144,7 @@ export const LoadingDinamico: React.FC = () => {
 
       <div className="mt-6 text-center">
         <p className="text-[11px] text-slate-400 font-mono">
-          v2026.1 • Ambiente SEFAZ Produção
+          v2026.1
         </p>
         <div className="flex items-center justify-center gap-2 mt-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>

@@ -781,7 +781,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           </button>
           <div className="text-right">
             <div className="text-xs font-semibold text-slate-700">Série {empresa.serieMdfe || 1}</div>
-            <div className={`text-[10px] font-medium ${corText}`}>Próximo MDF-e: Nº {empresa.proximoNumeroMdfe || 1}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próximo MDF-e: Nº previsto {empresa.proximoNumeroMdfe || 1}</div>
           </div>
         </div>
       </div>

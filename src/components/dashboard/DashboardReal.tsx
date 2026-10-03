@@ -163,6 +163,7 @@ interface DashboardRealProps {
   titulos: TituloResumo[];
   transportadoras?: unknown[];
   onNavigateDocumentosTipo?: (tipo: TipoDocumentoFiltro) => void;
+  onNavigate: (view: string) => void;
 }
 
 // ============================================================
@@ -188,6 +189,7 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
   titulos,
   transportadoras = [],
   onNavigateDocumentosTipo,
+  onNavigate,
 }) => {
   // 🔥 COR DO MÓDULO (AZUL)
   const cor = 'blue';
@@ -203,14 +205,7 @@ export const DashboardReal: React.FC<DashboardRealProps> = ({
   // FUNÇÃO DE NAVEGAÇÃO
   // ============================================================
 
-  const navegarPara = (rota: string) => {
-    const menuItem = document.getElementById(`menu-item-${rota}`);
-    if (menuItem) {
-      menuItem.click();
-      return;
-    }
-    window.location.href = rota;
-  };
+  const navegarPara = (view: string) => onNavigate(view);
 
   // ============================================================
   // CALCULA DASHBOARD A PARTIR DOS DADOS JÁ CARREGADOS (PROPS)

@@ -850,7 +850,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
           </button>
           <div className="text-right">
             <div className="text-xs font-semibold text-slate-700">Série {serie}</div>
-            <div className={`text-[10px] font-medium ${corText}`}>Próximo CT-e: Nº {empresa.proximoNumeroCte || 1}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próximo CT-e: Nº previsto {empresa.proximoNumeroCte || 1}</div>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { LandingPageView } from './components/landing/LandingPageView';
 import { LoginView } from './components/auth/LoginView';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { DashboardReal } from './components/dashboard/DashboardReal';
 import { AlertasSistema } from './components/ui/AlertasSistema';
 import { NfseEmissor } from './components/fiscal/NfseEmissor';
@@ -567,7 +568,9 @@ export default function App() {
 
           <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50">
             <div className="max-w-7xl mx-auto">
-              
+              {/* key: trocar de tela remonta o boundary e limpa o erro anterior */}
+              <ErrorBoundary key={currentView} onVoltar={() => handleNavigate('dashboard')}>
+
               {currentView === 'dashboard' && (
                 <DashboardReal
                   nfses={nfses}
@@ -581,6 +584,7 @@ export default function App() {
                   titulos={titulos}
                   transportadoras={transportadoras}
                   onNavigateDocumentosTipo={handleNavigateDocumentosTipo}
+                  onNavigate={handleNavigate}
                 />
               )}
 
@@ -749,6 +753,7 @@ export default function App() {
                 <ConsultaCnpjView onNavigate={(view) => setCurrentView(view)} />
               )}
 
+              </ErrorBoundary>
             </div>
           </main>
         </div>

@@ -35,6 +35,8 @@ import { consultarCnpjConectaGov, ConsultaCnpjResponse } from '../../utils/consu
 import { getApiErrorMessage } from '../../utils/apiError';
 import { certificadoService } from '../../services/certificado.service';
 import { empresaService } from '../../services/empresa.service';
+import { useToast } from '../../hooks/useToast';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface ConfiguracoesEmpresaViewProps {
   empresa: ConfiguracaoEmpresa;
@@ -195,6 +197,9 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
   empresa,
   onEmpresaChange,
 }) => {
+  const toast = useToast();
+  const [confirmarLimpeza, setConfirmarLimpeza] = useState(false);
+  const [verificandoCertificado, setVerificandoCertificado] = useState(false);
   // 🔥 COR DO MÓDULO (ARDÓSIA) - MESMA DO HEADER E SIDEBAR
   const cor = 'slate';
   const corBg = 'bg-slate-50';
@@ -312,7 +317,7 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
     const cnpjLimpo = formData.cnpj.replace(/\D/g, '');
     
     if (cnpjLimpo.length !== 14) {
-      alert('Digite um CNPJ válido (14 dígitos)');
+      toast.showWarning('⚠️ Digite um CNPJ válido (14 dígitos).');
       return;
     }
 
@@ -350,29 +355,46 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
           },
         }));
 
-        alert('✅ Dados do CNPJ preenchidos! Clique em "Salvar Configurações" para persistir.');
+        toast.showSuccess('✅ Dados do CNPJ preenchidos! Clique em "Salvar Configurações" para persistir.');
       } else {
-        alert(`❌ ${response.erro || 'CNPJ não encontrado'}`);
+        toast.showError(`❌ ${response.erro || 'CNPJ não encontrado'}`);
       }
     } catch (err) {
-      alert('Erro ao consultar CNPJ. Tente novamente.');
+      toast.showError(`❌ ${getApiErrorMessage(err, 'Erro ao consultar CNPJ. Tente novamente.')}`);
     } finally {
       setConsultandoCnpj(false);
     }
   };
 
   const handleLimparForm = () => {
-    if (!confirm('Tem certeza que deseja limpar todos os dados do formulário? Esta ação não pode ser desfeita.')) {
-      return;
-    }
-
+    setConfirmarLimpeza(false);
     setFormData(criarEmpresaVazia());
     setArquivoCertificado(null);
     setSenhaCertificado('');
     setFeedbackCert(null);
     setSalvo(false);
 
-    alert('✅ Formulário limpo!');
+    toast.showSuccess('✅ Formulário limpo!');
+  };
+
+  // Consulta o certificado armazenado no servidor (validade/status reais),
+  // em vez de apenas repetir os dados do formulário.
+  const handleVerificarCertificado = async () => {
+    setVerificandoCertificado(true);
+    try {
+      const info = await certificadoService.status();
+      if (!info) {
+        toast.showWarning('⚠️ Nenhum certificado salvo no servidor. Envie o arquivo .pfx e salve as configurações.');
+      } else if (info.status === 'VALIDO') {
+        toast.showSuccess(`✅ Certificado de ${info.nomeTitular} válido no servidor — ${info.diasRestantes} dias restantes.`);
+      } else {
+        toast.showError(`❌ Certificado de ${info.nomeTitular} com status ${info.status}. Renove o certificado.`);
+      }
+    } catch (err) {
+      toast.showError(`❌ ${getApiErrorMessage(err, 'Erro ao verificar o certificado.')}`);
+    } finally {
+      setVerificandoCertificado(false);
+    }
   };
 
 // 🔥 CORREÇÃO: handleCarregarCertificadoEPreencher
@@ -840,18 +862,14 @@ const handleCarregarCertificadoEPreencher = async () => {
                 <div className="pt-2">
                   <button
                     type="button"
-                    onClick={() => alert(
-                      `✅ Certificado Digital A1\n\n` +
-                      `Titular: ${formData.certificado.nomeTitular}\n` +
-                      `CNPJ: ${formData.cnpj}\n` +
-                      `Status: ${formData.certificado.status}\n` +
-                      `Validade: ${formData.certificado.diasRestantes} dias restantes\n\n` +
-                      `Pronto para emissões SEFAZ e Receita Federal.`
-                    )}
-                    className="w-full bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-medium px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                    onClick={handleVerificarCertificado}
+                    disabled={verificandoCertificado}
+                    className="w-full bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-medium px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <Lock className="w-3.5 h-3.5 text-slate-600" />
-                    <span>Testar Assinatura</span>
+                    {verificandoCertificado
+                      ? <RefreshCw className="w-3.5 h-3.5 text-slate-600 animate-spin" />
+                      : <Lock className="w-3.5 h-3.5 text-slate-600" />}
+                    <span>{verificandoCertificado ? 'Verificando...' : 'Verificar no Servidor'}</span>
                   </button>
                 </div>
               </div>
@@ -1312,7 +1330,7 @@ const handleCarregarCertificadoEPreencher = async () => {
         <div className="flex items-center justify-end gap-3 pt-2">
           <button
             type="button"
-            onClick={handleLimparForm}
+            onClick={() => setConfirmarLimpeza(true)}
             className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
             title="Limpar todos os dados do formulário"
           >
@@ -1332,6 +1350,16 @@ const handleCarregarCertificadoEPreencher = async () => {
         </div>
 
       </form>
+
+      <ConfirmModal
+        isOpen={confirmarLimpeza}
+        onClose={() => setConfirmarLimpeza(false)}
+        onConfirm={handleLimparForm}
+        title="Limpar formulário"
+        message="Tem certeza que deseja limpar todos os dados do formulário? Esta ação não pode ser desfeita."
+        type="danger"
+        confirmText="Limpar"
+      />
 
     </div>
   );

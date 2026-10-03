@@ -35,12 +35,14 @@ import {
 import { consultarCnpjConectaGov, ConsultaCnpjResponse } from '../../utils/consultaCnpjApi';
 import { formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { getApiErrorMessage } from '../../utils/apiError';
+import { useToast } from '../../hooks/useToast';
 
 interface ConsultaCnpjViewProps {
   onNavigate?: (view: string) => void;
 }
 
 export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }) => {
+  const toast = useToast();
   const [cnpj, setCnpj] = useState('');
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<ConsultaCnpjResponse['dados'] | null>(null);
@@ -94,9 +96,13 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
     }
   };
 
-  const copiarParaClipboard = (texto: string) => {
-    navigator.clipboard.writeText(texto);
-    alert('✅ Copiado para a área de transferência!');
+  const copiarParaClipboard = async (texto: string) => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast.showSuccess('✅ Copiado para a área de transferência!');
+    } catch {
+      toast.showError('❌ Não foi possível copiar. Selecione o texto e copie manualmente.');
+    }
   };
 
 // C:\emissornfe\src\components\tools\ConsultaCnpjView.tsx

@@ -3,7 +3,9 @@
 // extra ao lado/embaixo. Teclado: ↓/↑ navega as sugestões, Enter confirma a
 // destacada, Esc fecha. Clique nas sugestões também funciona (onMouseDown,
 // não onClick, pra disparar antes do blur do input fechar a lista).
-import React, { useState, useRef, useEffect } from 'react';
+// Acessibilidade: padrão WAI-ARIA "combobox com listbox" — o foco fica no
+// input e a opção destacada é anunciada via aria-activedescendant.
+import React, { useState, useRef, useEffect, useId } from 'react';
 
 interface ComboboxProps<T> {
   value: string;
@@ -35,6 +37,8 @@ export function Combobox<T>({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
+  const optionId = (i: number) => `${listboxId}-opcao-${i}`;
 
   const visibleOptions = options.slice(0, maxResults);
 
@@ -48,6 +52,7 @@ export function Combobox<T>({
   }, [highlightIndex]);
 
   const showPanel = isOpen && (visibleOptions.length > 0 || !!emptyMessage);
+  const opcaoAtiva = showPanel && visibleOptions[highlightIndex] ? optionId(highlightIndex) : undefined;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
@@ -86,19 +91,29 @@ export function Combobox<T>({
         placeholder={placeholder}
         className={inputClassName}
         autoComplete="off"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={showPanel}
+        aria-controls={listboxId}
+        aria-activedescendant={opcaoAtiva}
         {...inputProps}
       />
       {showPanel && (
         <div
           ref={listRef}
+          id={listboxId}
+          role="listbox"
           className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg p-1.5 max-h-56 overflow-y-auto space-y-1 z-30 shadow-lg"
         >
           {visibleOptions.length === 0 ? (
-            <div className="text-xs text-slate-500 p-2 text-center">{emptyMessage}</div>
+            <div className="text-xs text-slate-500 p-2 text-center" role="status">{emptyMessage}</div>
           ) : (
             visibleOptions.map((item, i) => (
               <div
                 key={getKey(item)}
+                id={optionId(i)}
+                role="option"
+                aria-selected={i === highlightIndex}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   onSelect(item);

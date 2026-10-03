@@ -31,6 +31,7 @@ interface AlertCache {
 
 const CACHE_TTL = 60000;
 const DEBOUNCE_DELAY = 500;
+const INTERVALO_ATUALIZACAO_MS = 5 * 60 * 1000;
 
 interface AlertasSistemaProps {
   className?: string;
@@ -166,16 +167,36 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
 
     loadWithDebounce();
     
-    const interval = setInterval(() => {
+    // Só consulta com a aba visível: várias abas abertas em segundo plano
+    // multiplicavam as requisições e podiam bater no rate limit da API.
+    let ultimaAtualizacao = Date.now();
+    const atualizar = () => {
+      ultimaAtualizacao = Date.now();
       cacheRef.current = null;
       carregarAlertas();
-    }, 300000);
+    };
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') atualizar();
+    }, INTERVALO_ATUALIZACAO_MS);
+
+    // Ao voltar para a aba, atualiza se o intervalo já passou enquanto ela estava oculta.
+    const handleVisibilidade = () => {
+      if (
+        document.visibilityState === 'visible' &&
+        Date.now() - ultimaAtualizacao >= INTERVALO_ATUALIZACAO_MS
+      ) {
+        atualizar();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilidade);
 
     return () => {
       if (timeoutId.current) {
         clearTimeout(timeoutId.current);
       }
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilidade);
     };
   }, []);
 
