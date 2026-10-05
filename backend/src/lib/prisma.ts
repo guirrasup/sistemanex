@@ -16,11 +16,8 @@ export const prisma =
         : ['error'],
   });
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV === "development") {
   global.prisma = prisma;
 }
 
-// Graceful shutdown
-process.on('beforeExit', async () => {
-  await prisma.$disconnect();
-});
+// O desligamento ($disconnect) é feito no encerramento do server.ts (SIGTERM/SIGINT).

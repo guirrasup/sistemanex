@@ -17,25 +17,26 @@ export class EstoqueService {
     tipoMovimento: 'SAIDA_VENDA' | 'SAIDA_NFE' | 'SAIDA_NFCE';
     usuarioId: string;
   }) {
-    const produto = await this.produtoRepo.findById(params.produtoId);
+    const produto = await this.produtoRepo.findById(params.produtoId, params.empresaId);
     if (!produto) throw new Error('Produto não encontrado');
 
-    if (produto.estoqueAtual < params.quantidade) {
-      throw new Error(`Estoque insuficiente. Disponível: ${produto.estoqueAtual} ${produto.unidade}`);
+    const estoqueAnterior = Number(produto.estoqueAtual);
+    if (estoqueAnterior < params.quantidade) {
+      throw new Error(`Estoque insuficiente. Disponível: ${estoqueAnterior} ${produto.unidade}`);
     }
 
-    const novoEstoque = produto.estoqueAtual - params.quantidade;
-    
-    await this.produtoRepo.update(params.produtoId, {
+    const novoEstoque = estoqueAnterior - params.quantidade;
+
+    await this.produtoRepo.update(params.produtoId, params.empresaId, {
       estoqueAtual: novoEstoque
     });
 
     // Registra movimentação (opcional - pode ser implementado com uma tabela de movimentações)
-    
+
     return {
       produto: produto.descricao,
       quantidade: params.quantidade,
-      estoqueAnterior: produto.estoqueAtual,
+      estoqueAnterior,
       estoqueAtual: novoEstoque,
       documentoReferencia: params.documentoReferencia
     };
@@ -48,28 +49,29 @@ export class EstoqueService {
     documentoReferencia: string;
     usuarioId: string;
   }) {
-    const produto = await this.produtoRepo.findById(params.produtoId);
+    const produto = await this.produtoRepo.findById(params.produtoId, params.empresaId);
     if (!produto) throw new Error('Produto não encontrado');
 
-    const novoEstoque = produto.estoqueAtual + params.quantidade;
+    const estoqueAnterior = Number(produto.estoqueAtual);
+    const novoEstoque = estoqueAnterior + params.quantidade;
 
-    await this.produtoRepo.update(params.produtoId, {
+    await this.produtoRepo.update(params.produtoId, params.empresaId, {
       estoqueAtual: novoEstoque
     });
 
     return {
       produto: produto.descricao,
       quantidade: params.quantidade,
-      estoqueAnterior: produto.estoqueAtual,
+      estoqueAnterior,
       estoqueAtual: novoEstoque,
       documentoReferencia: params.documentoReferencia
     };
   }
 
-  async verificarDisponibilidade(produtoId: string, quantidade: number): Promise<boolean> {
-    const produto = await this.produtoRepo.findById(produtoId);
+  async verificarDisponibilidade(produtoId: string, empresaId: string, quantidade: number): Promise<boolean> {
+    const produto = await this.produtoRepo.findById(produtoId, empresaId);
     if (!produto) return false;
-    return produto.estoqueAtual >= quantidade;
+    return Number(produto.estoqueAtual) >= quantidade;
   }
 
   async getEstoqueCritico(empresaId: string) {

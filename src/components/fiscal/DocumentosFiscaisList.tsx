@@ -21,6 +21,7 @@ import {
   ShoppingBag,
   Truck,
   FileBadge2,
+  FileArchive,
   FolderOpen,
   ArrowUpDown,
   ArrowUp,
@@ -29,8 +30,13 @@ import {
   X
 } from 'lucide-react';
 import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento } from '../../types/fiscal';
+import { MDFeDocumento } from '../../types/mdfe';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { formatarChaveAcesso44 } from '../../utils/chaveAcesso';
+
+// 🔥 Tipo de filtro exportado para o App.tsx conseguir tipar o estado de
+// "com qual tipo o usuário entrou nesta tela" sem duplicar a união em dois lugares.
+export type TipoDocumentoFiltro = 'TODOS' | 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE' | 'MDFE';
 
 interface DocumentosFiscaisListProps {
   nfses: NFSeDocumento[];
@@ -38,16 +44,23 @@ interface DocumentosFiscaisListProps {
   nfces?: NFCeDocumento[];
   ctes?: CTeDocumento[];
   nfaes?: NFAeDocumento[];
-  onViewDanfse: (nfse: NFSeDocumento) => void;
-  onViewDanfe: (nfe: NFeDocumento) => void;
-  onViewDanfce?: (nfce: NFCeDocumento) => void;
-  onViewDacte?: (cte: CTeDocumento) => void;
+  mdfes?: MDFeDocumento[];
+  // 🔥 Com qual tipo a tela deve abrir já filtrada — quando a navegação vem de
+  // uma ação específica de tipo (ex.: atalho do Dashboard), não de um acesso
+  // genérico pelo menu "Documentos Emitidos" (que mostra todos os tipos).
+  initialTipo?: TipoDocumentoFiltro;
+  onViewDanfse: (nfseId: string) => void;
+  onViewDanfe: (nfeId: string) => void;
+  onViewDanfce?: (nfceId: string) => void;
+  onViewDacte?: (cteId: string) => void;
   onViewDanfae?: (nfae: NFAeDocumento) => void;
+  onViewMdfe?: (mdfe: MDFeDocumento) => void;
   onEmitirNovaNfse?: () => void;
   onEmitirNovaNfe?: () => void;
   onEmitirNovaNfce?: () => void;
   onEmitirNovoCte?: () => void;
   onEmitirNovaNfae?: () => void;
+  onEmitirNovoMdfe?: () => void;
   onCancelarNfse?: (id: string) => void;
   onCancelarNfe?: (id: string) => void;
 }
@@ -56,12 +69,73 @@ interface DocumentosFiscaisListProps {
 type OrdenacaoCampo = 'tipo' | 'numero' | 'serie' | 'destinatario' | 'data' | 'valor' | 'status';
 type OrdenacaoDirecao = 'asc' | 'desc';
 
+// Decimal do Prisma chega como string no JSON (ex.: "1450.00") — somar direto
+// com `+` sem converter faz concatenação de string em vez de soma.
+function paraNumero(v: unknown): number {
+  const n = typeof v === 'string' ? parseFloat(v) : v;
+  return typeof n === 'number' && !isNaN(n) ? n : 0;
+}
+
 // 🔥 TIPO PARA PERÍODO
 type PeriodoFiltro = 'TODOS' | 'HOJE' | 'SEMANA' | 'MES' | 'TRIMESTRE' | 'SEMESTRE' | 'ANO' | 'PERSONALIZADO';
 
+// 🔥 CAMPOS BRUTOS LIDOS DE QUALQUER TIPO DE DOCUMENTO FISCAL (todos opcionais: cada
+// tipo concreto só preenche o subconjunto de campos que lhe é próprio)
+interface DocumentoFiscalBruto {
+  id?: string;
+  numero?: number;
+  numeroNfse?: number;
+  serie?: number;
+  serieDPS?: number;
+  chaveAcesso?: string;
+  // 🔥 NFe/CTe: relação real com Cliente (schema.prisma) — campo é `razaoSocial`,
+  // não `nomeRazaoSocial` (nome do protótipo antigo, nunca existiu no backend real).
+  destinatario?: { razaoSocial?: string; documento?: string };
+  tomador?: { razaoSocial?: string; documento?: string };
+  remetente?: { razaoSocial?: string; documento?: string };
+  // 🔥 NFCe/NFAe não têm relação com Cliente — gravam os dados crus direto na
+  // linha do documento.
+  consumidorNome?: string;
+  consumidorCpfCnpj?: string;
+  destinatarioNome?: string;
+  destinatarioDocumento?: string;
+  requerenteNome?: string;
+  valorTotalNota?: number;
+  valorTotalServicos?: number;
+  valorTotalFrete?: number;
+  dataHoraEmissao?: string;
+  status?: string;
+  xmlAssinado?: string;
+  itens?: unknown[];
+  servico?: { descricao?: string };
+  municipioInicio?: { nome?: string; uf?: string };
+  municipioFim?: { nome?: string; uf?: string };
+  motivoEmissao?: string;
+  // 🔥 CT-e: schema.prisma segue o leiaute SEFAZ ao pé da letra — número é
+  // `nCT`, municípios/valor de frete são campos escalares, não objetos aninhados.
+  nCT?: number;
+  xMunIni?: string;
+  UFIni?: string;
+  xMunFim?: string;
+  UFFim?: string;
+  vTPrest?: number | string;
+  dhEmi?: string;
+  // 🔥 NF-e/NFS-e: schema.prisma grava os totais no leiaute SEFAZ/nacional —
+  // `vNF`/`valorServico`, não `valorTotalNota`/`valorTotalServicos` (esses dois
+  // nunca existiram no backend real, por isso os cards vinham sempre zerados).
+  vNF?: number | string;
+  valorServico?: number | string;
+  // 🔥 MDF-e: schema.prisma segue o leiaute SEFAZ — `vCarga`/`xProd`, não um
+  // objeto "produtoPredominante" aninhado.
+  vCarga?: number | string;
+  xProd?: string;
+  qCTe?: number;
+  qNFe?: number;
+}
+
 // 🔥 TIPO PARA DOCUMENTO UNIFICADO
 interface DocumentoUnificado {
-  tipo: 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE';
+  tipo: 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE' | 'MDFE';
   tipoLabel: string;
   modelo: string;
   corBadge: string;
@@ -85,18 +159,22 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
   nfces = [],
   ctes = [],
   nfaes = [],
+  mdfes = [],
+  initialTipo = 'TODOS',
   onViewDanfse,
   onViewDanfe,
   onViewDanfce,
   onViewDacte,
   onViewDanfae,
+  onViewMdfe,
   onEmitirNovaNfse,
   onEmitirNovaNfe,
   onEmitirNovaNfce,
   onEmitirNovoCte,
   onEmitirNovaNfae,
+  onEmitirNovoMdfe,
 }) => {
-  const [tipoFiltro, setTipoFiltro] = useState<'TODOS' | 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE'>('TODOS');
+  const [tipoFiltro, setTipoFiltro] = useState<TipoDocumentoFiltro>(initialTipo);
   const [statusFiltro, setStatusFiltro] = useState<'TODOS' | 'AUTORIZADA' | 'CANCELADA'>('TODOS');
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>('TODOS');
   const [dataInicio, setDataInicio] = useState<string>('');
@@ -129,6 +207,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
     NFCE: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-300', hover: 'hover:bg-purple-100' },
     CTE: { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-300', hover: 'hover:bg-cyan-100' },
     NFAE: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-300', hover: 'hover:bg-amber-100' },
+    MDFE: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-300', hover: 'hover:bg-orange-100' },
   };
 
   // 🔥 LABELS DOS PERÍODOS
@@ -194,7 +273,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
   };
 
   // 🔥 FUNÇÃO PARA CRIAR DOCUMENTO UNIFICADO COM FALLBACKS
-  const criarDocumento = (doc: any, tipo: string): DocumentoUnificado | null => {
+  const criarDocumento = (doc: DocumentoFiscalBruto, tipo: string): DocumentoUnificado | null => {
     if (!doc) return null;
 
     switch (tipo) {
@@ -208,14 +287,22 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           numero: doc.numero || 0,
           serie: doc.serie || 0,
           chave: doc.chaveAcesso || '',
-          destinatario: doc.destinatario?.nomeRazaoSocial || 'Destinatário não informado',
+          // 🔥 destinatario vem da relação real com Cliente (schema.prisma), cujo
+          // campo é `razaoSocial` — não `nomeRazaoSocial` (nome do protótipo antigo).
+          destinatario: doc.destinatario?.razaoSocial || 'Destinatário não informado',
           documento: doc.destinatario?.documento || 'Não informado',
-          valor: doc.valorTotalNota || 0,
-          data: doc.dataHoraEmissao || new Date().toISOString(),
+          valor: paraNumero(doc.vNF),
+          // 🔥 NFe (schema.prisma) não tem campo `dataHoraEmissao` — é `dhEmi`,
+          // igual CT-e/MDF-e. Usar o nome errado fazia toda NF-e cair no
+          // fallback `new Date()` (hora do render), fazendo-a "vencer" o sort
+          // por data mais recente contra os outros tipos — por isso "Todos"
+          // aparecia fora de ordem enquanto o filtro por tipo (que não
+          // dependia da comparação entre tipos) parecia correto.
+          data: doc.dhEmi || new Date().toISOString(),
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: `${doc.itens?.length || 0} item(ns) faturado(s)`,
-          onView: () => onViewDanfe(doc),
+          onView: () => onViewDanfe(doc.id || ''),
         };
       case 'NFSE':
         return {
@@ -227,14 +314,14 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           numero: doc.numeroNfse || 0,
           serie: doc.serieDPS || 0,
           chave: doc.chaveAcesso || '',
-          destinatario: doc.tomador?.nomeRazaoSocial || 'Tomador não informado',
+          destinatario: doc.tomador?.razaoSocial || 'Tomador não informado',
           documento: doc.tomador?.documento || 'Não informado',
-          valor: doc.valorTotalServicos || 0,
+          valor: paraNumero(doc.valorServico),
           data: doc.dataHoraEmissao || new Date().toISOString(),
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: doc.servico?.descricao || 'Serviço sem descrição',
-          onView: () => onViewDanfse(doc),
+          onView: () => onViewDanfse(doc.id || ''),
         };
       case 'NFCE':
         return {
@@ -246,14 +333,16 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           numero: doc.numero || 0,
           serie: doc.serie || 0,
           chave: doc.chaveAcesso || '',
-          destinatario: doc.destinatario?.nomeRazaoSocial || 'Consumidor Final (PDV)',
-          documento: doc.destinatario?.cpfCnpj || 'Não Informado',
-          valor: doc.valorTotalNota || 0,
+          // 🔥 NFCe não tem relação `destinatario` — o schema grava o consumidor em
+          // campos crus direto na linha (consumidorNome/consumidorCpfCnpj).
+          destinatario: doc.consumidorNome || 'Consumidor Final (PDV)',
+          documento: doc.consumidorCpfCnpj || 'Não Informado',
+          valor: paraNumero(doc.valorTotalNota),
           data: doc.dataHoraEmissao || new Date().toISOString(),
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
           detalhes: `${doc.itens?.length || 0} item(ns) • Cupom Fiscal PDV`,
-          onView: () => onViewDanfce && onViewDanfce(doc),
+          onView: () => onViewDanfce && onViewDanfce(doc.id || ''),
         };
       case 'CTE':
         return {
@@ -262,17 +351,17 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           modelo: '57',
           corBadge: 'bg-cyan-50 text-cyan-800 border-cyan-200',
           id: doc.id || '',
-          numero: doc.numero || 0,
+          numero: doc.nCT || 0,
           serie: doc.serie || 0,
           chave: doc.chaveAcesso || '',
-          destinatario: `${doc.remetente?.nomeRazaoSocial?.slice(0, 18) || 'Remetente'} ➔ ${doc.destinatario?.nomeRazaoSocial?.slice(0, 18) || 'Destinatário'}`,
+          destinatario: `${doc.remetente?.razaoSocial?.slice(0, 18) || 'Remetente'} ➔ ${doc.destinatario?.razaoSocial?.slice(0, 18) || 'Destinatário'}`,
           documento: doc.remetente?.documento || 'Não informado',
-          valor: doc.valorTotalFrete || 0,
-          data: doc.dataHoraEmissao || new Date().toISOString(),
+          valor: paraNumero(doc.vTPrest),
+          data: doc.dhEmi || new Date().toISOString(),
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
-          detalhes: `Frete ${doc.municipioInicio?.nome || '?'}/${doc.municipioInicio?.uf || '?'} ➔ ${doc.municipioFim?.nome || '?'}/${doc.municipioFim?.uf || '?'}`,
-          onView: () => onViewDacte && onViewDacte(doc),
+          detalhes: `Frete ${doc.xMunIni || '?'}/${doc.UFIni || '?'} ➔ ${doc.xMunFim || '?'}/${doc.UFFim || '?'}`,
+          onView: () => onViewDacte && doc.id && onViewDacte(doc.id),
         };
       case 'NFAE':
         return {
@@ -284,14 +373,37 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           numero: doc.numero || 0,
           serie: doc.serie || 0,
           chave: doc.chaveAcesso || '',
-          destinatario: doc.destinatario?.nomeRazaoSocial || 'Destinatário não informado',
-          documento: doc.destinatario?.documento || 'Não informado',
-          valor: doc.valorTotalNota || 0,
+          // 🔥 NFAe não tem relação destinatario/requerente — schema grava tudo em
+          // campos crus direto na linha (destinatarioNome/requerenteNome etc.).
+          destinatario: doc.destinatarioNome || 'Destinatário não informado',
+          documento: doc.destinatarioDocumento || 'Não informado',
+          valor: paraNumero(doc.valorTotalNota),
           data: doc.dataHoraEmissao || new Date().toISOString(),
           status: doc.status || 'PROCESSANDO',
           xml: doc.xmlAssinado || '',
-          detalhes: `${doc.requerente?.nomeRazaoSocial || 'Requerente'} • ${doc.motivoEmissao || 'Sem motivo'}`,
-          onView: () => onViewDanfae && onViewDanfae(doc),
+          detalhes: `${doc.requerenteNome || 'Requerente'} • ${doc.motivoEmissao || 'Sem motivo'}`,
+          onView: () => onViewDanfae && onViewDanfae(doc as unknown as NFAeDocumento),
+        };
+      case 'MDFE':
+        return {
+          tipo: 'MDFE',
+          tipoLabel: 'MDF-e (Manifesto)',
+          modelo: '58',
+          corBadge: 'bg-orange-50 text-orange-800 border-orange-200',
+          id: doc.id || '',
+          numero: doc.numero || 0,
+          serie: doc.serie || 0,
+          chave: doc.chaveAcesso || '',
+          // 🔥 MDF-e não tem destinatário — é um manifesto de viagem, não uma
+          // venda/serviço; mostramos o trajeto no lugar.
+          destinatario: `${doc.UFIni || '?'} ➔ ${doc.UFFim || '?'}`,
+          documento: doc.xProd || 'Carga não descrita',
+          valor: paraNumero(doc.vCarga),
+          data: doc.dhEmi || new Date().toISOString(),
+          status: doc.status || 'PROCESSANDO',
+          xml: doc.xmlAssinado || '',
+          detalhes: `${doc.qCTe || 0} CT-e(s) e ${doc.qNFe || 0} NF-e(s) vinculados`,
+          onView: () => onViewMdfe && onViewMdfe(doc as unknown as MDFeDocumento),
         };
       default:
         return null;
@@ -300,32 +412,32 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
 
   // 🔥 UNIFICA TODOS OS DOCUMENTOS (com fallbacks)
   const todosDocsRaw = [
-    ...nfes.map(d => criarDocumento(d, 'NFE')).filter(Boolean),
-    ...nfses.map(d => criarDocumento(d, 'NFSE')).filter(Boolean),
-    ...nfces.map(d => criarDocumento(d, 'NFCE')).filter(Boolean),
-    ...ctes.map(d => criarDocumento(d, 'CTE')).filter(Boolean),
-    ...nfaes.map(d => criarDocumento(d, 'NFAE')).filter(Boolean),
+    ...nfes.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'NFE')).filter(Boolean),
+    ...nfses.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'NFSE')).filter(Boolean),
+    ...nfces.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'NFCE')).filter(Boolean),
+    ...ctes.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'CTE')).filter(Boolean),
+    ...nfaes.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'NFAE')).filter(Boolean),
+    ...mdfes.map(d => criarDocumento(d as unknown as DocumentoFiscalBruto, 'MDFE')).filter(Boolean),
   ] as DocumentoUnificado[];
 
-  // 🔥 ORDENAÇÃO E FILTRO COM useMemo
-  const todosDocs = useMemo(() => {
-    // 🔥 FILTRO POR PERÍODO
+  // 🔥 Filtro por período/status/busca SEM o filtro de tipo — usado pelos
+  // badges/cards de contagem por tipo. Antes esses badges/cards liam de
+  // `todosDocs` (que já vem filtrado pelo tipo ativo), então com qualquer
+  // filtro de tipo selecionado o card "Todos" mostrava a contagem do tipo
+  // ativo e os demais tipos apareciam zerados — dava a impressão de que os
+  // outros documentos tinham sumido, quando na verdade só o rótulo/contagem
+  // estava errado (a tabela em si sempre respeitou o filtro corretamente).
+  const docsFiltradosSemTipo = useMemo(() => {
     const { inicio, fim } = getDatasPorPeriodo(periodoFiltro);
-    
-    const filtrados = todosDocsRaw.filter(d => {
-      // Filtro por tipo
-      if (tipoFiltro !== 'TODOS' && d.tipo !== tipoFiltro) return false;
-      
-      // Filtro por status
+
+    return todosDocsRaw.filter(d => {
       if (statusFiltro !== 'TODOS' && d.status !== statusFiltro) return false;
-      
-      // Filtro por período
+
       if (inicio && fim) {
         const dataDoc = new Date(d.data);
         if (dataDoc < inicio || dataDoc > fim) return false;
       }
-      
-      // Filtro por busca
+
       if (busca.trim()) {
         const q = busca.toLowerCase();
         return (
@@ -339,11 +451,19 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
       }
       return true;
     });
+  }, [todosDocsRaw, busca, statusFiltro, periodoFiltro, dataInicio, dataFim]);
+
+  // 🔥 ORDENAÇÃO E FILTRO COM useMemo
+  const todosDocs = useMemo(() => {
+    const filtrados = docsFiltradosSemTipo.filter(d => {
+      if (tipoFiltro !== 'TODOS' && d.tipo !== tipoFiltro) return false;
+      return true;
+    });
 
     // 🔥 ORDENAÇÃO
     return [...filtrados].sort((a, b) => {
-      let valorA: any;
-      let valorB: any;
+      let valorA: unknown;
+      let valorB: unknown;
 
       switch (ordenacaoCampo) {
         case 'tipo':
@@ -379,19 +499,26 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
           valorB = b.data;
       }
 
+      let resultado = 0;
       if (typeof valorA === 'number' && typeof valorB === 'number') {
-        return ordenacaoDirecao === 'asc' ? valorA - valorB : valorB - valorA;
-      }
-
-      if (typeof valorA === 'string' && typeof valorB === 'string') {
-        return ordenacaoDirecao === 'asc'
+        resultado = ordenacaoDirecao === 'asc' ? valorA - valorB : valorB - valorA;
+      } else if (typeof valorA === 'string' && typeof valorB === 'string') {
+        resultado = ordenacaoDirecao === 'asc'
           ? valorA.localeCompare(valorB)
           : valorB.localeCompare(valorA);
       }
 
-      return 0;
+      // 🔥 Desempate: quando o critério principal empata (ex.: mesma data de
+      // emissão — comum em documentos importados/testados em lote, ou tipos
+      // diferentes emitidos no mesmo segundo), usa o número da nota em ordem
+      // decrescente como segundo critério, pra ordem final ficar determinística.
+      if (resultado === 0) {
+        return b.numero - a.numero;
+      }
+
+      return resultado;
     });
-  }, [todosDocsRaw, busca, tipoFiltro, statusFiltro, periodoFiltro, dataInicio, dataFim, ordenacaoCampo, ordenacaoDirecao]);
+  }, [docsFiltradosSemTipo, tipoFiltro, ordenacaoCampo, ordenacaoDirecao]);
 
   // 🔥 FUNÇÃO PARA ORDENAR
   const handleOrdenar = (campo: OrdenacaoCampo) => {
@@ -417,12 +544,16 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
   const thClass = "py-3 px-4 text-left text-xs font-bold text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors select-none";
 
   // Métricas Consolidadas
-  const totalFaturado = todosDocs.reduce((acc, d) => acc + (d.valor || 0), 0);
-  const totalNfe = todosDocs.filter(d => d.tipo === 'NFE').reduce((acc, d) => acc + d.valor, 0);
-  const totalNfse = todosDocs.filter(d => d.tipo === 'NFSE').reduce((acc, d) => acc + d.valor, 0);
-  const totalNfce = todosDocs.filter(d => d.tipo === 'NFCE').reduce((acc, d) => acc + d.valor, 0);
-  const totalCte = todosDocs.filter(d => d.tipo === 'CTE').reduce((acc, d) => acc + d.valor, 0);
-  const totalNfae = todosDocs.filter(d => d.tipo === 'NFAE').reduce((acc, d) => acc + d.valor, 0);
+  // 🔥 Totais/contagens por tipo usam `docsFiltradosSemTipo` (período/status/
+  // busca, mas SEM o filtro de tipo) — assim os cards e badges sempre mostram
+  // o panorama completo, independente de qual filtro de tipo está ativo.
+  const totalFaturado = docsFiltradosSemTipo.reduce((acc, d) => acc + (d.valor || 0), 0);
+  const totalNfe = docsFiltradosSemTipo.filter(d => d.tipo === 'NFE').reduce((acc, d) => acc + d.valor, 0);
+  const totalNfse = docsFiltradosSemTipo.filter(d => d.tipo === 'NFSE').reduce((acc, d) => acc + d.valor, 0);
+  const totalNfce = docsFiltradosSemTipo.filter(d => d.tipo === 'NFCE').reduce((acc, d) => acc + d.valor, 0);
+  const totalCte = docsFiltradosSemTipo.filter(d => d.tipo === 'CTE').reduce((acc, d) => acc + d.valor, 0);
+  const totalNfae = docsFiltradosSemTipo.filter(d => d.tipo === 'NFAE').reduce((acc, d) => acc + d.valor, 0);
+  const totalMdfe = docsFiltradosSemTipo.filter(d => d.tipo === 'MDFE').reduce((acc, d) => acc + d.valor, 0);
 
   const handleCopiarChave = (chave: string) => {
     navigator.clipboard.writeText(chave);
@@ -456,7 +587,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
   };
 
   // 🔥 Função para renderizar botão de filtro
-  const renderFiltroBotao = (tipo: 'TODOS' | 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE', label: string, count: number) => {
+  const renderFiltroBotao = (tipo: TipoDocumentoFiltro, label: string, count: number) => {
     const isActive = tipoFiltro === tipo;
     const cores = coresPorTipo[tipo];
     
@@ -473,6 +604,28 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
         {label} ({count})
       </button>
     );
+  };
+
+  // 🔥 Quando um tipo específico já está selecionado (veio de um atalho por
+  // tipo, ou o usuário clicou num filtro), "Emitir Nova Nota" vai direto pro
+  // emissor daquele tipo — só mostra o dropdown de seleção quando o filtro é
+  // "TODOS" (ou o tipo ativo não tiver uma ação de emissão configurada).
+  const emitirPorTipo: Partial<Record<TipoDocumentoFiltro, { label: string; onEmitir?: () => void }>> = {
+    NFE: { label: 'Nova NF-e', onEmitir: onEmitirNovaNfe },
+    NFSE: { label: 'Nova NFS-e', onEmitir: onEmitirNovaNfse },
+    NFCE: { label: 'Nova NFC-e', onEmitir: onEmitirNovaNfce },
+    CTE: { label: 'Novo CT-e', onEmitir: onEmitirNovoCte },
+    NFAE: { label: 'Nova NFA-e', onEmitir: onEmitirNovaNfae },
+    MDFE: { label: 'Novo MDF-e', onEmitir: onEmitirNovoMdfe },
+  };
+  const emitirAtivo = tipoFiltro !== 'TODOS' ? emitirPorTipo[tipoFiltro] : undefined;
+
+  const handleClickEmitirPrincipal = () => {
+    if (emitirAtivo?.onEmitir) {
+      emitirAtivo.onEmitir();
+      return;
+    }
+    setMenuNovaNotaAberto(!menuNovaNotaAberto);
   };
 
   // 🔥 Renderizar o seletor de período - CORRIGIDO
@@ -595,7 +748,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Gestão e emissão completa de todos os modelos fiscais: NF-e, NFS-e, NFC-e, CT-e e NFA-e.
+            Gestão e emissão completa de todos os modelos fiscais: NF-e, NFS-e, NFC-e, CT-e, NFA-e e MDF-e.
           </p>
         </div>
 
@@ -605,7 +758,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3">
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium text-slate-500">Faturamento Total</span>
@@ -614,7 +767,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalFaturado)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.length} documentos emitidos</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.length} documentos emitidos</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -625,7 +778,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfe)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFE').length} notas modelo 55</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFE').length} notas modelo 55</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -636,7 +789,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfse)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFSE').length} notas padrão DPS</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFSE').length} notas padrão DPS</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -647,7 +800,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfce)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFCE').length} cupons PDV</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFCE').length} cupons PDV</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -658,7 +811,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalCte)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'CTE').length} conhecimentos</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'CTE').length} conhecimentos</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
@@ -669,7 +822,18 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
           </div>
           <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfae)}</div>
-          <div className="text-[10px] text-slate-400">{todosDocs.filter(d => d.tipo === 'NFAE').length} notas série 900</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFAE').length} notas série 900</div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-slate-500">MDF-e (Manifesto)</span>
+            <div className="w-6 h-6 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center">
+              <FileArchive className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalMdfe)}</div>
+          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'MDFE').length} manifestos</div>
         </div>
       </div>
 
@@ -690,12 +854,13 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             {renderPeriodoSelector()}
 
             <div className="flex flex-wrap items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 text-xs">
-              {renderFiltroBotao('TODOS', 'Todos', todosDocs.length)}
-              {renderFiltroBotao('NFE', 'NF-e', todosDocs.filter(d => d.tipo === 'NFE').length)}
-              {renderFiltroBotao('NFSE', 'NFS-e', todosDocs.filter(d => d.tipo === 'NFSE').length)}
-              {renderFiltroBotao('NFCE', 'NFC-e', todosDocs.filter(d => d.tipo === 'NFCE').length)}
-              {renderFiltroBotao('CTE', 'CT-e', todosDocs.filter(d => d.tipo === 'CTE').length)}
-              {renderFiltroBotao('NFAE', 'NFA-e', todosDocs.filter(d => d.tipo === 'NFAE').length)}
+              {renderFiltroBotao('TODOS', 'Todos', docsFiltradosSemTipo.length)}
+              {renderFiltroBotao('NFE', 'NF-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFE').length)}
+              {renderFiltroBotao('NFSE', 'NFS-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFSE').length)}
+              {renderFiltroBotao('NFCE', 'NFC-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFCE').length)}
+              {renderFiltroBotao('CTE', 'CT-e', docsFiltradosSemTipo.filter(d => d.tipo === 'CTE').length)}
+              {renderFiltroBotao('NFAE', 'NFA-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFAE').length)}
+              {renderFiltroBotao('MDFE', 'MDF-e', docsFiltradosSemTipo.filter(d => d.tipo === 'MDFE').length)}
             </div>
 
             <div className="relative flex items-center gap-2">
@@ -703,12 +868,13 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                 <div className="flex rounded-lg shadow-sm">
                   <button
                     type="button"
-                    onClick={() => setMenuNovaNotaAberto(!menuNovaNotaAberto)}
+                    onClick={handleClickEmitirPrincipal}
                     id="btn-emitir-nova-nota"
                     className={`${corBgButton} text-white text-xs font-bold px-4 py-2 rounded-l-lg transition-colors flex items-center gap-2 cursor-pointer`}
+                    title={emitirAtivo ? `Emitir ${emitirAtivo.label} diretamente` : 'Selecione o tipo de documento'}
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Emitir Nova Nota</span>
+                    <span>{emitirAtivo ? `Emitir ${emitirAtivo.label}` : 'Emitir Nova Nota'}</span>
                   </button>
                   <button
                     type="button"
@@ -774,6 +940,16 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                         <div>
                           <div className="text-xs font-bold text-slate-900 group-hover:text-amber-700">NFA-e (Nota Avulsa Eletrônica)</div>
                           <div className="text-[10px] text-slate-500">Série 900 • Produtor Rural / MEI / Avulsa SEFAZ</div>
+                        </div>
+                      </button>
+
+                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovoMdfe) onEmitirNovoMdfe(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
+                        <div className="w-7 h-7 rounded bg-orange-100 text-orange-700 flex items-center justify-center shrink-0 group-hover:bg-orange-600 group-hover:text-white transition-colors mt-0.5">
+                          <FileArchive className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 group-hover:text-orange-700">MDF-e (Manifesto Eletrônico)</div>
+                          <div className="text-[10px] text-slate-500">Modelo 58 • Manifesto de Documentos Fiscais</div>
                         </div>
                       </button>
                     </div>

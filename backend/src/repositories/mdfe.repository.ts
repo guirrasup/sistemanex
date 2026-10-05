@@ -1,6 +1,6 @@
 // backend/src/repositories/mdfe.repository.ts
-import { Prisma, StatusMDFe } from '@prisma/client';
-import { BaseRepository } from './base.repository';
+import { Prisma, StatusMDFe, ModalMDFe } from '@prisma/client';
+import { BaseRepository } from './base.repository.js';
 
 // ============================================================
 // INTERFACES
@@ -201,7 +201,7 @@ export class MdfeRepository extends BaseRepository {
 
     // ✅ Filtro por modal
     if (modal) {
-      where.modal = modal as any;
+      where.modal = modal as ModalMDFe;
     }
 
     // ✅ Filtro por número
@@ -261,7 +261,7 @@ export class MdfeRepository extends BaseRepository {
     };
   }
 
-  async create(data: Prisma.MDFeCreateInput) {
+  async create(data: Prisma.MDFeUncheckedCreateInput) {
     if (!data.chaveAcesso) {
       throw new Error('Chave de acesso é obrigatória');
     }
@@ -322,12 +322,13 @@ export class MdfeRepository extends BaseRepository {
           },
           seguros: true,
           lacres: true,
-          autorizadosDownload: true
+          autorizadosDownload: true,
+          condutores: true
         }
       });
     }
 
-    async updateStatus(id: string, status: StatusMDFe, protocolo?: string) {
+    async updateStatus(id: string, status: StatusMDFe, protocolo?: string, xmlAssinado?: string, motivoRejeicao?: string) {
       if (!id) {
         throw new Error('ID do MDF-e é obrigatório');
       }
@@ -337,6 +338,15 @@ export class MdfeRepository extends BaseRepository {
       if (protocolo) {
         data.protocoloAutorizacao = protocolo;
         data.dataHoraAutorizacao = new Date();
+      }
+
+      if (xmlAssinado) {
+        data.xmlAssinado = xmlAssinado;
+      }
+
+      if (motivoRejeicao) {
+        data.motivoRejeicao = motivoRejeicao;
+        data.dataHoraRejeicao = new Date();
       }
 
       return this.prisma.mDFe.update({

@@ -1,6 +1,25 @@
 // backend/src/controllers/cnpj.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
-import { ConectaGovService } from '../services/conectagov.service';
+import { ConectaGovService } from '../services/conectagov.service.js';
+
+interface CnaeSecundarioConectaGov {
+  codigo?: string;
+  descricao?: string;
+}
+
+interface TelefoneConectaGov {
+  ddd?: string;
+  numero?: string;
+}
+
+interface SocioConectaGov {
+  tipoSocio?: string;
+  cpf?: string;
+  nome?: string;
+  qualificacao?: string;
+  dataInclusao?: string;
+}
 
 export class CnpjController {
   private conectaGovService: ConectaGovService;
@@ -13,7 +32,7 @@ export class CnpjController {
     try {
       const { cnpj } = req.params;
       const datasets = (req.query.datasets as string)?.split(',') || ['receita'];
-      const cpfUsuario = req.headers['x-cpf-usuario'] as string || req.user?.cpf;
+      const cpfUsuario = req.headers['x-cpf-usuario'] as string || (req.user as { cpf?: string } | undefined)?.cpf;
 
       // 🔥 VALIDA CNPJ
       const cnpjLimpo = cnpj.replace(/\D/g, '');
@@ -42,7 +61,7 @@ export class CnpjController {
           dataAbertura: data.dataAbertura || '',
           cnaePrincipal: data.cnaePrincipal?.codigo || '',
           cnaePrincipalDescricao: data.cnaePrincipal?.descricao || '',
-          cnaeSecundarios: data.cnaeSecundarias?.map((c: any) => ({
+          cnaeSecundarios: data.cnaeSecundarias?.map((c: CnaeSecundarioConectaGov) => ({
             codigo: c.codigo || '',
             descricao: c.descricao || ''
           })) || [],
@@ -59,7 +78,7 @@ export class CnpjController {
             pais: data.endereco?.pais?.descricao || 'BRASIL',
             codigoPais: data.endereco?.pais?.codigo || '1058',
           },
-          telefone: data.telefone?.map((t: any) => ({
+          telefone: data.telefone?.map((t: TelefoneConectaGov) => ({
             ddd: t.ddd || '',
             numero: t.numero || ''
           })) || [],
@@ -70,7 +89,7 @@ export class CnpjController {
           dataSituacaoEspecial: data.dataSituacaoEspecial || '',
           optanteSimples: data.informacoesAdicionais?.optanteSimples === 'S',
           optanteMEI: data.informacoesAdicionais?.optanteMei === 'S',
-          socios: data.socios?.map((s: any) => ({
+          socios: data.socios?.map((s: SocioConectaGov) => ({
             tipo: s.tipoSocio || '',
             cpf: s.cpf || '',
             nome: s.nome || '',
@@ -88,10 +107,10 @@ export class CnpjController {
         }
       });
 
-    } catch (error: any) {
-      console.error('Erro na consulta CNPJ:', error);
-      
-      let mensagem = error.message || 'Erro desconhecido';
+    } catch (error: unknown) {
+      logger.error('Erro na consulta CNPJ:', error);
+
+      let mensagem = error instanceof Error ? error.message : 'Erro desconhecido';
       let status = 500;
 
       if (mensagem.includes('CNPJ inválido')) {
@@ -117,7 +136,7 @@ export class CnpjController {
   async consultarCompleto(req: Request, res: Response) {
     try {
       const { cnpj } = req.params;
-      const cpfUsuario = req.headers['x-cpf-usuario'] as string || req.user?.cpf;
+      const cpfUsuario = req.headers['x-cpf-usuario'] as string || (req.user as { cpf?: string } | undefined)?.cpf;
 
       const cnpjLimpo = cnpj.replace(/\D/g, '');
       if (cnpjLimpo.length !== 14) {
@@ -128,18 +147,18 @@ export class CnpjController {
       }
 
       // Busca dados com todos os datasets
-      const data = await this.conectaGovService.consultarCnpjCompleto(cnpjLimpo, cpfUsuario);
+      const data = await this.conectaGovService.consultarCnpj(cnpjLimpo, cpfUsuario);
 
       return res.json({
         sucesso: true,
         dados: data
       });
 
-    } catch (error: any) {
-      console.error('Erro na consulta completa:', error);
+    } catch (error: unknown) {
+      logger.error('Erro na consulta completa:', error);
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro na consulta'
+        erro: error instanceof Error ? error.message : 'Erro na consulta'
       });
     }
   }

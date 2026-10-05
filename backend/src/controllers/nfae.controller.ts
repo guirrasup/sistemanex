@@ -1,6 +1,8 @@
 // backend/src/controllers/nfae.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
-import { NFAeService } from '../services/nfae.service';
+import { NFAeService } from '../services/nfae.service.js';
+import { EmailService } from '../services/email.service.js';
 
 interface RequestComUsuario extends Request {
   user?: {
@@ -13,9 +15,59 @@ interface RequestComUsuario extends Request {
 
 export class NFAeController {
   private service: NFAeService;
+  private emailService: EmailService;
 
   constructor() {
     this.service = new NFAeService();
+    this.emailService = new EmailService();
+  }
+
+  async enviarXmlPorEmail(req: RequestComUsuario, res: Response) {
+    try {
+      const acesso = this.validarAcesso(req);
+      if (!acesso) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+      const { id } = req.params;
+      const { destinatarioEmail } = req.body as { destinatarioEmail?: string };
+
+      if (!destinatarioEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatarioEmail)) {
+        return res.status(400).json({ sucesso: false, erro: 'Informe um e-mail de destino válido' });
+      }
+      if (!this.emailService.estaConfigurado()) {
+        return res.status(503).json({
+          sucesso: false,
+          erro: 'Envio de e-mail não configurado no servidor (SMTP_HOST/SMTP_USER/SMTP_PASS ausentes).',
+        });
+      }
+
+      const nfae = await this.service.buscarPorId(id, acesso.empresaId);
+      if (!nfae) {
+        return res.status(404).json({ sucesso: false, erro: 'NFA-e não encontrada' });
+      }
+      if (!nfae.xmlAssinado) {
+        return res.status(404).json({ sucesso: false, erro: 'XML da NFA-e não disponível' });
+      }
+
+      await this.emailService.enviar({
+        destinatario: destinatarioEmail,
+        assunto: `NFA-e nº ${nfae.numero} — ${nfae.chaveAcesso}`,
+        corpoTexto:
+          `Segue em anexo o XML da NFA-e nº ${nfae.numero}, série ${nfae.serie}.\n\n` +
+          `Chave de acesso: ${nfae.chaveAcesso}\n` +
+          `Status: ${nfae.status}\n` +
+          (nfae.protocoloAutorizacao ? `Protocolo: ${nfae.protocoloAutorizacao}\n` : ''),
+        anexos: [{ nomeArquivo: `NFAe_${nfae.numero}_${nfae.chaveAcesso}.xml`, conteudo: nfae.xmlAssinado, tipoConteudo: 'application/xml' }],
+      });
+
+      return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
+      return res.status(400).json({
+        sucesso: false,
+        erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
+      });
+    }
   }
 
   private validarAcesso(req: RequestComUsuario): { empresaId: string } | null {
@@ -42,8 +94,8 @@ export class NFAeController {
       );
 
       res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -56,8 +108,8 @@ export class NFAeController {
 
       const stats = await this.service.getEstatisticas(acesso.empresaId);
       res.json(stats);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -76,8 +128,8 @@ export class NFAeController {
       );
 
       res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -96,8 +148,8 @@ export class NFAeController {
       );
 
       res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -116,8 +168,8 @@ export class NFAeController {
       }
 
       res.json(nfae);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -135,8 +187,8 @@ export class NFAeController {
       );
 
       res.json(nfae);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -155,8 +207,8 @@ export class NFAeController {
       }
 
       res.json(nfae);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -170,8 +222,8 @@ export class NFAeController {
       const data = { ...req.body, empresaId: acesso.empresaId };
       const nfae = await this.service.emitir(data);
       res.status(201).json(nfae);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -194,8 +246,8 @@ export class NFAeController {
 
       const nfae = await this.service.cancelar(id, motivo, acesso.empresaId);
       res.json(nfae);
-    } catch (error: any) {
-      const msg = error?.message || '';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
       if (msg === 'NFA-e não encontrada' || msg === 'Acesso negado') {
         return res.status(404).json({ sucesso: false, erro: 'NFA-e não encontrada' });
       }
@@ -205,7 +257,7 @@ export class NFAeController {
       ) {
         return res.status(400).json({ sucesso: false, erro: msg });
       }
-      res.status(500).json({ sucesso: false, erro: error.message });
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -219,8 +271,8 @@ export class NFAeController {
       const { id } = req.params;
       await this.service.excluir(id, acesso.empresaId);
       res.json({ sucesso: true, message: 'NFA-e excluída com sucesso' });
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 
@@ -236,8 +288,8 @@ export class NFAeController {
       res.setHeader('Content-Type', 'application/xml');
       res.setHeader('Content-Disposition', `attachment; filename="NFAe-${id}.xml"`);
       res.send(xml);
-    } catch (error: any) {
-      res.status(500).json({ sucesso: false, erro: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ sucesso: false, erro: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   }
 }

@@ -1,7 +1,7 @@
 // src/utils/certificadoParser.ts
 import forge from 'node-forge';
 import { CertificadoDigitalInfo, ConfiguracaoEmpresa } from '../types/erp';
-import { formatarCpfCnpj, formatarCEP, limparDocumento } from './cpfCnpjValidator';
+import { formatarCpfCnpj } from './cpfCnpjValidator';
 
 export interface ResultadoLeituraCertificado {
   sucesso: boolean;
@@ -10,46 +10,21 @@ export interface ResultadoLeituraCertificado {
   dadosEmpresa?: Partial<ConfiguracaoEmpresa>;
 }
 
-export async function buscarDadosCadastraisCnpj(cnpj: string): Promise<Partial<ConfiguracaoEmpresa> | null> {
-  const cnpjLimpo = limparDocumento(cnpj);
-  if (cnpjLimpo.length !== 14) return null;
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-    const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`, {
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const data = await response.json();
-      return {
-        razaoSocial: data.razao_social || data.nome_empresarial,
-        nomeFantasia: data.nome_fantasia || data.razao_social,
-        cnpj: formatarCpfCnpj(cnpjLimpo),
-        cnae: data.cnae_fiscal ? `${data.cnae_fiscal} - ${data.cnae_fiscal_descricao || ''}` : undefined,
-        regimeTributario: data.opcao_pelo_simples ? 1 : 3,
-        endereco: {
-          logradouro: data.logradouro ? `${data.descricao_tipo_de_logradouro || ''} ${data.logradouro}`.trim() : undefined,
-          numero: data.numero || 'S/N',
-          complemento: data.complemento || undefined,
-          bairro: data.bairro || undefined,
-          codigoMunicipio: data.codigo_municipio_ibge ? String(data.codigo_municipio_ibge) : undefined,
-          nomeMunicipio: data.municipio || undefined,
-          uf: data.uf || undefined,
-          cep: data.cep ? formatarCEP(data.cep) : undefined,
-          telefone: data.ddd_telefone_1 || data.telefone || undefined,
-          email: data.email ? data.email.toLowerCase() : undefined,
-        }
-      };
-    }
-  } catch (err) {
-    console.warn('Busca externa por CNPJ falhou ou offline:', err);
+// 🔥 Converte o ArrayBuffer em string binária em blocos (chunks), em vez de um
+// único `String.fromCharCode.apply(null, arrayGrande)` — passar um array muito
+// grande como lista de argumentos pode estourar o limite de argumentos da
+// engine (RangeError: Maximum call stack size exceeded), o que acontece mais
+// facilmente com certificados .p12 maiores (ex.: exportados com cadeia
+// completa de certificados) do que com um .pfx simples do Windows.
+function bufferParaBinaryString(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const CHUNK_SIZE = 8192;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
+    binary += String.fromCharCode(...chunk);
   }
-
-  return null;
+  return binary;
 }
 
 function extrairCnpj(texto: string): string {
@@ -138,7 +113,7 @@ export async function processarCertificadoA1(
           return;
         }
 
-        const binary = String.fromCharCode.apply(null, Array.from(new Uint8Array(buffer)));
+        const binary = bufferParaBinaryString(buffer);
         
         let p12: forge.pkcs12.Pkcs12Pfx | null = null;
         let erroSenha = false;
@@ -147,8 +122,8 @@ export async function processarCertificadoA1(
           const p12Der = forge.util.createBuffer(binary);
           const p12Asn1 = forge.asn1.fromDer(p12Der);
           p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, senha);
-        } catch (forgeErr: any) {
-          const msg = forgeErr?.message || '';
+        } catch (forgeErr: unknown) {
+          const msg = forgeErr instanceof Error ? forgeErr.message : '';
           if (msg.includes('password') || msg.includes('Mac') || msg.includes('PKCS#12') || msg.includes('decrypt')) {
             erroSenha = true;
           }
@@ -182,14 +157,14 @@ export async function processarCertificadoA1(
           certX509 = certBag[0].cert;
           
           const cnAttr = certX509.subject.attributes.find(
-            (a: any) => a.name === 'commonName' || a.type === '2.5.4.3'
+            (a) => a.name === 'commonName' || a.type === '2.5.4.3'
           );
           if (cnAttr && cnAttr.value) {
             subjectName = String(cnAttr.value);
           }
 
           const issuerAttr = certX509.issuer.attributes.find(
-            (a: any) => a.name === 'commonName' || a.name === 'organizationName'
+            (a) => a.name === 'commonName' || a.name === 'organizationName'
           );
           if (issuerAttr && issuerAttr.value) {
             issuerName = String(issuerAttr.value);
@@ -254,24 +229,16 @@ export async function processarCertificadoA1(
           status: diasRestantes > 0 ? 'VALIDO' : 'EXPIRADO',
         };
 
-        // Tenta buscar dados da empresa na BrasilAPI
-        const dadosOnline = await buscarDadosCadastraisCnpj(cnpjExtraido);
-
+        // 🔥 Dados cadastrais completos (endereço, CNAE, situação, sócios etc.)
+        // NÃO são buscados aqui — quem chama processarCertificadoA1 (tela de
+        // Configurações) faz isso depois, com o CNPJ extraído do certificado,
+        // usando a mesma consulta pública rica da tela "Consulta CNPJ"
+        // (consultarCnpjConectaGov) em vez desta busca mais limitada.
         const dadosCompletos: Partial<ConfiguracaoEmpresa> = {
-          razaoSocial: dadosOnline?.razaoSocial || razaoSocialExtraida,
-          nomeFantasia: dadosOnline?.nomeFantasia || undefined,
+          razaoSocial: razaoSocialExtraida,
           cnpj: formatarCpfCnpj(cnpjExtraido),
           certificado: certInfo,
-          ...(dadosOnline?.endereco && {
-            endereco: dadosOnline.endereco
-          }),
-          ...(dadosOnline?.cnae && { cnae: dadosOnline.cnae }),
-          ...(dadosOnline?.regimeTributario && { regimeTributario: dadosOnline.regimeTributario }),
         };
-
-        if (!dadosCompletos.endereco || !dadosCompletos.endereco.logradouro) {
-          delete dadosCompletos.endereco;
-        }
 
         resolve({
           sucesso: true,
@@ -280,11 +247,11 @@ export async function processarCertificadoA1(
           dadosEmpresa: dadosCompletos,
         });
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Erro ao ler certificado:', err);
         resolve({
           sucesso: false,
-          mensagem: `Erro ao processar certificado: ${err.message || 'Erro desconhecido'}`,
+          mensagem: `Erro ao processar certificado: ${err instanceof Error ? err.message : 'Erro desconhecido'}`,
         });
       }
     };

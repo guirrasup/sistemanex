@@ -1,5 +1,6 @@
 // backend/src/services/nfse.service.ts
 ﻿import { Prisma, StatusDocumento } from '@prisma/client';
+import { logger } from '../lib/logger.js';
 import { NfseRepository } from '../repositories/nfse.repository.js';
 import { ClienteRepository } from '../repositories/cliente.repository.js';
 import { EmpresaRepository } from '../repositories/empresa.repository.js';
@@ -7,7 +8,55 @@ import { FinanceiroRepository } from '../repositories/financeiro.repository.js';
 import { ServicoRepository } from '../repositories/servico.repository.js';
 import { gerarChaveAcessoNFSe } from '../utils/chaveAcesso.js';
 import { calcularTributosNfse } from '../utils/tributosEngine.js';
-import { gerarXmlNfseNacional } from '../utils/xmlNfseGenerator.js';
+import { gerarXmlNfseNacional, gerarXmlCancelamentoNfse } from '../utils/xmlNfseGenerator.js';
+import { gerarXmlDps } from '../utils/xmlDpsGenerator.js';
+import type { NFSeDocumento, ServicoItemNfse } from '../types/fiscal.js';
+import { mapEmpresaParaEmitente, mapClienteParaTomador } from '../utils/fiscalMappers.js';
+import { CertificadoService } from './certificado.service.js';
+import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
+import { enviarDps, enviarEventoNfse } from './adnNfseClient.js';
+import { enviarDpsMunicipal } from './nfseMunicipalSoapClient.js';
+import { obterWebservicePropio } from '../config/nfseMunicipiosWebservicePropio.js';
+import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
+import { limparDocumento } from '../utils/cpfCnpjValidator.js';
+
+interface ServicoOverrideInput {
+  valorServico?: number;
+  aliquotaISS?: number;
+  codigoTributacaoNacional?: string;
+  codigoTributacaoMunicipal?: string;
+  codigoNBS?: string;
+  descricao?: string;
+  descontoIncondicionado?: number;
+  deducoesMateriais?: number;
+  tipoRetencaoISS?: 1 | 2 | 3;
+  tributacaoISSQN?: 1 | 2 | 3 | 4;
+  aliquotaPIS?: number;
+  retidoPIS?: boolean;
+  aliquotaCOFINS?: number;
+  retidoCOFINS?: boolean;
+  aliquotaIRRF?: number;
+  aliquotaCSLL?: number;
+  aliquotaINSS?: number;
+}
+
+interface EmitirNfseInput {
+  empresaId: string;
+  tomadorId: string;
+  servicoId?: string;
+  servico?: ServicoOverrideInput;
+  formaPagamento?: string;
+  tipoEmissao?: string;
+  pagamentoNumero?: number;
+  pagamentoIdTransacao?: string;
+  informacoesComplementares?: string;
+  numeroPedido?: string;
+  usuario?: string;
+  [key: string]: unknown;
+}
+
+const PROTOCOLO_MOCK_SUFIXO_BASE = 1000000;
+const PROTOCOLO_MOCK_SUFIXO_RANGE = 9000000;
 
 export class NfseService {
   private nfseRepo: NfseRepository;
@@ -15,6 +64,7 @@ export class NfseService {
   private empresaRepo: EmpresaRepository;
   private financeiroRepo: FinanceiroRepository;
   private servicoRepo: ServicoRepository;
+  private certificadoService: CertificadoService;
 
   constructor() {
     this.nfseRepo = new NfseRepository();
@@ -22,6 +72,7 @@ export class NfseService {
     this.empresaRepo = new EmpresaRepository();
     this.financeiroRepo = new FinanceiroRepository();
     this.servicoRepo = new ServicoRepository();
+    this.certificadoService = new CertificadoService();
   }
 
   async listarNfses(
@@ -59,8 +110,8 @@ export class NfseService {
   }
 
   async buscarPorChave(chave: string, empresaId?: string) {
-    if (!/^[0-9]{53}$/.test(chave)) {
-      throw new Error('Chave de acesso inválida: deve ter 53 dígitos');
+    if (!/^[0-9]{50}$/.test(chave)) {
+      throw new Error('Chave de acesso inválida: deve ter 50 dígitos');
     }
     const nfse = await this.nfseRepo.findByChave(chave);
     if (empresaId && nfse && nfse.empresaId !== empresaId) return null;
@@ -71,7 +122,7 @@ export class NfseService {
     return this.nfseRepo.findByProtocolo(protocolo);
   }
 
-  async emitirNfse(data: any) {
+  async emitirNfse(data: EmitirNfseInput) {
     const empresa = await this.empresaRepo.findById(data.empresaId);
     if (!empresa) throw new Error('Empresa não encontrada');
 
@@ -90,10 +141,18 @@ export class NfseService {
     }
 
     // Dados do serviço (prioriza dados do catálogo)
-    const valorServico = data.servico?.valorServico || servico?.valorUnitario || 0;
-    const aliquotaISS = data.servico?.aliquotaISS || servico?.aliquotaISS || 5;
+    const valorServico = data.servico?.valorServico || Number(servico?.valorUnitario) || 0;
+    const aliquotaISS = data.servico?.aliquotaISS || Number(servico?.aliquotaISS) || 5;
     const codigoTributacaoNacional = data.servico?.codigoTributacaoNacional || servico?.codigoTributacaoNacional || '010701';
-    const codigoTributacaoMunicipal = data.servico?.codigoTributacaoMunicipal || servico?.codigoTributacaoMunicipal || '0107';
+    const codigoTributacaoMunicipalInformado = data.servico?.codigoTributacaoMunicipal || servico?.codigoTributacaoMunicipal;
+    // Para persistência (coluna NOT NULL), mantém um valor de preenchimento.
+    const codigoTributacaoMunicipal = codigoTributacaoMunicipalInformado || '107';
+    // cTribMun é opcional no layout da DPS (cada município tem sua própria
+    // tabela de códigos, com formato/tamanho próprios) — um valor "chutado"
+    // quando não informado é sempre inválido para algum município (confirmado
+    // via rejeição real do ADN: E0314), então é melhor omitir a tag no XML do
+    // que arriscar um código de tributação errado.
+    const codigoTributacaoMunicipalParaXml = codigoTributacaoMunicipalInformado || undefined;
     const codigoNBS = data.servico?.codigoNBS || servico?.codigoNBS || '1.1403.21.10';
     const descricaoServico = data.servico?.descricao || servico?.descricao || 'Serviços prestados';
 
@@ -104,19 +163,26 @@ export class NfseService {
       aliquotaISS: aliquotaISS,
       tipoRetencaoISS: data.servico?.tipoRetencaoISS || 1,
       tributacaoISSQN: data.servico?.tributacaoISSQN || 1,
-      optanteSimplesNacional: empresa.optanteSimplesNacional || false,
+      optanteSimplesNacional: empresa.optanteSimples || false,
       formaPagamento: data.formaPagamento || '17',
       cnpjTomador: tomador.documento,
-      aliquotaPIS: data.servico?.aliquotaPIS || servico?.aliquotaPIS || 0,
+      aliquotaPIS: data.servico?.aliquotaPIS || Number(servico?.aliquotaPIS) || 0,
       retidoPIS: data.servico?.retidoPIS || false,
-      aliquotaCOFINS: data.servico?.aliquotaCOFINS || servico?.aliquotaCOFINS || 0,
+      aliquotaCOFINS: data.servico?.aliquotaCOFINS || Number(servico?.aliquotaCOFINS) || 0,
       retidoCOFINS: data.servico?.retidoCOFINS || false,
-      aliquotaIRRF: data.servico?.aliquotaIRRF || servico?.aliquotaIRRF || 0,
-      aliquotaCSLL: data.servico?.aliquotaCSLL || servico?.aliquotaCSLL || 0,
-      aliquotaINSS: data.servico?.aliquotaINSS || servico?.aliquotaINSS || 0,
+      aliquotaIRRF: data.servico?.aliquotaIRRF || Number(servico?.aliquotaIRRF) || 0,
+      aliquotaCSLL: data.servico?.aliquotaCSLL || Number(servico?.aliquotaCSLL) || 0,
+      aliquotaINSS: data.servico?.aliquotaINSS || Number(servico?.aliquotaINSS) || 0,
     });
 
-    const numeroNfse = await this.getProximoNumero(data.empresaId);
+    // Certificado decifrado ANTES de reservar o número: uma falha aqui não pode
+    // queimar um número da sequência (a reserva é definitiva).
+    const certificado = await this.certificadoService.obterCertificadoDecriptado(data.empresaId);
+    if (!certificado) {
+      throw new Error('Certificado digital não configurado para esta empresa');
+    }
+    const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+    const numeroNfse = await this.empresaRepo.reservarNumero(data.empresaId, 'proximoNumeroNfse');
     const serieDPS = empresa.serieNfse || 1;
     const aamm = new Date().toISOString().slice(2, 4) +
                  (new Date().getMonth() + 1).toString().padStart(2, '0');
@@ -137,7 +203,7 @@ export class NfseService {
       prestadorRazaoSocial: empresa.razaoSocial,
       prestadorNomeFantasia: empresa.nomeFantasia,
       prestadorRegimeTributario: empresa.regimeTributario === 'SIMPLES_NACIONAL' ? 1 : 3,
-      prestadorOptanteSimples: empresa.optanteSimplesNacional || false,
+      prestadorOptanteSimples: empresa.optanteSimples || false,
       prestadorRegimeEspecial: '0',
       prestadorLogradouro: empresa.endereco?.logradouro || '',
       prestadorNumero: empresa.endereco?.numero || '',
@@ -155,7 +221,11 @@ export class NfseService {
     const tomadorData = {
       tomadorId: tomador.id,
       tomadorTipoPessoa: tomador.tipoPessoa,
-      tomadorDocumento: tomador.documento,
+      // Cliente.documento é livre (coluna text) e o cadastro não força máscara —
+      // o usuário pode digitar com pontuação ("12.345.678/0001-99"). A coluna
+      // tomadorDocumento aqui é VarChar(14) (só dígitos), então precisa limpar
+      // antes, senão o Postgres rejeita com "value too long for the column's type".
+      tomadorDocumento: limparDocumento(tomador.documento),
       tomadorRazaoSocial: tomador.razaoSocial,
       tomadorNomeFantasia: tomador.nomeFantasia,
       tomadorInscricaoMunicipal: tomador.inscricaoMunicipal,
@@ -175,7 +245,7 @@ export class NfseService {
       tomadorNomePais: tomador.endereco?.nomePais || 'BRASIL',
     };
 
-    const nfseData = {
+    const nfseData: Prisma.NFSeUncheckedCreateInput = {
       ...prestadorData,
       ...tomadorData,
       chaveAcesso: chaveCompleta,
@@ -263,20 +333,146 @@ export class NfseService {
       empresaId: data.empresaId,
       tomadorId: data.tomadorId,
       servicoId: data.servicoId,
+
+      // Preenchido após a geração do XML, logo abaixo
+      xmlAssinado: '',
     };
+
+    // Monta o DTO fiscal e gera o XML (ainda não transmitido ao ADN/SEFAZ)
+    const servicoDto: ServicoItemNfse = {
+      codigoTributacaoNacional,
+      codigoTributacaoMunicipal: codigoTributacaoMunicipalParaXml,
+      descricao: descricaoServico,
+      codigoNBS,
+      localPrestacao: {
+        codigoMunicipio: empresa.endereco?.codigoMunicipio || '3550308',
+        nomeMunicipio: empresa.endereco?.nomeMunicipio || 'São Paulo',
+        uf: empresa.endereco?.uf || 'SP',
+      },
+      valorServico: calc.valorServico,
+      descontoIncondicionado: calc.descontoIncondicionado,
+      descontoCondicionado: calc.descontoCondicionado,
+      deducoesMateriais: calc.deducoesMateriais,
+      tributacaoISSQN: data.servico?.tributacaoISSQN || 1,
+      aliquotaISS: calc.aliquotaISS,
+      valorISS: calc.valorISS,
+      tipoRetencaoISS: data.servico?.tipoRetencaoISS || 1,
+      valorISSRetido: calc.valorISSRetido,
+      baseCalculoISS: calc.baseCalculoISS,
+      aliquotaPIS: calc.aliquotaPIS,
+      valorPIS: calc.valorPIS,
+      retidoPIS: data.servico?.retidoPIS || false,
+      aliquotaCOFINS: calc.aliquotaCOFINS,
+      valorCOFINS: calc.valorCOFINS,
+      retidoCOFINS: data.servico?.retidoCOFINS || false,
+      aliquotaIRRF: calc.aliquotaIRRF,
+      valorIRRF: calc.valorIRRF,
+      aliquotaCSLL: calc.aliquotaCSLL,
+      valorCSLL: calc.valorCSLL,
+      aliquotaINSS: calc.aliquotaINSS,
+      valorINSS: calc.valorINSS,
+      ibscbs: calc.ibscbs,
+      valorTributosFederais: calc.tributosFederais,
+      valorTributosEstaduais: calc.tributosEstaduais,
+      valorTributosMunicipais: calc.tributosMunicipais,
+      percentualTotalTributos: calc.percentualTotalTributos,
+    };
+
+    const dataHoraISO = formatarDataHoraSefaz();
+    const nfseDocumento: NFSeDocumento = {
+      id: '',
+      chaveAcesso: chaveCompleta,
+      numeroNfse,
+      serieDPS,
+      numeroDPS: numeroNfse,
+      dataCompetencia: dataHoraISO.slice(0, 10),
+      dataHoraEmissao: dataHoraISO,
+      dataHoraProcessamento: dataHoraISO,
+      codigoVerificacao,
+      ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2,
+      tipoEmissao: 1,
+      status: 'AUTORIZADA',
+      emitente: mapEmpresaParaEmitente(empresa),
+      tomador: mapClienteParaTomador(tomador),
+      servico: servicoDto,
+      valorTotalServicos: calc.valorServico,
+      valorTotalDescontos: calc.descontoIncondicionado,
+      valorTotalDeducoes: calc.deducoesMateriais,
+      baseCalculoISS: calc.baseCalculoISS,
+      valorTotalISS: calc.valorISS,
+      valorTotalISSRetido: calc.valorISSRetido,
+      valorTotalRetencoesFederais: calc.totalRetencoes - calc.valorISSRetido,
+      valorTotalIBS: calc.valorTotalIBS,
+      valorTotalCBS: calc.valorCBS,
+      valorLiquidoNfse: calc.valorLiquido,
+      valorTotalNotaFinal: calc.valorTotalNotaFinal,
+      informacoesComplementares: data.informacoesComplementares || '',
+      xmlAssinado: '',
+    };
+
+
+    // Transmissão real ao Sistema Nacional NFS-e (SefinNacional/ADN), controlada por
+    // SEFAZ_TRANSMISSAO_REAL (ver nfe.service.ts). O documento realmente exigido pela
+    // API é a DPS — o Sistema Nacional autoriza e devolve a NFS-e minted por ele mesmo.
+    const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
+    let statusFinal: 'AUTORIZADA' | 'REJEITADA' = 'AUTORIZADA';
+    let xmlAssinadoFinal: string;
+    let xmlRetornoFinal: string | undefined;
+    let protocoloFinal = `1352600${Math.floor(PROTOCOLO_MOCK_SUFIXO_BASE + Math.random() * PROTOCOLO_MOCK_SUFIXO_RANGE)}`;
+    let motivoRejeicaoFinal: string | undefined;
+
+    if (transmissaoReal) {
+      const xmlDpsSemAssinatura = gerarXmlDps(nfseDocumento);
+      const xmlDpsAssinado = assinarXmlEnvelopado(xmlDpsSemAssinatura, 'infDPS', chaveECertPem);
+      xmlAssinadoFinal = xmlDpsAssinado;
+
+      // Municípios que mantêm webservice próprio (ex.: DF) rejeitam a DPS enviada
+      // pro Emissor Nacional público com "[E0037] ... inexistente no cadastro de
+      // convênio municipal" — mesma DPS/XSD, mas precisa ir pro endpoint SOAP
+      // próprio do município (ver nfseMunicipiosWebservicePropio.ts).
+      const codigoMunicipioEmissor = empresa.endereco?.codigoMunicipio || '';
+      const webservicePropio = obterWebservicePropio(codigoMunicipioEmissor);
+      const ambienteAdn = empresa.ambienteEmissao === 'PRODUCAO' ? 'producao' : 'homologacao';
+      const mtls = { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem };
+
+      const resultado = webservicePropio
+        ? await enviarDpsMunicipal({
+            url: webservicePropio[ambienteAdn],
+            xmlDpsAssinado,
+            mtls,
+          })
+        : await enviarDps({
+            ambiente: ambienteAdn,
+            xmlDpsAssinado,
+            mtls,
+          });
+
+      if (resultado.sucesso && resultado.nfseXml) {
+        statusFinal = 'AUTORIZADA';
+        xmlRetornoFinal = resultado.nfseXml;
+        protocoloFinal = resultado.chaveAcesso || protocoloFinal;
+      } else {
+        statusFinal = 'REJEITADA';
+        motivoRejeicaoFinal = resultado.erro || 'Rejeitado pelo Sistema Nacional NFS-e sem motivo informado';
+      }
+    } else {
+      logger.warn('[NFSe] SEFAZ_TRANSMISSAO_REAL não está ativo — emissão em modo mock (XML assinado, mas não transmitido).');
+      const xmlLocalSemAssinatura = gerarXmlNfseNacional(nfseDocumento);
+      xmlAssinadoFinal = assinarXmlEnvelopado(xmlLocalSemAssinatura, 'infNFSe', chaveECertPem);
+    }
+
+    nfseData.xmlAssinado = xmlAssinadoFinal;
+    nfseData.status = statusFinal;
 
     const nfseCriada = await this.nfseRepo.create(nfseData);
 
-    // Gera XML
-    const xml = gerarXmlNfseNacional(nfseCriada as any);
+    if (statusFinal === 'AUTORIZADA') {
+      await this.nfseRepo.updateStatus(nfseCriada.id, 'AUTORIZADA', protocoloFinal, xmlRetornoFinal);
+    } else {
+      await this.nfseRepo.updateStatus(nfseCriada.id, 'REJEITADA', undefined, xmlRetornoFinal, motivoRejeicaoFinal);
+      throw new Error(`Sistema Nacional NFS-e rejeitou a emissão: ${motivoRejeicaoFinal}`);
+    }
 
-    // Atualiza com XML e autoriza
-    await this.nfseRepo.updateStatus(nfseCriada.id, 'AUTORIZADA', `1352600${Math.floor(1000000 + Math.random() * 9000000)}`);
-
-    // Atualiza número
-    await this.empresaRepo.update(data.empresaId, {
-      proximoNumeroNfse: numeroNfse + 1
-    });
 
     // Cria histórico de status
     await this.nfseRepo.createHistoricoStatus({
@@ -311,15 +507,10 @@ export class NfseService {
 
     return {
       ...nfseFinal,
-      xmlAssinado: xml
+      xmlAssinado: xmlAssinadoFinal
     };
   }
 
-  async getProximoNumero(empresaId: string): Promise<number> {
-    const empresa = await this.empresaRepo.findById(empresaId);
-    if (!empresa) throw new Error('Empresa não encontrada');
-    return (empresa.proximoNumeroNfse || 1);
-  }
 
   async cancelarNfse(id: string, motivo: string, empresaId: string) {
     const nfse = await this.nfseRepo.findById(id);
@@ -335,6 +526,36 @@ export class NfseService {
       throw new Error('Motivo deve ter no máximo 255 caracteres');
     }
 
+    const transmissaoReal = process.env.SEFAZ_TRANSMISSAO_REAL === 'true';
+
+    if (transmissaoReal) {
+      const empresa = await this.empresaRepo.findById(empresaId);
+      if (!empresa) throw new Error('Empresa não encontrada');
+
+      const certificado = await this.certificadoService.obterCertificadoDecriptado(empresaId);
+      if (!certificado) throw new Error('Certificado digital não configurado para esta empresa');
+      const chaveECertPem = extrairChaveECertificadoDoPfx(certificado.pfxBuffer, certificado.senha);
+
+      const xmlEvento = gerarXmlCancelamentoNfse({
+        chaveNFSe: nfse.chaveAcesso,
+        cnpjAutor: empresa.cnpj,
+        motivoCodigo: '1',
+        justificativa: motivo,
+      });
+      const xmlEventoAssinado = assinarXmlEnvelopado(xmlEvento, 'infPedReg', chaveECertPem);
+
+      const resultado = await enviarEventoNfse({
+        ambiente: empresa.ambienteEmissao === 'PRODUCAO' ? 'producao' : 'homologacao',
+        chaveAcesso: nfse.chaveAcesso,
+        xmlEventoAssinado,
+        mtls: { cert: chaveECertPem.certPem, key: chaveECertPem.privateKeyPem },
+      });
+
+      if (!resultado.sucesso) {
+        throw new Error(`Sistema Nacional NFS-e rejeitou o cancelamento: ${resultado.erro || 'motivo não informado'}`);
+      }
+    }
+
     const nfseCancelada = await this.nfseRepo.cancelar(id, motivo);
 
     // Cria histórico de status
@@ -348,12 +569,12 @@ export class NfseService {
 
     // Cancela título financeiro
     try {
-      const titulos = await this.financeiroRepo.findByDocumentoOrigem(nfse.chaveAcesso);
+      const titulos = await this.financeiroRepo.findManyByDocumentoOrigem(nfse.chaveAcesso);
       for (const titulo of titulos) {
         await this.financeiroRepo.cancelarTitulo(titulo.id, motivo);
       }
     } catch (error) {
-      console.warn('⚠️ Erro ao cancelar título financeiro:', error);
+      logger.warn('⚠️ Erro ao cancelar título financeiro:', error);
     }
 
     return nfseCancelada;
@@ -400,7 +621,9 @@ export class NfseService {
       throw new Error('Acesso negado');
     }
 
-    // TODO: Implementar geração do DANFSe
+    // [AutoPatch Backlog] TODO: Implementar geração real do PDF do DANFSe (layout conforme padrão nacional
+    // NFS-e, incluindo QR Code com código de verificação). Requer escolher biblioteca de
+    // geração de PDF no backend (ex.: pdf-lib ou puppeteer).
     return {
       chaveAcesso: nfse.chaveAcesso,
       numeroNfse: nfse.numeroNfse,

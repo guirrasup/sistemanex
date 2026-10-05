@@ -1,7 +1,7 @@
 // backend/src/routes/cte.routes.ts
 import { Router } from 'express';
-import { CteController } from '../controllers/cte.controller';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { CteController } from '../controllers/cte.controller.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 const cteController = new CteController();
@@ -33,6 +33,7 @@ router.get('/complemento/:chave', cteController.buscarCteComplementado.bind(cteC
 router.get('/:id', cteController.buscarPorId.bind(cteController));
 router.post('/emitir', cteController.emitir.bind(cteController));
 router.post('/cancelar/:id', cteController.cancelar.bind(cteController));
+router.post('/:id/enviar-email', cteController.enviarXmlPorEmail.bind(cteController));
 
 // 📄 DOWNLOADS
 router.get('/xml/:id', cteController.baixarXml.bind(cteController));

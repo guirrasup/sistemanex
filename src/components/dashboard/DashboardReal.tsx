@@ -1,5 +1,5 @@
 // src/components/dashboard/DashboardReal.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -18,7 +18,6 @@ import {
   Activity,
   ShieldCheck,
   Wallet,
-  Loader2,
   Building2,
   UserCheck,
   UserPlus,
@@ -35,10 +34,61 @@ import {
   User,
   Building,
   Store,
-  ClipboardList
+  ClipboardList,
+  FileArchive
 } from 'lucide-react';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
-import api from '../../services/api';
+import { TipoDocumentoFiltro } from '../fiscal/DocumentosFiscaisList';
+
+interface DocumentoFiscalResumo {
+  id: string;
+  numero?: number;
+  numeroNfse?: number;
+  chaveAcesso?: string;
+  dataHoraEmissao?: string;
+  valorTotalNota?: number;
+  valorTotalServicos?: number;
+  valorTotalFrete?: number;
+  status?: string;
+  // Record<string, unknown> porque os tipos reais de cada documento (NFeDocumento,
+  // NFSeDocumento, NFCeDocumento etc.) declaram formatos diferentes entre si para
+  // destinatário/tomador (NFCe usa nomeRazaoSocial, os demais razaoSocial) — só
+  // lemos razaoSocial de forma opcional e com cast abaixo de qualquer jeito.
+  destinatario?: unknown;
+  tomador?: unknown;
+  // NFe e CTe devolvem os campos crus do Prisma (schema segue o leiaute SEFAZ
+  // à risca pra esses dois, ao contrário de NFSe/NFCe/NFAe, que usam nomes
+  // amigáveis) — vNF/vTPrest/dhEmi, não valorTotalNota/valorTotalFrete/
+  // dataHoraEmissao. Sem isso, Faturamento Total e Faturamento por Mês
+  // ficavam sempre R$ 0,00 pra esses 2 tipos.
+  vNF?: number | string;
+  vTPrest?: number | string;
+  dhEmi?: string;
+  // MDF-e: schema.prisma segue o leiaute SEFAZ — `vCarga`, não valorTotalNota.
+  vCarga?: number | string;
+}
+
+// Decimal do Prisma chega como string no JSON (ex.: "1450.00") — somar direto
+// com `+` sem converter faz concatenação de string em vez de soma (é a causa
+// do texto tipo "014501450145..." que apareceu em "A Receber").
+function paraNumero(v: unknown): number {
+  const n = typeof v === 'string' ? parseFloat(v) : v;
+  return typeof n === 'number' && !isNaN(n) ? n : 0;
+}
+
+interface ClienteResumo {
+  tipo?: string;
+}
+
+interface ProdutoResumo {
+  ativo?: boolean;
+}
+
+interface TituloResumo {
+  tipo?: string;
+  status?: string;
+  valorOriginal?: number | string;
+}
 
 // ============================================================
 // RECHARTS - BIBLIOTECA DE GRÁFICOS
@@ -81,6 +131,7 @@ interface DashboardData {
     NFCE: number;
     CTE: number;
     NFAE: number;
+    MDFE: number;
   };
   ultimasNotas: Array<{
     id: string;
@@ -92,23 +143,54 @@ interface DashboardData {
     valorTotalNota?: number;
     valorTotalServicos?: number;
     status: string;
-    destinatario?: { razaoSocial: string; documento: string };
-    tomador?: { razaoSocial: string; documento: string };
-    tipo: 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE';
+    destinatario?: unknown;
+    tomador?: unknown;
+    tipo: 'NFE' | 'NFSE' | 'NFCE' | 'CTE' | 'NFAE' | 'MDFE';
   }>;
   faturamentoPorMes: Array<{ mes: string; ano: number; valor: number; color: string }>;
   documentosPorStatus: { autorizadas: number; canceladas: number; pendentes: number };
+}
+
+interface DashboardRealProps {
+  nfes: DocumentoFiscalResumo[];
+  nfses: DocumentoFiscalResumo[];
+  nfces: DocumentoFiscalResumo[];
+  ctes: DocumentoFiscalResumo[];
+  nfaes: DocumentoFiscalResumo[];
+  mdfes: DocumentoFiscalResumo[];
+  produtos: ProdutoResumo[];
+  clientes: ClienteResumo[];
+  titulos: TituloResumo[];
+  transportadoras?: unknown[];
+  onNavigateDocumentosTipo?: (tipo: TipoDocumentoFiltro) => void;
+  onNavigate: (view: string) => void;
 }
 
 // ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
 
-export const DashboardReal: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-
+// 🔥 Os dados já foram carregados uma única vez pelo App.tsx (que os mantém em
+// cache/estado compartilhado) e chegam aqui via props. Antes, este componente
+// buscava tudo de novo com suas próprias 9 chamadas à API sempre que montava
+// (sem nenhum guard contra o duplo-disparo do useEffect em StrictMode) —
+// cada visita à aba Painel gerava até ~20 requisições redundantes, e algumas
+// idas e vindas entre telas já eram suficientes pra bater no rate limit
+// global de 100 req/min e travar o app inteiro em "Carregando...".
+export const DashboardReal: React.FC<DashboardRealProps> = ({
+  nfes,
+  nfses,
+  nfces,
+  ctes,
+  nfaes,
+  mdfes,
+  produtos,
+  clientes,
+  titulos,
+  transportadoras = [],
+  onNavigateDocumentosTipo,
+  onNavigate,
+}) => {
   // 🔥 COR DO MÓDULO (AZUL)
   const cor = 'blue';
   const corBg = 'bg-blue-50';
@@ -123,71 +205,25 @@ export const DashboardReal: React.FC = () => {
   // FUNÇÃO DE NAVEGAÇÃO
   // ============================================================
 
-  const navegarPara = (rota: string) => {
-    const menuItem = document.getElementById(`menu-item-${rota}`);
-    if (menuItem) {
-      menuItem.click();
-      return;
-    }
-    window.location.href = rota;
-  };
+  const navegarPara = (view: string) => onNavigate(view);
 
   // ============================================================
-  // CARREGA DADOS
+  // CALCULA DASHBOARD A PARTIR DOS DADOS JÁ CARREGADOS (PROPS)
   // ============================================================
 
-  const carregarDados = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      
-      // Busca todos os dados em paralelo
-      const [
-        clientesRes,
-        produtosRes,
-        titulosRes,
-        nfesRes,
-        nfsesRes,
-        nfcesRes,
-        ctesRes,
-        nfaesRes,
-        transportadorasRes
-      ] = await Promise.all([
-        api.get('/clientes?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/produtos?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/financeiro/titulos?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/nfe?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/nfse?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/nfce?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/cte?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/nfae?limit=999').catch(() => ({ data: { dados: { data: [] } } })),
-        api.get('/transportadoras?limit=999').catch(() => ({ data: { dados: { data: [] } } }))
-      ]);
-
-      // Extrair dados
-      const clientes = clientesRes.data?.dados?.data || clientesRes.data?.dados || [];
-      const produtos = produtosRes.data?.dados?.data || produtosRes.data?.dados || [];
-      const titulos = titulosRes.data?.dados?.data || titulosRes.data?.dados || [];
-      const nfes = nfesRes.data?.dados?.data || nfesRes.data?.dados || [];
-      const nfses = nfsesRes.data?.dados?.data || nfsesRes.data?.dados || [];
-      const nfces = nfcesRes.data?.dados?.data || nfcesRes.data?.dados || [];
-      const ctes = ctesRes.data?.dados?.data || ctesRes.data?.dados || [];
-      const nfaes = nfaesRes.data?.dados?.data || nfaesRes.data?.dados || [];
-      const transportadoras = transportadorasRes.data?.dados?.data || transportadorasRes.data?.dados || [];
-
-      
+  const dashboard: DashboardData = useMemo(() => {
       // ============================================================
       // CÁLCULOS
       // ============================================================
 
       // 1. Faturamento total
-      const totalNfe = nfes.reduce((acc: number, n: any) => acc + (n.valorTotalNota || 0), 0);
-      const totalNfse = nfses.reduce((acc: number, n: any) => acc + (n.valorTotalServicos || 0), 0);
-      const totalNfce = nfces.reduce((acc: number, n: any) => acc + (n.valorTotalNota || 0), 0);
-      const totalCte = ctes.reduce((acc: number, n: any) => acc + (n.valorTotalFrete || 0), 0);
-      const totalNfae = nfaes.reduce((acc: number, n: any) => acc + (n.valorTotalNota || 0), 0);
-      const faturamentoTotal = totalNfe + totalNfse + totalNfce + totalCte + totalNfae;
+      const totalNfe = nfes.reduce((acc: number, n) => acc + paraNumero(n.vNF), 0);
+      const totalNfse = nfses.reduce((acc: number, n) => acc + paraNumero(n.valorTotalServicos), 0);
+      const totalNfce = nfces.reduce((acc: number, n) => acc + paraNumero(n.valorTotalNota), 0);
+      const totalCte = ctes.reduce((acc: number, n) => acc + paraNumero(n.vTPrest), 0);
+      const totalNfae = nfaes.reduce((acc: number, n) => acc + paraNumero(n.valorTotalNota), 0);
+      const totalMdfe = mdfes.reduce((acc: number, n) => acc + paraNumero(n.vCarga), 0);
+      const faturamentoTotal = totalNfe + totalNfse + totalNfce + totalCte + totalNfae + totalMdfe;
 
       // 2. Contagem por tipo
       const notasPorTipo = {
@@ -195,26 +231,28 @@ export const DashboardReal: React.FC = () => {
         NFSE: nfses.length,
         NFCE: nfces.length,
         CTE: ctes.length,
-        NFAE: nfaes.length
+        NFAE: nfaes.length,
+        MDFE: mdfes.length
       };
 
       // 3. Últimas notas
       const todasNotas = [
-        ...nfes.map((n: any) => ({ ...n, tipo: 'NFE', valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao })),
-        ...nfses.map((n: any) => ({ ...n, tipo: 'NFSE', valor: n.valorTotalServicos || 0, numero: n.numeroNfse, data: n.dataHoraEmissao })),
-        ...nfces.map((n: any) => ({ ...n, tipo: 'NFCE', valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao })),
-        ...ctes.map((n: any) => ({ ...n, tipo: 'CTE', valor: n.valorTotalFrete || 0, numero: n.numero, data: n.dataHoraEmissao })),
-        ...nfaes.map((n: any) => ({ ...n, tipo: 'NFAE', valor: n.valorTotalNota || 0, numero: n.numero, data: n.dataHoraEmissao }))
-      ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+        ...nfes.map((n) => ({ ...n, tipo: 'NFE' as const, valor: paraNumero(n.vNF), numero: n.numero, data: n.dhEmi || n.dataHoraEmissao })),
+        ...nfses.map((n) => ({ ...n, tipo: 'NFSE' as const, valor: paraNumero(n.valorTotalServicos), numero: n.numeroNfse, data: n.dataHoraEmissao })),
+        ...nfces.map((n) => ({ ...n, tipo: 'NFCE' as const, valor: paraNumero(n.valorTotalNota), numero: n.numero, data: n.dataHoraEmissao })),
+        ...ctes.map((n) => ({ ...n, tipo: 'CTE' as const, valor: paraNumero(n.vTPrest), numero: n.numero, data: n.dhEmi || n.dataHoraEmissao })),
+        ...nfaes.map((n) => ({ ...n, tipo: 'NFAE' as const, valor: paraNumero(n.valorTotalNota), numero: n.numero, data: n.dataHoraEmissao })),
+        ...mdfes.map((n) => ({ ...n, tipo: 'MDFE' as const, valor: paraNumero(n.vCarga), numero: n.numero, data: n.dhEmi || n.dataHoraEmissao }))
+      ].sort((a, b) => new Date(b.data ?? 0).getTime() - new Date(a.data ?? 0).getTime());
 
       const totalNfes = todasNotas.length;
 
       // 4. Notas do mês
       const hoje = new Date();
       const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const notasMes = todasNotas.filter(n => new Date(n.data) >= inicioMes);
+      const notasMes = todasNotas.filter(n => new Date(n.data ?? 0) >= inicioMes);
       const nfesMes = notasMes.length;
-      const faturamentoMes = notasMes.reduce((acc: number, n: any) => acc + (n.valor || 0), 0);
+      const faturamentoMes = notasMes.reduce((acc: number, n) => acc + (n.valor || 0), 0);
 
       // 5. Status dos documentos
       const documentosPorStatus = {
@@ -225,12 +263,12 @@ export const DashboardReal: React.FC = () => {
 
       // 6. Financeiro
       const aReceber = titulos
-        .filter((t: any) => t.tipo === 'RECEBER' && (t.status === 'PENDENTE' || t.status === 'VENCIDO'))
-        .reduce((acc: number, t: any) => acc + (t.valorOriginal || 0), 0);
+        .filter((t) => t.tipo === 'RECEBER' && (t.status === 'PENDENTE' || t.status === 'VENCIDO'))
+        .reduce((acc: number, t) => acc + paraNumero(t.valorOriginal), 0);
 
       const aPagar = titulos
-        .filter((t: any) => t.tipo === 'PAGAR' && (t.status === 'PENDENTE' || t.status === 'VENCIDO'))
-        .reduce((acc: number, t: any) => acc + (t.valorOriginal || 0), 0);
+        .filter((t) => t.tipo === 'PAGAR' && (t.status === 'PENDENTE' || t.status === 'VENCIDO'))
+        .reduce((acc: number, t) => acc + paraNumero(t.valorOriginal), 0);
 
       // 7. Faturamento por mês (últimos 3 meses) - CORRIGIDO
       const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -246,7 +284,7 @@ export const DashboardReal: React.FC = () => {
           return data >= mesAtual && data <= mesFim;
         });
         
-        const valor = notasMesPeriodo.reduce((acc: number, n: any) => {
+        const valor = notasMesPeriodo.reduce((acc: number, n) => {
           const v = n.valor || n.valorTotalNota || n.valorTotalServicos || 0;
           return acc + (typeof v === 'number' ? v : 0);
         }, 0);
@@ -269,16 +307,16 @@ export const DashboardReal: React.FC = () => {
       const crescimento = mesAnterior > 0 ? ((mesAtual - mesAnterior) / mesAnterior) * 100 : 0;
 
       // 9. Cadastros
-      const totalClientes = clientes.filter((c: any) => c.tipo === 'CLIENTE' || c.tipo === 'AMBOS').length;
-      const totalFornecedores = clientes.filter((c: any) => c.tipo === 'FORNECEDOR' || c.tipo === 'AMBOS').length;
-      const totalProdutos = produtos.filter((p: any) => p.ativo !== false).length;
+      const totalClientes = clientes.filter((c) => c.tipo === 'CLIENTE' || c.tipo === 'AMBOS').length;
+      const totalFornecedores = clientes.filter((c) => c.tipo === 'FORNECEDOR' || c.tipo === 'AMBOS').length;
+      const totalProdutos = produtos.filter((p) => p.ativo !== false).length;
       const totalTransportadoras = transportadoras.length;
 
       // ============================================================
-      // SET DASHBOARD
+      // RESULTADO
       // ============================================================
 
-      setDashboard({
+      return {
         faturamentoTotal,
         totalNfes,
         totalClientes,
@@ -306,50 +344,8 @@ export const DashboardReal: React.FC = () => {
         })),
         faturamentoPorMes,
         documentosPorStatus
-      });
-
-      
-    } catch (err: any) {
-      console.error('❌ Erro:', err);
-      setError(err.message || 'Erro ao carregar dados');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    carregarDados();
-  }, []);
-
-  // ============================================================
-  // RENDER LOADING
-  // ============================================================
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-sm">Carregando dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !dashboard) {
-    return (
-      <div className="bg-rose-50 border border-rose-200 rounded-xl p-8 text-center max-w-lg mx-auto">
-        <AlertCircle className="w-12 h-12 text-rose-600 mx-auto mb-3" />
-        <p className="text-rose-800 font-medium text-lg">{error || 'Dados indisponíveis'}</p>
-        <button 
-          onClick={carregarDados}
-          className="mt-4 px-6 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer"
-        >
-          🔄 Tentar novamente
-        </button>
-      </div>
-    );
-  }
+      };
+  }, [nfes, nfses, nfces, ctes, nfaes, mdfes, produtos, clientes, titulos, transportadoras]);
 
   const {
     faturamentoTotal = 0,
@@ -363,7 +359,7 @@ export const DashboardReal: React.FC = () => {
     crescimento = 0,
     nfesMes = 0,
     faturamentoMes = 0,
-    notasPorTipo = { NFE: 0, NFSE: 0, NFCE: 0, CTE: 0, NFAE: 0 },
+    notasPorTipo = { NFE: 0, NFSE: 0, NFCE: 0, CTE: 0, NFAE: 0, MDFE: 0 },
     ultimasNotas = [],
     faturamentoPorMes = [],
     documentosPorStatus = { autorizadas: 0, canceladas: 0, pendentes: 0 }
@@ -381,6 +377,7 @@ export const DashboardReal: React.FC = () => {
         'NFCE': '#8b5cf6',
         'CTE': '#06b6d4',
         'NFAE': '#f59e0b',
+        'MDFE': '#f97316',
       };
       const labels: Record<string, string> = {
         'NFE': 'NF-e',
@@ -388,6 +385,7 @@ export const DashboardReal: React.FC = () => {
         'NFCE': 'NFC-e',
         'CTE': 'CT-e',
         'NFAE': 'NFA-e',
+        'MDFE': 'MDF-e',
       };
       return {
         name: labels[tipo] || tipo,
@@ -480,16 +478,29 @@ export const DashboardReal: React.FC = () => {
             {Object.entries(notasPorTipo).map(([tipo, qtd]) => {
               if (qtd === 0) return null;
               const cores: Record<string, string> = {
-                'NFE': 'bg-emerald-100 text-emerald-700',
-                'NFSE': 'bg-blue-100 text-blue-700',
-                'NFCE': 'bg-purple-100 text-purple-700',
-                'CTE': 'bg-cyan-100 text-cyan-700',
-                'NFAE': 'bg-amber-100 text-amber-700',
+                'NFE': 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
+                'NFSE': 'bg-blue-100 text-blue-700 hover:bg-blue-200',
+                'NFCE': 'bg-purple-100 text-purple-700 hover:bg-purple-200',
+                'CTE': 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200',
+                'NFAE': 'bg-amber-100 text-amber-700 hover:bg-amber-200',
+                'MDFE': 'bg-orange-100 text-orange-700 hover:bg-orange-200',
               };
               return (
-                <span key={tipo} className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${cores[tipo] || 'bg-slate-100'}`}>
+                <button
+                  key={tipo}
+                  type="button"
+                  onClick={(e) => {
+                    // 🔥 Este chip fica dentro do card cujo onClick já navega pra
+                    // "Ver Todos" — sem isolar o clique aqui, o atalho por tipo
+                    // nunca dispararia (o clique do pai sempre ganharia).
+                    e.stopPropagation();
+                    onNavigateDocumentosTipo?.(tipo as TipoDocumentoFiltro);
+                  }}
+                  title={`Ver apenas documentos ${tipo}`}
+                  className={`text-[9px] font-medium px-1.5 py-0.5 rounded transition-colors cursor-pointer ${cores[tipo] || 'bg-slate-100 hover:bg-slate-200'}`}
+                >
                   {tipo}: {qtd}
-                </span>
+                </button>
               );
             })}
             {Object.values(notasPorTipo).every(v => v === 0) && (
@@ -565,7 +576,7 @@ export const DashboardReal: React.FC = () => {
           </div>
 
           <div className="h-56 w-full">
-            {faturamentoPorMes.some((item: any) => item.valor > 0) ? (
+            {faturamentoPorMes.some((item) => item.valor > 0) ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={faturamentoPorMes}
@@ -607,7 +618,7 @@ export const DashboardReal: React.FC = () => {
                     animationDuration={800}
                     animationEasing="ease-in-out"
                   >
-                    {faturamentoPorMes.map((entry: any, index: number) => (
+                    {faturamentoPorMes.map((entry, index: number) => (
                       <Cell 
                         key={`cell-${index}`} 
                         fill={entry.color || '#3b82f6'}
@@ -661,7 +672,7 @@ export const DashboardReal: React.FC = () => {
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
                   >
-                    {pieData.map((entry: any, index: number) => (
+                    {pieData.map((entry, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -752,13 +763,14 @@ export const DashboardReal: React.FC = () => {
               Nenhum documento emitido ainda.
             </div>
           ) : (
-            ultimasNotas.slice(0, 6).map((doc: any) => {
+            ultimasNotas.slice(0, 6).map((doc) => {
               const cores: Record<string, string> = {
                 'NFE': 'bg-emerald-100 text-emerald-700',
                 'NFSE': 'bg-blue-100 text-blue-700',
                 'NFCE': 'bg-purple-100 text-purple-700',
                 'CTE': 'bg-cyan-100 text-cyan-700',
                 'NFAE': 'bg-amber-100 text-amber-700',
+                'MDFE': 'bg-orange-100 text-orange-700',
               };
               const icones: Record<string, React.ReactNode> = {
                 'NFE': <Receipt className="w-3.5 h-3.5" />,
@@ -766,8 +778,11 @@ export const DashboardReal: React.FC = () => {
                 'NFCE': <ShoppingBag className="w-3.5 h-3.5" />,
                 'CTE': <Truck className="w-3.5 h-3.5" />,
                 'NFAE': <FileCode2 className="w-3.5 h-3.5" />,
+                'MDFE': <FileArchive className="w-3.5 h-3.5" />,
               };
-              const cliente = doc.destinatario?.razaoSocial || doc.tomador?.razaoSocial || '—';
+              const destinatario = doc.destinatario as { razaoSocial?: string } | undefined;
+              const tomador = doc.tomador as { razaoSocial?: string } | undefined;
+              const cliente = destinatario?.razaoSocial || tomador?.razaoSocial || '—';
               const valor = doc.valorTotalNota || doc.valorTotalServicos || 0;
               const numero = doc.numero || 0;
 

@@ -1,4 +1,5 @@
 // backend/src/controllers/produto.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { ProdutoService } from '../services/produto.service.js';
 
@@ -42,11 +43,11 @@ export class ProdutoController {
           totalPages: Math.ceil(total / Number(limit))
         }
       });
-    } catch (error: any) {
-      console.error('❌ Erro ao listar produtos:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao listar produtos:', error);
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao listar produtos'
+        erro: error instanceof Error ? error.message : 'Erro ao listar produtos'
       });
     }
   }
@@ -76,10 +77,10 @@ export class ProdutoController {
         sucesso: true,
         dados: produto
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar produto'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar produto'
       });
     }
   }
@@ -103,10 +104,10 @@ export class ProdutoController {
         dados: produto,
         mensagem: 'Produto criado com sucesso'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao criar produto'
+        erro: error instanceof Error ? error.message : 'Erro ao criar produto'
       });
     }
   }
@@ -130,10 +131,10 @@ export class ProdutoController {
         dados: produto,
         mensagem: 'Produto atualizado com sucesso'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao atualizar produto'
+        erro: error instanceof Error ? error.message : 'Erro ao atualizar produto'
       });
     }
   }
@@ -156,10 +157,10 @@ export class ProdutoController {
         sucesso: true,
         mensagem: 'Produto excluído com sucesso'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao excluir produto'
+        erro: error instanceof Error ? error.message : 'Erro ao excluir produto'
       });
     }
   }
@@ -181,10 +182,10 @@ export class ProdutoController {
         sucesso: true,
         dados: produtos || []
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar estoque crítico'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar estoque crítico'
       });
     }
   }

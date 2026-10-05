@@ -1,6 +1,8 @@
 // backend/src/controllers/nfce.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
-import { NfceService } from '../services/nfce.service';
+import { NfceService } from '../services/nfce.service.js';
+import { EmailService } from '../services/email.service.js';
 import { StatusDocumento } from '@prisma/client';
 
 // ============================================================
@@ -32,13 +34,18 @@ function validarProtocolo(protocolo: string): boolean {
   return /^[0-9]{15}$/.test(protocolo) || /^[0-9]{17}$/.test(protocolo);
 }
 
+const TNF_MAXIMO = 999999999;
+
 function validarTNF(numero: number): boolean {
-  return numero >= 1 && numero <= 999999999;
+  return numero >= 1 && numero <= TNF_MAXIMO;
 }
 
 function validarTSerie(serie: number): boolean {
   return serie === 0 || (serie >= 1 && serie <= 999);
 }
+
+const ANO_RESUMO_MINIMO = 2000;
+const ANO_RESUMO_MAXIMO = 2100;
 
 // ============================================================
 // CONTROLLER
@@ -46,9 +53,59 @@ function validarTSerie(serie: number): boolean {
 
 export class NfceController {
   private nfceService: NfceService;
+  private emailService: EmailService;
 
   constructor() {
     this.nfceService = new NfceService();
+    this.emailService = new EmailService();
+  }
+
+  async enviarXmlPorEmail(req: RequestComUsuario, res: Response) {
+    try {
+      const empresaId = req.user?.empresaId;
+      const { id } = req.params;
+      const { destinatarioEmail } = req.body as { destinatarioEmail?: string };
+
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+      if (!destinatarioEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatarioEmail)) {
+        return res.status(400).json({ sucesso: false, erro: 'Informe um e-mail de destino válido' });
+      }
+      if (!this.emailService.estaConfigurado()) {
+        return res.status(503).json({
+          sucesso: false,
+          erro: 'Envio de e-mail não configurado no servidor (SMTP_HOST/SMTP_USER/SMTP_PASS ausentes).',
+        });
+      }
+
+      const nfce = await this.nfceService.buscarPorId(id, empresaId);
+      if (!nfce) {
+        return res.status(404).json({ sucesso: false, erro: 'NFC-e não encontrada' });
+      }
+      if (!nfce.xmlAssinado) {
+        return res.status(404).json({ sucesso: false, erro: 'XML da NFC-e não disponível' });
+      }
+
+      await this.emailService.enviar({
+        destinatario: destinatarioEmail,
+        assunto: `NFC-e nº ${nfce.numero} — ${nfce.chaveAcesso}`,
+        corpoTexto:
+          `Segue em anexo o XML da NFC-e nº ${nfce.numero}, série ${nfce.serie}.\n\n` +
+          `Chave de acesso: ${nfce.chaveAcesso}\n` +
+          `Status: ${nfce.status}\n` +
+          (nfce.protocoloAutorizacao ? `Protocolo: ${nfce.protocoloAutorizacao}\n` : ''),
+        anexos: [{ nomeArquivo: `NFCe_${nfce.numero}_${nfce.chaveAcesso}.xml`, conteudo: nfce.xmlAssinado, tipoConteudo: 'application/xml' }],
+      });
+
+      return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
+      return res.status(400).json({
+        sucesso: false,
+        erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
+      });
+    }
   }
 
   async listar(req: RequestComUsuario, res: Response) {
@@ -129,11 +186,11 @@ export class NfceController {
         dados
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro no NFC-e listar:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro no NFC-e listar:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao listar NFC-e',
+        erro: error instanceof Error ? error.message : 'Erro ao listar NFC-e',
       });
     }
   }
@@ -178,11 +235,11 @@ export class NfceController {
         dados: nfce
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar NFC-e por ID:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar NFC-e por ID:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFC-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFC-e'
       });
     }
   }
@@ -228,11 +285,11 @@ export class NfceController {
         dados: nfce
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar NFC-e por chave:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar NFC-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFC-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFC-e'
       });
     }
   }
@@ -278,11 +335,11 @@ export class NfceController {
         dados: nfce
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar NFC-e por protocolo:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar NFC-e por protocolo:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFC-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFC-e'
       });
     }
   }
@@ -375,11 +432,11 @@ export class NfceController {
         mensagem: 'NFC-e emitida e autorizada com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro no NFC-e emitir:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro no NFC-e emitir:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao emitir NFC-e',
+        erro: error instanceof Error ? error.message : 'Erro ao emitir NFC-e',
       });
     }
   }
@@ -427,11 +484,11 @@ export class NfceController {
         mensagem: 'NFC-e cancelada com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro no NFC-e cancelar:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro no NFC-e cancelar:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao cancelar NFC-e',
+        erro: error instanceof Error ? error.message : 'Erro ao cancelar NFC-e',
       });
     }
   }
@@ -458,11 +515,11 @@ export class NfceController {
 
       return res.send(xml);
 
-    } catch (error: any) {
-      console.error('❌ Erro ao baixar XML:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao baixar XML'
+        erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
       });
     }
   }
@@ -486,11 +543,11 @@ export class NfceController {
         dados
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao gerar DANFE NFC-e:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao gerar DANFE NFC-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao gerar DANFE'
+        erro: error instanceof Error ? error.message : 'Erro ao gerar DANFE'
       });
     }
   }
@@ -513,11 +570,11 @@ export class NfceController {
         dados: estatisticas
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar estatísticas:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar estatísticas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
       });
     }
   }
@@ -543,11 +600,11 @@ export class NfceController {
         dados: result
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar total de vendas:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar total de vendas:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar total de vendas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar total de vendas'
       });
     }
   }
@@ -567,7 +624,7 @@ export class NfceController {
       const mes = parseInt(req.query.mes as string) || new Date().getMonth() + 1;
 
       // ✅ VALIDA ANO E MÊS
-      if (ano < 2000 || ano > 2100) {
+      if (ano < ANO_RESUMO_MINIMO || ano > ANO_RESUMO_MAXIMO) {
         return res.status(400).json({
           sucesso: false,
           erro: 'Ano inválido'
@@ -587,11 +644,11 @@ export class NfceController {
         dados: resumo
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar resumo mensal:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar resumo mensal:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar resumo mensal'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar resumo mensal'
       });
     }
   }
@@ -623,11 +680,11 @@ export class NfceController {
         dados: produtos
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar produtos mais vendidos:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar produtos mais vendidos:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar produtos mais vendidos'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar produtos mais vendidos'
       });
     }
   }

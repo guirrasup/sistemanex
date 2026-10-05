@@ -1,13 +1,42 @@
 // src/services/nfe.service.ts
 import api from './api';
 import { NFeDocumento, TChNFe, TJust, TProt, TCnpj, TSerie, TNF } from '../types/fiscal';
+import { getApiErrorMessage } from '../utils/apiError';
 
 // ============================================================
 // INTERFACES
 // ============================================================
 
+// Forma real devolvida pelo backend (campos crus do Prisma — ex.: natOp, vNF,
+// não naturezaOperacao/valorTotalNota). O tipo `NFeDocumento` do frontend é do
+// protótipo antigo e não bate com o schema atual; usar esse tipo aqui seria
+// mentir sobre o shape em runtime. Só os campos realmente usados no app estão
+// listados — o restante do registro Prisma passa como está.
+export interface NfeApiRecord {
+  id: string;
+  numero: number;
+  serie: number;
+  chaveAcesso: string;
+  status: string;
+  protocoloAutorizacao?: string | null;
+  motivoRejeicao?: string | null;
+  natOp?: string | null;
+  vNF?: string | number | null;
+  destinatarioId?: string;
+  destinatario?: {
+    id: string;
+    razaoSocial: string;
+    documento: string;
+  };
+  itens?: Array<{
+    codigoProduto: string;
+    quantidade: string | number;
+  }>;
+  [key: string]: unknown;
+}
+
 export interface ListaNfeResponse {
-  data: NFeDocumento[];
+  data: NfeApiRecord[];
   total: number;
   page: number;
   limit: number;
@@ -32,6 +61,7 @@ export interface CancelamentoNFeParams {
 
 export interface InutilizacaoNFeParams {
   cnpj: TCnpj;
+  modelo: '55' | '65';
   serie: TSerie;
   numeroInicial: TNF;
   numeroFinal: TNF;
@@ -47,6 +77,23 @@ export interface CartaCorrecaoParams {
 export interface BaixarDocumentoParams {
   id: string;
   chaveAcesso?: TChNFe;
+}
+
+// Contrato real aceito por POST /api/nfe/emitir — o backend resolve NCM/CFOP/
+// preço/tributos a partir do produtoId; só o essencial é enviado pelo cliente.
+export interface EmitirNfeItemParams {
+  produtoId: string;
+  quantidade?: number;
+  valorUnitario?: number;
+}
+
+export interface EmitirNfeParams {
+  destinatarioId: string;
+  itens: EmitirNfeItemParams[];
+  naturezaOperacao?: string;
+  formaPagamento?: string;
+  informacoesAdicionais?: string;
+  consumidorFinal?: boolean;
 }
 
 // ============================================================
@@ -113,32 +160,23 @@ export const nfeService = {
     return response.data.dados || response.data;
   },
 
-  async emitir(nfe: Partial<NFeDocumento>): Promise<NFeDocumento> {
-    // ✅ VALIDA DADOS OBRIGATÓRIOS
-    if (!nfe.emitente?.cnpj) {
-      throw new Error('CNPJ do emitente é obrigatório');
+  async emitir(dados: EmitirNfeParams): Promise<NfeApiRecord> {
+    // ✅ VALIDA DADOS OBRIGATÓRIOS (o backend resolve NCM/CFOP/preço a partir do
+    // produtoId de cada item — não faz sentido revalidar aqui o que o backend
+    // já valida com a fonte de verdade, o cadastro de produtos).
+    if (!dados.destinatarioId) {
+      throw new Error('Destinatário é obrigatório');
     }
-    if (!nfe.destinatario?.documento) {
-      throw new Error('Documento do destinatário é obrigatório');
-    }
-    if (!nfe.itens || nfe.itens.length === 0) {
+    if (!dados.itens || dados.itens.length === 0) {
       throw new Error('NF-e deve ter pelo menos um item');
     }
-    
-    // ✅ VALIDA CADA ITEM
-    for (const item of nfe.itens) {
-      if (!item.ncm || item.ncm.length !== 8) {
-        throw new Error('NCM deve ter 8 dígitos');
-      }
-      if (!item.cfop || item.cfop.length !== 4) {
-        throw new Error('CFOP deve ter 4 dígitos');
-      }
-      if (!item.quantidade || item.quantidade <= 0) {
-        throw new Error('Quantidade do item deve ser maior que zero');
+    for (const item of dados.itens) {
+      if (!item.produtoId) {
+        throw new Error('Cada item deve informar produtoId');
       }
     }
-    
-    const response = await api.post('/nfe/emitir', nfe);
+
+    const response = await api.post('/nfe/emitir', dados);
     return response.data.dados || response.data;
   },
 
@@ -211,6 +249,17 @@ export const nfeService = {
       params: chaveAcesso ? { chave: chaveAcesso } : {}
     });
     return response.data;
+  },
+
+  async enviarPorEmail(id: string, destinatarioEmail: string): Promise<void> {
+    if (!id) {
+      throw new Error('ID da NF-e é obrigatório');
+    }
+    try {
+      await api.post(`/nfe/${id}/enviar-email`, { destinatarioEmail });
+    } catch (error: unknown) {
+      throw new Error(getApiErrorMessage(error, 'Erro ao enviar XML por e-mail'));
+    }
   },
 
   async enviarCartaCorrecao(params: CartaCorrecaoParams): Promise<void> {

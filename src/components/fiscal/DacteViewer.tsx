@@ -1,35 +1,125 @@
 // src/components/fiscal/DacteViewer.tsx
-import React from 'react';
-import { 
-  Printer, 
-  Download, 
-  ArrowLeft, 
-  Truck, 
-  QrCode, 
-  Barcode, 
-  MapPin, 
-  Navigation,
-  FileText
-} from 'lucide-react';
-import { CTeDocumento } from '../../types/fiscal';
-import { formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
+import React, { useEffect, useState } from 'react';
+import { Printer, Download, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
+import { cteService } from '../../services/cte.service';
+import { getApiErrorMessage } from '../../utils/apiError';
+import { DacteLayout } from './DacteLayout';
 
 interface DacteViewerProps {
-  cte: CTeDocumento;
+  /** Busca sempre o registro completo pelo id — igual ao padrão já usado em
+   *  DanfeViewer/DanfceViewer/DanfseViewer, em vez de confiar num objeto
+   *  passado por quem chamou (que podia vir com o shape errado). */
+  cteId: string;
   onBack: () => void;
 }
 
-export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
-  const handlePrint = () => {
-    window.print();
+interface DacteEnderecoRaw {
+  logradouro: string;
+  numero: string;
+  bairro: string;
+  nomeMunicipio: string;
+  uf: string;
+  cep: string;
+}
+
+interface CteDetalheRaw {
+  id: string;
+  nCT: number;
+  serie: number;
+  mod: string;
+  chaveAcesso?: string | null;
+  protocoloAutorizacao?: string | null;
+  dhEmi?: string | null;
+  CFOP: string;
+  natOp: string;
+  xMunIni: string;
+  UFIni: string;
+  xMunFim: string;
+  UFFim: string;
+  toma: number | string;
+  proPred: string;
+  vCargaAverb?: number | string | null;
+  pICMS00?: number | string | null;
+  vBC00?: number | string | null;
+  vICMS00?: number | string | null;
+  vTPrest: number | string;
+  xmlAssinado: string;
+
+  emitente: {
+    razaoSocial: string;
+    nomeFantasia?: string | null;
+    cnpj: string;
+    inscricaoEstadual?: string | null;
+    endereco: DacteEnderecoRaw;
   };
+  remetente?: {
+    razaoSocial: string;
+    documento: string;
+    inscricaoEstadual?: string | null;
+    endereco: DacteEnderecoRaw;
+  } | null;
+  destinatario?: {
+    razaoSocial: string;
+    documento: string;
+    inscricaoEstadual?: string | null;
+    endereco: DacteEnderecoRaw;
+  } | null;
+  transportadora?: {
+    razaoSocial: string;
+    rntrc?: string | null;
+  } | null;
+  componentes: { xNome: string; vComp: number | string }[];
+  quantidades: { cUnid: string; tpMed: string; qCarga: number | string }[];
+  documentos: { tipo: string; chave?: string | null }[];
+}
+
+const TOMADOR_POR_CODIGO: Record<string, number> = {
+  REMETENTE: 0, EXPEDIDOR: 1, RECEBEDOR: 2, DESTINATARIO: 3, OUTROS: 4,
+};
+
+const num = (v: unknown): number => {
+  const n = Number(v);
+  return isNaN(n) ? 0 : n;
+};
+
+const enderecoVazio: DacteEnderecoRaw = { logradouro: '', numero: '', bairro: '', nomeMunicipio: '', uf: '', cep: '' };
+
+export const DacteViewer: React.FC<DacteViewerProps> = ({ cteId, onBack }) => {
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+  const [cteRaw, setCteRaw] = useState<CteDetalheRaw | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    setCarregando(true);
+    setErro(null);
+    cteService.buscarPorId(cteId)
+      .then((resposta) => {
+        if (cancelado) return;
+        if (!resposta) {
+          setErro('CT-e não encontrado.');
+          return;
+        }
+        setCteRaw(resposta as unknown as CteDetalheRaw);
+      })
+      .catch((error: unknown) => {
+        if (!cancelado) setErro(getApiErrorMessage(error, 'Erro ao carregar o CT-e'));
+      })
+      .finally(() => {
+        if (!cancelado) setCarregando(false);
+      });
+    return () => { cancelado = true; };
+  }, [cteId]);
+
+  const handlePrint = () => window.print();
 
   const handleDownloadXml = () => {
-    const blob = new Blob([cte.xmlAssinado], { type: 'application/xml' });
+    if (!cteRaw?.xmlAssinado) return;
+    const blob = new Blob([cteRaw.xmlAssinado], { type: 'application/xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `CTe_${cte.numero}_${cte.chaveAcesso.slice(-8)}.xml`;
+    a.download = `CTe_${cteRaw.nCT}_${(cteRaw.chaveAcesso || '').slice(-8)}.xml`;
     a.click();
   };
 
@@ -47,7 +137,8 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
         <div className="flex items-center gap-2">
           <button
             onClick={handleDownloadXml}
-            className="bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs px-3 py-1.5 rounded border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
+            disabled={!cteRaw}
+            className="bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 font-medium text-xs px-3 py-1.5 rounded border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Baixar XML</span>
@@ -55,7 +146,8 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
 
           <button
             onClick={handlePrint}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs px-3.5 py-1.5 rounded transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+            disabled={!cteRaw}
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium text-xs px-3.5 py-1.5 rounded transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Imprimir DACTE</span>
@@ -63,168 +155,66 @@ export const DacteViewer: React.FC<DacteViewerProps> = ({ cte, onBack }) => {
         </div>
       </div>
 
-      <div className="bg-white border-2 border-slate-800 p-4 font-sans text-xs text-slate-900 space-y-2.5 print:border print:m-0 print:p-2">
-        
-        <div className="grid grid-cols-12 border-b-2 border-slate-800 pb-2 gap-2">
-          
-          <div className="col-span-5 border-r border-slate-400 pr-2 space-y-0.5">
-            <div className="font-extrabold text-sm uppercase leading-tight">{cte.emitente.razaoSocial}</div>
-            <div className="text-[10px] text-slate-600">{cte.emitente.nomeFantasia || 'Transportes e Logística'}</div>
-            <div className="text-[10px] text-slate-700 leading-tight">
-              {cte.emitente.endereco.logradouro}, {cte.emitente.endereco.numero} - {cte.emitente.endereco.bairro}<br />
-              {cte.emitente.endereco.nomeMunicipio}/{cte.emitente.endereco.uf} - CEP: {cte.emitente.endereco.cep}
-            </div>
-            <div className="text-[10px] font-semibold pt-0.5">
-              CNPJ: {formatarCpfCnpj(cte.emitente.cnpj)} • IE: {cte.emitente.inscricaoEstadual}
-            </div>
-          </div>
-
-          <div className="col-span-3 text-center border-r border-slate-400 px-2 flex flex-col justify-center">
-            <div className="font-black text-sm uppercase tracking-wider">DACTE</div>
-            <div className="text-[9px] uppercase leading-tight font-medium">
-              Documento Auxiliar do Conhecimento de Transporte Eletrônico
-            </div>
-            <div className="mt-1 text-[11px] font-bold">
-              MOD: {cte.modelo} • SÉRIE: {cte.serie}
-            </div>
-            <div className="text-xs font-black">
-              Nº {cte.numero.toString().padStart(9, '0')}
-            </div>
-          </div>
-
-          <div className="col-span-4 pl-2 flex flex-col justify-center space-y-1">
-            <div className="bg-slate-100 p-1 border border-slate-300 text-center font-mono text-[9px] font-bold tracking-wider">
-              {cte.chaveAcesso.replace(/(\d{4})/g, '$1 ')}
-            </div>
-            <div className="text-[9px] text-center text-slate-600">
-              Consulta de autenticidade no portal nacional do CT-e (www.cte.fazenda.gov.br) ou SEFAZ autorizadora
-            </div>
-            <div className="text-[10px] font-bold text-center text-emerald-800">
-              Protocolo: {cte.protocoloAutorizacao} - {new Date(cte.dataHoraEmissao).toLocaleString('pt-BR')}
-            </div>
-          </div>
-
+      {carregando && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-cyan-600 animate-spin" />
+          <p className="text-sm text-slate-500">Carregando dados do CT-e...</p>
         </div>
+      )}
 
-        <div className="grid grid-cols-4 border border-slate-800 text-[10px]">
-          <div className="p-1 border-r border-slate-800">
-            <span className="font-bold block text-slate-600">CFOP / NATUREZA:</span>
-            <span className="font-semibold">{cte.cfop} - {cte.naturezaOperacao.slice(0, 30)}...</span>
-          </div>
-          <div className="p-1 border-r border-slate-800">
-            <span className="font-bold block text-slate-600">INÍCIO DA PRESTAÇÃO:</span>
-            <span className="font-bold">{cte.municipioInicio.nome} / {cte.municipioInicio.uf}</span>
-          </div>
-          <div className="p-1 border-r border-slate-800">
-            <span className="font-bold block text-slate-600">TÉRMINO DA PRESTAÇÃO:</span>
-            <span className="font-bold">{cte.municipioFim.nome} / {cte.municipioFim.uf}</span>
-          </div>
-          <div className="p-1 bg-slate-50">
-            <span className="font-bold block text-slate-600">TOMADOR DO SERVIÇO:</span>
-            <span className="font-bold text-blue-900">
-              {cte.tomadorServico === 0 ? 'REMETENTE (CIF)' : 'DESTINATÁRIO (FOB)'}
-            </span>
-          </div>
+      {!carregando && erro && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 flex flex-col items-center gap-3 text-center">
+          <AlertCircle className="w-8 h-8 text-rose-600" />
+          <p className="text-sm text-rose-700 font-medium">{erro}</p>
         </div>
+      )}
 
-        <div className="grid grid-cols-2 gap-2">
-          
-          <div className="border border-slate-800 p-2 space-y-0.5 text-[10px]">
-            <div className="font-bold text-[11px] uppercase text-blue-900 border-b border-slate-300 pb-0.5 flex items-center justify-between">
-              <span>REMETENTE</span>
-              <span>CNPJ/CPF: {formatarCpfCnpj(cte.remetente.documento)}</span>
-            </div>
-            <div className="font-semibold text-slate-900">{cte.remetente.nomeRazaoSocial}</div>
-            <div>{cte.remetente.endereco.logradouro}, {cte.remetente.endereco.numero} - {cte.remetente.endereco.bairro}</div>
-            <div>{cte.remetente.endereco.nomeMunicipio}/{cte.remetente.endereco.uf} - CEP: {cte.remetente.endereco.cep}</div>
-            <div>Inscrição Estadual: {cte.remetente.inscricaoEstadual}</div>
-          </div>
-
-          <div className="border border-slate-800 p-2 space-y-0.5 text-[10px]">
-            <div className="font-bold text-[11px] uppercase text-emerald-900 border-b border-slate-300 pb-0.5 flex items-center justify-between">
-              <span>DESTINATÁRIO</span>
-              <span>CNPJ/CPF: {formatarCpfCnpj(cte.destinatario.documento)}</span>
-            </div>
-            <div className="font-semibold text-slate-900">{cte.destinatario.nomeRazaoSocial}</div>
-            <div>{cte.destinatario.endereco.logradouro}, {cte.destinatario.endereco.numero} - {cte.destinatario.endereco.bairro}</div>
-            <div>{cte.destinatario.endereco.nomeMunicipio}/{cte.destinatario.endereco.uf} - CEP: {cte.destinatario.endereco.cep}</div>
-            <div>Inscrição Estadual: {cte.destinatario.inscricaoEstadual}</div>
-          </div>
-
-        </div>
-
-        <div className="border border-slate-800 p-2 space-y-1 text-[10px]">
-          <div className="font-bold text-[11px] uppercase border-b border-slate-300 pb-0.5">
-            INFORMAÇÕES DA CARGA & DOCUMENTOS TRANSPORTADOS
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            <div>
-              <span className="text-slate-600 block">PRODUTO PREDOMINANTE:</span>
-              <span className="font-semibold">{cte.produtoPredominante}</span>
-            </div>
-            <div>
-              <span className="text-slate-600 block">VALOR DA CARGA AVERBADA:</span>
-              <span className="font-bold text-slate-900">{formatarMoeda(cte.valorCargaAverbada)}</span>
-            </div>
-            <div>
-              <span className="text-slate-600 block">PESO BRUTO / LÍQUIDO:</span>
-              <span className="font-semibold">{cte.pesoBrutoKg} Kg / {cte.pesoLiquidoKg} Kg</span>
-            </div>
-            <div>
-              <span className="text-slate-600 block">VOLUMES / ESPÉCIE:</span>
-              <span className="font-semibold">{cte.quantidadeVolumes} ({cte.especieVolumes})</span>
-            </div>
-          </div>
-
-          <div className="pt-1 border-t border-slate-200">
-            <span className="font-bold text-slate-700">CHAVES DE NF-e TRANSPORTADAS:</span>
-            <div className="font-mono text-[9px] text-slate-800 bg-slate-50 p-1 rounded mt-0.5">
-              {cte.chavesNFeTransportadas.join(' • ')}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-12 border border-slate-800 text-[10px]">
-          
-          <div className="col-span-8 p-2 border-r border-slate-800 space-y-1">
-            <div className="font-bold border-b border-slate-300 pb-0.5">COMPONENTES DO VALOR DA PRESTAÇÃO</div>
-            <div className="grid grid-cols-4 gap-1 text-[9px]">
-              <div>Frete Peso: <strong>{formatarMoeda(cte.componentesValor.fretePeso)}</strong></div>
-              <div>Frete Valor: <strong>{formatarMoeda(cte.componentesValor.freteValor)}</strong></div>
-              <div>Pedágio: <strong>{formatarMoeda(cte.componentesValor.pedagio)}</strong></div>
-              <div>GRIS/Taxas: <strong>{formatarMoeda(cte.componentesValor.taxaGris + cte.componentesValor.outrasTaxas)}</strong></div>
-            </div>
-            <div className="text-[9px] text-slate-600 pt-1">
-              RNTRC: {cte.rntrc} • Placa Veículo: {cte.veiculo?.placa}/{cte.veiculo?.uf} • Motorista: {cte.motorista?.nome} ({cte.motorista?.cpf})
-            </div>
-          </div>
-
-          <div className="col-span-4 p-2 bg-slate-50 flex flex-col justify-between">
-            <div>
-              <div className="text-slate-600">Base ICMS ({cte.aliquotaICMS}%): <strong>{formatarMoeda(cte.baseCalculoICMS)}</strong></div>
-              <div className="text-slate-600">ICMS Apurado: <strong>{formatarMoeda(cte.valorICMS)}</strong></div>
-            </div>
-            <div className="border-t border-slate-300 pt-1 text-right">
-              <span className="text-[9px] block text-slate-500 font-bold">TOTAL DO FRETE:</span>
-              <span className="text-sm font-black text-blue-900">{formatarMoeda(cte.valorTotalFrete)}</span>
-            </div>
-          </div>
-
-        </div>
-
-        <div className="border border-slate-800 p-2 text-[9px] space-y-1 border-dashed">
-          <div className="flex justify-between font-bold">
-            <span>DECLARO QUE RECEBI OS VOLUMES DESTE CONHECIMENTO EM PERFEITO ESTADO</span>
-            <span>CT-e Nº {cte.numero}</span>
-          </div>
-          <div className="grid grid-cols-3 gap-4 pt-3">
-            <div className="border-t border-slate-400 text-center">DATA DO RECEBIMENTO</div>
-            <div className="border-t border-slate-400 text-center">NOME LEGÍVEL DO RECEBEDOR</div>
-            <div className="border-t border-slate-400 text-center">ASSINATURA DO RECEBEDOR</div>
-          </div>
-        </div>
-
-      </div>
+      {!carregando && !erro && cteRaw && (
+        <DacteLayout
+          numero={cteRaw.nCT}
+          serie={cteRaw.serie}
+          modelo={cteRaw.mod}
+          chaveAcesso={cteRaw.chaveAcesso || undefined}
+          protocoloAutorizacao={cteRaw.protocoloAutorizacao || undefined}
+          dataHoraEmissao={cteRaw.dhEmi || undefined}
+          cfop={cteRaw.CFOP}
+          naturezaOperacao={cteRaw.natOp}
+          municipioInicioNome={cteRaw.xMunIni}
+          municipioInicioUf={cteRaw.UFIni}
+          municipioFimNome={cteRaw.xMunFim}
+          municipioFimUf={cteRaw.UFFim}
+          tomadorServico={typeof cteRaw.toma === 'string' ? (TOMADOR_POR_CODIGO[cteRaw.toma] ?? 0) : cteRaw.toma}
+          emitente={{
+            razaoSocial: cteRaw.emitente.razaoSocial,
+            nomeFantasia: cteRaw.emitente.nomeFantasia || undefined,
+            cnpj: cteRaw.emitente.cnpj,
+            inscricaoEstadual: cteRaw.emitente.inscricaoEstadual || undefined,
+            endereco: cteRaw.emitente.endereco || enderecoVazio,
+          }}
+          remetente={{
+            razaoSocial: cteRaw.remetente?.razaoSocial || '—',
+            documento: cteRaw.remetente?.documento || '',
+            inscricaoEstadual: cteRaw.remetente?.inscricaoEstadual || undefined,
+            endereco: cteRaw.remetente?.endereco || enderecoVazio,
+          }}
+          destinatario={{
+            razaoSocial: cteRaw.destinatario?.razaoSocial || '—',
+            documento: cteRaw.destinatario?.documento || '',
+            inscricaoEstadual: cteRaw.destinatario?.inscricaoEstadual || undefined,
+            endereco: cteRaw.destinatario?.endereco || enderecoVazio,
+          }}
+          produtoPredominante={cteRaw.proPred}
+          valorCargaAverbada={num(cteRaw.vCargaAverb)}
+          quantidades={(cteRaw.quantidades || []).map(q => ({ cUnid: q.cUnid, tpMed: q.tpMed, qCarga: num(q.qCarga) }))}
+          documentos={(cteRaw.documentos || []).map(d => ({ tipo: d.tipo, chave: d.chave || undefined }))}
+          componentes={(cteRaw.componentes || []).map(c => ({ xNome: c.xNome, vComp: num(c.vComp) }))}
+          transportadora={cteRaw.transportadora ? { razaoSocial: cteRaw.transportadora.razaoSocial, rntrc: cteRaw.transportadora.rntrc || undefined } : undefined}
+          aliquotaICMS={num(cteRaw.pICMS00)}
+          baseCalculoICMS={num(cteRaw.vBC00)}
+          valorICMS={num(cteRaw.vICMS00)}
+          valorTotalFrete={num(cteRaw.vTPrest)}
+        />
+      )}
     </div>
   );
 };

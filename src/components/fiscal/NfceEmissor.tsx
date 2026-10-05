@@ -40,18 +40,25 @@ import {
 } from 'lucide-react';
 import { NFCeDocumento, ItemNfe } from '../../types/fiscal';
 import { Produto, ClienteFornecedor, ConfiguracaoEmpresa } from '../../types/erp';
-import { StorageService } from '../../utils/storage';
-import { formatarMoeda, formatarCpfCnpj, validarCpfOuCnpj, limparDocumento } from '../../utils/cpfCnpjValidator';
-import { gerarChaveAcessoNFe } from '../../utils/chaveAcesso';
+import { formatarMoeda, validarCpfOuCnpj } from '../../utils/cpfCnpjValidator';
 import { calcularTotaisNfe } from '../../utils/tributosEngine';
 import { useToast } from '../../hooks/useToast';
+import { getApiErrorMessage } from '../../utils/apiError';
+import { nfceService, EmitirNfceItemParams } from '../../services/nfce.service';
+import { DanfceLayout } from './DanfceLayout';
+import { ResumoEmissaoModal } from './ResumoEmissaoModal';
+
+// CSOSN sem base própria (ICMSSN102/ICMSSN500 no XML) — não declaram vBC/vICMS;
+// mandar um valor aqui infla o total do documento sem lastro em nenhum item,
+// e a SEFAZ rejeita ("Total da BC ICMS difere do somatorio dos itens").
+const CSOSN_SEM_BASE_PROPRIA = ['102', '103', '300', '400', '500'];
 
 interface NfceEmissorProps {
   empresa: ConfiguracaoEmpresa;
   clientes: ClienteFornecedor[];
   produtos: Produto[];
   onNfceEmitida: (nfce: NFCeDocumento) => void;
-  onViewDanfce: (nfce: NFCeDocumento) => void;
+  onViewDanfce: (nfceId: string) => void;
 }
 
 // 🔥 COR DO MÓDULO - ROXO
@@ -101,7 +108,11 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   const [idDest, setIdDest] = useState<1 | 2 | 3>(1);
   const [finNFe, setFinNFe] = useState<1 | 2 | 3 | 4>(1);
   const [indFinal, setIndFinal] = useState<0 | 1>(1);
-  const [indPres, setIndPres] = useState<0 | 1 | 2 | 3 | 4 | 5 | 9>(2);
+  // ⚠️ Default era 2 (não presencial) — a SEFAZ rejeita NFC-e "não presencial"
+  // (cStat 717, "NFC-e em operacao nao presencial"): o modelo 65 é, por
+  // definição, o cupom fiscal do balcão/PDV. Achado emitindo de verdade contra
+  // a SEFAZ real durante esta revisão.
+  const [indPres, setIndPres] = useState<0 | 1 | 2 | 3 | 4 | 5 | 9>(1);
   const [procEmi, setProcEmi] = useState<string>('0');
   const [verProc, setVerProc] = useState<string>('SUP-TECNOLOGIA-4.00');
   const [tpEmis, setTpEmis] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7 | 9>(1);
@@ -144,8 +155,14 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   // STATE - UI
   // ============================================================
   const [isTransmitting, setIsTransmitting] = useState<boolean>(false);
+  const [isCarregandoUltima, setIsCarregandoUltima] = useState<boolean>(false);
   const [erros, setErros] = useState<string[]>([]);
   const [sucessoNfce, setSucessoNfce] = useState<NFCeDocumento | null>(null);
+  // 🔥 Mesmo padrão do NfeEmissor: campo obrigatório vazio só fica vermelho
+  // depois da primeira tentativa de emitir, e preview antes de transmitir de
+  // verdade pra SEFAZ (homolog ou produção).
+  const [tentouEnviar, setTentouEnviar] = useState<boolean>(false);
+  const [showPreview, setShowPreview] = useState<boolean>(false);
 
   // ============================================================
   // CÁLCULOS
@@ -213,19 +230,20 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
       const novos = [...itens];
       const it = novos[existenteIndex];
       const novaQtd = it.quantidade + 1;
-      
+
       if (novaQtd > prod.estoqueAtual) {
         toast.showWarning(`⚠️ Estoque insuficiente para "${prod.descricao}". Disponível: ${prod.estoqueAtual}`);
         return;
       }
-      
+
+      const semBasePropria = !!it.csosnICMS && CSOSN_SEM_BASE_PROPRIA.includes(it.csosnICMS);
       const novoTotal = novaQtd * it.valorUnitario;
       novos[existenteIndex] = {
         ...it,
         quantidade: novaQtd,
         valorTotalBruto: novoTotal,
-        baseCalculoICMS: novoTotal,
-        valorICMS: (novoTotal * it.aliquotaICMS) / 100,
+        baseCalculoICMS: semBasePropria ? 0 : novoTotal,
+        valorICMS: semBasePropria ? 0 : (novoTotal * it.aliquotaICMS) / 100,
         valorPIS: (novoTotal * it.aliquotaPIS) / 100,
         valorCOFINS: (novoTotal * it.aliquotaCOFINS) / 100,
         valorTributosAproximados: novoTotal * 0.314,
@@ -234,6 +252,19 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
       toast.showSuccess(`✅ Quantidade aumentada para "${prod.descricao}"`);
       return;
     }
+
+    // CST (regime normal) e CSOSN (Simples Nacional) são mutuamente exclusivos
+    // no leiaute — a empresa aqui é Simples Nacional (CRT=1), então o csosnICMS
+    // do produto (quando cadastrado) prevalece sobre o CST.
+    const semBasePropria = !!prod.csosnICMS && CSOSN_SEM_BASE_PROPRIA.includes(prod.csosnICMS);
+
+    // 🔥 Decimal do Prisma (precoVenda/aliquota*) chega como string no JSON —
+    // atribuição direta (sem Number()) contamina o item e quebra calcularTotaisNfe
+    // (mesmo bug já corrigido no NfeEmissor: TypeError x.toFixed is not a function).
+    const precoVenda = Number(prod.precoVenda);
+    const aliquotaICMS = Number(prod.aliquotaICMS);
+    const aliquotaPIS = Number(prod.aliquotaPIS);
+    const aliquotaCOFINS = Number(prod.aliquotaCOFINS);
 
     const novoItem: ItemNfe = {
       id: `item-nfce-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -244,25 +275,23 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
       cfop: '5102',
       unidadeMedida: prod.unidade,
       quantidade: 1,
-      valorUnitario: prod.precoVenda,
-      valorTotalBruto: prod.precoVenda,
+      valorUnitario: precoVenda,
+      valorTotalBruto: precoVenda,
       origemMercadoria: prod.origem || 0,
-      cstICMS: prod.cstICMS || '00',
-      aliquotaICMS: prod.aliquotaICMS,
-      baseCalculoICMS: prod.precoVenda,
-      valorICMS: (prod.precoVenda * prod.aliquotaICMS) / 100,
-      cstPIS: prod.cstPIS || '01',
-      aliquotaPIS: prod.aliquotaPIS,
-      valorPIS: (prod.precoVenda * prod.aliquotaPIS) / 100,
-      cstCOFINS: prod.cstCOFINS || '01',
-      aliquotaCOFINS: prod.aliquotaCOFINS,
-      valorCOFINS: (prod.precoVenda * prod.aliquotaCOFINS) / 100,
-      cstIPI: prod.cstIPI || '50',
-      aliquotaIPI: prod.aliquotaIPI || 0,
-      valorIPI: (prod.precoVenda * (prod.aliquotaIPI || 0)) / 100,
+      cstICMS: (prod.cstICMS || '00') as ItemNfe['cstICMS'],
+      csosnICMS: prod.csosnICMS as ItemNfe['csosnICMS'],
+      aliquotaICMS,
+      baseCalculoICMS: semBasePropria ? 0 : precoVenda,
+      valorICMS: semBasePropria ? 0 : (precoVenda * aliquotaICMS) / 100,
+      cstPIS: '01',
+      aliquotaPIS,
+      valorPIS: (precoVenda * aliquotaPIS) / 100,
+      cstCOFINS: '01',
+      aliquotaCOFINS,
+      valorCOFINS: (precoVenda * aliquotaCOFINS) / 100,
       codigoEAN: prod.codigoBarrasEAN || undefined,
       codigoEANTrib: prod.codigoBarrasEAN || undefined,
-      valorTributosAproximados: prod.precoVenda * 0.314,
+      valorTributosAproximados: precoVenda * 0.314,
     };
 
     setItens([...itens, novoItem]);
@@ -323,7 +352,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   // ============================================================
 
   const handleFormaPagamentoChange = (codigo: string) => {
-    setFormaPagamento(codigo as any);
+    setFormaPagamento(codigo as '01' | '02' | '03' | '04' | '15' | '17' | '90' | '99');
     setTPag(codigo);
     const descricoes: Record<string, string> = {
       '01': 'Dinheiro',
@@ -354,10 +383,17 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
       errs.push('Adicione pelo menos 1 produto no cupom para emitir a NFC-e.');
     }
 
-    if (identificarConsumidor && consumidorDoc.trim()) {
-      const val = validarCpfOuCnpj(consumidorDoc);
-      if (!val.valido) {
-        errs.push('CPF/CNPJ do consumidor informado é inválido.');
+    if (identificarConsumidor) {
+      // 🔥 Antes só validava o formato do CPF/CNPJ QUANDO já preenchido — se o
+      // usuário marcasse "Identificar CPF/CNPJ" e deixasse os campos vazios,
+      // passava direto sem avisar nada.
+      if (!consumidorDoc.trim()) {
+        errs.push('CPF/CNPJ do consumidor é obrigatório quando "Identificar CPF/CNPJ" está marcado.');
+      } else {
+        const val = validarCpfOuCnpj(consumidorDoc);
+        if (!val.valido) {
+          errs.push('CPF/CNPJ do consumidor informado é inválido.');
+        }
       }
       if (!consumidorNome.trim()) {
         errs.push('Nome do consumidor é obrigatório quando identificado.');
@@ -380,6 +416,93 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
     return errs.length === 0;
   };
 
+  // 🔥 Classe do input: borda vermelha só depois de tentar emitir (tentouEnviar)
+  // E o campo estar vazio — mesmo padrão do NfeEmissor.
+  const classeCampo = (valor: string, base = `w-full border rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`) =>
+    tentouEnviar && !valor.trim()
+      ? `${base.replace(corFocus, 'focus:ring-rose-500')} border-rose-400 bg-rose-50`
+      : `${base} border-slate-300`;
+
+  const handleClickEmitir = () => {
+    setTentouEnviar(true);
+    if (!validarNfce()) {
+      toast.showError('Preencha os campos obrigatórios destacados em vermelho antes de emitir.');
+      return;
+    }
+    setShowPreview(true);
+  };
+
+  // ============================================================
+  // CARREGAR ÚLTIMA NOTA
+  // ============================================================
+
+  const handleCarregarUltima = async () => {
+    setIsCarregandoUltima(true);
+    setErros([]);
+    try {
+      const resposta = await nfceService.listar({ page: 1, limit: 1, status: 'AUTORIZADA' });
+      const ultima = resposta.data?.[0];
+      if (!ultima) {
+        toast.showError('Nenhuma NFC-e autorizada anterior encontrada.');
+        return;
+      }
+
+      setNaturezaOperacao(ultima.naturezaOperacao || naturezaOperacao);
+      setFormaPagamento((ultima.formaPagamento as typeof formaPagamento) || formaPagamento);
+
+      // A resposta real da API é o registro cru do Prisma (consumidorCpfCnpj/
+      // consumidorNome soltos), não o shape { destinatario: {...} } do tipo
+      // NFCeDocumento do protótipo antigo — lido aqui com um cast local.
+      const raw = ultima as unknown as { consumidorCpfCnpj?: string; consumidorNome?: string };
+      if (raw.consumidorCpfCnpj) {
+        const clienteAnterior = clientes.find(c => c.documento === raw.consumidorCpfCnpj);
+        setIdentificarConsumidor(true);
+        if (clienteAnterior) {
+          handleSelectCliente(clienteAnterior.id);
+        } else {
+          setConsumidorDoc(raw.consumidorCpfCnpj);
+          setConsumidorNome(raw.consumidorNome || '');
+        }
+      } else {
+        setIdentificarConsumidor(false);
+      }
+
+      // O shape do item devolvido pela API já bate quase 1:1 com ItemNfe — só
+      // precisa de um id novo (React key) e o nome do campo de tributos
+      // aproximados diverge (valorTributosAprox na API x valorTributosAproximados aqui).
+      // 🔥 Decimal do Prisma (quantidade/valorUnitario/valorTotalBruto/aliquota*/
+      // baseCalculoICMS/valorICMS/valorPIS/valorCOFINS) chega como string no JSON
+      // — o `...item` espalhava esses campos sem Number(), e o preview quebrava
+      // em item.valorUnitario.toFixed() (TypeError: not a function) assim que o
+      // usuário usava "Carregar última nota" e depois abria o preview.
+      const itensRecarregados: ItemNfe[] = (ultima.itens || []).map((item, idx) => ({
+        ...item,
+        id: `item-nfce-ultima-${Date.now()}-${idx}`,
+        quantidade: Number(item.quantidade) || 1,
+        valorUnitario: Number(item.valorUnitario) || 0,
+        valorTotalBruto: Number(item.valorTotalBruto) || 0,
+        aliquotaICMS: Number(item.aliquotaICMS) || 0,
+        baseCalculoICMS: Number(item.baseCalculoICMS) || 0,
+        valorICMS: Number(item.valorICMS) || 0,
+        aliquotaPIS: Number(item.aliquotaPIS) || 0,
+        valorPIS: Number(item.valorPIS) || 0,
+        aliquotaCOFINS: Number(item.aliquotaCOFINS) || 0,
+        valorCOFINS: Number(item.valorCOFINS) || 0,
+        valorTributosAproximados: Number(
+          (item as unknown as { valorTributosAprox?: number }).valorTributosAprox
+            ?? item.valorTributosAproximados
+        ) || 0,
+      }));
+      setItens(itensRecarregados);
+
+      toast.showSuccess('Dados da última NFC-e carregados. Revise antes de emitir.');
+    } catch (error: unknown) {
+      toast.showError(getApiErrorMessage(error, 'Erro ao carregar a última NFC-e'));
+    } finally {
+      setIsCarregandoUltima(false);
+    }
+  };
+
   // ============================================================
   // TRANSMISSÃO
   // ============================================================
@@ -391,118 +514,69 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
     setErros([]);
 
     try {
-      const numero = empresa.proximoNumeroNfce || 1;
-      const serie = empresa.serieNfce || 1;
-      const aamm = new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0');
+      const itensParaEnvio: EmitirNfceItemParams[] = itens.map(item => ({
+        codigoProduto: item.codigoProduto,
+        descricao: item.descricao,
+        ncm: item.ncm,
+        cest: item.cest,
+        cfop: item.cfop,
+        unidadeMedida: item.unidadeMedida,
+        quantidade: item.quantidade,
+        valorUnitario: item.valorUnitario,
+        cstICMS: item.csosnICMS ? undefined : item.cstICMS,
+        csosnICMS: item.csosnICMS,
+        aliquotaICMS: item.aliquotaICMS,
+        baseCalculoICMS: item.baseCalculoICMS,
+        valorICMS: item.valorICMS,
+        cstPIS: item.cstPIS,
+        aliquotaPIS: item.aliquotaPIS,
+        valorPIS: item.valorPIS,
+        cstCOFINS: item.cstCOFINS,
+        aliquotaCOFINS: item.aliquotaCOFINS,
+        valorCOFINS: item.valorCOFINS,
+        valorTributosAproximados: item.valorTributosAproximados,
+      }));
 
-      const { chaveCompleta } = gerarChaveAcessoNFe({
-        codigoUf: empresa.endereco.codigoMunicipio.slice(0, 2) || '35',
-        anoMes: aamm,
-        cnpjEmitente: empresa.cnpj,
-        modelo: '65',
-        serie,
-        numero,
-        tipoEmissao: 1,
-      });
-
-      const docConsumidor = identificarConsumidor ? limparDocumento(consumidorDoc) : '';
-
-      const novaNfce: NFCeDocumento = {
-        id: `nfce-${Date.now()}`,
-        modelo: '65',
-        serie,
-        numero,
-        chaveAcesso: chaveCompleta,
-        dataHoraEmissao: new Date().toISOString(),
-        naturezaOperacao,
-        ambiente: empresa.ambienteEmissao,
-        tipoEmissao: 1,
-        status: 'AUTORIZADA',
-        emitente: {
-          cnpj: empresa.cnpj,
-          inscricaoMunicipal: empresa.inscricaoMunicipal,
-          inscricaoEstadual: empresa.inscricaoEstadual,
-          razaoSocial: empresa.razaoSocial,
-          nomeFantasia: empresa.nomeFantasia,
-          regimeTributario: empresa.regimeTributario,
-          optanteSimplesNacional: empresa.optanteSimplesNacional,
-          optanteMEI: empresa.optanteMEI,
-          endereco: empresa.endereco,
-        },
+      const nfceEmitida = await nfceService.emitir({
+        itens: itensParaEnvio,
         consumidorIdentificado: identificarConsumidor,
-        destinatario: identificarConsumidor ? {
-          cpfCnpj: docConsumidor || undefined,
-          nomeRazaoSocial: consumidorNome || 'Consumidor Identificado',
-          email: consumidorEmail || undefined,
-          endereco: {
-            logradouro: consumidorLogradouro || '',
-            numero: consumidorNumero || '',
-            complemento: consumidorComplemento || '',
-            bairro: consumidorBairro || '',
-            codigoMunicipio: consumidorCodigoMunicipio || '3550308',
-            nomeMunicipio: consumidorNomeMunicipio || 'São Paulo',
-            uf: consumidorUf || 'SP',
-            cep: consumidorCep || '',
-            telefone: consumidorTelefone || '',
-            email: consumidorEmail || '',
-          },
-        } : undefined,
-        itens,
-        valorTotalProdutos: totais.valorTotalProdutos,
-        valorTotalDesconto: valorDesconto,
-        valorTotalAcrescimo: valorAcrescimo,
-        valorTotalTributosAproximados: totais.valorTotalTributosAproximados,
-        valorTotalNota: valorTotalFinal,
+        consumidorDoc: identificarConsumidor ? consumidorDoc : undefined,
+        consumidorNome: identificarConsumidor ? consumidorNome : undefined,
+        naturezaOperacao,
+        valorDesconto,
+        valorAcrescimo,
         formaPagamento,
-        valorPago: valorRecebido > 0 ? valorRecebido : valorTotalFinal,
-        valorTroco: formaPagamento === '01' ? troco : 0,
-        urlQrCode: `https://www.nfce.fazenda.gov.br/portal/qrCode/${chaveCompleta}`,
-        tokenCscId: empresa.tokenCSCId || '000001',
-        protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-        dataHoraAutorizacao: new Date().toISOString(),
-        xmlAssinado: '',
-        indFinal,
-        indPres,
-        tpEmis,
-        procEmi,
-        verProc,
+        valorPago: vPag,
+        valorRecebido: formaPagamento === '01' ? valorRecebido : undefined,
+        tokenCscId: undefined,
+        infAdFisco: infAdFisco || undefined,
+        infCpl: infCpl || undefined,
         tpNF,
         idDest,
         finNFe,
-        pagamentos: [{
-          indPag: '0',
-          tPag: tPag,
-          xPag: xPag,
-          vPag: vPag,
-          dPag: dPag || undefined,
-          tpIntegra: tpIntegra,
-          CNPJPag: '',
-          UFPag: '',
-          CNPJInstPag: CNPJInstPag || undefined,
-          tBand: tBand || undefined,
-          cAut: cAut || undefined,
-          CNPJReceb: CNPJReceb || undefined,
-          idTermPag: idTermPag || undefined,
-        }],
-        infAdFisco: infAdFisco || undefined,
-        infCpl: infCpl || undefined,
-      };
+        indFinal,
+        indPres,
+        procEmi,
+        verProc,
+        tpEmis,
+      });
 
-      const xml = gerarXmlNfe400(novaNfce as any);
-      novaNfce.xmlAssinado = xml;
-
-      StorageService.addNfce(novaNfce);
-      onNfceEmitida(novaNfce);
-      setSucessoNfce(novaNfce);
-      
-      toast.showSuccess(`✅ NFC-e Nº ${numero} emitida com sucesso!`);
-
-    } catch (error: any) {
+      if (nfceEmitida) {
+        onNfceEmitida(nfceEmitida);
+        setSucessoNfce(nfceEmitida);
+        setTentouEnviar(false);
+        // 🔥 O backend não lança erro quando a SEFAZ rejeita — o modal de
+        // resumo acima mostra o status real (AUTORIZADA/REJEITADA) e o
+        // motivo, então não tem mais um toast que sempre dizia "sucesso".
+      }
+    } catch (error: unknown) {
       console.error('❌ Erro na transmissão:', error);
-      setErros([error.message || 'Erro ao emitir NFC-e. Tente novamente.']);
-      toast.showError(`❌ ${error.message || 'Erro ao emitir NFC-e.'}`);
+      const mensagemErro = getApiErrorMessage(error, 'Erro ao emitir NFC-e. Tente novamente.');
+      setErros([mensagemErro]);
+      toast.showError(`❌ ${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
+      setShowPreview(false);
     }
   };
 
@@ -535,70 +609,47 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           </p>
         </div>
 
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfce || 1}</div>
-          <div className={`text-[10px] font-medium ${corText}`}>Próxima NFC-e: Nº {empresa.proximoNumeroNfce || 1}</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCarregarUltima}
+            disabled={isCarregandoUltima}
+            title="Preenche o formulário com os dados da última NFC-e autorizada"
+            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
+            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfce || 1}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próxima NFC-e: Nº previsto {empresa.proximoNumeroNfce || 1}</div>
+          </div>
         </div>
       </div>
 
       {sucessoNfce && (
-        <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2 className={`w-5 h-5 ${corText} shrink-0 mt-0.5`} />
-              <div>
-                <h3 className={`text-sm font-bold ${corTextDark}`}>
-                  NFC-e Nº {sucessoNfce.numero} Emitida com Sucesso!
-                </h3>
-                <p className="text-xs text-purple-800 font-mono mt-0.5">
-                  Chave: {sucessoNfce.chaveAcesso}
-                </p>
-                <div className="text-[11px] text-purple-700 mt-1">
-                  Valor Total: {formatarMoeda(sucessoNfce.valorTotalNota)} • Protocolo: {sucessoNfce.protocoloAutorizacao}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onViewDanfce(sucessoNfce)}
-                className={`${corBgButton} text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Visualizar Cupom</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  const blob = new Blob([sucessoNfce.xmlAssinado], { type: 'application/xml' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `NFCe_${sucessoNfce.numero}_SUP.xml`;
-                  a.click();
-                }}
-                className="bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>XML</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setSucessoNfce(null);
-                  setItens([]);
-                  setValorDesconto(0);
-                  setValorAcrescimo(0);
-                  setValorRecebido(0);
-                  setVPag(0);
-                }}
-                className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer"
-              >
-                Nova Venda
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResumoEmissaoModal
+          aberto={!!sucessoNfce}
+          onClose={() => {
+            setSucessoNfce(null);
+            setItens([]);
+            setValorDesconto(0);
+            setValorAcrescimo(0);
+            setValorRecebido(0);
+            setVPag(0);
+          }}
+          status={((sucessoNfce as unknown as { status?: string }).status as 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO') || 'PROCESSANDO'}
+          tipoDocumentoLabel="NFC-e"
+          numero={sucessoNfce.numero}
+          serie={sucessoNfce.serie}
+          chaveAcesso={sucessoNfce.chaveAcesso}
+          protocolo={sucessoNfce.protocoloAutorizacao || undefined}
+          motivoRejeicao={(sucessoNfce as unknown as { motivoRejeicao?: string }).motivoRejeicao || undefined}
+          valorTotal={Number(sucessoNfce.valorTotalNota) || 0}
+          destinatarioNome={(sucessoNfce as unknown as { consumidorNome?: string }).consumidorNome || undefined}
+          emailSugerido={empresa.contadorEmail || empresa.endereco?.email || ''}
+          onVisualizar={() => onViewDanfce(sucessoNfce.id)}
+          onEnviarEmail={(email) => nfceService.enviarPorEmail(sucessoNfce.id, email)}
+        />
       )}
 
       {erros.length > 0 && (
@@ -659,7 +710,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
                   type="text"
                   value={consumidorDoc}
                   onChange={(e) => setConsumidorDoc(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={classeCampo(consumidorDoc)}
                   placeholder="000.000.000-00"
                 />
               </div>
@@ -669,7 +720,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
                   type="text"
                   value={consumidorNome}
                   onChange={(e) => setConsumidorNome(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={classeCampo(consumidorNome)}
                   placeholder="Nome do consumidor"
                 />
               </div>
@@ -841,7 +892,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             <label className="block font-medium text-slate-600 mb-1">Presença (IndPres)</label>
             <select
               value={indPres}
-              onChange={(e) => setIndPres(parseInt(e.target.value) as any)}
+              onChange={(e) => setIndPres(parseInt(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5 | 9)}
               className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value={0}>0 - Não se aplica</option>
@@ -891,7 +942,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             <label className="block font-medium text-slate-600 mb-1">Tipo Emissão</label>
             <select
               value={tpEmis}
-              onChange={(e) => setTpEmis(parseInt(e.target.value) as any)}
+              onChange={(e) => setTpEmis(parseInt(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 9)}
               className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value={1}>1 - Normal</option>
@@ -959,10 +1010,12 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         )}
 
         {itens.length === 0 ? (
-          <div className="p-6 border-2 border-dashed border-slate-200 rounded-lg text-center bg-slate-50/70">
-            <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-xs font-semibold text-slate-700">Cupom Fiscal em Branco</p>
-            <p className="text-[11px] text-slate-500">Pesquise um produto acima para adicionar</p>
+          <div className={`p-6 border-2 border-dashed rounded-lg text-center ${
+            tentouEnviar ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50/70'
+          }`}>
+            <ShoppingBag className={`w-8 h-8 mx-auto mb-2 ${tentouEnviar ? 'text-rose-300' : 'text-slate-300'}`} />
+            <p className={`text-xs font-semibold ${tentouEnviar ? 'text-rose-700' : 'text-slate-700'}`}>Cupom Fiscal em Branco</p>
+            <p className={`text-[11px] ${tentouEnviar ? 'text-rose-500' : 'text-slate-500'}`}>Pesquise um produto acima para adicionar</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
@@ -1083,13 +1136,16 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Valor do Pagamento (R$) *</label>
+            {/* 🔥 Faltava o destaque em vermelho aqui — validarNfce já exigia
+                vPag > 0 (exceto formaPagamento "90" Sem Pagamento) mas o campo
+                nunca refletia isso visualmente. */}
             <input
               type="number"
               step="0.01"
               min="0"
               value={vPag || ''}
               onChange={(e) => setVPag(parseFloat(e.target.value) || 0)}
-              className={`w-full border border-slate-300 rounded-lg p-2 text-sm font-bold focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`${classeCampo(tentouEnviar && vPag <= 0 && formaPagamento !== '90' ? '' : 'x')} text-sm font-bold`}
               placeholder="0,00"
             />
           </div>
@@ -1109,11 +1165,11 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             <div className="text-xs font-medium text-slate-700">Detalhes do Cartão</div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
-                <label className="block font-medium text-slate-600 mb-1">Bandeira</label>
+                <label className="block font-medium text-slate-600 mb-1">Bandeira {['03', '04'].includes(formaPagamento) ? '*' : ''}</label>
                 <select
                   value={tBand}
                   onChange={(e) => setTBand(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+                  className={`${classeCampo(['03', '04'].includes(formaPagamento) ? tBand : 'x')} bg-white`}
                 >
                   <option value="">Selecione...</option>
                   <option value="01">Visa</option>
@@ -1271,10 +1327,13 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         </div>
       </div>
 
+      {/* 🔥 Clicável mesmo com dados incompletos — dispara a validação que pinta
+          os campos obrigatórios vazios de vermelho (handleClickEmitir), e só
+          abre o preview (não transmite ainda) quando tudo estiver ok. */}
       <button
         type="button"
-        onClick={handleTransmitirNfce}
-        disabled={isTransmitting || itens.length === 0}
+        onClick={handleClickEmitir}
+        disabled={isTransmitting}
         className={`w-full ${corBgButton} disabled:bg-slate-300 text-white font-bold text-sm py-3 px-4 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
       >
         {isTransmitting ? (
@@ -1285,10 +1344,108 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         ) : (
           <>
             <Send className="w-4 h-4" />
-            <span>EMITIR & AUTORIZAR NFC-e (MODELO 65)</span>
+            <span>REVISAR & EMITIR NFC-e (MODELO 65)</span>
           </>
         )}
       </button>
+
+      {/* ============================================================
+          PREVIEW ANTES DE TRANSMITIR — mesmo componente DanfceLayout usado na
+          visualização pós-emissão (DanfceViewer), com chancela "APENAS PARA
+          VISUALIZAÇÃO". Nada é enviado pra SEFAZ até confirmar aqui dentro.
+          ============================================================ */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-xl max-w-md w-full shadow-2xl max-h-[95vh] overflow-hidden flex flex-col">
+
+            <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden select-none">
+              <span
+                className="absolute text-rose-600/25 text-3xl font-black uppercase tracking-widest whitespace-nowrap border-4 border-rose-600/25 px-6 py-2"
+                style={{ top: '45%', left: '48%', transform: 'translate(-50%, -50%) rotate(-30deg)' }}
+              >
+                Apenas p/ Visualização
+              </span>
+            </div>
+
+            <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-center justify-between z-20">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wide">
+                  Espelho do cupom — não emitido
+                </span>
+              </div>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                (empresa.ambienteEmissao as unknown as string) === 'PRODUCAO'
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                  : 'bg-blue-100 text-blue-800 border-blue-300'
+              }`}>
+                {(empresa.ambienteEmissao as unknown as string) === 'PRODUCAO' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'}
+              </span>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-4">
+              <DanfceLayout
+                numero={empresa.proximoNumeroNfce || 1}
+                serie={empresa.serieNfce || 1}
+                emitente={{
+                  razaoSocial: empresa.razaoSocial,
+                  nomeFantasia: empresa.nomeFantasia,
+                  cnpj: empresa.cnpj,
+                  inscricaoEstadual: empresa.inscricaoEstadual,
+                  endereco: empresa.endereco,
+                }}
+                consumidor={identificarConsumidor && consumidorDoc ? {
+                  cpfCnpj: consumidorDoc,
+                  nomeRazaoSocial: consumidorNome,
+                } : null}
+                itens={itens.map((item) => ({
+                  id: item.id,
+                  descricao: item.descricao,
+                  quantidade: item.quantidade,
+                  valorUnitario: item.valorUnitario,
+                  valorTotalBruto: item.valorTotalBruto,
+                }))}
+                valorTotalProdutos={totais.valorTotalProdutos}
+                valorTotalDesconto={totais.valorTotalDesconto}
+                valorTotalNota={valorTotalFinal}
+                valorPago={vPag}
+                valorTroco={troco}
+                valorTotalTributosAprox={totais.valorTotalTributosAproximados}
+                formaPagamento={formaPagamento}
+              />
+            </div>
+
+            <div className="shrink-0 bg-white border-t border-slate-100 px-4 py-3 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPreview(false)}
+                disabled={isTransmitting}
+                className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium text-sm cursor-pointer transition-colors disabled:opacity-50"
+              >
+                Voltar e Revisar
+              </button>
+              <button
+                type="button"
+                onClick={handleTransmitirNfce}
+                disabled={isTransmitting}
+                className={`px-4 py-2 rounded-lg ${corBgButton} text-white font-semibold text-sm shadow-sm cursor-pointer disabled:opacity-60 flex items-center gap-2 transition-colors`}
+              >
+                {isTransmitting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Transmitindo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Confirmar e Transmitir</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

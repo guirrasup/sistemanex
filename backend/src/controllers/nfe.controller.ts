@@ -1,6 +1,8 @@
 // backend/src/controllers/nfe.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
-import { NfeService } from '../services/nfe.service';
+import { NfeService } from '../services/nfe.service.js';
+import { EmailService } from '../services/email.service.js';
 import { StatusDocumento } from '@prisma/client';
 import { 
   TChNFe, 
@@ -10,7 +12,7 @@ import {
   TSerie, 
   TNF,
   TDateTimeUTC 
-} from '../types/fiscal';
+} from '../types/fiscal.js';
 
 // ============================================================
 // INTERFACES
@@ -49,9 +51,14 @@ function validarTSerie(serie: number): boolean {
   return serie === 0 || (serie >= 1 && serie <= 999);
 }
 
+const TNF_MAXIMO = 999999999;
+
 function validarTNF(numero: number): boolean {
-  return numero >= 1 && numero <= 999999999;
+  return numero >= 1 && numero <= TNF_MAXIMO;
 }
+
+const ANO_RESUMO_MINIMO = 2000;
+const ANO_RESUMO_MAXIMO = 2100;
 
 // ============================================================
 // CONTROLLER
@@ -59,9 +66,11 @@ function validarTNF(numero: number): boolean {
 
 export class NfeController {
   private nfeService: NfeService;
+  private emailService: EmailService;
 
   constructor() {
     this.nfeService = new NfeService();
+    this.emailService = new EmailService();
   }
 
   async emitir(req: RequestComUsuario, res: Response) {
@@ -93,23 +102,19 @@ export class NfeController {
       }
 
       // ✅ VALIDA CADA ITEM
+      // O service resolve NCM/CFOP/preço a partir do produto cadastrado (produtoId)
+      // — não são enviados pelo cliente, então não fazem parte desta validação.
       for (const item of itens) {
-        if (!item.ncm || item.ncm.length !== 8) {
+        if (!item.produtoId) {
           return res.status(400).json({
             sucesso: false,
-            erro: `Item "${item.descricao || 'sem descrição'}": NCM deve ter 8 dígitos`
+            erro: 'Cada item deve informar produtoId'
           });
         }
-        if (!item.cfop || item.cfop.length !== 4) {
+        if (item.quantidade !== undefined && item.quantidade <= 0) {
           return res.status(400).json({
             sucesso: false,
-            erro: `Item "${item.descricao || 'sem descrição'}": CFOP deve ter 4 dígitos`
-          });
-        }
-        if (!item.quantidade || item.quantidade <= 0) {
-          return res.status(400).json({
-            sucesso: false,
-            erro: `Item "${item.descricao || 'sem descrição'}": Quantidade deve ser maior que zero`
+            erro: `Item ${item.produtoId}: quantidade deve ser maior que zero`
           });
         }
       }
@@ -125,11 +130,11 @@ export class NfeController {
         mensagem: 'NF-e emitida e autorizada com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao emitir NF-e:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao emitir NF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao emitir NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao emitir NF-e'
       });
     }
   }
@@ -177,11 +182,11 @@ export class NfeController {
         mensagem: 'NF-e cancelada com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao cancelar NF-e:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao cancelar NF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao cancelar NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao cancelar NF-e'
       });
     }
   }
@@ -255,7 +260,7 @@ export class NfeController {
         destinatarioId,
         numero,
         serie,
-        chave
+        chaveAcesso: chave
       });
 
       return res.json({
@@ -263,11 +268,11 @@ export class NfeController {
         dados: result
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao listar NF-e:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao listar NF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao listar NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao listar NF-e'
       });
     }
   }
@@ -305,11 +310,11 @@ export class NfeController {
         dados: nfe 
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar NF-e por ID:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar NF-e por ID:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NF-e'
       });
     }
   }
@@ -348,11 +353,11 @@ export class NfeController {
         dados: nfe 
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar NF-e por chave:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar NF-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NF-e'
       });
     }
   }
@@ -391,11 +396,11 @@ export class NfeController {
         dados: nfe 
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar NF-e por protocolo:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar NF-e por protocolo:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NF-e'
       });
     }
   }
@@ -418,11 +423,11 @@ export class NfeController {
         dados: estatisticas
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar estatísticas:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar estatísticas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
       });
     }
   }
@@ -442,7 +447,7 @@ export class NfeController {
       const mes = parseInt(req.query.mes as string) || new Date().getMonth() + 1;
 
       // ✅ VALIDA ANO E MÊS
-      if (ano < 2000 || ano > 2100) {
+      if (ano < ANO_RESUMO_MINIMO || ano > ANO_RESUMO_MAXIMO) {
         return res.status(400).json({
           sucesso: false,
           erro: 'Ano inválido'
@@ -462,11 +467,11 @@ export class NfeController {
         dados: resumo
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar resumo mensal:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar resumo mensal:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar resumo mensal'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar resumo mensal'
       });
     }
   }
@@ -507,11 +512,63 @@ export class NfeController {
       
       return res.send(nfe.xmlAssinado);
 
-    } catch (error: any) {
-      console.error('❌ Erro ao baixar XML:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao baixar XML'
+        erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
+      });
+    }
+  }
+
+  async enviarXmlPorEmail(req: RequestComUsuario, res: Response) {
+    try {
+      const empresaId = req.user?.empresaId;
+      const { id } = req.params;
+      const { destinatarioEmail } = req.body as { destinatarioEmail?: string };
+
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
+      if (!destinatarioEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatarioEmail)) {
+        return res.status(400).json({ sucesso: false, erro: 'Informe um e-mail de destino válido' });
+      }
+
+      if (!this.emailService.estaConfigurado()) {
+        return res.status(503).json({
+          sucesso: false,
+          erro: 'Envio de e-mail não configurado no servidor (SMTP_HOST/SMTP_USER/SMTP_PASS ausentes).',
+        });
+      }
+
+      const nfe = await this.nfeService.buscarPorId(id, empresaId);
+      if (!nfe) {
+        return res.status(404).json({ sucesso: false, erro: 'NF-e não encontrada' });
+      }
+      if (!nfe.xmlAssinado) {
+        return res.status(404).json({ sucesso: false, erro: 'XML da NF-e não disponível' });
+      }
+
+      const nomeArquivo = `NFe_${nfe.numero}_${nfe.chaveAcesso}.xml`;
+
+      await this.emailService.enviar({
+        destinatario: destinatarioEmail,
+        assunto: `NF-e nº ${nfe.numero} — ${nfe.chaveAcesso}`,
+        corpoTexto:
+          `Segue em anexo o XML da NF-e nº ${nfe.numero}, série ${nfe.serie}.\n\n` +
+          `Chave de acesso: ${nfe.chaveAcesso}\n` +
+          `Status: ${nfe.status}\n` +
+          (nfe.protocoloAutorizacao ? `Protocolo: ${nfe.protocoloAutorizacao}\n` : ''),
+        anexos: [{ nomeArquivo, conteudo: nfe.xmlAssinado, tipoConteudo: 'application/xml' }],
+      });
+
+      return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
+      return res.status(400).json({
+        sucesso: false,
+        erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
       });
     }
   }
@@ -537,7 +594,11 @@ export class NfeController {
         });
       }
 
-      // TODO: Implementar geração real de PDF do DANFE
+      // [AutoPatch Backlog] TODO: Implementar geração real do PDF do DANFE (layout retrato/paisagem conforme
+      // manual de orientação SEFAZ, incluindo código de barras Code-128 da chave de acesso
+      // e demais campos do XML autorizado). Requer escolher biblioteca de geração de PDF
+      // no backend (ex.: pdf-lib ou puppeteer) e endpoint deve passar a retornar o binário
+      // (ou base64) do PDF em vez do JSON de metadados abaixo.
       // Por enquanto, retorna um placeholder
       return res.json({
         sucesso: true,
@@ -546,16 +607,16 @@ export class NfeController {
           chaveAcesso: nfe.chaveAcesso,
           numero: nfe.numero,
           serie: nfe.serie,
-          valorTotal: nfe.valorTotalNota,
-          destinatario: nfe.destinatario.nomeRazaoSocial
+          valorTotal: nfe.vNF,
+          destinatario: nfe.destinatario.razaoSocial
         }
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao gerar DANFE:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao gerar DANFE:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao gerar DANFE'
+        erro: error instanceof Error ? error.message : 'Erro ao gerar DANFE'
       });
     }
   }
@@ -609,11 +670,11 @@ export class NfeController {
         mensagem: 'Carta de Correção enviada com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao enviar Carta de Correção:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao enviar Carta de Correção:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao enviar Carta de Correção'
+        erro: error instanceof Error ? error.message : 'Erro ao enviar Carta de Correção'
       });
     }
   }
@@ -645,11 +706,64 @@ export class NfeController {
         dados: situacao
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao consultar situação:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao consultar situação:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao consultar situação'
+        erro: error instanceof Error ? error.message : 'Erro ao consultar situação'
+      });
+    }
+  }
+
+  async inutilizar(req: RequestComUsuario, res: Response) {
+    try {
+      const empresaId = req.user?.empresaId;
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+
+      const { modelo, serie, numeroInicial, numeroFinal, justificativa } = req.body;
+
+      if (modelo !== '55' && modelo !== '65') {
+        return res.status(400).json({ sucesso: false, erro: 'Modelo inválido: deve ser "55" (NF-e) ou "65" (NFC-e)' });
+      }
+
+      if (!validarTSerie(serie)) {
+        return res.status(400).json({ sucesso: false, erro: 'Série inválida: deve ser 0 ou entre 1 e 999 (TSerie)' });
+      }
+
+      if (!validarTNF(numeroInicial) || !validarTNF(numeroFinal)) {
+        return res.status(400).json({ sucesso: false, erro: 'Número inicial/final inválido: deve ser entre 1 e 999999999 (TNF)' });
+      }
+
+      if (numeroInicial > numeroFinal) {
+        return res.status(400).json({ sucesso: false, erro: 'Número inicial deve ser menor ou igual ao número final' });
+      }
+
+      if (!validarTJust(justificativa)) {
+        return res.status(400).json({ sucesso: false, erro: 'Justificativa deve ter entre 15 e 255 caracteres (TJust)' });
+      }
+
+      const resultado = await this.nfeService.inutilizarNumeracao({
+        empresaId,
+        modelo,
+        serie,
+        numeroInicial,
+        numeroFinal,
+        justificativa,
+      });
+
+      return res.status(201).json({
+        sucesso: true,
+        dados: resultado,
+        mensagem: 'Inutilização de numeração processada'
+      });
+
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao inutilizar numeração:', error);
+      return res.status(400).json({
+        sucesso: false,
+        erro: error instanceof Error ? error.message : 'Erro ao inutilizar numeração'
       });
     }
   }

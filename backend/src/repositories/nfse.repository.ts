@@ -1,6 +1,6 @@
 // backend/src/repositories/nfse.repository.ts
 import { Prisma, StatusDocumento } from '@prisma/client';
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 
 // ============================================================
 // INTERFACES
@@ -55,8 +55,8 @@ export class NfseRepository extends BaseRepository {
   }
 
   async findByChave(chaveAcesso: string) {
-    if (!/^[0-9]{53}$/.test(chaveAcesso)) {
-      throw new Error('Chave de acesso inválida: deve ter 53 dígitos');
+    if (!/^[0-9]{50}$/.test(chaveAcesso)) {
+      throw new Error('Chave de acesso inválida: deve ter 50 dígitos');
     }
 
     return this.prisma.nFSe.findUnique({
@@ -148,10 +148,10 @@ export class NfseRepository extends BaseRepository {
       where.serieDPS = serieDPS;
     }
 
-    // ✅ Filtro por chave de acesso (53 dígitos)
+    // ✅ Filtro por chave de acesso (50 dígitos)
     if (chaveAcesso) {
-      if (!/^[0-9]{53}$/.test(chaveAcesso)) {
-        throw new Error('Chave de acesso inválida: deve ter 53 dígitos');
+      if (!/^[0-9]{50}$/.test(chaveAcesso)) {
+        throw new Error('Chave de acesso inválida: deve ter 50 dígitos');
       }
       where.chaveAcesso = chaveAcesso;
     }
@@ -201,17 +201,18 @@ export class NfseRepository extends BaseRepository {
         },
         servico: true
       },
+      take: 500,
       orderBy: { dataHoraEmissao: 'desc' }
     });
   }
 
-  async create(data: Prisma.NFSeCreateInput) {
+  async create(data: Prisma.NFSeUncheckedCreateInput) {
     // ✅ VALIDA DADOS OBRIGATÓRIOS
     if (!data.chaveAcesso) {
       throw new Error('Chave de acesso é obrigatória');
     }
-    if (!/^[0-9]{53}$/.test(data.chaveAcesso)) {
-      throw new Error('Chave de acesso inválida: deve ter 53 dígitos');
+    if (!/^[0-9]{50}$/.test(data.chaveAcesso)) {
+      throw new Error('Chave de acesso inválida: deve ter 50 dígitos');
     }
     if (!data.empresaId) {
       throw new Error('Empresa é obrigatória');
@@ -234,7 +235,7 @@ export class NfseRepository extends BaseRepository {
     });
   }
 
-  async updateStatus(id: string, status: StatusDocumento, protocolo?: string) {
+  async updateStatus(id: string, status: StatusDocumento, protocolo?: string, xmlRetorno?: string, motivoRejeicao?: string) {
     if (!id) {
       throw new Error('ID da NFS-e é obrigatório');
     }
@@ -246,6 +247,14 @@ export class NfseRepository extends BaseRepository {
     if (protocolo) {
       data.protocoloAutorizacao = protocolo;
       data.dataHoraAutorizacao = new Date();
+    }
+
+    if (xmlRetorno) {
+      data.xmlRetorno = xmlRetorno;
+    }
+
+    if (motivoRejeicao) {
+      data.motivoRejeicao = motivoRejeicao;
     }
 
     return this.prisma.nFSe.update({
@@ -329,7 +338,7 @@ export class NfseRepository extends BaseRepository {
           valorTotalServicos: true,
           valorTotalISS: true,
           valorTotalIBS: true,
-          valorTotalCBS: true,
+          valorCBS: true,
           valorTotalRetencoesFederais: true
         }
       }),
@@ -337,11 +346,11 @@ export class NfseRepository extends BaseRepository {
     ]);
 
     return {
-      totalServicos: Number(result._sum.valorTotalServicos) || 0,
-      totalISS: Number(result._sum.valorTotalISS) || 0,
-      totalIBS: Number(result._sum.valorTotalIBS) || 0,
-      totalCBS: Number(result._sum.valorTotalCBS) || 0,
-      totalRetencoesFederais: Number(result._sum.valorTotalRetencoesFederais) || 0,
+      totalServicos: Number(result._sum?.valorTotalServicos) || 0,
+      totalISS: Number(result._sum?.valorTotalISS) || 0,
+      totalIBS: Number(result._sum?.valorTotalIBS) || 0,
+      totalCBS: Number(result._sum?.valorCBS) || 0,
+      totalRetencoesFederais: Number(result._sum?.valorTotalRetencoesFederais) || 0,
       quantidade: count
     };
   }
@@ -386,7 +395,7 @@ export class NfseRepository extends BaseRepository {
           valorTotalServicos: true,
           valorTotalISS: true,
           valorTotalIBS: true,
-          valorTotalCBS: true,
+          valorCBS: true,
           valorTotalRetencoesFederais: true
         }
       }),
@@ -397,11 +406,11 @@ export class NfseRepository extends BaseRepository {
       mes,
       ano,
       totalNotas: count,
-      valorTotal: Number(result._sum.valorTotalServicos) || 0,
-      totalISS: Number(result._sum.valorTotalISS) || 0,
-      totalIBS: Number(result._sum.valorTotalIBS) || 0,
-      totalCBS: Number(result._sum.valorTotalCBS) || 0,
-      totalRetencoes: Number(result._sum.valorTotalRetencoesFederais) || 0
+      valorTotal: Number(result._sum?.valorTotalServicos) || 0,
+      totalISS: Number(result._sum?.valorTotalISS) || 0,
+      totalIBS: Number(result._sum?.valorTotalIBS) || 0,
+      totalCBS: Number(result._sum?.valorCBS) || 0,
+      totalRetencoes: Number(result._sum?.valorTotalRetencoesFederais) || 0
     };
   }
 
@@ -450,14 +459,15 @@ export class NfseRepository extends BaseRepository {
       where,
       include: {
         servico: true
-      }
+      },
+      take: 500
     });
 
     // Agrupa por serviço
     const servicoMap: Record<string, { descricao: string; codigo: string; quantidade: number; valor: number }> = {};
 
     for (const nfse of nfses) {
-      if (!nfse.servico) continue;
+      if (!nfse.servico || !nfse.servicoId) continue;
       const key = nfse.servicoId;
       if (!servicoMap[key]) {
         servicoMap[key] = {
@@ -515,6 +525,7 @@ export class NfseRepository extends BaseRepository {
       include: {
         servico: true
       },
+      take: 500,
       orderBy: { dataHoraEmissao: 'desc' }
     });
   }
@@ -539,6 +550,7 @@ export class NfseRepository extends BaseRepository {
           include: { endereco: true }
         }
       },
+      take: 500,
       orderBy: { dataHoraEmissao: 'desc' }
     });
   }

@@ -1,6 +1,7 @@
 // src/services/mdfe.service.ts
 import api from './api';
 import { MDFeDocumento } from '../types/mdfe';
+import { getApiErrorMessage } from '../utils/apiError';
 
 export interface ListaMdfeResponse {
   data: MDFeDocumento[];
@@ -66,9 +67,18 @@ export const mdfeService = {
     try {
       const response = await api.post('/mdfe/emitir', data);
       return response.data.dados || response.data || null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ MDF-e emitir erro:', error);
       throw error;
+    }
+  },
+
+  async enviarPorEmail(id: string, destinatarioEmail: string): Promise<void> {
+    if (!id) throw new Error('ID do MDF-e é obrigatório');
+    try {
+      await api.post(`/mdfe/${id}/enviar-email`, { destinatarioEmail });
+    } catch (error: unknown) {
+      throw new Error(getApiErrorMessage(error, 'Erro ao enviar XML por e-mail'));
     }
   },
 

@@ -122,11 +122,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       titulo: 'MÓDULO FISCAL',
       itens: [
-        { id: 'nfe-emissor', label: 'NF-e (Produtos)', icon: Receipt },
-        { id: 'nfse-emissor', label: 'NFS-e (Serviços)', icon: FileText },
-        { id: 'nfce-emissor', label: 'NFC-e (Consumidor)', icon: ShoppingBag },
-        { id: 'cte-emissor', label: 'CT-e (Transporte)', icon: Truck },
-        { id: 'nfae-emissor', label: 'NFA-e (Avulsa)', icon: FileBadge2 },
+        { id: 'nfe-emissor', label: 'NF-e (Produtos)', icon: Receipt, badgeCount: contadores.nfeCount || 0 },
+        { id: 'nfse-emissor', label: 'NFS-e (Serviços)', icon: FileText, badgeCount: contadores.nfseCount || 0 },
+        { id: 'nfce-emissor', label: 'NFC-e (Consumidor)', icon: ShoppingBag, badgeCount: contadores.nfceCount || 0 },
+        { id: 'cte-emissor', label: 'CT-e (Transporte)', icon: Truck, badgeCount: contadores.cteCount || 0 },
+        { id: 'nfae-emissor', label: 'NFA-e (Avulsa)', icon: FileBadge2, badgeCount: contadores.nfaeCount || 0 },
         // 🔥 NOVO - MDF-e (Após NFA-e, antes de Documentos)
         { id: 'mdfe-emissor', label: 'MDF-e (Manifesto)', icon: FileArchive, badgeCount: contadores.mdfeCount || 0 },
         { id: 'documentos-fiscais', label: 'Documentos Emitidos', icon: Files, badgeCount: totalNotas },

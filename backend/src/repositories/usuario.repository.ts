@@ -1,6 +1,6 @@
 // backend/src/repositories/usuario.repository.ts
 import { Prisma } from '@prisma/client';
-import { BaseRepository } from './base.repository';
+import { BaseRepository } from './base.repository.js';
 
 export class UsuarioRepository extends BaseRepository {
   async findById(id: string) {
@@ -84,6 +84,7 @@ export class UsuarioRepository extends BaseRepository {
         cargo: true,
         perfil: true,
       },
+      take: 500,
       orderBy: { nome: 'asc' }
     });
   }
@@ -139,7 +140,7 @@ export class UsuarioRepository extends BaseRepository {
   }
 
   async emailExists(email: string, excludeId?: string) {
-    const where: any = { email };
+    const where: Prisma.UsuarioWhereInput = { email };
     if (excludeId) {
       where.id = { not: excludeId };
     }

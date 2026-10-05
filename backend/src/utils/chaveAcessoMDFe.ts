@@ -1,5 +1,5 @@
 // backend/src/utils/chaveAcessoMDFe.ts
-import { limparDocumento } from './cpfCnpjValidator';
+import { limparDocumento } from './cpfCnpjValidator.js';
 
 export function calcularDVMod11MDFe(chave43: string): number {
   let soma = 0;

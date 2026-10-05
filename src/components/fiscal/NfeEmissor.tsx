@@ -1,19 +1,23 @@
 // src/components/fiscal/NfeEmissor.tsx
 import React, { useState } from 'react';
 import { 
-  Receipt, Plus, Trash2, Send, CheckCircle2, AlertTriangle, 
+  Receipt, Plus, Trash2, Send, CheckCircle2, AlertTriangle,
   Eye, Download, Truck, CreditCard, DollarSign, Package,
   RefreshCw, User, Building, MapPin, Calendar, Calculator,
   Barcode, XCircle, FileText, Hash, Globe, Phone, Mail,
   Home, MapPinned, Weight, Box, Edit2, Info
 } from 'lucide-react';
-import { NFeDocumento, ItemNfe, FaturaDuplicata } from '../../types/fiscal';
+import { NFeDocumento, ItemNfe } from '../../types/fiscal';
 import { Produto, ClienteFornecedor, ConfiguracaoEmpresa, TransportadoraERP } from '../../types/erp';
-import { StorageService } from '../../utils/storage';
-import { validarCpfOuCnpj, formatarMoeda, limparDocumento } from '../../utils/cpfCnpjValidator';
-import { gerarChaveAcessoNFe } from '../../utils/chaveAcesso';
+import { DanfeLayout } from './DanfeLayout';
+import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { calcularTotaisNfe } from '../../utils/tributosEngine';
-import { gerarXmlNfe400 } from '../../utils/xmlNfeGenerator';
+import { getApiErrorMessage } from '../../utils/apiError';
+import { nfeService, NfeApiRecord } from '../../services/nfe.service';
+import { Cfop } from '../../services/cfop.service';
+import { Combobox } from '../ui/Combobox';
+import { ResumoEmissaoModal } from './ResumoEmissaoModal';
+import { useToast } from '../../hooks/useToast';
 
 // ============================================================
 // INTERFACE
@@ -24,24 +28,9 @@ interface NfeEmissorProps {
   clientes: ClienteFornecedor[];
   produtos: Produto[];
   transportadoras: TransportadoraERP[];
+  cfops: Cfop[];
   onNfeEmitida: (nfe: NFeDocumento) => void;
-  onViewDanfe: (nfe: NFeDocumento) => void;
-}
-
-// ============================================================
-// VALIDAÇÕES
-// ============================================================
-
-function validarTJust(texto: string): boolean {
-  return texto.length >= 15 && texto.length <= 255;
-}
-
-function validarCodigoMunicipio(codigo: string): boolean {
-  return /^[0-9]{7}$/.test(codigo);
-}
-
-function validarCEP(cep: string): boolean {
-  return /^[0-9]{8}$/.test(cep.replace(/\D/g, ''));
+  onViewDanfe: (nfeId: string) => void;
 }
 
 // ============================================================
@@ -53,14 +42,20 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   clientes,
   produtos,
   transportadoras,
+  cfops,
   onNfeEmitida,
   onViewDanfe,
 }) => {
+  const toast = useToast();
+
   // ============================================================
   // STATE - DESTINATÁRIO
   // ============================================================
   const [selectedClienteId, setSelectedClienteId] = useState<string>('');
-  
+  // 🔥 Busca por nome ou CPF/CNPJ — o <select> nativo travava a usabilidade
+  // acima de ~10 clientes/produtos (sem filtro, só rolagem).
+  const [buscaCliente, setBuscaCliente] = useState<string>('');
+
   const [destinatarioDoc, setDestinatarioDoc] = useState('');
   const [destinatarioNome, setDestinatarioNome] = useState('');
   const [destinatarioIE, setDestinatarioIE] = useState('');
@@ -81,6 +76,11 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   // STATE - DADOS GERAIS
   // ============================================================
   const [naturezaOperacao, setNaturezaOperacao] = useState('Venda de Mercadoria Adquirida de Terceiros');
+  // 🔥 Natureza da Operação era texto livre sem nenhuma tabela por trás — o
+  // próprio campo funciona como busca de CFOP (sem input extra ao lado); ao
+  // escolher, a descrição oficial do código substitui o texto (que continua
+  // editável depois, já que a SEFAZ exige texto livre no XML).
+  const [cfopSelecionado, setCfopSelecionado] = useState<Cfop | null>(null);
   const [tipoDocumento, setTipoDocumento] = useState<0 | 1>(1);
   const [finalidade, setFinalidade] = useState<1 | 2 | 3 | 4>(1);
   const [consumidorFinal, setConsumidorFinal] = useState<boolean>(true);
@@ -91,7 +91,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   // STATE - ITENS
   // ============================================================
   const [itens, setItens] = useState<ItemNfe[]>([]);
-  const [produtoSelecionado, setProdutoSelecionado] = useState<string>('');
+  const [buscaProduto, setBuscaProduto] = useState<string>('');
 
   // ============================================================
   // STATE - TRANSPORTE
@@ -121,9 +121,16 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   // STATE - UI
   // ============================================================
   const [isTransmitting, setIsTransmitting] = useState<boolean>(false);
+  const [isCarregandoUltima, setIsCarregandoUltima] = useState<boolean>(false);
   const [erros, setErros] = useState<string[]>([]);
-  const [sucessos, setSucessos] = useState<string[]>([]);
-  const [nfeEmitidaSucesso, setNfeEmitidaSucesso] = useState<NFeDocumento | null>(null);
+  const [nfeEmitidaSucesso, setNfeEmitidaSucesso] = useState<NfeApiRecord | null>(null);
+  // 🔥 Só passa a destacar campo obrigatório vazio em vermelho DEPOIS da primeira
+  // tentativa de emitir — não faz sentido mostrar tudo vermelho num formulário
+  // ainda vazio que o usuário nem começou a preencher.
+  const [tentouEnviar, setTentouEnviar] = useState<boolean>(false);
+  // 🔥 Preview antes de transmitir de verdade pra SEFAZ (homolog ou produção) —
+  // só chama nfeService.emitir() depois que o usuário confirmar no preview.
+  const [showPreview, setShowPreview] = useState<boolean>(false);
 
   // ============================================================
   // CÁLCULOS
@@ -198,14 +205,35 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   // HANDLERS - ITENS
   // ============================================================
 
-  const handleAddItem = () => {
-    if (!produtoSelecionado) return;
-    
-    const prod = produtos.find(p => p.id === produtoSelecionado);
+  const handleAddItem = (produtoId: string) => {
+    const prod = produtos.find(p => p.id === produtoId);
     if (!prod) return;
 
+    // ✅ id = produto.id (não um id aleatório): é o que permite montar o
+    // payload de emissão ({ produtoId, quantidade }) que o backend espera —
+    // ver handleTransmitirNfe. Se o mesmo produto for adicionado 2x, os itens
+    // dividem o mesmo id/key; não é uma regressão (a lista nunca impediu duplicidade).
+    // 🔥 Decimal do Prisma (precoVenda/precoCusto/aliquota*) chega como string no
+    // JSON, apesar do tipo Produto dizer `number` — atribuição direta (sem Number())
+    // deixa o campo como string; somado depois em calcularTotaisNfe com `+=`, vira
+    // concatenação de texto e quebra o `.toFixed()` (TypeError: x.toFixed is not
+    // a function) assim que outro item numérico é somado na mesma totalização.
+    const precoVenda = Number(prod.precoVenda);
+    const aliquotaICMS = Number(prod.aliquotaICMS);
+    const aliquotaIPI = Number(prod.aliquotaIPI || 0);
+    const aliquotaPIS = Number(prod.aliquotaPIS);
+    const aliquotaCOFINS = Number(prod.aliquotaCOFINS);
+    // 🔥 IBS/CBS eram sempre 0,05%/0,05%/0,90% fixos no código, ignorando o que
+    // estivesse cadastrado no produto — editar a alíquota de IBS/CBS em Produtos
+    // não mudava nada aqui. aliquotaIBS é um campo único (não separado por UF/
+    // Município no schema); divide 50/50, mesma convenção do backend.
+    const aliquotaIBS = Number(prod.aliquotaIBS ?? 0);
+    const aliquotaIBSUF = aliquotaIBS / 2;
+    const aliquotaIBSMun = aliquotaIBS / 2;
+    const aliquotaCBS = Number(prod.aliquotaCBS ?? 0);
+
     const newItem: ItemNfe = {
-      id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: prod.id,
       codigoProduto: prod.codigo,
       descricao: prod.descricao,
       ncm: prod.ncm,
@@ -213,36 +241,35 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
       cfop: prod.cfopPadrao,
       unidadeMedida: prod.unidade,
       quantidade: 1,
-      valorUnitario: prod.precoVenda,
-      valorTotalBruto: prod.precoVenda,
+      valorUnitario: precoVenda,
+      valorTotalBruto: precoVenda,
       origemMercadoria: 0,
       cstICMS: '00',
-      aliquotaICMS: prod.aliquotaICMS,
-      baseCalculoICMS: prod.precoVenda,
-      valorICMS: (prod.precoVenda * Number(prod.aliquotaICMS)) / 100,
+      aliquotaICMS,
+      baseCalculoICMS: precoVenda,
+      valorICMS: (precoVenda * aliquotaICMS) / 100,
       cstIPI: '50',
-      aliquotaIPI: prod.aliquotaIPI || 0,
-      valorIPI: (prod.precoVenda * Number(prod.aliquotaIPI || 0)) / 100,
+      aliquotaIPI,
+      valorIPI: (precoVenda * aliquotaIPI) / 100,
       cstPIS: '01',
-      aliquotaPIS: prod.aliquotaPIS,
-      valorPIS: (prod.precoVenda * Number(prod.aliquotaPIS)) / 100,
+      aliquotaPIS,
+      valorPIS: (precoVenda * aliquotaPIS) / 100,
       cstCOFINS: '01',
-      aliquotaCOFINS: prod.aliquotaCOFINS,
-      valorCOFINS: (prod.precoVenda * Number(prod.aliquotaCOFINS)) / 100,
-      aliquotaIBSUF: 0.05,
-      valorIBSUF: prod.precoVenda * 0.0005,
-      aliquotaIBSMun: 0.05,
-      valorIBSMun: prod.precoVenda * 0.0005,
-      aliquotaCBS: 0.90,
-      valorCBS: prod.precoVenda * 0.009,
-      valorTributosAproximados: prod.precoVenda * 0.31,
+      aliquotaCOFINS,
+      valorCOFINS: (precoVenda * aliquotaCOFINS) / 100,
+      aliquotaIBSUF,
+      valorIBSUF: (precoVenda * aliquotaIBSUF) / 100,
+      aliquotaIBSMun,
+      valorIBSMun: (precoVenda * aliquotaIBSMun) / 100,
+      aliquotaCBS,
+      valorCBS: (precoVenda * aliquotaCBS) / 100,
+      valorTributosAproximados: precoVenda * 0.31,
       codigoEAN: prod.codigoBarrasEAN || undefined,
       codigoEANTrib: prod.codigoBarrasEAN || undefined,
     };
 
     setItens(prev => [...prev, newItem]);
-    setProdutoSelecionado('');
-    setSucessos(prev => [...prev, `Produto "${prod.descricao}" adicionado`]);
+    setBuscaProduto('');
   };
 
   const handleUpdateItemQtd = (index: number, qtd: number) => {
@@ -256,6 +283,14 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
     item.valorPIS = (item.valorTotalBruto * Number(item.aliquotaPIS)) / 100;
     item.valorCOFINS = (item.valorTotalBruto * Number(item.aliquotaCOFINS)) / 100;
     item.valorIPI = (item.valorTotalBruto * Number(item.aliquotaIPI || 0)) / 100;
+    // 🔥 IBS/CBS/tributos aproximados ficavam travados no valor calculado na
+    // hora de adicionar o item (com quantidade=1) — mudar a quantidade nunca
+    // recalculava esses 4 campos, só ICMS/PIS/COFINS/IPI. Usa a alíquota já
+    // gravada no item (vinda do produto), não mais um percentual fixo.
+    item.valorIBSUF = (item.valorTotalBruto * Number(item.aliquotaIBSUF || 0)) / 100;
+    item.valorIBSMun = (item.valorTotalBruto * Number(item.aliquotaIBSMun || 0)) / 100;
+    item.valorCBS = (item.valorTotalBruto * Number(item.aliquotaCBS || 0)) / 100;
+    item.valorTributosAproximados = item.valorTotalBruto * 0.31;
     setItens(newItens);
   };
 
@@ -270,6 +305,11 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
     item.valorPIS = (item.valorTotalBruto * Number(item.aliquotaPIS)) / 100;
     item.valorCOFINS = (item.valorTotalBruto * Number(item.aliquotaCOFINS)) / 100;
     item.valorIPI = (item.valorTotalBruto * Number(item.aliquotaIPI || 0)) / 100;
+    // 🔥 Mesmo problema de handleUpdateItemQtd, agora pra edição de valor unitário.
+    item.valorIBSUF = (item.valorTotalBruto * Number(item.aliquotaIBSUF || 0)) / 100;
+    item.valorIBSMun = (item.valorTotalBruto * Number(item.aliquotaIBSMun || 0)) / 100;
+    item.valorCBS = (item.valorTotalBruto * Number(item.aliquotaCBS || 0)) / 100;
+    item.valorTributosAproximados = item.valorTotalBruto * 0.31;
     setItens(newItens);
   };
 
@@ -283,9 +323,9 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
 
   const handleLimparTudo = () => {
     setItens([]);
+    setSelectedClienteId('');
     limparCamposDestinatario();
     setErros([]);
-    setSucessos([]);
     setSelectedTransportadoraId('');
     setTransportadoraNome('');
     setTransportadoraCnpj('');
@@ -314,48 +354,134 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   const validarAntesDeTransmitir = (): string[] => {
     const errs: string[] = [];
 
-    const valDoc = validarCpfOuCnpj(destinatarioDoc);
-    if (!valDoc.valido) errs.push('CPF/CNPJ do destinatário inválido');
-
-    if (!destinatarioNome.trim()) errs.push('Razão Social do destinatário é obrigatória');
-
-    if (destinatarioIE && destinatarioIE !== 'ISENTO') {
-      if (!/^[0-9]{0,14}$/.test(destinatarioIE.replace(/\D/g, ''))) {
-        errs.push('Inscrição Estadual deve ter entre 0 e 14 dígitos (TIeDest)');
-      }
-    }
-
-    if (destinatarioIEST && !/^[0-9]{2,14}$/.test(destinatarioIEST.replace(/\D/g, ''))) {
-      errs.push('Inscrição Estadual ST deve ter entre 2 e 14 dígitos (TIeST)');
-    }
-
-    if (!validarCodigoMunicipio(destinatarioMunIbge)) {
-      errs.push('Código do município deve ter 7 dígitos (TCodMunIBGE)');
-    }
-
-    if (!validarCEP(destinatarioCep)) errs.push('CEP inválido (8 dígitos)');
+    if (!selectedClienteId) errs.push('Selecione um cliente cadastrado na lista acima');
+    // ⚠️ doc/nome/endereço abaixo são preenchidos automaticamente ao escolher o
+    // cliente — mas se o cadastro do cliente tiver algum desses campos faltando,
+    // eles chegam vazios aqui também, e a SEFAZ exige todos no XML do destinatário.
+    if (!destinatarioDoc.trim()) errs.push('CPF/CNPJ do destinatário está vazio');
+    if (!destinatarioNome.trim()) errs.push('Razão Social/Nome do destinatário está vazio');
+    if (!destinatarioLogradouro.trim()) errs.push('Logradouro do destinatário está vazio');
+    if (!destinatarioNumero.trim()) errs.push('Número do destinatário está vazio');
+    if (!destinatarioBairro.trim()) errs.push('Bairro do destinatário está vazio');
+    if (!destinatarioMun.trim()) errs.push('Município do destinatário está vazio');
+    if (!destinatarioCep.trim()) errs.push('CEP do destinatário está vazio');
 
     if (itens.length === 0) errs.push('Adicione pelo menos 1 produto na NF-e');
 
-    for (const item of itens) {
-      if (!item.ncm || item.ncm.length !== 8) {
-        errs.push(`Item "${item.descricao}": NCM deve ter 8 dígitos`);
-      }
-      if (!item.cfop || item.cfop.length !== 4) {
-        errs.push(`Item "${item.descricao}": CFOP deve ter 4 dígitos`);
-      }
-    }
-
     return errs;
+  };
+
+  // 🔥 Classe do input: borda vermelha só depois de tentar emitir (tentouEnviar)
+  // E o campo estar vazio — assim que o usuário preenche, volta ao normal sozinho.
+  const classeCampo = (valor: string, base = 'w-full border rounded-lg p-2 focus:outline-none focus:ring-2') =>
+    tentouEnviar && !valor.trim()
+      ? `${base} border-rose-400 bg-rose-50 focus:ring-rose-500`
+      : `${base} border-slate-300 focus:ring-emerald-500`;
+
+  const handleClickEmitir = () => {
+    setTentouEnviar(true);
+    const errs = validarAntesDeTransmitir();
+    if (errs.length > 0) {
+      setErros(errs);
+      toast.showError('Preencha os campos obrigatórios destacados em vermelho antes de emitir.');
+      return;
+    }
+    setErros([]);
+    setShowPreview(true);
+  };
+
+  // ============================================================
+  // CARREGAR ÚLTIMA NOTA
+  // ============================================================
+
+  const handleCarregarUltima = async () => {
+    setIsCarregandoUltima(true);
+    setErros([]);
+    try {
+      const resposta = await nfeService.listar({ page: 1, limit: 1, status: 'AUTORIZADA' });
+      const ultima = resposta.data?.[0];
+      if (!ultima) {
+        toast.showError('Nenhuma NF-e autorizada anterior encontrada.');
+        return;
+      }
+
+      if (ultima.destinatario?.id) {
+        handleSelectCliente(ultima.destinatario.id);
+      }
+      // ⚠️ forma de pagamento e "consumidor final" não são persistidos hoje
+      // pelo backend (POST /nfe/emitir ignora esses 2 campos na gravação —
+      // achado durante esta revisão, fora do escopo deste checkpoint) —
+      // então não há valor real pra restaurar; só a natureza da operação volta.
+      if (ultima.natOp) setNaturezaOperacao(ultima.natOp);
+
+      // Os itens salvos são um retrato (snapshot) da NF-e — não guardam o
+      // produtoId original. Reencontra pelo código do produto no catálogo
+      // atual (mais confiável reaproveitar o cadastro vigente do que os
+      // valores/tributos históricos, que podem ter mudado desde então).
+      const itensRecarregados: ItemNfe[] = [];
+      let itensNaoEncontrados = 0;
+      for (const itemAntigo of ultima.itens || []) {
+        const prod = produtos.find(p => p.codigo === itemAntigo.codigoProduto);
+        if (!prod) {
+          itensNaoEncontrados++;
+          continue;
+        }
+        const quantidade = Number(itemAntigo.quantidade) || 1;
+        itensRecarregados.push({
+          id: prod.id,
+          codigoProduto: prod.codigo,
+          descricao: prod.descricao,
+          ncm: prod.ncm,
+          cest: prod.cest || undefined,
+          cfop: prod.cfopPadrao,
+          unidadeMedida: prod.unidade,
+          quantidade,
+          valorUnitario: prod.precoVenda,
+          valorTotalBruto: quantidade * prod.precoVenda,
+          origemMercadoria: 0,
+          cstICMS: '00',
+          aliquotaICMS: prod.aliquotaICMS,
+          baseCalculoICMS: quantidade * prod.precoVenda,
+          valorICMS: (quantidade * prod.precoVenda * Number(prod.aliquotaICMS)) / 100,
+          cstIPI: '50',
+          aliquotaIPI: prod.aliquotaIPI || 0,
+          valorIPI: (quantidade * prod.precoVenda * Number(prod.aliquotaIPI || 0)) / 100,
+          cstPIS: '01',
+          aliquotaPIS: prod.aliquotaPIS,
+          valorPIS: (quantidade * prod.precoVenda * Number(prod.aliquotaPIS)) / 100,
+          cstCOFINS: '01',
+          aliquotaCOFINS: prod.aliquotaCOFINS,
+          valorCOFINS: (quantidade * prod.precoVenda * Number(prod.aliquotaCOFINS)) / 100,
+          aliquotaIBSUF: Number(prod.aliquotaIBS ?? 0) / 2,
+          valorIBSUF: (quantidade * prod.precoVenda * (Number(prod.aliquotaIBS ?? 0) / 2)) / 100,
+          aliquotaIBSMun: Number(prod.aliquotaIBS ?? 0) / 2,
+          valorIBSMun: (quantidade * prod.precoVenda * (Number(prod.aliquotaIBS ?? 0) / 2)) / 100,
+          aliquotaCBS: Number(prod.aliquotaCBS ?? 0),
+          valorCBS: (quantidade * prod.precoVenda * Number(prod.aliquotaCBS ?? 0)) / 100,
+          valorTributosAproximados: quantidade * prod.precoVenda * 0.31,
+          codigoEAN: prod.codigoBarrasEAN || undefined,
+          codigoEANTrib: prod.codigoBarrasEAN || undefined,
+        });
+      }
+      setItens(itensRecarregados);
+
+      const msg = itensNaoEncontrados > 0
+        ? `Dados da última NF-e carregados (${itensNaoEncontrados} item(ns) não encontrados no catálogo atual e foram ignorados).`
+        : 'Dados da última NF-e carregados. Revise antes de emitir.';
+      toast.showSuccess(msg);
+    } catch (error: unknown) {
+      toast.showError(getApiErrorMessage(error, 'Erro ao carregar a última NF-e'));
+    } finally {
+      setIsCarregandoUltima(false);
+    }
   };
 
   // ============================================================
   // TRANSMISSÃO
   // ============================================================
 
-  const handleTransmitirNfe = () => {
+  const handleTransmitirNfe = async () => {
     setErros([]);
-    setSucessos([]);
 
     const errs = validarAntesDeTransmitir();
     if (errs.length > 0) {
@@ -364,147 +490,41 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
     }
 
     setIsTransmitting(true);
+    try {
+      const nfeEmitida = await nfeService.emitir({
+        destinatarioId: selectedClienteId,
+        itens: itens.map(item => ({
+          produtoId: item.id,
+          quantidade: item.quantidade,
+          valorUnitario: item.valorUnitario,
+        })),
+        naturezaOperacao,
+        formaPagamento,
+        consumidorFinal,
+      });
 
-    setTimeout(() => {
-      try {
-        const numero = empresa.proximoNumeroNfe;
-        const aamm = new Date().toISOString().slice(2, 4) + 
-                     (new Date().getMonth() + 1).toString().padStart(2, '0');
-
-        const { chaveCompleta } = gerarChaveAcessoNFe({
-          codigoUf: empresa.endereco.codigoMunicipio.slice(0, 2),
-          anoMes: aamm,
-          cnpjEmitente: empresa.cnpj,
-          modelo: '55',
-          serie: empresa.serieNfe,
-          numero,
-          tipoEmissao: 1,
-        });
-
-        const docDestLimpo = limparDocumento(destinatarioDoc);
-        const isCnpj = docDestLimpo.length === 14;
-
-        const duplicatas: FaturaDuplicata[] = [
-          {
-            numero: `${numero}/01`,
-            dataVencimento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            valor: totais.valorTotalNota,
-            status: 'PENDENTE',
-          },
-        ];
-
-        const novaNfe: NFeDocumento = {
-          id: `nfe-${Date.now()}`,
-          modelo: '55',
-          serie: empresa.serieNfe,
-          numero,
-          chaveAcesso: chaveCompleta,
-          dataHoraEmissao: new Date().toISOString(),
-          dataHoraSaida: new Date().toISOString(),
-          naturezaOperacao,
-          ambiente: empresa.ambienteEmissao,
-          tipoEmissao: 1,
-          tipoDocumento,
-          finalidade,
-          consumidorFinal,
-          presencaComprador,
-          status: 'AUTORIZADA',
-          idDest: empresa.endereco.uf === destinatarioUf ? 1 : 2,
-          tpImp: 1,
-          emitente: {
-            cnpj: empresa.cnpj,
-            inscricaoMunicipal: empresa.inscricaoMunicipal,
-            inscricaoEstadual: empresa.inscricaoEstadual,
-            razaoSocial: empresa.razaoSocial,
-            nomeFantasia: empresa.nomeFantasia,
-            regimeTributario: empresa.regimeTributario,
-            optanteSimplesNacional: empresa.optanteSimplesNacional,
-            optanteMEI: empresa.optanteMEI,
-            endereco: empresa.endereco,
-            aliquotaSimplesNacional: empresa.aliquotaSimplesNacional,
-          },
-          destinatario: {
-            tipoPessoa: isCnpj ? 'PJ' : 'PF',
-            documento: destinatarioDoc,
-            nomeRazaoSocial: destinatarioNome,
-            inscricaoEstadual: destinatarioIE || 'ISENTO',
-            inscricaoEstadualST: destinatarioIEST || undefined,
-            indicadorIEDestinatario: destinatarioIE ? '1' : '9',
-            email: destinatarioEmail,
-            telefone: destinatarioTelefone,
-            endereco: {
-              logradouro: destinatarioLogradouro,
-              numero: destinatarioNumero,
-              complemento: destinatarioComplemento,
-              bairro: destinatarioBairro,
-              codigoMunicipio: destinatarioMunIbge,
-              nomeMunicipio: destinatarioMun,
-              uf: destinatarioUf,
-              cep: destinatarioCep,
-              codigoPais: '1058',
-              nomePais: 'BRASIL',
-            },
-          },
-          itens: itens.map(item => ({
-            ...item,
-            valorTributosAproximados: item.valorTributosAproximados || 0,
-          })),
-          valorTotalProdutos: totais.valorTotalProdutos,
-          valorTotalFrete: totais.valorTotalFrete,
-          valorTotalSeguro: totais.valorTotalSeguro,
-          valorTotalDesconto: totais.valorTotalDesconto,
-          valorTotalOutrasDespesas: totais.valorTotalOutrasDespesas,
-          baseCalculoICMS: totais.baseCalculoICMS,
-          valorTotalICMS: totais.valorTotalICMS,
-          baseCalculoICMSST: totais.baseCalculoICMSST,
-          valorTotalICMSST: totais.valorTotalICMSST,
-          valorTotalIPI: totais.valorTotalIPI,
-          valorTotalPIS: totais.valorTotalPIS,
-          valorTotalCOFINS: totais.valorTotalCOFINS,
-          valorTotalIBS: totais.valorTotalIBS,
-          valorTotalCBS: totais.valorTotalCBS,
-          valorTotalTributosAproximados: totais.valorTotalTributosAproximados,
-          valorTotalNota: totais.valorTotalNota,
-          formaPagamento,
-          duplicatas,
-          transporte: {
-            modalidadeFrete,
-            transportadora: transportadoraNome ? {
-              cnpjCpf: transportadoraCnpj,
-              razaoSocial: transportadoraNome,
-              municipio: empresa.endereco.nomeMunicipio,
-              uf: empresa.endereco.uf,
-            } : undefined,
-            veiculo: veiculoPlaca ? {
-              placa: veiculoPlaca,
-              uf: veiculoUf,
-              rntc: veiculoRNTC || undefined,
-            } : undefined,
-            volumes: volumesQuantidade > 0 ? {
-              quantidade: volumesQuantidade,
-              especie: volumesEspecie,
-              pesoLiquidoKg: volumesPesoLiquido,
-              pesoBrutoKg: volumesPesoBruto,
-            } : undefined,
-          },
-          protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-          dataHoraAutorizacao: new Date().toISOString(),
-          informacoesAdicionais: 'Emitido por SUP TECNOLOGIA ERP. Integração automática com estoque (baixa automática efetuada) e contas a receber.',
-          xmlAssinado: '',
-        };
-
-        novaNfe.xmlAssinado = gerarXmlNfe400(novaNfe);
-        StorageService.addNfe(novaNfe);
-        onNfeEmitida(novaNfe);
-        setNfeEmitidaSucesso(novaNfe);
-        setSucessos(['NF-e emitida e autorizada com sucesso!']);
-
-      } catch (error: any) {
-        setErros([`Erro ao transmitir NF-e: ${error.message || 'Erro desconhecido'}`]);
-      } finally {
-        setIsTransmitting(false);
+      if (nfeEmitida) {
+        // ⚠️ nfeEmitida vem no formato cru do Prisma (não no formato NFeDocumento
+        // do protótipo antigo) — o cast é necessário porque a listagem/DANFE
+        // ainda esperam o tipo antigo; ver nota em NfeApiRecord (nfe.service.ts).
+        onNfeEmitida(nfeEmitida as unknown as NFeDocumento);
+        setNfeEmitidaSucesso(nfeEmitida);
+        setTentouEnviar(false);
+        // 🔥 O backend não lança erro quando a SEFAZ rejeita — grava a NF-e
+        // com status REJEITADA e devolve normalmente (é um resultado válido,
+        // não uma falha do sistema). Mostrar sempre um toast de "sucesso" aqui,
+        // sem checar o status, fazia a tela comemorar até notas rejeitadas.
+        // O modal de resumo abaixo já mostra o status real e o motivo, então
+        // não precisa mais do toast nem do banner antigo.
       }
-    }, 1200);
+    } catch (error: unknown) {
+      const mensagemErro = getApiErrorMessage(error, 'Erro ao transmitir NF-e');
+      setErros([mensagemErro]);
+      toast.showError(`❌ ${mensagemErro}`);
+    } finally {
+      setIsTransmitting(false);
+      setShowPreview(false);
+    }
   };
 
   // ============================================================
@@ -512,7 +532,38 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   // ============================================================
 
   const cor = 'emerald';
-  const isFormReady = itens.length > 0 && destinatarioNome && destinatarioDoc;
+  const isFormReady = itens.length > 0 && !!selectedClienteId;
+
+  // 🔥 Busca por nome ou CPF/CNPJ (ignora pontuação do documento) — clientes
+  // com mais de ~10 cadastros ficavam impossíveis de achar no <select> nativo.
+  const clientesFiltrados = (() => {
+    const q = buscaCliente.toLowerCase().trim();
+    if (!q) return [];
+    const qDoc = q.replace(/\D/g, '');
+    return clientes.filter(c =>
+      c.razaoSocial.toLowerCase().includes(q) ||
+      (qDoc && (c.documento || '').replace(/\D/g, '').includes(qDoc))
+    );
+  })();
+
+  const produtosFiltrados = (() => {
+    const q = buscaProduto.toLowerCase().trim();
+    if (!q) return [];
+    return produtos.filter(p =>
+      p.descricao.toLowerCase().includes(q) ||
+      p.codigo.toLowerCase().includes(q) ||
+      (p.codigoBarrasEAN && p.codigoBarrasEAN.includes(buscaProduto))
+    );
+  })();
+
+  // 🔥 Sem campo de busca separado — filtra pelo que já está digitado em
+  // "Natureza da Operação" (mínimo de 2 caracteres pra não listar tudo à toa
+  // a cada tecla no começo de uma frase livre qualquer).
+  const cfopsFiltrados = (() => {
+    const q = naturezaOperacao.toLowerCase().trim();
+    if (q.length < 2 || cfopSelecionado) return [];
+    return cfops.filter(c => c.codigo.includes(q) || c.descricao.toLowerCase().includes(q));
+  })();
 
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
@@ -532,35 +583,40 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             Emissão de nota de mercadorias com baixa automática em estoque e contas a receber.
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfe}</div>
-          <div className="text-[10px] font-medium text-emerald-700">Próxima NF-e: Nº {empresa.proximoNumeroNfe}</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCarregarUltima}
+            disabled={isCarregandoUltima}
+            title="Preenche o formulário com os dados da última NF-e autorizada (cliente, itens, forma de pagamento)"
+            className="bg-white hover:bg-emerald-100 disabled:opacity-60 text-emerald-700 font-medium text-xs px-3 py-2 rounded-lg border border-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
+            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfe}</div>
+            <div className="text-[10px] font-medium text-emerald-700">Próxima NF-e: Nº previsto {empresa.proximoNumeroNfe}</div>
+          </div>
         </div>
       </div>
 
       {nfeEmitidaSucesso && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-sm font-bold text-emerald-800">NF-e Nº {nfeEmitidaSucesso.numero} Autorizada!</h3>
-                <p className="text-xs text-emerald-800 font-mono mt-0.5">Chave: {nfeEmitidaSucesso.chaveAcesso}</p>
-                <div className="text-[11px] text-emerald-700 mt-1">
-                  Destinatário: {nfeEmitidaSucesso.destinatario.nomeRazaoSocial} • Total: {formatarMoeda(nfeEmitidaSucesso.valorTotalNota)}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => onViewDanfe(nfeEmitidaSucesso)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm">
-                <Eye className="w-3.5 h-3.5" /> <span>Visualizar DANFE</span>
-              </button>
-              <button onClick={() => setNfeEmitidaSucesso(null)} className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer">
-                Nova NF-e
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResumoEmissaoModal
+          aberto={!!nfeEmitidaSucesso}
+          onClose={() => setNfeEmitidaSucesso(null)}
+          status={(nfeEmitidaSucesso.status as 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO') || 'PROCESSANDO'}
+          tipoDocumentoLabel="NF-e"
+          numero={nfeEmitidaSucesso.numero}
+          serie={nfeEmitidaSucesso.serie}
+          chaveAcesso={nfeEmitidaSucesso.chaveAcesso}
+          protocolo={nfeEmitidaSucesso.protocoloAutorizacao || undefined}
+          motivoRejeicao={(nfeEmitidaSucesso.motivoRejeicao as string) || undefined}
+          valorTotal={Number(nfeEmitidaSucesso.vNF) || 0}
+          destinatarioNome={nfeEmitidaSucesso.destinatario?.razaoSocial}
+          emailSugerido={empresa.contadorEmail || empresa.endereco?.email || ''}
+          onVisualizar={() => onViewDanfe(nfeEmitidaSucesso.id)}
+          onEnviarEmail={(email) => nfeService.enviarPorEmail(nfeEmitidaSucesso.id, email)}
+        />
       )}
 
       {erros.length > 0 && (
@@ -581,26 +637,46 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             <User className="w-4 h-4 text-emerald-600" />
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">1. Destinatário</h3>
           </div>
-          <select
-            value={selectedClienteId}
-            onChange={(e) => handleSelectCliente(e.target.value)}
-            className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-700 min-w-[200px]"
-          >
-            <option value="">-- Escolher Cliente --</option>
-            {clientes.map(c => (
-              <option key={c.id} value={c.id}>{c.razaoSocial} ({c.documento})</option>
-            ))}
-          </select>
+          <div className="w-64">
+            <Combobox
+              value={buscaCliente}
+              onInputChange={(texto) => {
+                setBuscaCliente(texto);
+                if (selectedClienteId) handleSelectCliente('');
+              }}
+              onSelect={(c: ClienteFornecedor) => {
+                handleSelectCliente(c.id);
+                setBuscaCliente(c.razaoSocial);
+              }}
+              options={clientesFiltrados}
+              getKey={(c) => c.id}
+              placeholder="Buscar por nome ou CPF/CNPJ..."
+              emptyMessage="Nenhum cliente encontrado."
+              inputClassName={`text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 font-medium text-slate-700 w-full border ${
+                tentouEnviar && !selectedClienteId
+                  ? 'border-rose-400 bg-rose-50 focus:ring-rose-500'
+                  : 'border-slate-300 focus:ring-emerald-500'
+              }`}
+              renderOption={(c: ClienteFornecedor, destacado) => (
+                <div className={`p-2 rounded-lg border cursor-pointer transition-colors text-xs ${
+                  destacado ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                }`}>
+                  <div className="font-semibold text-slate-900">{c.razaoSocial}</div>
+                  <div className="text-[10px] text-slate-500">{formatarCpfCnpj(c.documento)}</div>
+                </div>
+              )}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 text-xs">
           <div>
             <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
-            <input type="text" value={destinatarioDoc} onChange={(e) => setDestinatarioDoc(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="00.000.000/0000-00" />
+            <input type="text" value={destinatarioDoc} onChange={(e) => setDestinatarioDoc(e.target.value)} className={classeCampo(destinatarioDoc)} placeholder="00.000.000/0000-00" />
           </div>
           <div className="sm:col-span-2 md:col-span-3">
             <label className="block font-medium text-slate-600 mb-1">Razão Social / Nome *</label>
-            <input type="text" value={destinatarioNome} onChange={(e) => setDestinatarioNome(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Razão Social do destinatário" />
+            <input type="text" value={destinatarioNome} onChange={(e) => setDestinatarioNome(e.target.value)} className={classeCampo(destinatarioNome)} placeholder="Razão Social do destinatário" />
           </div>
 
           <div>
@@ -622,11 +698,11 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
 
           <div className="sm:col-span-2">
             <label className="block font-medium text-slate-600 mb-1">Logradouro *</label>
-            <input type="text" value={destinatarioLogradouro} onChange={(e) => setDestinatarioLogradouro(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Rua, Avenida..." />
+            <input type="text" value={destinatarioLogradouro} onChange={(e) => setDestinatarioLogradouro(e.target.value)} className={classeCampo(destinatarioLogradouro)} placeholder="Rua, Avenida..." />
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Número *</label>
-            <input type="text" value={destinatarioNumero} onChange={(e) => setDestinatarioNumero(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="123" />
+            <input type="text" value={destinatarioNumero} onChange={(e) => setDestinatarioNumero(e.target.value)} className={classeCampo(destinatarioNumero)} placeholder="123" />
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Complemento</label>
@@ -634,12 +710,12 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Bairro *</label>
-            <input type="text" value={destinatarioBairro} onChange={(e) => setDestinatarioBairro(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Bairro" />
+            <input type="text" value={destinatarioBairro} onChange={(e) => setDestinatarioBairro(e.target.value)} className={classeCampo(destinatarioBairro)} placeholder="Bairro" />
           </div>
 
           <div>
             <label className="block font-medium text-slate-600 mb-1">Município *</label>
-            <input type="text" value={destinatarioMun} onChange={(e) => setDestinatarioMun(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="São Paulo" />
+            <input type="text" value={destinatarioMun} onChange={(e) => setDestinatarioMun(e.target.value)} className={classeCampo(destinatarioMun)} placeholder="São Paulo" />
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Cód. Mun. IBGE <span className="text-[10px] text-slate-400">(TCodMunIBGE)</span></label>
@@ -655,7 +731,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">CEP *</label>
-            <input type="text" value={destinatarioCep} onChange={(e) => setDestinatarioCep(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="01000-000" />
+            <input type="text" value={destinatarioCep} onChange={(e) => setDestinatarioCep(e.target.value)} className={classeCampo(destinatarioCep)} placeholder="01000-000" />
           </div>
         </div>
       </div>
@@ -666,20 +742,42 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">2. Dados Gerais</h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <div>
+          <div className="sm:col-span-2">
             <label className="block font-medium text-slate-600 mb-1">Natureza da Operação</label>
-            <input type="text" value={naturezaOperacao} onChange={(e) => setNaturezaOperacao(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <Combobox
+              value={naturezaOperacao}
+              onInputChange={(texto) => {
+                setNaturezaOperacao(texto);
+                if (cfopSelecionado) setCfopSelecionado(null);
+              }}
+              onSelect={(c: Cfop) => {
+                setCfopSelecionado(c);
+                setNaturezaOperacao(c.descricao);
+              }}
+              options={cfopsFiltrados}
+              getKey={(c) => c.id}
+              placeholder="Ex.: Venda de Mercadoria Adquirida de Terceiros"
+              inputClassName="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              renderOption={(c: Cfop, destacado) => (
+                <div className={`p-2 rounded-lg border cursor-pointer transition-colors text-xs ${
+                  destacado ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                }`}>
+                  <span className="font-mono font-bold text-emerald-700">{c.codigo}</span>
+                  <span className="text-slate-700"> — {c.descricao}</span>
+                </div>
+              )}
+            />
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Tipo Documento <span className="text-[10px] text-slate-400">(TpNF)</span></label>
-            <select value={tipoDocumento} onChange={(e) => setTipoDocumento(Number(e.target.value) as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select value={tipoDocumento} onChange={(e) => setTipoDocumento(Number(e.target.value) as 0 | 1)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
               <option value={0}>0 - Entrada</option>
               <option value={1}>1 - Saída</option>
             </select>
           </div>
           <div>
             <label className="block font-medium text-slate-600 mb-1">Finalidade</label>
-            <select value={finalidade} onChange={(e) => setFinalidade(Number(e.target.value) as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select value={finalidade} onChange={(e) => setFinalidade(Number(e.target.value) as 1 | 2 | 3 | 4)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
               <option value={1}>1 - Normal</option>
               <option value={2}>2 - Complementar</option>
               <option value={3}>3 - Ajuste</option>
@@ -702,28 +800,44 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             <Package className="w-4 h-4 text-emerald-600" />
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">3. Produtos ({itens.length})</h3>
           </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={produtoSelecionado}
-              onChange={(e) => setProdutoSelecionado(e.target.value)}
-              className="text-xs bg-white border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[200px]"
-            >
-              <option value="">Selecione um produto...</option>
-              {produtos.map(p => (
-                <option key={p.id} value={p.id}>{p.codigo} - {p.descricao.slice(0, 40)} ({formatarMoeda(p.precoVenda)})</option>
-              ))}
-            </select>
-            <button onClick={handleAddItem} disabled={!produtoSelecionado} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50">
-              <Plus className="w-3.5 h-3.5" /> Adicionar
-            </button>
+          <div className="w-72">
+            <Combobox
+              value={buscaProduto}
+              onInputChange={setBuscaProduto}
+              onSelect={(p: Produto) => {
+                handleAddItem(p.id);
+                setBuscaProduto('');
+              }}
+              options={produtosFiltrados}
+              getKey={(p) => p.id}
+              placeholder="Buscar produto por código, nome ou EAN..."
+              emptyMessage="Nenhum produto encontrado."
+              inputClassName="text-xs pl-3 pr-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full"
+              renderOption={(p: Produto, destacado) => (
+                <div className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors text-xs ${
+                  destacado ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                }`}>
+                  <div>
+                    <div className="font-semibold text-slate-900">{p.descricao}</div>
+                    <div className="text-[10px] text-slate-500">Cód: {p.codigo}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-emerald-700">{formatarMoeda(p.precoVenda)}</div>
+                    <span className="text-[10px] text-emerald-600">+ Incluir</span>
+                  </div>
+                </div>
+              )}
+            />
           </div>
         </div>
 
         {itens.length === 0 ? (
-          <div className="p-8 border-2 border-dashed border-slate-200 rounded-lg text-center bg-slate-50/70">
-            <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm font-semibold text-slate-700">Nenhum produto adicionado</p>
-            <p className="text-xs text-slate-500">Selecione um produto no botão acima</p>
+          <div className={`p-8 border-2 border-dashed rounded-lg text-center ${
+            tentouEnviar ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50/70'
+          }`}>
+            <Package className={`w-10 h-10 mx-auto mb-2 ${tentouEnviar ? 'text-rose-300' : 'text-slate-300'}`} />
+            <p className={`text-sm font-semibold ${tentouEnviar ? 'text-rose-700' : 'text-slate-700'}`}>Nenhum produto adicionado</p>
+            <p className={`text-xs ${tentouEnviar ? 'text-rose-500' : 'text-slate-500'}`}>Selecione um produto no botão acima</p>
           </div>
         ) : (
           <div className="space-y-2 max-h-[500px] overflow-y-auto">
@@ -744,7 +858,11 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2 border-t border-slate-200 text-xs">
                   <div>
                     <span className="text-[10px] text-slate-500 block">Qtd:</span>
-                    <input type="number" min="0.001" step="0.001" value={item.quantidade} onChange={(e) => handleUpdateItemQtd(idx, parseFloat(e.target.value) || 0.001)} className="w-full bg-white border border-slate-300 rounded p-1.5 font-bold text-slate-900 text-xs" />
+                    {/* 🔥 step="1": a maioria dos produtos é vendida por unidade inteira —
+                        step="0.001" fazia as setinhas do input incrementar de milésimo em
+                        milésimo (imperceptível). min="0.001" continua permitindo digitar
+                        valor fracionário direto (produtos por peso/volume, ex. KG/L). */}
+                    <input type="number" min="0.001" step="1" value={item.quantidade} onChange={(e) => handleUpdateItemQtd(idx, parseFloat(e.target.value) || 0.001)} className="w-full bg-white border border-slate-300 rounded p-1.5 font-bold text-slate-900 text-xs" />
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-500 block">V. Unitário:</span>
@@ -782,7 +900,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
           <div>
             <label className="block font-medium text-slate-600 mb-1">Modalidade Frete</label>
-            <select value={modalidadeFrete} onChange={(e) => setModalidadeFrete(parseInt(e.target.value) as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select value={modalidadeFrete} onChange={(e) => setModalidadeFrete(parseInt(e.target.value) as 0 | 1 | 2 | 3 | 4 | 9)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
               <option value={0}>0 - CIF (Emitente)</option>
               <option value={1}>1 - FOB (Destinatário)</option>
               <option value={2}>2 - Terceiros</option>
@@ -881,7 +999,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div>
             <label className="block font-medium text-slate-600 mb-1">Forma de Pagamento</label>
-            <select value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value as '01' | '02' | '03' | '04' | '15' | '17' | '90' | '99')} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
               <option value="01">01 - Dinheiro</option>
               <option value="02">02 - Cheque</option>
               <option value="03">03 - Cartão Crédito</option>
@@ -897,26 +1015,23 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             <input type="number" min="0" step="0.01" value={valorDescontoGeral} onChange={(e) => setValorDescontoGeral(parseFloat(e.target.value) || 0)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Presença Comprador</label>
-            <select value={presencaComprador} onChange={(e) => setPresencaComprador(parseInt(e.target.value) as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label className="block font-medium text-slate-600 mb-1">Presença Comprador <span className="text-[10px] text-slate-400">(indPres)</span></label>
+            {/* 🔥 Rótulos de 3/4/5/9 estavam deslocados em relação à tabela oficial
+                do indPres (Manual da NF-e) — o código enviado já estava certo, mas
+                o texto mostrado ao usuário descrevia o código errado, podendo levar
+                a escolher a opção pensando que significava outra coisa. */}
+            <select value={presencaComprador} onChange={(e) => setPresencaComprador(parseInt(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5 | 9)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
               <option value={0}>0 - Não se aplica</option>
               <option value={1}>1 - Presencial</option>
               <option value={2}>2 - Não presencial (Internet)</option>
-              <option value={3}>3 - Não presencial (Internet)</option>
-              <option value={4}>4 - Teleatendimento</option>
-              <option value={5}>5 - NFC-e entrega</option>
-              <option value={9}>9 - Presencial fora</option>
+              <option value={3}>3 - Não presencial (Teleatendimento)</option>
+              <option value={4}>4 - NFC-e com entrega a domicílio</option>
+              <option value={5}>5 - Presencial, fora do estabelecimento</option>
+              <option value={9}>9 - Não presencial (Outros)</option>
             </select>
           </div>
-          <div>
-            <label className="block font-medium text-slate-600 mb-1">Finalidade</label>
-            <select value={finalidade} onChange={(e) => setFinalidade(parseInt(e.target.value) as any)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-              <option value={1}>1 - Normal</option>
-              <option value={2}>2 - Complementar</option>
-              <option value={3}>3 - Ajuste</option>
-              <option value={4}>4 - Devolução</option>
-            </select>
-          </div>
+          {/* 🔥 "Finalidade" removido daqui — campo duplicado, já existe na seção
+              2 (Dados Gerais) ligado ao mesmo estado `finalidade`. */}
         </div>
       </div>
 
@@ -983,13 +1098,18 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         </div>
         
         <div className="space-y-3">
-          <button 
-            onClick={handleTransmitirNfe} 
-            disabled={isTransmitting || !isFormReady} 
+          {/* 🔥 Clicável mesmo com dados incompletos — é o que dispara a validação
+              que pinta os campos obrigatórios vazios de vermelho (handleClickEmitir).
+              Só fica de fato desabilitado durante a transmissão em si. */}
+          <button
+            onClick={handleClickEmitir}
+            disabled={isTransmitting}
             className={`w-full font-semibold text-sm py-3 px-4 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer ${
-              isTransmitting || !isFormReady 
-                ? 'bg-slate-300 text-slate-500 cursor-not-allowed' 
-                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              isTransmitting
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                : isFormReady
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-slate-700 hover:bg-slate-800 text-white'
             }`}
           >
             {isTransmitting ? (
@@ -1000,7 +1120,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                <span>{!isFormReady ? 'PREENCHA OS DADOS PRIMEIRO' : 'EMITIR & AUTORIZAR NF-e'}</span>
+                <span>{!isFormReady ? 'VER PENDÊNCIAS E CONTINUAR' : 'REVISAR & EMITIR NF-e'}</span>
               </>
             )}
           </button>
@@ -1013,14 +1133,8 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
               <RefreshCw className="w-3.5 h-3.5" />
               Limpar Tudo
             </button>
-            <button 
-              onClick={() => {
-                if (isFormReady) {
-                  alert('Pré-visualização do DANFE (simulação)');
-                } else {
-                  alert('Preencha os dados da NF-e primeiro');
-                }
-              }} 
+            <button
+              onClick={handleClickEmitir}
               className="bg-white hover:bg-slate-50 text-slate-600 font-medium text-xs py-2 px-3 rounded-lg border border-slate-300 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -1046,6 +1160,136 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ============================================================
+          PREVIEW ANTES DE TRANSMITIR — nada é enviado pra SEFAZ até o
+          usuário confirmar aqui dentro. Chancela "APENAS PARA VISUALIZAÇÃO"
+          deixa claro que isso não é a nota autorizada ainda.
+          ============================================================ */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          {/* 🔥 flex-col + overflow-hidden no card (não mais overflow-y-auto direto
+              nele) — a chancela agora é um overlay absolute que cobre o CARD
+              inteiro (cabeçalho+conteúdo+rodapé) e fica presa ali por cima,
+              recortada pelas bordas do card, em vez de "sticky" dentro da área
+              que rola (o que a prendia colada no topo, fora do centro). Só o
+              miolo (o DANFE em si) tem overflow-y-auto agora. */}
+          <div className="relative bg-white rounded-xl max-w-4xl w-full shadow-2xl max-h-[95vh] overflow-hidden flex flex-col">
+
+            {/* Chancela diagonal — cobre o card inteiro, deslocada pra baixo e pra
+                esquerda do centro de propósito, pra "cortar" tanto na borda
+                esquerda quanto na borda de cima do card (efeito de carimbo). */}
+            <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden select-none">
+              <span
+                className="absolute text-rose-600/25 text-5xl sm:text-6xl font-black uppercase tracking-widest whitespace-nowrap border-4 border-rose-600/25 px-10 py-3"
+                style={{ top: '28%', left: '48%', transform: 'translate(-50%, -50%) rotate(-30deg)' }}
+              >
+                Apenas para Visualização
+              </span>
+            </div>
+
+            <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-center justify-between z-20">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">
+                  Espelho do DANFE — documento ainda NÃO emitido/transmitido
+                </span>
+              </div>
+              {/* 🔥 ConfiguracaoEmpresa tipa ambienteEmissao como TAmb (1|2), mas em
+                  runtime o backend manda a string 'PRODUCAO'/'HOMOLOGACAO' (schema
+                  do Empresa é String, não enum numérico) — cast necessário aqui. */}
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                (empresa.ambienteEmissao as unknown as string) === 'PRODUCAO'
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                  : 'bg-blue-100 text-blue-800 border-blue-300'
+              }`}>
+                {(empresa.ambienteEmissao as unknown as string) === 'PRODUCAO' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'}
+              </span>
+            </div>
+
+            {/* 🔥 Mesmo componente DanfeLayout usado na visualização pós-emissão
+                (DanfeViewer) — é um espelho de verdade do DANFE real, não uma
+                versão resumida à parte que poderia ficar desatualizada. Chave de
+                acesso/protocolo/data de autorização ainda não existem nesse
+                momento (só são gerados na autorização pela SEFAZ), então ficam
+                como placeholder dentro do próprio DanfeLayout. */}
+            <div className="overflow-y-auto flex-1">
+            <DanfeLayout
+              numero={empresa.proximoNumeroNfe}
+              serie={empresa.serieNfe}
+              tipoDocumento={tipoDocumento}
+              naturezaOperacao={naturezaOperacao}
+              emitente={{
+                razaoSocial: empresa.razaoSocial,
+                cnpj: empresa.cnpj,
+                inscricaoEstadual: empresa.inscricaoEstadual,
+                endereco: empresa.endereco,
+              }}
+              destinatario={{
+                nomeRazaoSocial: destinatarioNome,
+                documento: destinatarioDoc,
+                telefone: destinatarioTelefone,
+                inscricaoEstadual: destinatarioIE,
+                endereco: {
+                  logradouro: destinatarioLogradouro,
+                  numero: destinatarioNumero,
+                  complemento: destinatarioComplemento,
+                  bairro: destinatarioBairro,
+                  nomeMunicipio: destinatarioMun,
+                  uf: destinatarioUf,
+                  cep: destinatarioCep,
+                },
+              }}
+              duplicatas={[]}
+              itens={itens}
+              totais={{
+                baseCalculoICMS: totais.baseCalculoICMS,
+                valorTotalICMS: totais.valorTotalICMS,
+                baseCalculoICMSST: totais.baseCalculoICMSST,
+                valorTotalICMSST: totais.valorTotalICMSST,
+                valorTotalProdutos: totais.valorTotalProdutos,
+                valorTotalNota: totais.valorTotalNota,
+                valorTotalFrete: totais.valorTotalFrete,
+                valorTotalSeguro: totais.valorTotalSeguro,
+                valorTotalDesconto: totais.valorTotalDesconto,
+                valorTotalIPI: totais.valorTotalIPI,
+                valorTotalPIS: totais.valorTotalPIS,
+                valorTotalCOFINS: totais.valorTotalCOFINS,
+              }}
+            />
+            </div>
+
+            <div className="shrink-0 bg-white border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPreview(false)}
+                disabled={isTransmitting}
+                className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium cursor-pointer transition-colors disabled:opacity-50"
+              >
+                Voltar e Revisar
+              </button>
+              <button
+                type="button"
+                onClick={handleTransmitirNfe}
+                disabled={isTransmitting}
+                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm cursor-pointer disabled:opacity-60 flex items-center gap-2 transition-colors"
+              >
+                {isTransmitting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Transmitindo para SEFAZ...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Confirmar e Transmitir para SEFAZ</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

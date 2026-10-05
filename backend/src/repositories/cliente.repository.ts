@@ -1,6 +1,6 @@
 // backend/src/repositories/cliente.repository.ts
-import { Prisma } from '@prisma/client'
-import { BaseRepository } from './base.repository'
+import { Prisma, TipoCliente } from '@prisma/client'
+import { BaseRepository } from './base.repository.js'
 
 export class ClienteRepository extends BaseRepository {
   async findById(id: string, empresaId?: string) {
@@ -12,9 +12,11 @@ export class ClienteRepository extends BaseRepository {
     })
   }
 
-  async findByDocumento(documento: string, empresaId?: string) {
+  // empresaId obrigatório: o documento é único só dentro da empresa, e sem o
+  // filtro a busca podia devolver o cliente de outra empresa.
+  async findByDocumento(documento: string, empresaId: string) {
     return this.prisma.cliente.findFirst({
-      where: empresaId ? { documento, empresaId } : { documento },
+      where: { documento, empresaId },
       include: {
         endereco: true
       }
@@ -56,9 +58,10 @@ export class ClienteRepository extends BaseRepository {
     return this.prisma.cliente.findMany({
       where: {
         empresaId,
-        tipo: tipo as any
+        tipo: tipo as TipoCliente
       },
       include: { endereco: true },
+      take: 500,
       orderBy: { razaoSocial: 'asc' }
     })
   }
@@ -71,21 +74,34 @@ export class ClienteRepository extends BaseRepository {
   }
 
   // 🔥 CORREÇÃO: UPDATE COM ENDERECO
-  async update(id: string, data: any) {
+  async update(id: string, data: Record<string, unknown>) {
     // 🔥 SEPARA ENDERECO DO RESTO
     const { endereco, ...clienteData } = data;
 
     // 🔥 PREPARA OS DADOS DO CLIENTE
     const updateData: Prisma.ClienteUpdateInput = {
-      ...clienteData,
+      ...(clienteData as Prisma.ClienteUpdateInput),
     };
 
     // 🔥 SE TIVER ENDERECO, ATUALIZA OU CRIA
     if (endereco) {
+      // O branch "create" do upsert (usado quando o cliente ainda não tem um
+      // endereço vinculado) exige todos os campos obrigatórios do Endereco,
+      // inclusive codigoUF (código IBGE de 2 dígitos da UF) — que o formulário
+      // de Cliente/Fornecedor nunca coleta. Derivado dos 2 primeiros dígitos
+      // de codigoMunicipio (código IBGE de 7 dígitos), mesma técnica usada no
+      // criar() do controller. .trim() porque codigoMunicipio pode ter vindo
+      // de uma leitura anterior de uma coluna Char() do Postgres, que
+      // preenche com espaço à direita valores mais curtos que o tamanho fixo.
+      const e = endereco as Record<string, unknown>;
+      const enderecoCompleto = !e.codigoUF && typeof e.codigoMunicipio === 'string' && e.codigoMunicipio.trim().length >= 2
+        ? { ...e, codigoUF: e.codigoMunicipio.trim().slice(0, 2) }
+        : e;
+
       updateData.endereco = {
         upsert: {
-          create: endereco,
-          update: endereco
+          create: enderecoCompleto as Prisma.EnderecoCreateWithoutClienteInput,
+          update: enderecoCompleto as Prisma.EnderecoUpdateWithoutClienteInput
         }
       };
     }

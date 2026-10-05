@@ -1,0 +1,55 @@
+# Read-only drift detection: runs `terraform plan` only (never applies changes).
+# Requires the repository-level GitHub Actions variable TF_PLAN_ROLE_ARN to be set
+# beforehand (same prerequisite as terraform-ci.yml). Runs daily at 12:00 UTC
+# (09:00 Brasília time) and can also be triggered manually via workflow_dispatch.
+
+name: Terraform Drift Detection
+
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, prod]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: Configure AWS credentials (OIDC, read-only)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.TF_PLAN_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Terraform init
+        working-directory: terraform/environments/${{ matrix.environment }}
+        run: terraform init
+
+      - name: Terraform plan (detect drift)
+        working-directory: terraform/environments/${{ matrix.environment }}
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -no-color -input=false \
+            ${{ matrix.environment == 'prod' && '-var=alert_email=placeholder@example.com' || '' }}
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 2 ]; then
+            echo "::error::Drift detected in ${{ matrix.environment }} — infrastructure differs from Terraform state. Review the plan output above."
+            exit 1
+          elif [ $EXIT_CODE -eq 1 ]; then
+            echo "::error::terraform plan failed in ${{ matrix.environment }} (not a drift — an actual error)."
+            exit 1
+          fi
+          echo "No drift detected in ${{ matrix.environment }}."

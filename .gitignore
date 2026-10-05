@@ -15,3 +15,21 @@ dump_para_auditoria.txt
 dump.bat
 reset-senha.mjs
 backend/update-senha.sql
+estrutura_projeto.txt
+.claude
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc

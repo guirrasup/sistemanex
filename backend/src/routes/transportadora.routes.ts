@@ -1,7 +1,7 @@
 // backend/src/routes/transportadora.routes.ts
 import { Router } from 'express';
-import { authMiddleware } from '../middlewares/auth.middleware';
-import { TransportadoraController } from '../controllers/transportadora.controller';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { TransportadoraController } from '../controllers/transportadora.controller.js';
 
 // 🔥 PRIMEIRO CRIA O ROUTER
 const router = Router();

@@ -1,7 +1,7 @@
 // backend/src/routes/mdfe.routes.ts
 import { Router } from 'express';
-import { MdfeController } from '../controllers/mdfe.controller';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { MdfeController } from '../controllers/mdfe.controller.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { rateLimit } from 'express-rate-limit';
 
 // ============================================================
@@ -63,6 +63,7 @@ router.post('/emitir', emitirLimiter, controller.emitir.bind(controller));
 router.post('/cancelar/:id', emitirLimiter, controller.cancelar.bind(controller));
 
 router.post('/encerrar/:id', emitirLimiter, controller.encerrar.bind(controller));
+router.post('/:id/enviar-email', emitirLimiter, controller.enviarXmlPorEmail.bind(controller));
 
 // ============================================================
 // ROTA DE FALLBACK (DEVE SER A ÚLTIMA)

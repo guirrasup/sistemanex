@@ -1,7 +1,7 @@
 // src/components/fiscal/NfaeEmissor.tsx
 import React, { useState } from 'react';
 import { 
-  FileBadge2, Send, CheckCircle2, AlertTriangle, Eye, Download,
+  FileBadge2, Send, AlertTriangle,
   User, Building, Package, Calculator, Shield, FileText,
   Plus, Trash2, Hash, Calendar, Clock, DollarSign,
   Zap, Gauge, Users, Home, MapPin, Phone, Mail,
@@ -15,6 +15,8 @@ import { formatarMoeda, formatarCpfCnpj, validarCpfOuCnpj, limparDocumento } fro
 import { gerarChaveAcessoNFe } from '../../utils/chaveAcesso';
 import { nfaeService } from '../../services/nfae.service';
 import { useToast } from '../../hooks/useToast';
+import { getApiErrorMessage } from '../../utils/apiError';
+import { ResumoEmissaoModal } from './ResumoEmissaoModal';
 
 interface NfaeEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -109,6 +111,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
 
   // UI
   const [isTransmitting, setIsTransmitting] = useState<boolean>(false);
+  const [isCarregandoUltima, setIsCarregandoUltima] = useState<boolean>(false);
   const [erros, setErros] = useState<string[]>([]);
   const [sucessoNfae, setSucessoNfae] = useState<NFAeDocumento | null>(null);
 
@@ -178,9 +181,14 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
     const prod = produtos.find(p => p.id === selectedProdutoId);
     if (!prod) return;
 
-    const valorUnit = valorUnitarioItem > 0 ? valorUnitarioItem : prod.precoVenda;
+    // 🔥 Decimal do Prisma (precoVenda/aliquotaICMS) chega como string no JSON —
+    // valorTotal/valorICMS já são seguros aqui (via multiplicação, que sempre
+    // coage pra número), mas valorUnitario/aliquotaICMS do item eram gravados
+    // crus, sem Number() (mesmo bug corrigido no NfeEmissor/NfceEmissor).
+    const valorUnit = valorUnitarioItem > 0 ? valorUnitarioItem : Number(prod.precoVenda);
     const total = quantidadeItem * valorUnit;
-    const icms = (total * (aliquotaICMS || prod.aliquotaICMS || 0)) / 100;
+    const aliquotaICMSItem = aliquotaICMS || Number(prod.aliquotaICMS) || 0;
+    const icms = (total * aliquotaICMSItem) / 100;
 
     const novoItem: ItemNfae = {
       id: `item-${Date.now()}`,
@@ -191,7 +199,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
       quantidade: quantidadeItem,
       valorUnitario: valorUnit,
       valorTotal: total,
-      aliquotaICMS: aliquotaICMS || prod.aliquotaICMS || 0,
+      aliquotaICMS: aliquotaICMSItem,
       valorICMS: icms,
     };
 
@@ -205,13 +213,13 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
     setItens(prev => prev.filter((_, i) => i !== index));
   };
 
-  const atualizarItem = (index: number, campo: string, valor: any) => {
+  const atualizarItem = <K extends keyof ItemNfae>(index: number, campo: K, valor: ItemNfae[K]) => {
     setItens(prev => prev.map((item, i) => {
       if (i === index) {
         const updated = { ...item, [campo]: valor };
         if (campo === 'quantidade' || campo === 'valorUnitario') {
-          const qtd = campo === 'quantidade' ? valor : item.quantidade;
-          const vUnit = campo === 'valorUnitario' ? valor : item.valorUnitario;
+          const qtd = (campo === 'quantidade' ? valor : item.quantidade) as number;
+          const vUnit = (campo === 'valorUnitario' ? valor : item.valorUnitario) as number;
           updated.valorTotal = qtd * vUnit;
           updated.valorICMS = (updated.valorTotal * updated.aliquotaICMS) / 100;
         }
@@ -251,6 +259,86 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
   };
 
   // ============================================================
+  // CARREGAR ÚLTIMA NOTA
+  // ============================================================
+
+  const handleCarregarUltima = async () => {
+    setIsCarregandoUltima(true);
+    setErros([]);
+    try {
+      const resposta = await nfaeService.listar({ page: 1, limit: 1, status: 'AUTORIZADA' });
+      const ultima = resposta.data?.[0];
+      if (!ultima) {
+        toast.showError('Nenhuma NFA-e autorizada anterior encontrada.');
+        return;
+      }
+
+      // A resposta real da API tem campos soltos (requerenteNome, destinatarioId,
+      // itens[].codigo) — o shape aninhado { requerente, destinatario } do tipo
+      // NFAeDocumento do protótipo antigo vem null; lido aqui com um cast local.
+      const raw = ultima as unknown as {
+        naturezaOperacao?: string;
+        motivoEmissao?: MotivoEmissaoNFAe;
+        descricaoMotivo?: string;
+        requerenteTipoPessoa?: TipoPessoa;
+        requerenteDocumento?: string;
+        requerenteNome?: string;
+        requerenteInscricaoProdutor?: string;
+        requerenteLogradouro?: string;
+        requerenteNumero?: string;
+        requerenteComplemento?: string;
+        requerenteBairro?: string;
+        requerenteMunicipio?: string;
+        requerenteMunicipioIbge?: string;
+        requerenteUf?: string;
+        requerenteCep?: string;
+        requerenteTelefone?: string;
+        requerenteEmail?: string;
+        destinatarioId?: string;
+      };
+
+      if (raw.naturezaOperacao) setNaturezaOperacao(raw.naturezaOperacao);
+      if (raw.motivoEmissao) setMotivoEmissao(raw.motivoEmissao);
+      if (raw.descricaoMotivo) setDescricaoMotivo(raw.descricaoMotivo);
+
+      // Requerente é um emitente avulso digitado à mão (não é necessariamente
+      // um cliente cadastrado), então preenche os campos direto em vez de
+      // tentar casar com a lista de clientes.
+      setSelectedRequerenteId('');
+      if (raw.requerenteTipoPessoa) setRequerenteTipoPessoa(raw.requerenteTipoPessoa);
+      if (raw.requerenteDocumento) setRequerenteDoc(raw.requerenteDocumento);
+      if (raw.requerenteNome) setRequerenteNome(raw.requerenteNome);
+      setRequerenteInscricaoProdutor(raw.requerenteInscricaoProdutor || '');
+      setRequerenteLogradouro(raw.requerenteLogradouro || '');
+      setRequerenteNumero(raw.requerenteNumero || '');
+      setRequerenteComplemento(raw.requerenteComplemento || '');
+      setRequerenteBairro(raw.requerenteBairro || '');
+      setRequerenteMun(raw.requerenteMunicipio || '');
+      setRequerenteMunIbge(raw.requerenteMunicipioIbge || '');
+      setRequerenteUf(raw.requerenteUf || '');
+      setRequerenteCep(raw.requerenteCep || '');
+      setRequerenteTelefone(raw.requerenteTelefone || '');
+      setRequerenteEmail(raw.requerenteEmail || '');
+
+      if (raw.destinatarioId) {
+        handleSelectDestinatario(raw.destinatarioId);
+      }
+
+      const itensRecarregados: ItemNfae[] = (ultima.itens || []).map((item, idx) => ({
+        ...item,
+        id: `item-ultima-${Date.now()}-${idx}`,
+      }));
+      setItens(itensRecarregados);
+
+      toast.showSuccess('Dados da última NFA-e carregados. Revise antes de emitir.');
+    } catch (error: unknown) {
+      toast.showError(getApiErrorMessage(error, 'Erro ao carregar a última NFA-e'));
+    } finally {
+      setIsCarregandoUltima(false);
+    }
+  };
+
+  // ============================================================
   // TRANSMISSÃO
   // ============================================================
   const handleTransmitirNfae = async () => {
@@ -276,7 +364,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
       const docDestLimpo = limparDocumento(destinatarioDoc);
       const isCnpjDest = docDestLimpo.length === 14;
 
-      const novaNfae: any = {
+      const novaNfae = {
         modelo: '63',
         serie: serie || 900,
         numero,
@@ -343,19 +431,22 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         destinatarioId: selectedDestinatarioId,
       };
 
-      const response = await nfaeService.emitir(novaNfae);
+      const response = await nfaeService.emitir(novaNfae as unknown as NFAeDocumento);
 
       if (response) {
         StorageService.addNfae(response);
         onNfaeEmitida(response);
         setSucessoNfae(response);
-        toast.showSuccess(`✅ NFA-e Nº ${numero} emitida com sucesso!`);
+        // 🔥 O backend não lança erro quando a SEFAZ rejeita — o modal de
+        // resumo abaixo mostra o status real (AUTORIZADA/REJEITADA) e o
+        // motivo, então não tem mais um toast que sempre dizia "sucesso".
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao emitir NFA-e:', error);
-      setErros([error.message || 'Falha ao emitir NFA-e.']);
-      toast.showError(`❌ ${error.message || 'Falha ao emitir NFA-e'}`);
+      const mensagemErro = getApiErrorMessage(error, 'Falha ao emitir NFA-e.');
+      setErros([mensagemErro]);
+      toast.showError(`❌ ${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
     }
@@ -395,60 +486,40 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
             Nota Fiscal Avulsa Eletrônica para fornecimento de energia elétrica.
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {serie || 900}</div>
-          <div className={`text-[10px] font-medium ${corText}`}>Próxima NFA-e: Nº {Math.floor(Math.random() * 900) + 100}</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCarregarUltima}
+            disabled={isCarregandoUltima}
+            title="Preenche o formulário com os dados da última NFA-e autorizada"
+            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
+            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-semibold text-slate-700">Série {serie || 900}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próxima NFA-e: Nº previsto {empresa.proximoNumeroNfae || 1}</div>
+          </div>
         </div>
       </div>
 
       {sucessoNfae && (
-        <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2 className={`w-5 h-5 ${corText} shrink-0 mt-0.5`} />
-              <div>
-                <h3 className={`text-sm font-bold ${corTextDark}`}>
-                  NFA-e Nº {sucessoNfae.numero} Autorizada!
-                </h3>
-                <p className="text-xs text-amber-800 font-mono mt-0.5">
-                  Chave: {sucessoNfae.chaveAcesso}
-                </p>
-                <div className="text-[11px] text-amber-700 mt-1">
-                  Requerente: {sucessoNfae.requerente?.nome} • Total: {formatarMoeda(sucessoNfae.valorTotalNota)}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onViewDanfae(sucessoNfae)}
-                className={`${corBgButton} text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Visualizar DANFAE</span>
-              </button>
-              <button
-                onClick={() => {
-                  const blob = new Blob([sucessoNfae.xmlAssinado], { type: 'application/xml' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `NFAe_${sucessoNfae.numero}_SUP.xml`;
-                  a.click();
-                }}
-                className="bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>XML</span>
-              </button>
-              <button
-                onClick={() => setSucessoNfae(null)}
-                className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer"
-              >
-                Nova NFA-e
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResumoEmissaoModal
+          aberto={!!sucessoNfae}
+          onClose={() => setSucessoNfae(null)}
+          status={((sucessoNfae as unknown as { status?: string }).status as 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO') || 'PROCESSANDO'}
+          tipoDocumentoLabel="NFA-e"
+          numero={Number(sucessoNfae.numero) || 0}
+          serie={Number(sucessoNfae.serie) || 900}
+          chaveAcesso={sucessoNfae.chaveAcesso}
+          protocolo={sucessoNfae.protocoloAutorizacao || undefined}
+          motivoRejeicao={(sucessoNfae as unknown as { motivoRejeicao?: string }).motivoRejeicao || undefined}
+          valorTotal={Number(sucessoNfae.valorTotalNota) || 0}
+          destinatarioNome={sucessoNfae.requerente?.nomeRazaoSocial || (sucessoNfae as unknown as { requerenteNome?: string }).requerenteNome || undefined}
+          emailSugerido={empresa.contadorEmail || empresa.endereco?.email || ''}
+          onVisualizar={() => onViewDanfae(sucessoNfae)}
+          onEnviarEmail={(email) => nfaeService.enviarPorEmail(sucessoNfae.id, email)}
+        />
       )}
 
       {erros.length > 0 && (
@@ -1013,7 +1084,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
               <label className="block font-medium text-slate-600 mb-1">Status</label>
               <select
                 value={statusPagamentoDAE}
-                onChange={(e) => setStatusPagamentoDAE(e.target.value as any)}
+                onChange={(e) => setStatusPagamentoDAE(e.target.value as 'PAGO' | 'AGUARDANDO_PAGAMENTO' | 'ISENTO')}
                 className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               >
                 <option value="AGUARDANDO_PAGAMENTO">Aguardando Pagamento</option>

@@ -1,4 +1,5 @@
 // backend/src/controllers/auth.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service.js';
 
@@ -71,8 +72,8 @@ export class AuthController {
         sucesso: true,
         dados: resultado,
       });
-    } catch (error: any) {
-      const msg = error?.message || '';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
 
       // ✅ Erros de credencial → 401 (esperado)
       if (msg === 'Credenciais inválidas' || msg === 'Usuário inativo. Contate o administrador.') {
@@ -83,7 +84,7 @@ export class AuthController {
       }
 
       // ✅ Erros internos (banco, JWT, etc.) → 500 com log real
-      console.error('❌ Erro interno no login:', error);
+      logger.error('❌ Erro interno no login:', error);
       return res.status(500).json({
         sucesso: false,
         erro: 'Erro interno ao processar login',
@@ -156,8 +157,8 @@ export class AuthController {
         sucesso: true,
         dados: usuario,
       });
-    } catch (error: any) {
-      const msg = error?.message || '';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
 
       // ✅ Erros de negócio → 400
       if (msg === 'E-mail já cadastrado') {
@@ -167,7 +168,7 @@ export class AuthController {
         });
       }
 
-      console.error('❌ Erro no registro:', error);
+      logger.error('❌ Erro no registro:', error);
       return res.status(500).json({
         sucesso: false,
         erro: 'Erro interno ao criar usuário',
@@ -206,8 +207,8 @@ export class AuthController {
         sucesso: true,
         dados: usuario,
       });
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar usuário logado:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar usuário logado:', error);
       return res.status(500).json({
         sucesso: false,
         erro: 'Erro interno ao buscar usuário',
@@ -241,8 +242,8 @@ export class AuthController {
         sucesso: true,
         mensagem: 'Senha alterada com sucesso',
       });
-    } catch (error: any) {
-      const msg = error?.message || '';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
 
       if (
         msg === 'Senha atual incorreta' ||
@@ -256,7 +257,7 @@ export class AuthController {
         });
       }
 
-      console.error('❌ Erro ao alterar senha:', error);
+      logger.error('❌ Erro ao alterar senha:', error);
       return res.status(500).json({
         sucesso: false,
         erro: 'Erro interno ao alterar senha',
@@ -282,13 +283,23 @@ export class AuthController {
         });
       }
 
+      // Verificado antes de consultar o usuário: a resposta é a mesma para
+      // qualquer e-mail, então não revela se a conta existe.
+      if (!this.authService.envioEmailConfigurado()) {
+        logger.error('❌ Recuperação de senha indisponível: SMTP_HOST/SMTP_USER/SMTP_PASS não configurados no .env do backend.');
+        return res.status(503).json({
+          sucesso: false,
+          erro: 'Envio de e-mail não configurado no servidor. Contate o administrador do sistema.',
+        });
+      }
+
       // ✅ Service já é silencioso para e-mail inexistente.
-      // ✅ Capturamos erro de "inativo" para não vazar via 400.
+      // ✅ Capturamos erros (usuário inativo, falha de SMTP) para não vazar se a conta existe.
       try {
         await this.authService.solicitarRecuperacaoSenha(email);
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Log interno, mas resposta genérica pro cliente
-        console.warn('⚠️ Falha silenciosa em recuperar-senha:', err?.message);
+        logger.error('❌ Falha ao enviar e-mail de recuperação de senha:', err);
       }
 
       return res.json({
@@ -296,8 +307,8 @@ export class AuthController {
         mensagem:
           'Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.',
       });
-    } catch (error: any) {
-      console.error('❌ Erro inesperado em recuperar-senha:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro inesperado em recuperar-senha:', error);
       // Mesmo em erro inesperado, resposta genérica
       return res.json({
         sucesso: true,
@@ -325,8 +336,8 @@ export class AuthController {
         sucesso: true,
         mensagem: 'Senha redefinida com sucesso',
       });
-    } catch (error: any) {
-      const msg = error?.message || '';
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '';
 
       if (
         msg === 'Token inválido ou expirado' ||
@@ -341,7 +352,7 @@ export class AuthController {
         });
       }
 
-      console.error('❌ Erro ao redefinir senha:', error);
+      logger.error('❌ Erro ao redefinir senha:', error);
       return res.status(500).json({
         sucesso: false,
         erro: 'Erro interno ao redefinir senha',

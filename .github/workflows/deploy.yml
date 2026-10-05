@@ -6,17 +6,123 @@ on:
       - main
       - develop
 
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   deploy:
-    # Runner self-hosted rodando direto no servidor jrnex — o job executa o
-    # script local do próprio checkout, sem precisar de SSH/secrets.
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+    env:
+      AWS_REGION: us-east-1
+      NAME: sistemanex-${{ github.ref_name == 'main' && 'prod' || 'dev' }}
     steps:
-      - name: Deploy
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: backend-runner
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.NAME }}-backend:${{ github.sha }}
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.NAME }}-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Download current task definition
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            DIR=/root/sistemanex
-          else
-            DIR=/root/sistemanex-dev
+          aws ecs describe-task-definition \
+            --task-definition "${{ env.NAME }}-backend" \
+            --query 'taskDefinition' > task-definition.json
+
+      - name: Render new task definition
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: backend
+          image: ${{ steps.ecr-login.outputs.registry }}/${{ env.NAME }}-backend:${{ github.sha }}
+
+      - name: Register new task definition revision
+        id: register
+        run: |
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "file://${{ steps.render.outputs.task-definition }}" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "New task definition: $NEW_TASK_DEF_ARN"
+          echo "task-def-arn=$NEW_TASK_DEF_ARN" >> "$GITHUB_OUTPUT"
+
+      - name: Run database migration (one-off ECS task, pinned to the new revision)
+        run: |
+          # Pinned to the exact revision just registered above — using the
+          # bare family name here would run whatever revision happens to be
+          # ACTIVE at this moment (the previous deploy's, not this one's),
+          # applying migrations for the wrong commit.
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "${{ env.NAME }}" \
+            --task-definition "${{ steps.register.outputs.task-def-arn }}" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ vars.PRIVATE_SUBNET_IDS }}],securityGroups=[${{ vars.ECS_TASKS_SECURITY_GROUP_ID }}],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides":[{"name":"backend","command":["npx","prisma","migrate","deploy"]}]}' \
+            --query 'tasks[0].taskArn' --output text)
+          echo "Migration task: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster "${{ env.NAME }}" --tasks "$TASK_ARN"
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "${{ env.NAME }}" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Migration failed with exit code $EXIT_CODE"
+            exit 1
           fi
-          "$DIR/scripts/deploy.sh" "$DIR" "${{ github.ref_name }}"
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster "${{ env.NAME }}" \
+            --service "${{ env.NAME }}-backend" \
+            --task-definition "${{ steps.register.outputs.task-def-arn }}" \
+            --force-new-deployment > /dev/null
+          aws ecs wait services-stable \
+            --cluster "${{ env.NAME }}" \
+            --services "${{ env.NAME }}-backend"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: /api
+        run: |
+          npm ci
+          rm -rf backend
+          npm run build
+
+      - name: Sync frontend to S3
+        run: aws s3 sync dist/ "s3://${{ env.NAME }}-frontend" --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/*"

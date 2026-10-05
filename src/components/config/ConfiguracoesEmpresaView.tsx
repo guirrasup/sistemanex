@@ -1,5 +1,5 @@
 // src/components/config/ConfiguracoesEmpresaView.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Building2, 
   ShieldCheck, 
@@ -22,23 +22,218 @@ import {
   Search,
   Loader2,
   Trash2,
-  Info
+  Info,
+  UserCheck,
+  Mail,
+  Phone,
+  ShoppingCart,
+  Truck,
+  Map as MapIcon,
+  FileBadge2
 } from 'lucide-react';
 import { ConfiguracaoEmpresa } from '../../types/erp';
 import { formatarCpfCnpj, formatarCEP, limparDocumento } from '../../utils/cpfCnpjValidator';
 import { StorageService } from '../../utils/storage';
 import { processarCertificadoA1 } from '../../utils/certificadoParser';
-import { consultarCnpjConectaGov } from '../../utils/consultaCnpjApi';
+import { consultarCnpjConectaGov, ConsultaCnpjResponse } from '../../utils/consultaCnpjApi';
+import { getApiErrorMessage } from '../../utils/apiError';
+import { certificadoService } from '../../services/certificado.service';
+import { empresaService } from '../../services/empresa.service';
+import { useToast } from '../../hooks/useToast';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 interface ConfiguracoesEmpresaViewProps {
   empresa: ConfiguracaoEmpresa;
   onEmpresaChange: () => void;
 }
 
+// 🔥 Base "em branco" reutilizada tanto por "Limpar Formulário" quanto por
+// "Carregar Certificado" — sem isso, carregar um certificado novo só
+// sobrescrevia as chaves presentes na resposta, deixando resíduos da empresa
+// anterior (IE, IM, chave Pix, banco, regime tributário etc.) nos campos que
+// a resposta não tocava.
+function criarEmpresaVazia(): ConfiguracaoEmpresa {
+  return {
+    razaoSocial: '',
+    nomeFantasia: '',
+    cnpj: '',
+    inscricaoEstadual: '',
+    inscricaoMunicipal: '',
+    cnae: '',
+    regimeTributario: 1,
+    aliquotaSimplesNacional: 6.0,
+    ambienteEmissao: 1,
+    serieNfe: 1,
+    proximoNumeroNfe: 1,
+    serieNfse: 1,
+    proximoNumeroNfse: 1,
+    serieNfce: 1,
+    proximoNumeroNfce: 1,
+    serieCte: 1,
+    proximoNumeroCte: 1,
+    serieMdfe: 1,
+    proximoNumeroMdfe: 1,
+    serieNfae: 900,
+    proximoNumeroNfae: 1,
+    endereco: {
+      logradouro: '',
+      numero: '',
+      complemento: '',
+      bairro: '',
+      codigoMunicipio: '',
+      nomeMunicipio: '',
+      uf: '',
+      cep: '',
+      telefone: '',
+      email: '',
+    },
+    certificado: {
+      instalado: false,
+      tipo: 'A1',
+      nomeTitular: '',
+      cnpjCpf: '',
+      emissora: '',
+      dataValidadeInicio: '',
+      dataValidadeFim: '',
+      diasRestantes: 0,
+      arquivoCarregadoNome: '',
+      status: 'NAO_CONFIGURADO',
+    },
+    chavePixPadrao: '',
+    bancoPadrao: '',
+    contadorNome: '',
+    contadorEmail: '',
+    contadorTelefone: '',
+    contadorCRC: '',
+    optanteSimples: false,
+    optanteMEI: false,
+  };
+}
+
+// 🔥 O `codigo_municipio` que a API pública de CNPJ (OpenCNPJ/Receita Federal)
+// devolve NÃO é o código IBGE de 7 dígitos que a SEFAZ exige nos documentos
+// fiscais (schema TCodUfIBGE/TCodMunIBGE) — é o código "TOM" interno da
+// própria Receita Federal, mais curto (ex.: "9701" pra Brasília, em vez do
+// código IBGE real "5300108"). Usar esse valor direto gravava um cUF inválido
+// no XML e a SEFAZ rejeitava toda emissão real com "Falha no schema XML...
+// Enumeration constraint failed" — confirmado ao vivo. Resolve o código IBGE
+// de verdade consultando a API pública oficial do IBGE por nome do município + UF.
+async function resolverCodigoMunicipioIBGE(
+  nomeMunicipio: string | undefined,
+  uf: string | undefined,
+  codigoCandidato: string | undefined
+): Promise<string> {
+  // Se o valor que já veio for mesmo um código IBGE (7 dígitos), usa direto.
+  if (codigoCandidato && /^\d{7}$/.test(codigoCandidato)) {
+    return codigoCandidato;
+  }
+
+  if (!nomeMunicipio || !uf) return '';
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(
+      `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+
+    if (!response.ok) return '';
+
+    const municipios: Array<{ id: number; nome: string }> = await response.json();
+    const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
+    const alvo = normalizar(nomeMunicipio);
+    const encontrado = municipios.find((m) => normalizar(m.nome) === alvo);
+    return encontrado ? String(encontrado.id) : '';
+  } catch (err) {
+    console.warn('Falha ao resolver código IBGE do município:', err);
+    return '';
+  }
+}
+
+// 🔥 Mapeia o retorno da mesma consulta pública usada na tela "Consulta CNPJ"
+// (consultarCnpjConectaGov / OpenCNPJ) para o máximo de campos que o cadastro
+// da empresa realmente tem — bem mais rico que a busca da BrasilAPI que
+// rodava antes dentro do parser do certificado (só razão social/endereço básico).
+async function mapConsultaCnpjParaEmpresa(
+  dados: NonNullable<ConsultaCnpjResponse['dados']>
+): Promise<Partial<ConfiguracaoEmpresa>> {
+  const telefonePrincipal =
+    dados.telefone && dados.telefone.length > 0
+      ? `(${dados.telefone[0].ddd}) ${dados.telefone[0].numero}`
+      : '';
+
+  const codigoMunicipioIBGE = await resolverCodigoMunicipioIBGE(
+    dados.endereco.municipio,
+    dados.endereco.uf,
+    dados.endereco.codigoMunicipio
+  );
+
+  return {
+    // 🔥 Fixa o CNPJ no valor realmente consultado (que é sempre o mesmo CNPJ
+    // extraído do certificado que disparou essa consulta) — sem isso, um
+    // cadastro que já tivesse outro CNPJ (de uma empresa/certificado anterior)
+    // podia ficar com razaoSocial/endereco de uma empresa e cnpj de outra,
+    // e a SEFAZ rejeita a emissão com "CNPJ-Base do Emitente difere do
+    // CNPJ-Base do Certificado Digital" quando isso acontece.
+    cnpj: dados.cnpj ? formatarCpfCnpj(dados.cnpj) : undefined,
+    razaoSocial: dados.razaoSocial || undefined,
+    nomeFantasia: dados.nomeFantasia || undefined,
+    cnae: dados.cnaePrincipal
+      ? `${dados.cnaePrincipal}${dados.cnaePrincipalDescricao ? ` - ${dados.cnaePrincipalDescricao}` : ''}`
+      : undefined,
+    regimeTributario: dados.optanteSimples ? 1 : 3,
+    optanteSimples: dados.optanteSimples,
+    optanteMEI: dados.optanteMEI,
+    endereco: {
+      logradouro: `${dados.endereco.tipoLogradouro || ''} ${dados.endereco.logradouro || ''}`.trim(),
+      numero: dados.endereco.numero || '',
+      complemento: dados.endereco.complemento || '',
+      bairro: dados.endereco.bairro || '',
+      codigoMunicipio: codigoMunicipioIBGE,
+      nomeMunicipio: dados.endereco.municipio || '',
+      uf: dados.endereco.uf || '',
+      cep: dados.endereco.cep || '',
+      telefone: telefonePrincipal,
+      email: dados.email || '',
+      codigoPais: dados.endereco.codigoPais || undefined,
+      nomePais: dados.endereco.pais || undefined,
+    },
+  } as Partial<ConfiguracaoEmpresa>;
+}
+
+type CampoNumeroDoc =
+  | 'proximoNumeroNfse' | 'proximoNumeroNfe' | 'proximoNumeroNfce'
+  | 'proximoNumeroCte' | 'proximoNumeroMdfe' | 'proximoNumeroNfae';
+type CampoSerieDoc =
+  | 'serieNfse' | 'serieNfe' | 'serieNfce' | 'serieCte' | 'serieMdfe' | 'serieNfae';
+
+// Seção "Séries e Numeração Fiscal": um cartão por modelo de documento emitido.
+const DOCUMENTOS_NUMERACAO: Array<{
+  titulo: string;
+  rotuloSerie: string;
+  campoNumero: CampoNumeroDoc;
+  campoSerie: CampoSerieDoc;
+  serieMinima: number;
+  Icone: React.ComponentType<{ className?: string }>;
+  corIcone: string;
+}> = [
+  { titulo: 'NFS-e (Padrão Nacional)', rotuloSerie: 'Série DPS', campoNumero: 'proximoNumeroNfse', campoSerie: 'serieNfse', serieMinima: 1, Icone: FileText, corIcone: 'text-blue-600' },
+  { titulo: 'NF-e (Modelo 55)', rotuloSerie: 'Série NF-e', campoNumero: 'proximoNumeroNfe', campoSerie: 'serieNfe', serieMinima: 1, Icone: Receipt, corIcone: 'text-emerald-600' },
+  { titulo: 'NFC-e (Modelo 65)', rotuloSerie: 'Série NFC-e', campoNumero: 'proximoNumeroNfce', campoSerie: 'serieNfce', serieMinima: 1, Icone: ShoppingCart, corIcone: 'text-amber-600' },
+  { titulo: 'CT-e (Modelo 57)', rotuloSerie: 'Série CT-e', campoNumero: 'proximoNumeroCte', campoSerie: 'serieCte', serieMinima: 1, Icone: Truck, corIcone: 'text-cyan-600' },
+  { titulo: 'MDF-e (Modelo 58)', rotuloSerie: 'Série MDF-e', campoNumero: 'proximoNumeroMdfe', campoSerie: 'serieMdfe', serieMinima: 1, Icone: MapIcon, corIcone: 'text-indigo-600' },
+  { titulo: 'NFA-e (Modelo 63)', rotuloSerie: 'Série NFA-e', campoNumero: 'proximoNumeroNfae', campoSerie: 'serieNfae', serieMinima: 1, Icone: FileBadge2, corIcone: 'text-rose-600' },
+];
+
 export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> = ({
   empresa,
   onEmpresaChange,
 }) => {
+  const toast = useToast();
+  const [confirmarLimpeza, setConfirmarLimpeza] = useState(false);
+  const [verificandoCertificado, setVerificandoCertificado] = useState(false);
   // 🔥 COR DO MÓDULO (ARDÓSIA) - MESMA DO HEADER E SIDEBAR
   const cor = 'slate';
   const corBg = 'bg-slate-50';
@@ -74,18 +269,49 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
   });
 
   const [salvo, setSalvo] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState<string | null>(null);
   const [consultandoCnpj, setConsultandoCnpj] = useState(false);
-  
+  const [carregandoDoServidor, setCarregandoDoServidor] = useState(true);
+
   const [arquivoCertificado, setArquivoCertificado] = useState<File | null>(null);
   const [senhaCertificado, setSenhaCertificado] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [isProcessandoCert, setIsProcessandoCert] = useState(false);
+  const [isEnviandoCertServidor, setIsEnviandoCertServidor] = useState(false);
   const [feedbackCert, setFeedbackCert] = useState<{ tipo: 'sucesso' | 'erro' | 'info'; mensagem: string } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleChange = (field: keyof ConfiguracaoEmpresa, value: any) => {
+  // 🔥 Ao abrir a tela, busca os dados REAIS da empresa no backend (banco de
+  // dados) — é isso que os services de emissão (NfeService, etc.) realmente
+  // usam. O localStorage fica só como cache/preenchimento inicial do formulário.
+  useEffect(() => {
+    let cancelado = false;
+
+    (async () => {
+      try {
+        const empresaServidor = await empresaService.obterMinhaEmpresa();
+        if (cancelado || !empresaServidor) return;
+
+        setFormData(prev => ({
+          ...prev,
+          ...empresaServidor,
+          endereco: { ...prev.endereco, ...(empresaServidor.endereco || {}) },
+          certificado: { ...prev.certificado, ...(empresaServidor.certificado || {}) },
+        } as ConfiguracaoEmpresa));
+      } catch (err) {
+        console.warn('Não foi possível carregar os dados da empresa do servidor (usando cache local):', err);
+      } finally {
+        if (!cancelado) setCarregandoDoServidor(false);
+      }
+    })();
+
+    return () => { cancelado = true; };
+  }, []);
+
+  const handleChange = <K extends keyof ConfiguracaoEmpresa>(field: K, value: ConfiguracaoEmpresa[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -125,7 +351,7 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
     const cnpjLimpo = formData.cnpj.replace(/\D/g, '');
     
     if (cnpjLimpo.length !== 14) {
-      alert('Digite um CNPJ válido (14 dígitos)');
+      toast.showWarning('⚠️ Digite um CNPJ válido (14 dígitos).');
       return;
     }
 
@@ -135,6 +361,14 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
       
       if (response.sucesso && response.dados) {
         const dados = response.dados;
+        // 🔥 Mesma correção do fluxo de certificado: dados.endereco.codigoMunicipio
+        // aqui é o código "TOM" da Receita Federal, não o código IBGE que a
+        // SEFAZ exige — resolve o código IBGE real antes de aplicar.
+        const codigoMunicipioIBGE = await resolverCodigoMunicipioIBGE(
+          dados.endereco.municipio,
+          dados.endereco.uf,
+          dados.endereco.codigoMunicipio
+        );
         setFormData(prev => ({
           ...prev,
           razaoSocial: dados.razaoSocial || prev.razaoSocial,
@@ -146,7 +380,7 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
             numero: dados.endereco.numero || prev.endereco.numero,
             complemento: dados.endereco.complemento || prev.endereco.complemento,
             bairro: dados.endereco.bairro || prev.endereco.bairro,
-            codigoMunicipio: dados.endereco.codigoMunicipio || prev.endereco.codigoMunicipio,
+            codigoMunicipio: codigoMunicipioIBGE || prev.endereco.codigoMunicipio,
             nomeMunicipio: dados.endereco.municipio || prev.endereco.nomeMunicipio,
             uf: dados.endereco.uf || prev.endereco.uf,
             cep: dados.endereco.cep || prev.endereco.cep,
@@ -154,74 +388,47 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
             email: dados.email || prev.endereco.email,
           },
         }));
-        
-        alert('✅ Dados do CNPJ preenchidos! Clique em "Salvar Configurações" para persistir.');
+
+        toast.showSuccess('✅ Dados do CNPJ preenchidos! Clique em "Salvar Configurações" para persistir.');
       } else {
-        alert(`❌ ${response.erro || 'CNPJ não encontrado'}`);
+        toast.showError(`❌ ${response.erro || 'CNPJ não encontrado'}`);
       }
     } catch (err) {
-      alert('Erro ao consultar CNPJ. Tente novamente.');
+      toast.showError(`❌ ${getApiErrorMessage(err, 'Erro ao consultar CNPJ. Tente novamente.')}`);
     } finally {
       setConsultandoCnpj(false);
     }
   };
 
   const handleLimparForm = () => {
-    if (!confirm('Tem certeza que deseja limpar todos os dados do formulário? Esta ação não pode ser desfeita.')) {
-      return;
-    }
-
-    const empresaVazia: ConfiguracaoEmpresa = {
-      razaoSocial: '',
-      nomeFantasia: '',
-      cnpj: '',
-      inscricaoEstadual: '',
-      inscricaoMunicipal: '',
-      cnae: '',
-      regimeTributario: 1,
-      aliquotaSimplesNacional: 6.0,
-      ambienteEmissao: 1,
-      serieNfe: 1,
-      proximoNumeroNfe: 1,
-      serieNfse: 1,
-      proximoNumeroNfse: 1,
-      serieNfce: 1,
-      proximoNumeroNfce: 1,
-      endereco: {
-        logradouro: '',
-        numero: '',
-        complemento: '',
-        bairro: '',
-        codigoMunicipio: '',
-        nomeMunicipio: '',
-        uf: '',
-        cep: '',
-        telefone: '',
-        email: '',
-      },
-      certificado: {
-        instalado: false,
-        tipo: 'A1',
-        nomeTitular: '',
-        cnpjCpf: '',
-        emissora: '',
-        dataValidadeInicio: '',
-        dataValidadeFim: '',
-        diasRestantes: 0,
-        arquivoCarregadoNome: '',
-        status: 'NAO_CONFIGURADO',
-      },
-      chavePixPadrao: '',
-      bancoPadrao: '',
-    };
-
-    setFormData(empresaVazia);
+    setConfirmarLimpeza(false);
+    setFormData(criarEmpresaVazia());
     setArquivoCertificado(null);
     setSenhaCertificado('');
     setFeedbackCert(null);
     setSalvo(false);
-    
-    alert('✅ Formulário limpo!');
+
+    toast.showSuccess('✅ Formulário limpo!');
+  };
+
+  // Consulta o certificado armazenado no servidor (validade/status reais),
+  // em vez de apenas repetir os dados do formulário.
+  const handleVerificarCertificado = async () => {
+    setVerificandoCertificado(true);
+    try {
+      const info = await certificadoService.status();
+      if (!info) {
+        toast.showWarning('⚠️ Nenhum certificado salvo no servidor. Envie o arquivo .pfx e salve as configurações.');
+      } else if (info.status === 'VALIDO') {
+        toast.showSuccess(`✅ Certificado de ${info.nomeTitular} válido no servidor — ${info.diasRestantes} dias restantes.`);
+      } else {
+        toast.showError(`❌ Certificado de ${info.nomeTitular} com status ${info.status}. Renove o certificado.`);
+      }
+    } catch (err) {
+      toast.showError(`❌ ${getApiErrorMessage(err, 'Erro ao verificar o certificado.')}`);
+    } finally {
+      setVerificandoCertificado(false);
+    }
   };
 
 // 🔥 CORREÇÃO: handleCarregarCertificadoEPreencher
@@ -246,51 +453,126 @@ const handleCarregarCertificadoEPreencher = async () => {
   setFeedbackCert(null);
 
   try {
+    // 1) Validação local rápida (feedback imediato de senha/formato, sem round-trip).
     const resultado = await processarCertificadoA1(arquivoCertificado, senhaCertificado);
 
-    if (resultado.sucesso && resultado.dadosEmpresa) {
-      // 🔥 MANTÉM TODOS OS DADOS EXISTENTES E SOBRESCREVE APENAS OS DO CERTIFICADO
-      const novosDados: ConfiguracaoEmpresa = {
-        ...formData, // ✅ Mantém todos os dados existentes
-        ...resultado.dadosEmpresa, // ✅ Sobrescreve com os dados do certificado
-        endereco: {
-          ...formData.endereco, // ✅ Mantém endereço existente
-          ...(resultado.dadosEmpresa.endereco || {}), // ✅ Sobrescreve com dados do certificado
-        },
-        certificado: {
-          ...formData.certificado, // ✅ Mantém certificado existente
-          ...resultado.certificadoInfo, // ✅ Sobrescreve com novas informações
-        },
-      };
-
-      setFormData(novosDados);
-
-      setFeedbackCert({
-        tipo: 'sucesso',
-        mensagem: `✅ Certificado ${arquivoCertificado.name} validado! Todos os dados foram preenchidos. Clique em "Salvar Configurações" para persistir.`,
-      });
-    } else {
+    if (!resultado.sucesso) {
       setFeedbackCert({
         tipo: 'erro',
         mensagem: resultado.mensagem || 'Falha ao processar o certificado.',
       });
+      return;
     }
-  } catch (err: any) {
+
+    // 🔥 Limpa TUDO primeiro — carregar um certificado novo não pode deixar
+    // nenhum resíduo (IE, IM, endereço, chave Pix, regime tributário etc.) da
+    // empresa/certificado carregados anteriormente. Só depois disso o
+    // formulário é populado, passo a passo, com os dados deste certificado.
+    setFormData(criarEmpresaVazia());
+
+    if (resultado.dadosEmpresa) {
+      const dadosEmpresa = resultado.dadosEmpresa;
+      setFormData(prev => ({
+        ...prev,
+        ...dadosEmpresa,
+        endereco: { ...prev.endereco, ...(dadosEmpresa.endereco || {}) },
+        certificado: { ...prev.certificado, ...resultado.certificadoInfo },
+      } as ConfiguracaoEmpresa));
+    }
+
+    // 2) Com o CNPJ extraído do certificado, roda a MESMA consulta pública rica
+    // usada na tela "Consulta CNPJ" (Receita Federal via OpenCNPJ) — traz bem
+    // mais dado que o certificado sozinho: nome fantasia, CNAE, regime
+    // tributário (Simples/MEI) e endereço completo. Falha nessa consulta não
+    // impede o restante do fluxo — o formulário só fica com o que veio do
+    // certificado mesmo.
+    const cnpjDoCertificado = resultado.dadosEmpresa?.cnpj;
+    if (cnpjDoCertificado) {
+      setFeedbackCert({ tipo: 'info', mensagem: 'Certificado validado — consultando dados cadastrais do CNPJ...' });
+      try {
+        const consultaCnpj = await consultarCnpjConectaGov(cnpjDoCertificado);
+        if (consultaCnpj.sucesso && consultaCnpj.dados) {
+          const dadosMax = await mapConsultaCnpjParaEmpresa(consultaCnpj.dados);
+          setFormData(prev => ({
+            ...prev,
+            ...dadosMax,
+            endereco: { ...prev.endereco, ...(dadosMax.endereco || {}) },
+          } as ConfiguracaoEmpresa));
+        } else {
+          console.warn('Consulta pública de CNPJ não retornou dados (mantendo o que veio do certificado):', consultaCnpj.erro);
+        }
+      } catch (errConsulta) {
+        console.warn('Falha ao consultar dados cadastrais do CNPJ (mantendo o que veio do certificado):', errConsulta);
+      }
+    }
+
+    // 3) Envio real ao backend: criptografa (AES-256-GCM) e armazena vinculado
+    // à empresa autenticada — é esse certificado que assina e transmite os
+    // documentos fiscais de verdade à SEFAZ, não a validação local acima.
+    setIsProcessandoCert(false);
+    setIsEnviandoCertServidor(true);
+
+    const resultadoServidor = await certificadoService.upload(arquivoCertificado, senhaCertificado);
+
+    if (!resultadoServidor.sucesso) {
+      setFeedbackCert({
+        tipo: 'erro',
+        mensagem: resultadoServidor.mensagem || 'O certificado foi validado localmente, mas o envio ao servidor falhou.',
+      });
+      return;
+    }
+
+    // 🔥 Só o `certificado` retornado pelo servidor é aplicado aqui — NUNCA
+    // `resultadoServidor.empresa` inteiro. Esse upload só grava o certificado
+    // em si (endpoint dedicado); `empresa` ali é o registro ainda persistido
+    // no banco (da empresa/certificado anteriores), e sobrescrever com ele
+    // reintroduziria exatamente o resíduo que os passos 1-2 acabaram de
+    // limpar. Os dados cadastrais só são gravados de verdade quando o usuário
+    // clica em "Salvar Configurações" (handleSalvar).
+    setFormData(prev => ({
+      ...prev,
+      certificado: { ...prev.certificado, ...resultadoServidor.certificado },
+    } as ConfiguracaoEmpresa));
+
+    setFeedbackCert({
+      tipo: 'sucesso',
+      mensagem: `✅ Certificado ${arquivoCertificado.name} validado e enviado ao servidor com sucesso! Dados cadastrais preenchidos automaticamente a partir do CNPJ — revise e clique em "Salvar Configurações" para persistir.`,
+    });
+  } catch (err: unknown) {
     setFeedbackCert({
       tipo: 'erro',
-      mensagem: `Erro ao processar certificado: ${err.message || 'Erro inesperado'}`,
+      mensagem: `Erro ao processar certificado: ${getApiErrorMessage(err, 'Erro inesperado')}`,
     });
   } finally {
     setIsProcessandoCert(false);
+    setIsEnviandoCertServidor(false);
   }
 };
 
-  const handleSalvar = (e: React.FormEvent) => {
+  const handleSalvar = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSalvando(true);
+    setErroSalvar(null);
+
+    // Cache local: mantém a tela utilizável mesmo se a chamada ao backend falhar.
     StorageService.saveConfiguracao(formData);
-    onEmpresaChange();
-    setSalvo(true);
-    setTimeout(() => setSalvo(false), 3500);
+
+    try {
+      const empresaAtualizada = await empresaService.atualizarMinhaEmpresa(formData);
+      setFormData(prev => ({
+        ...prev,
+        ...empresaAtualizada,
+        endereco: { ...prev.endereco, ...(empresaAtualizada.endereco || {}) },
+        certificado: { ...prev.certificado, ...(empresaAtualizada.certificado || {}) },
+      } as ConfiguracaoEmpresa));
+      onEmpresaChange();
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 3500);
+    } catch (err: unknown) {
+      setErroSalvar(getApiErrorMessage(err, 'Não foi possível salvar as configurações no servidor.'));
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const formatarData = (iso: string) => {
@@ -301,6 +583,20 @@ const handleCarregarCertificadoEPreencher = async () => {
       return iso;
     }
   };
+
+  // 🔥 A SEFAZ rejeita a emissão (qualquer documento fiscal) se o CNPJ-Base do
+  // emitente (cadastro da empresa) divergir do CNPJ-Base embutido no
+  // certificado digital usado pra assinar — os dois podem sair dessincronizados
+  // se o cadastro for editado manualmente, ou se uma consulta de CNPJ falhar
+  // no meio do carregamento de um certificado novo. Avisa isso ANTES de
+  // emitir, em vez de deixar o usuário só descobrir na rejeição da SEFAZ.
+  const cnpjBaseEmpresa = limparDocumento(formData.cnpj).slice(0, 8);
+  const cnpjBaseCertificado = limparDocumento(formData.certificado?.cnpjCpf || '').slice(0, 8);
+  const cnpjDivergeDoCertificado =
+    formData.certificado?.instalado &&
+    cnpjBaseEmpresa.length === 8 &&
+    cnpjBaseCertificado.length === 8 &&
+    cnpjBaseEmpresa !== cnpjBaseCertificado;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
@@ -324,8 +620,17 @@ const handleCarregarCertificadoEPreencher = async () => {
         </div>
 
         <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Configurações</div>
-          <div className={`text-[10px] font-medium ${corText}`}>Certificado A1 • ICP-Brasil</div>
+          {carregandoDoServidor ? (
+            <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5 justify-end">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              <span>Carregando dados do servidor...</span>
+            </div>
+          ) : (
+            <>
+              <div className="text-xs font-semibold text-slate-700">Configurações</div>
+              <div className={`text-[10px] font-medium ${corText}`}>Certificado A1 • ICP-Brasil</div>
+            </>
+          )}
         </div>
       </div>
 
@@ -438,21 +743,30 @@ const handleCarregarCertificadoEPreencher = async () => {
               <button
                 type="button"
                 onClick={handleCarregarCertificadoEPreencher}
-                disabled={isProcessandoCert || !arquivoCertificado}
+                disabled={isProcessandoCert || isEnviandoCertServidor || !arquivoCertificado}
                 className="w-full bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700/50 disabled:cursor-not-allowed text-white font-bold text-xs py-2.5 px-4 rounded-lg shadow-sm transition-all flex items-center justify-center gap-2"
               >
                 {isProcessandoCert ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Processando certificado...</span>
+                    <span>Validando certificado...</span>
+                  </>
+                ) : isEnviandoCertServidor ? (
+                  <>
+                    <UploadCloud className="w-4 h-4 animate-pulse" />
+                    <span>Enviando ao servidor...</span>
                   </>
                 ) : (
                   <>
                     <FileCheck className="w-4 h-4" />
-                    <span>Validar e preencher dados</span>
+                    <span>Validar e enviar ao servidor</span>
                   </>
                 )}
               </button>
+              <p className="text-[10px] text-slate-400/80 leading-relaxed">
+                O certificado é criptografado (AES-256-GCM) e armazenado no servidor —
+                é ele que assina e transmite os documentos fiscais à SEFAZ.
+              </p>
             </div>
 
           </div>
@@ -474,6 +788,19 @@ const handleCarregarCertificadoEPreencher = async () => {
               )}
               <div className="flex-1 font-medium leading-relaxed">
                 {feedbackCert.mensagem}
+              </div>
+            </div>
+          )}
+
+          {cnpjDivergeDoCertificado && (
+            <div className="p-3 rounded-lg text-xs flex items-start gap-2.5 bg-amber-900/60 border border-amber-500 text-amber-100">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex-1 font-medium leading-relaxed">
+                ⚠️ O CNPJ cadastrado ({formatarCpfCnpj(formData.cnpj)}) é diferente do CNPJ do
+                certificado digital carregado ({formatarCpfCnpj(formData.certificado?.cnpjCpf || '')}).
+                A SEFAZ rejeita qualquer emissão nesse estado ("CNPJ-Base do Emitente difere do
+                CNPJ-Base do Certificado Digital"). Carregue o certificado correto para esta empresa,
+                ou corrija o CNPJ cadastrado antes de emitir.
               </div>
             </div>
           )}
@@ -569,18 +896,14 @@ const handleCarregarCertificadoEPreencher = async () => {
                 <div className="pt-2">
                   <button
                     type="button"
-                    onClick={() => alert(
-                      `✅ Certificado Digital A1\n\n` +
-                      `Titular: ${formData.certificado.nomeTitular}\n` +
-                      `CNPJ: ${formData.cnpj}\n` +
-                      `Status: ${formData.certificado.status}\n` +
-                      `Validade: ${formData.certificado.diasRestantes} dias restantes\n\n` +
-                      `Pronto para emissões SEFAZ e Receita Federal.`
-                    )}
-                    className="w-full bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-medium px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                    onClick={handleVerificarCertificado}
+                    disabled={verificandoCertificado}
+                    className="w-full bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-medium px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <Lock className="w-3.5 h-3.5 text-slate-600" />
-                    <span>Testar Assinatura</span>
+                    {verificandoCertificado
+                      ? <RefreshCw className="w-3.5 h-3.5 text-slate-600 animate-spin" />
+                      : <Lock className="w-3.5 h-3.5 text-slate-600" />}
+                    <span>{verificandoCertificado ? 'Verificando...' : 'Verificar no Servidor'}</span>
                   </button>
                 </div>
               </div>
@@ -693,7 +1016,7 @@ const handleCarregarCertificadoEPreencher = async () => {
               <label className="block font-medium text-slate-600 mb-1">Regime Tributário</label>
               <select
                 value={formData.regimeTributario}
-                onChange={(e) => handleChange('regimeTributario', parseInt(e.target.value))}
+                onChange={(e) => handleChange('regimeTributario', parseInt(e.target.value) as 1 | 2 | 3)}
                 className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-medium text-slate-800 focus:outline-none ${corFocus}`}
               >
                 <option value={1}>1 - Simples Nacional</option>
@@ -905,91 +1228,147 @@ const handleCarregarCertificadoEPreencher = async () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600" />
-                <span className="font-bold text-slate-900 text-xs uppercase">
-                  NFS-e (Padrão Nacional)
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <label className="block text-slate-600 mb-1">Próximo Número:</label>
-                  <input
-                    type="number"
-                    value={formData.proximoNumeroNfse}
-                    onChange={(e) => handleChange('proximoNumeroNfse', parseInt(e.target.value) || 1)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
-                  />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {DOCUMENTOS_NUMERACAO.map(({ titulo, rotuloSerie, campoNumero, campoSerie, serieMinima, Icone, corIcone }) => (
+              <div key={campoNumero} className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Icone className={`w-4 h-4 ${corIcone}`} />
+                  <span className="font-bold text-slate-900 text-xs uppercase">{titulo}</span>
                 </div>
-                <div>
-                  <label className="block text-slate-600 mb-1">Série DPS:</label>
-                  <input
-                    type="text"
-                    value={formData.serieNfse}
-                    onChange={(e) => handleChange('serieNfse', e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
-                  />
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="block text-slate-600 mb-1">Próximo Número:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={formData[campoNumero] ?? 1}
+                      onChange={(e) => handleChange(campoNumero, parseInt(e.target.value) || 1)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 mb-1">{rotuloSerie}:</label>
+                    <input
+                      type="number"
+                      min={serieMinima}
+                      value={formData[campoSerie] ?? serieMinima}
+                      onChange={(e) => handleChange(campoSerie, parseInt(e.target.value) || serieMinima)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500">
+            O próximo número avança sozinho a cada emissão e nunca pode voltar para um número já usado —
+            o servidor ignora valores menores que o atual.
+          </p>
+        </div>
 
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
-              <div className="flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-emerald-600" />
-                <span className="font-bold text-slate-900 text-xs uppercase">
-                  NF-e (Modelo 55)
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <label className="block text-slate-600 mb-1">Próximo Número:</label>
-                  <input
-                    type="number"
-                    value={formData.proximoNumeroNfe}
-                    onChange={(e) => handleChange('proximoNumeroNfe', parseInt(e.target.value) || 1)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 mb-1">Série NF-e:</label>
-                  <input
-                    type="number"
-                    value={formData.serieNfe}
-                    onChange={(e) => handleChange('serieNfe', parseInt(e.target.value) || 1)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
-                  />
-                </div>
-              </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <UserCheck className="w-5 h-5 text-slate-600" />
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase">
+                5. Dados do Contador
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Usado para sugerir automaticamente o destinatário ao enviar XML de documentos fiscais por e-mail
+              </p>
             </div>
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
+            <div className="sm:col-span-6">
+              <label className="block font-medium text-slate-600 mb-1">Nome do Contador / Escritório</label>
+              <input
+                type="text"
+                value={formData.contadorNome || ''}
+                onChange={(e) => handleChange('contadorNome', e.target.value)}
+                placeholder="Nome do contador ou escritório contábil"
+                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <label className="block font-medium text-slate-600 mb-1 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-slate-600" />
+                <span>E-mail</span>
+              </label>
+              <input
+                type="email"
+                value={formData.contadorEmail || ''}
+                onChange={(e) => handleChange('contadorEmail', e.target.value)}
+                placeholder="contador@escritorio.com.br"
+                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <label className="block font-medium text-slate-600 mb-1 flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-slate-600" />
+                <span>Telefone</span>
+              </label>
+              <input
+                type="text"
+                value={formData.contadorTelefone || ''}
+                onChange={(e) => handleChange('contadorTelefone', e.target.value)}
+                placeholder="(11) 99999-9999"
+                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+              />
+            </div>
+            <div className="sm:col-span-4">
+              <label className="block font-medium text-slate-600 mb-1">CRC</label>
+              <input
+                type="text"
+                value={formData.contadorCRC || ''}
+                onChange={(e) => handleChange('contadorCRC', e.target.value)}
+                placeholder="Registro no Conselho Regional de Contabilidade"
+                className={`w-full border border-slate-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
+              />
+            </div>
           </div>
         </div>
+
+        {erroSalvar && (
+          <div className="p-3 rounded-lg text-xs flex items-start gap-2.5 bg-rose-50 border border-rose-200 text-rose-800">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+            <div className="flex-1 font-medium leading-relaxed">{erroSalvar}</div>
+          </div>
+        )}
 
         <div className="flex items-center justify-end gap-3 pt-2">
           <button
             type="button"
-            onClick={handleLimparForm}
+            onClick={() => setConfirmarLimpeza(true)}
             className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
             title="Limpar todos os dados do formulário"
           >
             <Trash2 className="w-4 h-4" />
             <span>Limpar Formulário</span>
           </button>
-        
+
           <button
             type="submit"
             id="btn-salvar-config-empresa"
-            className={`${corBgButton} text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer`}
+            disabled={salvando}
+            className={`${corBgButton} disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer`}
           >
-            <Save className="w-4 h-4" />
-            <span>Salvar Configurações</span>
+            {salvando ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>{salvando ? 'Salvando no servidor...' : 'Salvar Configurações'}</span>
           </button>
         </div>
 
       </form>
+
+      <ConfirmModal
+        isOpen={confirmarLimpeza}
+        onClose={() => setConfirmarLimpeza(false)}
+        onConfirm={handleLimparForm}
+        title="Limpar formulário"
+        message="Tem certeza que deseja limpar todos os dados do formulário? Esta ação não pode ser desfeita."
+        type="danger"
+        confirmText="Limpar"
+      />
 
     </div>
   );

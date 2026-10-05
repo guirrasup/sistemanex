@@ -1,8 +1,30 @@
 // backend/src/repositories/empresa.repository.ts
 import { Prisma } from '@prisma/client'
-import { BaseRepository } from './base.repository'
+import { BaseRepository } from './base.repository.js'
+
+export type CampoNumeracao =
+  | 'proximoNumeroNfe'
+  | 'proximoNumeroNfce'
+  | 'proximoNumeroCte'
+  | 'proximoNumeroMdfe'
+  | 'proximoNumeroNfse'
+  | 'proximoNumeroNfae'
 
 export class EmpresaRepository extends BaseRepository {
+  // Reserva o próximo número do documento de forma atômica: o incremento é um
+  // único UPDATE (a linha fica travada durante ele), então duas emissões
+  // simultâneas nunca recebem o mesmo número — o antigo "ler o contador e
+  // gravar +1 depois" deixava as duas lerem o mesmo valor. Se a emissão falhar
+  // depois da reserva, o número fica sem uso e deve ser inutilizado.
+  async reservarNumero(id: string, campo: CampoNumeracao): Promise<number> {
+    const empresa = await this.prisma.empresa.update({
+      where: { id },
+      data: { [campo]: { increment: 1 } } as Prisma.EmpresaUpdateInput,
+      select: { [campo]: true } as Prisma.EmpresaSelect,
+    })
+    return (empresa as unknown as Record<CampoNumeracao, number>)[campo] - 1
+  }
+
   async findById(id: string) {
     return this.prisma.empresa.findUnique({
       where: { id },

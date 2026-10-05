@@ -17,6 +17,7 @@ import {
 import { ClienteFornecedor } from '../../types/erp';
 import { formatarCpfCnpj, validarCpfOuCnpj } from '../../utils/cpfCnpjValidator';
 import { clientesService } from '../../services/clientes.service';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 
@@ -175,9 +176,9 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
       setModalOpen(false);
       onClientesChange();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao salvar cliente:', error);
-      const mensagem = error.response?.data?.erro || error.message || 'Erro ao salvar cliente';
+      const mensagem = getApiErrorMessage(error, 'Erro ao salvar cliente');
       setErro(mensagem);
       toast.showError(`❌ ${mensagem}`);
     } finally {
@@ -221,10 +222,10 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
       
       toast.showSuccess(`✅ Cliente "${razaoSocial}" excluído com sucesso!`);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao excluir cliente:', error);
-      
-      const mensagemErro = error.response?.data?.erro || error.message || 'Erro ao excluir cliente';
+
+      const mensagemErro = getApiErrorMessage(error, 'Erro ao excluir cliente');
       
       closeConfirmModal();
       toast.showError(`❌ ${mensagemErro}`);
@@ -252,8 +253,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
     );
 
     return [...filtrados].sort((a, b) => {
-      let valorA: any;
-      let valorB: any;
+      let valorA: unknown;
+      let valorB: unknown;
 
       if (ordenacaoCampo === 'endereco.nomeMunicipio') {
         valorA = a.endereco.nomeMunicipio || '';
@@ -465,7 +466,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
                   <label className="block font-semibold text-slate-700 mb-1">Tipo de Parceiro</label>
                   <select
                     value={tipo}
-                    onChange={(e) => setTipo(e.target.value as any)}
+                    onChange={(e) => setTipo(e.target.value as 'CLIENTE' | 'FORNECEDOR' | 'AMBOS')}
                     className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
                   >
                     <option value="CLIENTE">Cliente (Tomador)</option>

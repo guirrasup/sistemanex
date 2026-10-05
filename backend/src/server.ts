@@ -1,31 +1,38 @@
 // backend/src/server.ts
+import { prisma } from './lib/prisma.js';
+import { logger } from './lib/logger.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
-import authRoutes from './routes/auth.routes';
-import nfseRoutes from './routes/nfse.routes';
-import nfeRoutes from './routes/nfe.routes';
-import financeiroRoutes from './routes/financeiro.routes';
-import cnpjRoutes from './routes/cnpj.routes';
-import produtoRoutes from './routes/produto.routes';
-import clienteRoutes from './routes/cliente.routes';
-import servicoRoutes from './routes/servico.routes';
-import nfceRoutes from './routes/nfce.routes';
-import cteRoutes from './routes/cte.routes';
-import nfaeRoutes from './routes/nfae.routes';
-import mdfeRoutes from './routes/mdfe.routes';
+import authRoutes from './routes/auth.routes.js';
+import nfseRoutes from './routes/nfse.routes.js';
+import nfeRoutes from './routes/nfe.routes.js';
+import financeiroRoutes from './routes/financeiro.routes.js';
+import cnpjRoutes from './routes/cnpj.routes.js';
+import produtoRoutes from './routes/produto.routes.js';
+import clienteRoutes from './routes/cliente.routes.js';
+import servicoRoutes from './routes/servico.routes.js';
+import nfceRoutes from './routes/nfce.routes.js';
+import cteRoutes from './routes/cte.routes.js';
+import nfaeRoutes from './routes/nfae.routes.js';
+import mdfeRoutes from './routes/mdfe.routes.js';
 
-import dashboardRoutes from './routes/dashboard.routes'; 
-import { errorMiddleware } from './middlewares/error.middleware';
-import transportadoraRoutes from './routes/transportadora.routes';
+import dashboardRoutes from './routes/dashboard.routes.js';
+import { errorMiddleware } from './middlewares/error.middleware.js';
+import transportadoraRoutes from './routes/transportadora.routes.js';
+import certificadoRoutes from './routes/certificado.routes.js';
+import empresaRoutes from './routes/empresa.routes.js';
+import cfopRoutes from './routes/cfop.routes.js';
+import ncmRoutes from './routes/ncm.routes.js';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3333;
+const DEFAULT_PORT = 3333;
+const PORT = process.env.PORT || DEFAULT_PORT;
 
 // Segurança (P5): atrás de 1 proxy (nginx) — habilita IP real do cliente
 // para rate limiting e logs (X-Forwarded-For).
@@ -38,15 +45,26 @@ app.use(
     origin:
       process.env.NODE_ENV === 'production'
         ? [process.env.FRONTEND_URL || 'https://seu-dominio.com']
-        : ['http://localhost:5173', 'http://localhost:3000'],
+        // 🔥 Qualquer porta em localhost/127.0.0.1, não só 3000/5173 fixos: o Vite
+        // sobe em 3001/3002/... automaticamente quando a porta padrão já está
+        // ocupada (ex.: um dev server anterior ainda rodando), e a lista fixa
+        // bloqueava o login com CORS assim que isso acontecia.
+        : /^http:\/\/(localhost|127\.0\.0\.1):\d+$/,
     credentials: true,
   })
 );
 
 // Rate limiting
+// 🔥 100 req/min por IP era compartilhado por TODA a API (auth, cadastros, os 6
+// tipos de documento fiscal, dashboard) — um único carregamento do app já disparava
+// ~16-34 requisições (App.tsx + Dashboard, hoje deduplicado), e qualquer IP com mais
+// de um usuário atrás do mesmo NAT/rede corporativa, ou só duas ou três recargas de
+// página em menos de 1 minuto (comportamento normal quando a página parece travada),
+// já estourava o limite. Ao bater 429, o interceptor de retry com backoff do frontend
+// insistia nos mesmos endpoints, prolongando o travamento em vez de se recuperar.
 const limiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 300,
   message: {
     sucesso: false,
     erro: 'Muitas requisições. Aguarde um momento e tente novamente.',
@@ -59,7 +77,7 @@ app.use('/api', limiter);
 
 const dataLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 200,
+  max: 400,
   message: {
     sucesso: false,
     erro: 'Limite de requisições de dados excedido. Aguarde um momento.',
@@ -79,18 +97,6 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Segurança (P4): emissão de documentos fiscais é operação crítica.
-const emissaoLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
-  message: {
-    sucesso: false,
-    erro: 'Limite de emissões excedido. Aguarde um momento e tente novamente.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 // Body parser
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -102,16 +108,25 @@ app.use('/api/nfse', nfseRoutes);
 app.use('/api/nfe', nfeRoutes);
 app.use('/api/financeiro', financeiroRoutes);
 app.use('/api/cnpj', cnpjRoutes);
+app.use('/api/certificado', certificadoRoutes);
+app.use('/api/empresa', empresaRoutes);
 
 app.use('/api/produtos', dataLimiter, produtoRoutes);
 app.use('/api/clientes', dataLimiter, clienteRoutes);
 app.use('/api/servicos', dataLimiter, servicoRoutes);
 app.use('/api/transportadoras', dataLimiter, transportadoraRoutes);
+app.use('/api/cfop', dataLimiter, cfopRoutes);
+app.use('/api/ncm', dataLimiter, ncmRoutes);
 
-app.use('/api/nfce', dataLimiter, emissaoLimiter, nfceRoutes);
-app.use('/api/cte', dataLimiter, emissaoLimiter, cteRoutes);
-app.use('/api/nfae', dataLimiter, emissaoLimiter, nfaeRoutes);
-app.use('/api/mdfe', dataLimiter, emissaoLimiter, mdfeRoutes);
+// 🔥 nfce/cte/nfae/mdfe já aplicam seus próprios limiters por rota (consultarLimiter
+// nos GETs, emitirLimiter nos POSTs de emissão/cancelamento — mesmo padrão de
+// nfe/nfse). Um `emissaoLimiter` de 10 req/min era aplicado aqui em cima de TODO
+// o router (GETs inclusive, via app.use), sufocando até a simples listagem desses
+// 4 tipos — qualquer refresh de tela já estourava o limite e travava a UI em 429.
+app.use('/api/nfce', dataLimiter, nfceRoutes);
+app.use('/api/cte', dataLimiter, cteRoutes);
+app.use('/api/nfae', dataLimiter, nfaeRoutes);
+app.use('/api/mdfe', dataLimiter, mdfeRoutes);
 
 // Dashboard
 app.use('/api/dashboard', dataLimiter, dashboardRoutes);
@@ -152,5 +167,26 @@ app.get('/health', (req, res) => {
 app.use(errorMiddleware);
 
 // Start server
-app.listen(PORT, () => {
-        });
+const server = app.listen(PORT, () => {
+  logger.info(`Servidor rodando na porta ${PORT}`);
+});
+
+// Encerramento gracioso: para de aceitar conexões, espera as requisições em
+// andamento terminarem e fecha o pool do Prisma antes de sair. (O antigo
+// "beforeExit" do lib/prisma.ts nunca disparava em SIGTERM/SIGINT.)
+function encerrar(sinal: string) {
+  logger.info(`${sinal} recebido, encerrando graciosamente...`);
+  setTimeout(() => process.exit(1), 10_000).unref();
+  server.close(async () => {
+    try {
+      await prisma.$disconnect();
+    } catch (error) {
+      logger.error('Falha ao desconectar o Prisma:', error);
+    }
+    logger.info("Servidor encerrado.");
+    process.exit(0);
+  });
+}
+
+process.on("SIGTERM", () => encerrar("SIGTERM"));
+process.on("SIGINT", () => encerrar("SIGINT"));

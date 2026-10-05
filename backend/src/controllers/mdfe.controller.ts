@@ -1,6 +1,8 @@
 // backend/src/controllers/mdfe.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
-import { MdfeService } from '../services/mdfe.service';
+import { MdfeService } from '../services/mdfe.service.js';
+import { EmailService } from '../services/email.service.js';
 import { StatusMDFe } from '@prisma/client';
 
 interface RequestComUsuario extends Request {
@@ -12,11 +14,71 @@ interface RequestComUsuario extends Request {
   };
 }
 
+interface FiltrosListarMdfe {
+  status?: StatusMDFe | StatusMDFe[];
+  dataInicio?: Date;
+  dataFim?: Date;
+  modal?: string;
+  numero?: number;
+  serie?: number;
+  chave?: string;
+}
+
 export class MdfeController {
   private mdfeService: MdfeService;
+  private emailService: EmailService;
 
   constructor() {
     this.mdfeService = new MdfeService();
+    this.emailService = new EmailService();
+  }
+
+  async enviarXmlPorEmail(req: RequestComUsuario, res: Response) {
+    try {
+      const empresaId = req.user?.empresaId;
+      const { id } = req.params;
+      const { destinatarioEmail } = req.body as { destinatarioEmail?: string };
+
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+      if (!destinatarioEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatarioEmail)) {
+        return res.status(400).json({ sucesso: false, erro: 'Informe um e-mail de destino válido' });
+      }
+      if (!this.emailService.estaConfigurado()) {
+        return res.status(503).json({
+          sucesso: false,
+          erro: 'Envio de e-mail não configurado no servidor (SMTP_HOST/SMTP_USER/SMTP_PASS ausentes).',
+        });
+      }
+
+      const mdfe = await this.mdfeService.buscarPorId(id, empresaId);
+      if (!mdfe) {
+        return res.status(404).json({ sucesso: false, erro: 'MDF-e não encontrado' });
+      }
+      if (!mdfe.xmlAssinado) {
+        return res.status(404).json({ sucesso: false, erro: 'XML do MDF-e não disponível' });
+      }
+
+      await this.emailService.enviar({
+        destinatario: destinatarioEmail,
+        assunto: `MDF-e nº ${mdfe.numero} — ${mdfe.chaveAcesso}`,
+        corpoTexto:
+          `Segue em anexo o XML do MDF-e nº ${mdfe.numero}, série ${mdfe.serie}.\n\n` +
+          `Chave de acesso: ${mdfe.chaveAcesso}\n` +
+          `Status: ${mdfe.status}\n` +
+          (mdfe.protocoloAutorizacao ? `Protocolo: ${mdfe.protocoloAutorizacao}\n` : ''),
+        anexos: [{ nomeArquivo: `MDFe_${mdfe.numero}_${mdfe.chaveAcesso}.xml`, conteudo: mdfe.xmlAssinado, tipoConteudo: 'application/xml' }],
+      });
+
+      return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
+      return res.status(400).json({
+        sucesso: false,
+        erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
+      });
+    }
   }
 
   async listar(req: RequestComUsuario, res: Response) {
@@ -32,9 +94,9 @@ export class MdfeController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
 
-      const filtros: any = {};
+      const filtros: FiltrosListarMdfe = {};
       if (req.query.status) {
-        const statusList = (req.query.status as string).split(',');
+        const statusList = (req.query.status as string).split(',') as StatusMDFe[];
         filtros.status = statusList.length === 1 ? statusList[0] : statusList;
       }
       if (req.query.dataInicio) filtros.dataInicio = new Date(req.query.dataInicio as string);
@@ -56,11 +118,11 @@ export class MdfeController {
         dados: result
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao listar MDF-e:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao listar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao listar MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao listar MDF-e'
       });
     }
   }
@@ -98,11 +160,11 @@ export class MdfeController {
         dados: mdfe
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar MDF-e:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar MDF-e'
       });
     }
   }
@@ -147,11 +209,11 @@ export class MdfeController {
         dados: mdfe
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar MDF-e por chave:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar MDF-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar MDF-e'
       });
     }
   }
@@ -182,6 +244,23 @@ export class MdfeController {
         }
       }
 
+      // Modal rodoviário exige dados do veículo de tração e ao menos um condutor
+      // (grupo <rodo>/<veicTracao>/<condutor> do layout SEFAZ).
+      if (req.body.modal === 'RODOVIARIO') {
+        if (!req.body.veiculo?.placa || !req.body.veiculo?.tara || !req.body.veiculo?.tpRod || !req.body.veiculo?.tpCar) {
+          return res.status(400).json({
+            sucesso: false,
+            erro: 'Para modal rodoviário, informe veiculo.{placa, tara, tpRod, tpCar}'
+          });
+        }
+        if (!req.body.condutores || req.body.condutores.length === 0) {
+          return res.status(400).json({
+            sucesso: false,
+            erro: 'Para modal rodoviário, informe ao menos um condutor {nome, cpf}'
+          });
+        }
+      }
+
       const mdfe = await this.mdfeService.emitirMdfe({
         empresaId,
         usuario: req.user?.email || 'SISTEMA',
@@ -194,11 +273,11 @@ export class MdfeController {
         mensagem: 'MDF-e emitido com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao emitir MDF-e:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao emitir MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao emitir MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao emitir MDF-e'
       });
     }
   }
@@ -245,11 +324,11 @@ export class MdfeController {
         mensagem: 'MDF-e cancelado com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao cancelar MDF-e:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao cancelar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao cancelar MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao cancelar MDF-e'
       });
     }
   }
@@ -258,7 +337,7 @@ export class MdfeController {
     try {
       const empresaId = req.user?.empresaId;
       const { id } = req.params;
-      const { protocolo, municipioEncerramento } = req.body;
+      const { protocolo, municipioEncerramento, codigoMunicipioEncerramento } = req.body;
 
       if (!empresaId) {
         return res.status(401).json({
@@ -285,7 +364,8 @@ export class MdfeController {
         id,
         protocolo,
         municipioEncerramento,
-        empresaId
+        empresaId,
+        codigoMunicipioEncerramento
       );
 
       return res.json({
@@ -294,11 +374,11 @@ export class MdfeController {
         mensagem: 'MDF-e encerrado com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao encerrar MDF-e:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao encerrar MDF-e:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao encerrar MDF-e'
+        erro: error instanceof Error ? error.message : 'Erro ao encerrar MDF-e'
       });
     }
   }
@@ -320,11 +400,11 @@ export class MdfeController {
         dados: estatisticas
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar estatísticas:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar estatísticas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
       });
     }
   }
@@ -349,11 +429,11 @@ export class MdfeController {
         dados: result
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar total de carga:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar total de carga:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar total de carga'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar total de carga'
       });
     }
   }
@@ -401,11 +481,11 @@ export class MdfeController {
 
       return res.send(mdfe.xmlAssinado);
 
-    } catch (error: any) {
-      console.error('❌ Erro ao baixar XML:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao baixar XML'
+        erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
       });
     }
   }

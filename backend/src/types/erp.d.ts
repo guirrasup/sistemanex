@@ -134,6 +134,7 @@ export interface ConfiguracaoEmpresa {
   proximoNumeroNfce: number;
   proximoNumeroCte: number;
   proximoNumeroNfae: number;
+  proximoNumeroMdfe: number;
   optanteSimples: boolean;
   optanteMEI: boolean;
   endereco: {

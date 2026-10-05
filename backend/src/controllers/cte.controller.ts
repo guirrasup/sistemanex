@@ -1,7 +1,9 @@
 // backend/src/controllers/cte.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
-import { CteService } from '../services/cte.service';
-import { StatusDocumento } from '@prisma/client';
+import { CteService } from '../services/cte.service.js';
+import { EmailService } from '../services/email.service.js';
+import { StatusCTe } from '@prisma/client';
 
 // ============================================================
 // INTERFACES
@@ -36,9 +38,14 @@ function validarTSerie(serie: number): boolean {
   return serie === 0 || (serie >= 1 && serie <= 999);
 }
 
+const TNF_MAXIMO = 999999999;
+
 function validarTNF(numero: number): boolean {
-  return numero >= 1 && numero <= 999999999;
+  return numero >= 1 && numero <= TNF_MAXIMO;
 }
+
+const ANO_RESUMO_MINIMO = 2000;
+const ANO_RESUMO_MAXIMO = 2100;
 
 // ============================================================
 // CONTROLLER
@@ -46,9 +53,59 @@ function validarTNF(numero: number): boolean {
 
 export class CteController {
   private cteService: CteService;
+  private emailService: EmailService;
 
   constructor() {
     this.cteService = new CteService();
+    this.emailService = new EmailService();
+  }
+
+  async enviarXmlPorEmail(req: RequestComUsuario, res: Response) {
+    try {
+      const empresaId = req.user?.empresaId;
+      const { id } = req.params;
+      const { destinatarioEmail } = req.body as { destinatarioEmail?: string };
+
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+      if (!destinatarioEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatarioEmail)) {
+        return res.status(400).json({ sucesso: false, erro: 'Informe um e-mail de destino válido' });
+      }
+      if (!this.emailService.estaConfigurado()) {
+        return res.status(503).json({
+          sucesso: false,
+          erro: 'Envio de e-mail não configurado no servidor (SMTP_HOST/SMTP_USER/SMTP_PASS ausentes).',
+        });
+      }
+
+      const cte = await this.cteService.buscarPorId(id, empresaId);
+      if (!cte) {
+        return res.status(404).json({ sucesso: false, erro: 'CT-e não encontrado' });
+      }
+      if (!cte.xmlAssinado) {
+        return res.status(404).json({ sucesso: false, erro: 'XML do CT-e não disponível' });
+      }
+
+      await this.emailService.enviar({
+        destinatario: destinatarioEmail,
+        assunto: `CT-e nº ${cte.nCT} — ${cte.chaveAcesso}`,
+        corpoTexto:
+          `Segue em anexo o XML do CT-e nº ${cte.nCT}, série ${cte.serie}.\n\n` +
+          `Chave de acesso: ${cte.chaveAcesso}\n` +
+          `Status: ${cte.status}\n` +
+          (cte.protocoloAutorizacao ? `Protocolo: ${cte.protocoloAutorizacao}\n` : ''),
+        anexos: [{ nomeArquivo: `CTe_${cte.nCT}_${cte.chaveAcesso}.xml`, conteudo: cte.xmlAssinado, tipoConteudo: 'application/xml' }],
+      });
+
+      return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
+      return res.status(400).json({
+        sucesso: false,
+        erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
+      });
+    }
   }
 
   async listar(req: RequestComUsuario, res: Response) {
@@ -97,13 +154,13 @@ export class CteController {
         });
       }
 
-      let statusEnum: StatusDocumento | StatusDocumento[] | undefined;
+      let statusEnum: StatusCTe | StatusCTe[] | undefined;
       if (status) {
         const statusList = status.split(',');
         if (statusList.length === 1) {
-          statusEnum = statusList[0] as StatusDocumento;
+          statusEnum = statusList[0] as StatusCTe;
         } else {
-          statusEnum = statusList as StatusDocumento[];
+          statusEnum = statusList as StatusCTe[];
         }
       }
 
@@ -130,11 +187,11 @@ export class CteController {
         dados: result,
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro no CT-e listar:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro no CT-e listar:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao listar CT-e',
+        erro: error instanceof Error ? error.message : 'Erro ao listar CT-e',
       });
     }
   }
@@ -179,11 +236,11 @@ export class CteController {
         dados: cte,
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar CT-e por ID:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar CT-e por ID:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar CT-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e'
       });
     }
   }
@@ -228,11 +285,11 @@ export class CteController {
         dados: cte,
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar CT-e por chave:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar CT-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar CT-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e'
       });
     }
   }
@@ -256,7 +313,7 @@ export class CteController {
         });
       }
 
-      const cte = await this.cteService.buscarPorProtocolo(protocolo);
+      const cte = await this.cteService.buscarPorProtocolo(protocolo, empresaId);
 
       if (!cte) {
         return res.status(404).json({
@@ -277,11 +334,11 @@ export class CteController {
         dados: cte,
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar CT-e por protocolo:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar CT-e por protocolo:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar CT-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e'
       });
     }
   }
@@ -312,7 +369,7 @@ export class CteController {
         });
       }
 
-      if (req.body.cfop && !/^[0-9]{3}$/.test(req.body.cfop)) {
+      if (req.body.CFOP && !/^[0-9]{4}$/.test(req.body.CFOP)) {
         return res.status(400).json({
           sucesso: false,
           erro: 'CFOP inválido: deve ter 3 dígitos'
@@ -348,33 +405,12 @@ export class CteController {
         });
       }
 
-      if (!req.body.rntrc) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'RNTRC é obrigatório'
-        });
-      }
-
-      if (!req.body.veiculo?.placa) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'Placa do veículo é obrigatória'
-        });
-      }
-
-      if (!req.body.motorista?.nome || !req.body.motorista?.cpf) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'Nome e CPF do motorista são obrigatórios'
-        });
-      }
-
-      if (!/^[0-9]{11}$/.test(req.body.motorista.cpf.replace(/\D/g, ''))) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'CPF do motorista inválido: deve ter 11 dígitos'
-        });
-      }
+      // 🔥 rntrc/veiculo/motorista NÃO são colunas do modelo CTe (confirmado no
+      // schema.prisma e em cteService.emitirCte, que nunca lê data.rntrc/data.veiculo/
+      // data.motorista) — o layout 4.00 usa só o RNTRC da Transportadora vinculada
+      // (transportadoraId), o veículo/condutor migraram pro MDF-e. Exigir esses 3
+      // campos aqui só bloqueava a emissão sem que o valor informado fosse usado pra
+      // nada. Removido; transportadoraId (quando informado) é validado na service.
 
       const tpCTe = req.body.tpCTe || 'NORMAL';
       if (!['NORMAL', 'COMPLEMENTO_VALORES', 'SUBSTITUICAO'].includes(tpCTe)) {
@@ -426,11 +462,11 @@ export class CteController {
         mensagem: 'CT-e emitido e autorizado com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro no CT-e emitir:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro no CT-e emitir:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao emitir CT-e',
+        erro: error instanceof Error ? error.message : 'Erro ao emitir CT-e',
       });
     }
   }
@@ -477,11 +513,11 @@ export class CteController {
         mensagem: 'CT-e cancelado com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro no CT-e cancelar:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro no CT-e cancelar:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao cancelar CT-e',
+        erro: error instanceof Error ? error.message : 'Erro ao cancelar CT-e',
       });
     }
   }
@@ -508,11 +544,11 @@ export class CteController {
 
       return res.send(xml);
 
-    } catch (error: any) {
-      console.error('❌ Erro ao baixar XML:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao baixar XML'
+        erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
       });
     }
   }
@@ -536,11 +572,11 @@ export class CteController {
         dados
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao gerar DACTE:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao gerar DACTE:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao gerar DACTE'
+        erro: error instanceof Error ? error.message : 'Erro ao gerar DACTE'
       });
     }
   }
@@ -563,11 +599,11 @@ export class CteController {
         dados: estatisticas
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar estatísticas:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar estatísticas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
       });
     }
   }
@@ -593,11 +629,11 @@ export class CteController {
         dados: result
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar total de frete:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar total de frete:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar total de frete'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar total de frete'
       });
     }
   }
@@ -616,7 +652,7 @@ export class CteController {
       const ano = parseInt(req.query.ano as string) || new Date().getFullYear();
       const mes = parseInt(req.query.mes as string) || new Date().getMonth() + 1;
 
-      if (ano < 2000 || ano > 2100) {
+      if (ano < ANO_RESUMO_MINIMO || ano > ANO_RESUMO_MAXIMO) {
         return res.status(400).json({
           sucesso: false,
           erro: 'Ano inválido'
@@ -636,11 +672,11 @@ export class CteController {
         dados: resumo
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar resumo mensal:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar resumo mensal:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar resumo mensal'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar resumo mensal'
       });
     }
   }
@@ -661,7 +697,7 @@ export class CteController {
       const dataInicio = req.query.dataInicio ? new Date(req.query.dataInicio as string) : undefined;
       const dataFim = req.query.dataFim ? new Date(req.query.dataFim as string) : undefined;
 
-      const ctes = await this.cteService.findByCliente(clienteId, tipo, dataInicio, dataFim);
+      const ctes = await this.cteService.findByCliente(empresaId, clienteId, tipo, dataInicio, dataFim);
       const ctesFiltrados = ctes.filter(c => c.empresaId === empresaId);
 
       return res.json({
@@ -669,11 +705,11 @@ export class CteController {
         dados: ctesFiltrados
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar CT-e por cliente:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar CT-e por cliente:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar CT-e por cliente'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e por cliente'
       });
     }
   }
@@ -693,7 +729,7 @@ export class CteController {
       const dataInicio = req.query.dataInicio ? new Date(req.query.dataInicio as string) : undefined;
       const dataFim = req.query.dataFim ? new Date(req.query.dataFim as string) : undefined;
 
-      const ctes = await this.cteService.findByTransportadora(transportadoraId, dataInicio, dataFim);
+      const ctes = await this.cteService.findByTransportadora(empresaId, transportadoraId, dataInicio, dataFim);
       const ctesFiltrados = ctes.filter(c => c.empresaId === empresaId);
 
       return res.json({
@@ -701,11 +737,11 @@ export class CteController {
         dados: ctesFiltrados
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar CT-e por transportadora:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar CT-e por transportadora:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar CT-e por transportadora'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e por transportadora'
       });
     }
   }
@@ -733,7 +769,7 @@ export class CteController {
       const dataInicio = req.query.dataInicio ? new Date(req.query.dataInicio as string) : undefined;
       const dataFim = req.query.dataFim ? new Date(req.query.dataFim as string) : undefined;
 
-      const ctes = await this.cteService.findByModal(modal, dataInicio, dataFim);
+      const ctes = await this.cteService.findByModal(empresaId, modal, dataInicio, dataFim);
       const ctesFiltrados = ctes.filter(c => c.empresaId === empresaId);
 
       return res.json({
@@ -741,11 +777,11 @@ export class CteController {
         dados: ctesFiltrados
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar CT-e por modal:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar CT-e por modal:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar CT-e por modal'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e por modal'
       });
     }
   }
@@ -773,7 +809,7 @@ export class CteController {
       const dataInicio = req.query.dataInicio ? new Date(req.query.dataInicio as string) : undefined;
       const dataFim = req.query.dataFim ? new Date(req.query.dataFim as string) : undefined;
 
-      const ctes = await this.cteService.findByStatus(status as any, dataInicio, dataFim);
+      const ctes = await this.cteService.findByStatus(empresaId, status as StatusCTe, dataInicio, dataFim);
       const ctesFiltrados = ctes.filter(c => c.empresaId === empresaId);
 
       return res.json({
@@ -781,11 +817,11 @@ export class CteController {
         dados: ctesFiltrados
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar CT-e por status:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar CT-e por status:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar CT-e por status'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e por status'
       });
     }
   }
@@ -809,7 +845,7 @@ export class CteController {
         });
       }
 
-      const cte = await this.cteService.buscarCteSubstituido(chave);
+      const cte = await this.cteService.buscarCteSubstituido(chave, empresaId);
 
       if (!cte) {
         return res.status(404).json({
@@ -830,11 +866,11 @@ export class CteController {
         dados: cte,
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar CT-e substituído:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar CT-e substituído:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar CT-e substituído'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e substituído'
       });
     }
   }
@@ -858,7 +894,7 @@ export class CteController {
         });
       }
 
-      const cte = await this.cteService.buscarCteComplementado(chave);
+      const cte = await this.cteService.buscarCteComplementado(chave, empresaId);
 
       if (!cte) {
         return res.status(404).json({
@@ -879,11 +915,11 @@ export class CteController {
         dados: cte,
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar CT-e complementado:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar CT-e complementado:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar CT-e complementado'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar CT-e complementado'
       });
     }
   }

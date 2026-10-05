@@ -36,20 +36,20 @@ import {
 } from 'lucide-react';
 import { NFSeDocumento, TributacaoISSQN, TipoRetencaoISS } from '../../types/fiscal';
 import { ClienteFornecedor, ServicoCatalogo, ConfiguracaoEmpresa } from '../../types/erp';
-import { StorageService } from '../../utils/storage';
-import { validarCpfOuCnpj, formatarMoeda, limparDocumento } from '../../utils/cpfCnpjValidator';
-import { gerarChaveAcessoNFSe } from '../../utils/chaveAcesso';
+import { validarCpfOuCnpj, formatarMoeda } from '../../utils/cpfCnpjValidator';
 import { calcularTributosNfse } from '../../utils/tributosEngine';
-import { gerarXmlNfseNacional } from '../../utils/xmlNfseGenerator';
 import { useToast } from '../../hooks/useToast';
-import api from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
+import { nfseService } from '../../services/nfse.service';
+import { DanfseLayout } from './DanfseLayout';
+import { ResumoEmissaoModal } from './ResumoEmissaoModal';
 
 interface NfseEmissorProps {
   empresa: ConfiguracaoEmpresa;
   clientes: ClienteFornecedor[];
   servicosCatalogo: ServicoCatalogo[];
   onNfseEmitida: (nfse: NFSeDocumento) => void;
-  onViewDanfse: (nfse: NFSeDocumento) => void;
+  onViewDanfse: (nfseId: string) => void;
 }
 
 // 🔥 COR DO MÓDULO - AZUL
@@ -160,8 +160,14 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
   // STATE - UI
   // ============================================================
   const [isTransmitting, setIsTransmitting] = useState<boolean>(false);
+  const [isCarregandoUltima, setIsCarregandoUltima] = useState<boolean>(false);
   const [errosValidacao, setErrosValidacao] = useState<string[]>([]);
   const [sucessoNfse, setSucessoNfse] = useState<NFSeDocumento | null>(null);
+  // 🔥 Mesmo padrão do NfeEmissor/NfceEmissor: campo obrigatório vazio só fica
+  // vermelho depois da primeira tentativa de emitir, e preview antes de
+  // transmitir de verdade pra SEFAZ (homolog ou produção).
+  const [tentouEnviar, setTentouEnviar] = useState<boolean>(false);
+  const [showPreview, setShowPreview] = useState<boolean>(false);
 
   // ============================================================
   // CÁLCULOS
@@ -220,7 +226,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
       setTomadorNomeFantasia(cli.nomeFantasia || '');
       setTomadorInscricaoMunicipal(cli.inscricaoMunicipal || '');
       setTomadorInscricaoEstadual(cli.inscricaoEstadual || '');
-      setTomadorIndicadorIE((cli.indIEDest as '1' | '2' | '9') || '9');
+      setTomadorIndicadorIE(cli.indicadorIE || '9');
       setTomadorEmail(cli.email || '');
       setTomadorTelefone(cli.telefone || '');
       setTomadorLogradouro(cli.endereco.logradouro);
@@ -266,14 +272,18 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
       setCodigoNBS(srv.codigoNBS || '');
       setDescricaoServico(srv.descricao);
       setCodigoInterno(srv.codigoInterno);
-      setValorServico(srv.valorUnitario);
-      setAliquotaISS(srv.aliquotaISS);
+      // 🔥 Decimal do Prisma (valorUnitario/aliquota*) chega como string no JSON,
+      // apesar do tipo ServicoCatalogo dizer `number` — atribuição direta (sem
+      // Number()) contamina os states numéricos e quebra calcularTributosNfse()
+      // e o .toFixed() no preview (mesmo bug já corrigido nos outros emissores).
+      setValorServico(Number(srv.valorUnitario) || 0);
+      setAliquotaISS(Number(srv.aliquotaISS) || 0);
       setTipoRetencaoISS(srv.retencaoISSPadrao ? 2 : 1);
-      setAliquotaPIS(srv.aliquotaPIS);
-      setAliquotaCOFINS(srv.aliquotaCOFINS);
-      setAliquotaIRRF(srv.aliquotaIRRF);
-      setAliquotaCSLL(srv.aliquotaCSLL);
-      setAliquotaINSS(srv.aliquotaINSS);
+      setAliquotaPIS(Number(srv.aliquotaPIS) || 0);
+      setAliquotaCOFINS(Number(srv.aliquotaCOFINS) || 0);
+      setAliquotaIRRF(Number(srv.aliquotaIRRF) || 0);
+      setAliquotaCSLL(Number(srv.aliquotaCSLL) || 0);
+      setAliquotaINSS(Number(srv.aliquotaINSS) || 0);
       toast.showInfo(`ℹ️ Serviço "${srv.descricao}" carregado.`);
     }
   };
@@ -284,6 +294,11 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
 
   const validarFormulario = (): boolean => {
     const errs: string[] = [];
+
+    // ✅ o backend só aceita tomadorId (um cliente já cadastrado)
+    if (!selectedClienteId) {
+      errs.push('Selecione um tomador cadastrado na lista acima.');
+    }
 
     // Tomador
     const valDoc = validarCpfOuCnpj(tomadorDoc);
@@ -310,7 +325,12 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
     if (tributacaoISSQN === 1 && (aliquotaISS < 2 || aliquotaISS > 5)) {
       errs.push('Alíquota de ISSQN deve estar entre 2,00% e 5,00% (LC 116/2003).');
     }
-    if (codigoTributacaoNacional && codigoTributacaoNacional.length !== 6) {
+    // 🔥 Antes só validava o formato SE já preenchido — campo marcado com "*"
+    // como obrigatório mas deixá-lo vazio passava direto sem avisar nada
+    // (mesmo tipo de brecha que achamos no "Identificar CPF/CNPJ" da NFC-e).
+    if (!codigoTributacaoNacional.trim()) {
+      errs.push('Item da Lista de Serviços (LC 116) é obrigatório.');
+    } else if (codigoTributacaoNacional.length !== 6) {
       errs.push('Código de tributação nacional (LC 116) deve ter 6 dígitos.');
     }
     if (!codigoNBS || codigoNBS.length < 5) {
@@ -319,6 +339,87 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
 
     setErrosValidacao(errs);
     return errs.length === 0;
+  };
+
+  // 🔥 Classe do input: borda vermelha só depois de tentar emitir (tentouEnviar)
+  // E o campo estar vazio — mesmo padrão dos outros emissores.
+  const classeCampo = (valor: string, base = `w-full border rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`) =>
+    tentouEnviar && !valor.trim()
+      ? `${base.replace(corFocus, 'focus:ring-rose-500')} border-rose-400 bg-rose-50`
+      : `${base} border-slate-300`;
+
+  const handleClickEmitir = () => {
+    setTentouEnviar(true);
+    if (!validarFormulario()) {
+      toast.showError('Preencha os campos obrigatórios destacados em vermelho antes de emitir.');
+      return;
+    }
+    setShowPreview(true);
+  };
+
+  // ============================================================
+  // CARREGAR ÚLTIMA NOTA
+  // ============================================================
+
+  const handleCarregarUltima = async () => {
+    setIsCarregandoUltima(true);
+    setErrosValidacao([]);
+    try {
+      const resposta = await nfseService.listar({ page: 1, limit: 1, status: 'AUTORIZADA' });
+      const ultima = resposta.data?.[0];
+      if (!ultima) {
+        toast.showError('Nenhuma NFS-e autorizada anterior encontrada.');
+        return;
+      }
+
+      // A resposta real da API tem campos soltos (tomadorId, descricaoServico,
+      // pagamentoTipoMeio) em vez do shape aninhado { tomador, servico } do
+      // tipo NFSeDocumento do protótipo antigo — lido aqui com um cast local.
+      const raw = ultima as unknown as {
+        tomadorId?: string;
+        descricaoServico?: string;
+        codigoTributacaoNacional?: string;
+        codigoTributacaoMunicipal?: string;
+        codigoNBS?: string;
+        codigoInterno?: string;
+        valorServico?: number | string;
+        aliquotaISS?: number | string;
+        tributacaoISSQN?: number;
+        tipoRetencaoISS?: number;
+        aliquotaPIS?: number | string;
+        aliquotaCOFINS?: number | string;
+        aliquotaIRRF?: number | string;
+        aliquotaCSLL?: number | string;
+        aliquotaINSS?: number | string;
+        pagamentoTipoMeio?: string;
+      };
+
+      if (raw.tomadorId) {
+        handleClienteChange(raw.tomadorId);
+      }
+      setSelectedServicoId('');
+      if (raw.descricaoServico) setDescricaoServico(raw.descricaoServico);
+      if (raw.codigoTributacaoNacional) setCodigoTributacaoNacional(raw.codigoTributacaoNacional);
+      if (raw.codigoTributacaoMunicipal) setCodigoTributacaoMunicipal(raw.codigoTributacaoMunicipal);
+      if (raw.codigoNBS) setCodigoNBS(raw.codigoNBS);
+      if (raw.codigoInterno) setCodigoInterno(raw.codigoInterno);
+      if (raw.valorServico) setValorServico(Number(raw.valorServico));
+      if (raw.aliquotaISS) setAliquotaISS(Number(raw.aliquotaISS));
+      if (raw.tributacaoISSQN) setTributacaoISSQN(raw.tributacaoISSQN as TributacaoISSQN);
+      if (raw.tipoRetencaoISS) setTipoRetencaoISS(raw.tipoRetencaoISS as TipoRetencaoISS);
+      if (raw.aliquotaPIS) setAliquotaPIS(Number(raw.aliquotaPIS));
+      if (raw.aliquotaCOFINS) setAliquotaCOFINS(Number(raw.aliquotaCOFINS));
+      if (raw.aliquotaIRRF) setAliquotaIRRF(Number(raw.aliquotaIRRF));
+      if (raw.aliquotaCSLL) setAliquotaCSLL(Number(raw.aliquotaCSLL));
+      if (raw.aliquotaINSS) setAliquotaINSS(Number(raw.aliquotaINSS));
+      if (raw.pagamentoTipoMeio) setFormaPagamento(raw.pagamentoTipoMeio);
+
+      toast.showSuccess('Dados da última NFS-e carregados. Revise antes de emitir.');
+    } catch (error: unknown) {
+      toast.showError(getApiErrorMessage(error, 'Erro ao carregar a última NFS-e'));
+    } finally {
+      setIsCarregandoUltima(false);
+    }
   };
 
   // ============================================================
@@ -332,169 +433,47 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
     setErrosValidacao([]);
 
     try {
-      const numeroNfse = empresa.proximoNumeroNfse || 1;
-      const serieDPS = empresa.serieNfse || 1;
-      const aamm = new Date().toISOString().slice(2, 4) + (new Date().getMonth() + 1).toString().padStart(2, '0');
-
-      const { chaveCompleta, codigoVerificacao } = gerarChaveAcessoNFSe({
-        codigoMunicipioIBGE: empresa.endereco?.codigoMunicipio || '3550308',
-        ambienteGerador: empresa.ambienteEmissao === 'PRODUCAO' ? 1 : 2,
-        tipoInscricao: 1,
-        documentoEmitente: empresa.cnpj,
-        numeroNfse,
-        anoMesDPS: aamm,
-      });
-
-      const docTomadorLimpo = limparDocumento(tomadorDoc);
-      const isCnpj = docTomadorLimpo.length === 14;
-
-      const novaNfse: NFSeDocumento = {
-        id: `nfse-${Date.now()}`,
-        chaveAcesso: chaveCompleta,
-        numeroNfse,
-        serieDPS,
-        numeroDPS: numeroNfse,
-        dataCompetencia: new Date().toISOString().split('T')[0],
-        dataHoraEmissao: new Date().toISOString(),
-        dataHoraProcessamento: new Date().toISOString(),
-        codigoVerificacao,
-        ambiente: empresa.ambienteEmissao,
-        tipoEmissao: 1,
-        status: 'AUTORIZADA',
-
-        emitente: {
-          cnpj: empresa.cnpj,
-          inscricaoMunicipal: empresa.inscricaoMunicipal || '',
-          inscricaoEstadual: empresa.inscricaoEstadual || '',
-          razaoSocial: empresa.razaoSocial,
-          nomeFantasia: empresa.nomeFantasia || '',
-          regimeTributario: empresa.regimeTributario === 'SIMPLES_NACIONAL' ? 1 : 3,
-          optanteSimplesNacional: empresa.optanteSimples || false,
-          optanteMEI: empresa.optanteMEI || false,
-          endereco: {
-            logradouro: empresa.endereco?.logradouro || '',
-            numero: empresa.endereco?.numero || '',
-            complemento: empresa.endereco?.complemento || '',
-            bairro: empresa.endereco?.bairro || '',
-            codigoMunicipio: empresa.endereco?.codigoMunicipio || '3550308',
-            nomeMunicipio: empresa.endereco?.nomeMunicipio || 'São Paulo',
-            uf: empresa.endereco?.uf || 'SP',
-            cep: empresa.endereco?.cep || '',
-            telefone: empresa.endereco?.telefone || '',
-            email: empresa.endereco?.email || '',
-          },
-        },
-
-        tomador: {
-          tipoPessoa: isCnpj ? 'PJ' : 'PF',
-          documento: tomadorDoc,
-          nomeRazaoSocial: tomadorRazaoSocial,
-          nomeFantasia: tomadorNomeFantasia || undefined,
-          inscricaoMunicipal: tomadorInscricaoMunicipal || undefined,
-          inscricaoEstadual: tomadorInscricaoEstadual || undefined,
-          indicadorIEDestinatario: tomadorIndicadorIE,
-          email: tomadorEmail || undefined,
-          telefone: tomadorTelefone || undefined,
-          endereco: {
-            logradouro: tomadorLogradouro,
-            numero: tomadorNumero,
-            complemento: tomadorComplemento || undefined,
-            bairro: tomadorBairro,
-            codigoMunicipio: tomadorCodigoMunicipio || '3550308',
-            nomeMunicipio: tomadorNomeMunicipio || 'São Paulo',
-            uf: tomadorUf,
-            cep: tomadorCep || '',
-            telefone: tomadorTelefone || undefined,
-            email: tomadorEmail || undefined,
-          },
-        },
-
+      const nfseEmitida = await nfseService.emitir({
+        tomadorId: selectedClienteId,
+        servicoId: selectedServicoId || undefined,
         servico: {
-          codigoTributacaoNacional: codigoTributacaoNacional,
-          codigoTributacaoMunicipal: codigoTributacaoMunicipal,
-          descricao: descricaoServico,
-          codigoNBS: codigoNBS,
-          codigoInterno: codigoInterno || undefined,
-          localPrestacao: {
-            codigoMunicipio: localPrestacaoCodigoMunicipio,
-            nomeMunicipio: localPrestacaoNomeMunicipio,
-            uf: localPrestacaoUf,
-          },
-          valorServico: calc.valorServico,
-          descontoIncondicionado: calc.descontoIncondicionado,
-          descontoCondicionado: calc.descontoCondicionado,
-          deducoesMateriais: calc.deducoesMateriais,
-          tributacaoISSQN,
-          aliquotaISS: calc.aliquotaISS,
-          valorISS: calc.valorISS,
+          valorServico,
+          descontoIncondicionado,
+          deducoesMateriais,
+          aliquotaISS,
           tipoRetencaoISS,
-          valorISSRetido: calc.valorISSRetido,
-          baseCalculoISS: calc.baseCalculoISS,
-          cstPisCofins: '01',
-          aliquotaPIS: calc.aliquotaPIS,
-          valorPIS: calc.valorPIS,
+          tributacaoISSQN,
+          codigoTributacaoNacional,
+          codigoTributacaoMunicipal,
+          codigoNBS,
+          descricao: descricaoServico,
+          aliquotaPIS,
           retidoPIS,
-          aliquotaCOFINS: calc.aliquotaCOFINS,
-          valorCOFINS: calc.valorCOFINS,
+          aliquotaCOFINS,
           retidoCOFINS,
-          aliquotaIRRF: calc.aliquotaIRRF,
-          valorIRRF: calc.valorIRRF,
-          aliquotaCSLL: calc.aliquotaCSLL,
-          valorCSLL: calc.valorCSLL,
-          aliquotaINSS: calc.aliquotaINSS,
-          valorINSS: calc.valorINSS,
-          ibscbs: calc.ibscbs,
-          valorTributosFederais: calc.tributosFederais,
-          valorTributosEstaduais: calc.tributosEstaduais,
-          valorTributosMunicipais: calc.tributosMunicipais,
-          percentualTotalTributos: calc.percentualTotalTributos,
+          aliquotaIRRF,
+          aliquotaCSLL,
+          aliquotaINSS,
         },
-
-        valorTotalServicos: calc.valorServico,
-        valorTotalDescontos: calc.descontoIncondicionado,
-        valorTotalDeducoes: calc.deducoesMateriais,
-        baseCalculoISS: calc.baseCalculoISS,
-        valorTotalISS: calc.valorISS,
-        valorTotalISSRetido: calc.valorISSRetido,
-        valorTotalRetencoesFederais: calc.totalRetencoes - calc.valorISSRetido,
-        valorTotalIBS: calc.valorTotalIBS,
-        valorTotalCBS: calc.valorCBS,
-        valorLiquidoNfse: calc.valorLiquido,
-        valorTotalNotaFinal: calc.valorTotalNotaFinal,
+        formaPagamento,
         informacoesComplementares: informacoesComplementares || undefined,
         numeroPedido: numeroPedido || undefined,
-        xmlAssinado: '',
-        urlVisualizacaoNacional: 'https://www.nfse.gov.br/consultapublica',
-      };
+      });
 
-      novaNfse.xmlAssinado = gerarXmlNfseNacional(novaNfse);
-
-      try {
-        const response = await api.post('/nfse/emitir', {
-          empresaId: empresa.id,
-          tomadorId: selectedClienteId,
-          servicoId: selectedServicoId || undefined,
-          servico: novaNfse.servico,
-          formaPagamento,
-          informacoesComplementares,
-          numeroPedido,
-        });
-              } catch (err: any) {
-        console.error('Erro ao salvar NFS-e no backend:', err);
-        StorageService.addNfse(novaNfse);
+      if (nfseEmitida) {
+        onNfseEmitida(nfseEmitida);
+        setSucessoNfse(nfseEmitida);
+        setTentouEnviar(false);
+        // 🔥 O modal de resumo mostra o status real — sem toast fixo de sucesso.
       }
-
-      StorageService.addNfse(novaNfse);
-      onNfseEmitida(novaNfse);
-      setSucessoNfse(novaNfse);
-      toast.showSuccess(`✅ NFS-e Nº ${numeroNfse} emitida com sucesso!`);
-
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Erro na transmissão:', err);
-      setErrosValidacao([err.message || 'Falha ao processar emissão da NFS-e. Verifique os dados.']);
-      toast.showError(`❌ ${err.message || 'Erro ao emitir NFS-e.'}`);
+      const mensagemErro = getApiErrorMessage(err, 'Falha ao processar emissão da NFS-e. Verifique os dados.');
+      setErrosValidacao([mensagemErro]);
+      toast.showError(`❌ ${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
+      setShowPreview(false);
     }
   };
 
@@ -521,68 +500,45 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           </p>
         </div>
 
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfse || 1}</div>
-          <div className={`text-[10px] font-medium ${corText}`}>Próxima NFS-e: Nº {empresa.proximoNumeroNfse || 1}</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCarregarUltima}
+            disabled={isCarregandoUltima}
+            title="Preenche o formulário com os dados da última NFS-e autorizada"
+            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
+            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfse || 1}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próxima NFS-e: Nº previsto {empresa.proximoNumeroNfse || 1}</div>
+          </div>
         </div>
       </div>
 
       {sucessoNfse && (
-        <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2 className={`w-5 h-5 ${corText} shrink-0 mt-0.5`} />
-              <div>
-                <h3 className={`text-sm font-bold ${corTextDark}`}>
-                  NFS-e Nº {sucessoNfse.numeroNfse} Autorizada!
-                </h3>
-                <p className="text-xs text-blue-800 font-mono mt-0.5">
-                  Chave: {sucessoNfse.chaveAcesso} | Cód: {sucessoNfse.codigoVerificacao}
-                </p>
-                <div className="text-[11px] text-blue-700 mt-1">
-                  Tomador: {sucessoNfse.tomador.nomeRazaoSocial} • Valor: {formatarMoeda(sucessoNfse.valorTotalServicos)}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onViewDanfse(sucessoNfse)}
-                className={`${corBgButton} text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Visualizar DANFSe</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  const blob = new Blob([sucessoNfse.xmlAssinado], { type: 'application/xml' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `NFSe_${sucessoNfse.numeroNfse}_SUP.xml`;
-                  a.click();
-                }}
-                className="bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>XML</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setSucessoNfse(null);
-                  setValorServico(0);
-                  setDescontoIncondicionado(0);
-                  setDeducoesMateriais(0);
-                }}
-                className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer"
-              >
-                Nova Emissão
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResumoEmissaoModal
+          aberto={!!sucessoNfse}
+          onClose={() => {
+            setSucessoNfse(null);
+            setValorServico(0);
+            setDescontoIncondicionado(0);
+            setDeducoesMateriais(0);
+          }}
+          status={((sucessoNfse as unknown as { status?: string }).status as 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO') || 'PROCESSANDO'}
+          tipoDocumentoLabel="NFS-e"
+          numero={sucessoNfse.numeroNfse}
+          serie={Number(sucessoNfse.serieDPS) || 1}
+          chaveAcesso={sucessoNfse.chaveAcesso}
+          protocolo={(sucessoNfse as unknown as { protocoloAutorizacao?: string }).protocoloAutorizacao || undefined}
+          motivoRejeicao={(sucessoNfse as unknown as { motivoRejeicao?: string }).motivoRejeicao || undefined}
+          valorTotal={Number(sucessoNfse.valorTotalServicos) || 0}
+          destinatarioNome={(sucessoNfse as unknown as { tomadorRazaoSocial?: string }).tomadorRazaoSocial || sucessoNfse.tomador?.nomeRazaoSocial}
+          emailSugerido={empresa.contadorEmail || empresa.endereco?.email || ''}
+          onVisualizar={() => onViewDanfse(sucessoNfse.id)}
+          onEnviarEmail={(email) => nfseService.enviarPorEmail(sucessoNfse.id, email)}
+        />
       )}
 
       {errosValidacao.length > 0 && (
@@ -608,7 +564,11 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           <select
             value={selectedClienteId}
             onChange={(e) => handleClienteChange(e.target.value)}
-            className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[280px]`}
+            className={`text-xs bg-slate-50 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 font-medium text-slate-700 max-w-[280px] border ${
+              tentouEnviar && !selectedClienteId
+                ? 'border-rose-400 bg-rose-50 focus:ring-rose-500'
+                : 'border-slate-300 focus:ring-blue-500'
+            }`}
           >
             <option value="">-- Escolher Cliente --</option>
             {clientes.map(c => (
@@ -624,7 +584,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               type="text"
               value={tomadorDoc}
               onChange={(e) => setTomadorDoc(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={classeCampo(tomadorDoc)}
               placeholder="00.000.000/0000-00"
             />
           </div>
@@ -634,7 +594,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               type="text"
               value={tomadorRazaoSocial}
               onChange={(e) => setTomadorRazaoSocial(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={classeCampo(tomadorRazaoSocial)}
               placeholder="Nome do tomador"
             />
           </div>
@@ -711,7 +671,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
                 type="text"
                 value={tomadorLogradouro}
                 onChange={(e) => setTomadorLogradouro(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={classeCampo(tomadorLogradouro)}
                 placeholder="Rua, Avenida..."
               />
             </div>
@@ -721,7 +681,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
                 type="text"
                 value={tomadorNumero}
                 onChange={(e) => setTomadorNumero(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={classeCampo(tomadorNumero)}
                 placeholder="123"
               />
             </div>
@@ -823,7 +783,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               type="text"
               maxLength={2}
               value={localPrestacaoUf}
-              onChange={(e) => setLocalPrestacaoUf(e.target.value.toUpperCase())}
+              onChange={(e) => setLocalPrestacaoUf(e.target.value.toUpperCase() as typeof localPrestacaoUf)}
               className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
               placeholder="SP"
             />
@@ -840,7 +800,11 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
           <select
             value={selectedServicoId}
             onChange={(e) => handleServicoChange(e.target.value)}
-            className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[280px]`}
+            className={`text-xs bg-slate-50 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 font-medium text-slate-700 max-w-[280px] border ${
+              tentouEnviar && !selectedServicoId
+                ? 'border-rose-400 bg-rose-50 focus:ring-rose-500'
+                : 'border-slate-300 focus:ring-blue-500'
+            }`}
           >
             <option value="">-- Selecione um Serviço --</option>
             {servicosCatalogo.map((s) => (
@@ -858,7 +822,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               type="text"
               value={codigoTributacaoNacional}
               onChange={(e) => setCodigoTributacaoNacional(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+              className={`${classeCampo(codigoTributacaoNacional)} font-mono`}
               placeholder="010701"
             />
           </div>
@@ -878,7 +842,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               type="text"
               value={codigoNBS}
               onChange={(e) => setCodigoNBS(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+              className={`${classeCampo(codigoNBS)} font-mono`}
               placeholder="1.1403.21.10"
             />
           </div>
@@ -900,7 +864,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
             rows={3}
             value={descricaoServico}
             onChange={(e) => setDescricaoServico(e.target.value)}
-            className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} leading-relaxed text-xs`}
+            className={`${classeCampo(descricaoServico)} leading-relaxed`}
             placeholder="Descrição detalhada dos serviços prestados..."
           />
           <span className="text-[10px] text-slate-400">{descricaoServico.length}/2000</span>
@@ -922,7 +886,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
               min="0.01"
               value={valorServico || ''}
               onChange={(e) => setValorServico(parseFloat(e.target.value) || 0)}
-              className={`w-full border border-slate-300 rounded-lg p-2 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`${classeCampo(tentouEnviar && valorServico <= 0 ? '' : 'x')} text-sm font-bold text-slate-900`}
             />
           </div>
           <div>
@@ -1268,8 +1232,11 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         </div>
       </div>
 
+      {/* 🔥 Clicável mesmo com dados incompletos — dispara a validação que pinta
+          os campos obrigatórios vazios de vermelho (handleClickEmitir), e só
+          abre o preview (não transmite ainda) quando tudo estiver ok. */}
       <button
-        onClick={handleTransmitirNfse}
+        onClick={handleClickEmitir}
         disabled={isTransmitting}
         id="btn-transmitir-nfse"
         className={`w-full ${corBgButton} disabled:bg-slate-300 text-white font-bold text-sm py-3 px-4 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
@@ -1282,10 +1249,132 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         ) : (
           <>
             <Send className="w-4 h-4" />
-            <span>TRANSMITIR NFS-e NACIONAL (DPS v1.01)</span>
+            <span>REVISAR & TRANSMITIR NFS-e NACIONAL (DPS v1.01)</span>
           </>
         )}
       </button>
+
+      {/* ============================================================
+          PREVIEW ANTES DE TRANSMITIR — mesmo componente DanfseLayout usado na
+          visualização pós-emissão (DanfseViewer), com chancela "APENAS PARA
+          VISUALIZAÇÃO". Nada é enviado pra SEFAZ até confirmar aqui dentro.
+          ============================================================ */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-xl max-w-4xl w-full shadow-2xl max-h-[95vh] overflow-hidden flex flex-col">
+
+            <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden select-none">
+              <span
+                className="absolute text-rose-600/25 text-4xl sm:text-5xl font-black uppercase tracking-widest whitespace-nowrap border-4 border-rose-600/25 px-8 py-2"
+                style={{ top: '48%', left: '48%', transform: 'translate(-50%, -50%) rotate(-30deg)' }}
+              >
+                Apenas para Visualização
+              </span>
+            </div>
+
+            <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-center justify-between z-20">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">
+                  Espelho do DANFSe — documento ainda NÃO transmitido
+                </span>
+              </div>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                (empresa.ambienteEmissao as unknown as string) === 'PRODUCAO'
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                  : 'bg-blue-100 text-blue-800 border-blue-300'
+              }`}>
+                {(empresa.ambienteEmissao as unknown as string) === 'PRODUCAO' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'}
+              </span>
+            </div>
+
+            <div className="overflow-y-auto flex-1">
+              <DanfseLayout
+                numeroNfse={empresa.proximoNumeroNfse || 1}
+                serieDPS={empresa.serieNfse || 1}
+                numeroDPS={empresa.proximoNumeroNfse || 1}
+                prestador={{
+                  razaoSocial: empresa.razaoSocial,
+                  nomeFantasia: empresa.nomeFantasia,
+                  cnpj: empresa.cnpj,
+                  inscricaoMunicipal: empresa.inscricaoMunicipal,
+                  optanteSimplesNacional: empresa.optanteSimples,
+                  endereco: empresa.endereco,
+                }}
+                tomador={{
+                  nomeRazaoSocial: tomadorRazaoSocial,
+                  documento: tomadorDoc,
+                  inscricaoMunicipal: tomadorInscricaoMunicipal,
+                  telefone: tomadorTelefone,
+                  email: tomadorEmail,
+                  endereco: {
+                    logradouro: tomadorLogradouro,
+                    numero: tomadorNumero,
+                    complemento: tomadorComplemento,
+                    bairro: tomadorBairro,
+                    nomeMunicipio: tomadorNomeMunicipio,
+                    uf: tomadorUf,
+                    cep: tomadorCep,
+                  },
+                }}
+                descricaoServico={descricaoServico}
+                codigoTributacaoNacional={codigoTributacaoNacional}
+                codigoNBS={codigoNBS}
+                localPrestacaoNomeMunicipio={localPrestacaoNomeMunicipio}
+                localPrestacaoUf={localPrestacaoUf}
+                localPrestacaoCodigoMunicipio={localPrestacaoCodigoMunicipio}
+                valorTotalServicos={calc.valorServico}
+                valorTotalDeducoes={calc.deducoesMateriais}
+                valorTotalDescontos={calc.descontoIncondicionado + calc.descontoCondicionado}
+                baseCalculoISS={calc.baseCalculoISS}
+                aliquotaISS={aliquotaISS}
+                valorTotalISS={calc.valorISS}
+                valorPIS={calc.valorPIS}
+                valorCOFINS={calc.valorCOFINS}
+                valorIRRF={calc.valorIRRF}
+                valorCSLL={calc.valorCSLL}
+                valorINSS={calc.valorINSS}
+                valorCBS={calc.valorCBS}
+                valorIBSUF={calc.valorIBSUF}
+                valorIBSMun={calc.valorIBSMun}
+                valorTotalIBS={calc.valorTotalIBS}
+                valorLiquidoNfse={calc.valorLiquido}
+                valorTotalISSRetido={calc.valorISSRetido}
+                informacoesComplementares={informacoesComplementares}
+              />
+            </div>
+
+            <div className="shrink-0 bg-white border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPreview(false)}
+                disabled={isTransmitting}
+                className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium cursor-pointer transition-colors disabled:opacity-50"
+              >
+                Voltar e Revisar
+              </button>
+              <button
+                type="button"
+                onClick={handleTransmitirNfse}
+                disabled={isTransmitting}
+                className={`px-4 py-2 rounded-lg ${corBgButton} text-white font-semibold shadow-sm cursor-pointer disabled:opacity-60 flex items-center gap-2 transition-colors`}
+              >
+                {isTransmitting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Transmitindo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Confirmar e Transmitir</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

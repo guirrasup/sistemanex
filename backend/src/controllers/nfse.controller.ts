@@ -1,6 +1,8 @@
 // backend/src/controllers/nfse.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
-import { NfseService } from '../services/nfse.service';
+import { NfseService } from '../services/nfse.service.js';
+import { EmailService } from '../services/email.service.js';
 import { StatusDocumento } from '@prisma/client';
 
 // ============================================================
@@ -21,7 +23,7 @@ interface RequestComUsuario extends Request {
 // ============================================================
 
 function validarChaveAcesso(chave: string): boolean {
-  return /^[0-9]{53}$/.test(chave);
+  return /^[0-9]{50}$/.test(chave);
 }
 
 function validarTJust(texto: string): boolean {
@@ -32,15 +34,68 @@ function validarProtocolo(protocolo: string): boolean {
   return /^[0-9]{15}$/.test(protocolo) || /^[0-9]{17}$/.test(protocolo);
 }
 
+const ANO_RESUMO_MINIMO = 2000;
+const ANO_RESUMO_MAXIMO = 2100;
+
 // ============================================================
 // CONTROLLER
 // ============================================================
 
 export class NfseController {
   private nfseService: NfseService;
+  private emailService: EmailService;
 
   constructor() {
     this.nfseService = new NfseService();
+    this.emailService = new EmailService();
+  }
+
+  async enviarXmlPorEmail(req: RequestComUsuario, res: Response) {
+    try {
+      const empresaId = req.user?.empresaId;
+      const { id } = req.params;
+      const { destinatarioEmail } = req.body as { destinatarioEmail?: string };
+
+      if (!empresaId) {
+        return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
+      }
+      if (!destinatarioEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatarioEmail)) {
+        return res.status(400).json({ sucesso: false, erro: 'Informe um e-mail de destino válido' });
+      }
+      if (!this.emailService.estaConfigurado()) {
+        return res.status(503).json({
+          sucesso: false,
+          erro: 'Envio de e-mail não configurado no servidor (SMTP_HOST/SMTP_USER/SMTP_PASS ausentes).',
+        });
+      }
+
+      const nfse = await this.nfseService.buscarPorId(id, empresaId);
+      if (!nfse) {
+        return res.status(404).json({ sucesso: false, erro: 'NFS-e não encontrada' });
+      }
+      if (!nfse.xmlAssinado) {
+        return res.status(404).json({ sucesso: false, erro: 'XML da NFS-e não disponível' });
+      }
+
+      await this.emailService.enviar({
+        destinatario: destinatarioEmail,
+        assunto: `NFS-e nº ${nfse.numeroNfse} — ${nfse.chaveAcesso}`,
+        corpoTexto:
+          `Segue em anexo o XML da NFS-e nº ${nfse.numeroNfse}, série ${nfse.serieDPS}.\n\n` +
+          `Chave de acesso: ${nfse.chaveAcesso}\n` +
+          `Status: ${nfse.status}\n` +
+          (nfse.protocoloAutorizacao ? `Protocolo: ${nfse.protocoloAutorizacao}\n` : ''),
+        anexos: [{ nomeArquivo: `NFSe_${nfse.numeroNfse}_${nfse.chaveAcesso}.xml`, conteudo: nfse.xmlAssinado, tipoConteudo: 'application/xml' }],
+      });
+
+      return res.json({ sucesso: true, mensagem: `XML enviado para ${destinatarioEmail}` });
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao enviar XML por e-mail:', error);
+      return res.status(400).json({
+        sucesso: false,
+        erro: error instanceof Error ? error.message : 'Erro ao enviar XML por e-mail',
+      });
+    }
   }
 
   async listar(req: RequestComUsuario, res: Response) {
@@ -77,11 +132,11 @@ export class NfseController {
         }
       }
 
-      // ✅ VALIDA TChNFSe (53 dígitos) - se fornecida
+      // ✅ VALIDA TChNFSe (50 dígitos) - se fornecida
       if (chave && !validarChaveAcesso(chave)) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'Chave de acesso inválida: deve ter 53 dígitos (TChNFSe)'
+          erro: 'Chave de acesso inválida: deve ter 50 dígitos (TChNFSe)'
         });
       }
 
@@ -105,11 +160,11 @@ export class NfseController {
         dados: result,
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro no NFS-e listar:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro no NFS-e listar:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao listar NFS-e',
+        erro: error instanceof Error ? error.message : 'Erro ao listar NFS-e',
       });
     }
   }
@@ -154,11 +209,11 @@ export class NfseController {
         dados: nfse,
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar NFS-e por ID:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar NFS-e por ID:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFS-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e'
       });
     }
   }
@@ -175,11 +230,11 @@ export class NfseController {
         });
       }
 
-      // ✅ VALIDA TChNFSe (53 dígitos)
+      // ✅ VALIDA TChNFSe (50 dígitos)
       if (!validarChaveAcesso(chave)) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'Chave de acesso inválida: deve ter 53 dígitos (TChNFSe)'
+          erro: 'Chave de acesso inválida: deve ter 50 dígitos (TChNFSe)'
         });
       }
 
@@ -204,11 +259,11 @@ export class NfseController {
         dados: nfse,
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar NFS-e por chave:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar NFS-e por chave:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFS-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e'
       });
     }
   }
@@ -254,11 +309,11 @@ export class NfseController {
         dados: nfse,
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar NFS-e por protocolo:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar NFS-e por protocolo:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFS-e'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e'
       });
     }
   }
@@ -320,11 +375,11 @@ export class NfseController {
         mensagem: 'NFS-e emitida e autorizada com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro no NFS-e emitir:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro no NFS-e emitir:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao emitir NFS-e',
+        erro: error instanceof Error ? error.message : 'Erro ao emitir NFS-e',
       });
     }
   }
@@ -372,11 +427,11 @@ export class NfseController {
         mensagem: 'NFS-e cancelada com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro no NFS-e cancelar:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro no NFS-e cancelar:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao cancelar NFS-e',
+        erro: error instanceof Error ? error.message : 'Erro ao cancelar NFS-e',
       });
     }
   }
@@ -403,11 +458,11 @@ export class NfseController {
 
       return res.send(xml);
 
-    } catch (error: any) {
-      console.error('❌ Erro ao baixar XML:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao baixar XML:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao baixar XML'
+        erro: error instanceof Error ? error.message : 'Erro ao baixar XML'
       });
     }
   }
@@ -431,11 +486,11 @@ export class NfseController {
         dados
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao gerar DANFSe:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao gerar DANFSe:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao gerar DANFSe'
+        erro: error instanceof Error ? error.message : 'Erro ao gerar DANFSe'
       });
     }
   }
@@ -458,11 +513,11 @@ export class NfseController {
         dados: estatisticas
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar estatísticas:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar estatísticas:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar estatísticas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar estatísticas'
       });
     }
   }
@@ -488,11 +543,11 @@ export class NfseController {
         dados: result
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar total faturado:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar total faturado:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar total faturado'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar total faturado'
       });
     }
   }
@@ -512,7 +567,7 @@ export class NfseController {
       const mes = parseInt(req.query.mes as string) || new Date().getMonth() + 1;
 
       // ✅ VALIDA ANO E MÊS
-      if (ano < 2000 || ano > 2100) {
+      if (ano < ANO_RESUMO_MINIMO || ano > ANO_RESUMO_MAXIMO) {
         return res.status(400).json({
           sucesso: false,
           erro: 'Ano inválido'
@@ -532,11 +587,11 @@ export class NfseController {
         dados: resumo
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar resumo mensal:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar resumo mensal:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar resumo mensal'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar resumo mensal'
       });
     }
   }
@@ -568,11 +623,11 @@ export class NfseController {
         dados: servicos
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar serviços mais prestados:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar serviços mais prestados:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar serviços mais prestados'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar serviços mais prestados'
       });
     }
   }
@@ -602,11 +657,11 @@ export class NfseController {
         dados: nfsesFiltradas
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar NFS-e por tomador:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar NFS-e por tomador:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFS-e por tomador'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e por tomador'
       });
     }
   }
@@ -636,11 +691,11 @@ export class NfseController {
         dados: nfsesFiltradas
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar NFS-e por serviço:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao buscar NFS-e por serviço:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar NFS-e por serviço'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar NFS-e por serviço'
       });
     }
   }

@@ -30,6 +30,7 @@ import {
 import { Transportadora } from '../../services/transportadora.service';
 import { formatarCpfCnpj, validarCpfOuCnpj } from '../../utils/cpfCnpjValidator';
 import { transportadoraService } from '../../services/transportadora.service';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 
@@ -280,9 +281,9 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
       setModalOpen(false);
       onTransportadorasChange();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao salvar transportadora:', error);
-      const mensagem = error.response?.data?.erro || error.message || 'Erro ao salvar transportadora';
+      const mensagem = getApiErrorMessage(error, 'Erro ao salvar transportadora');
       setErro(mensagem);
       toast.showError(`❌ ${mensagem}`);
     } finally {
@@ -331,10 +332,10 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
         setErro(mensagemErro);
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao excluir transportadora:', error);
-      
-      const mensagemErro = error?.response?.data?.erro || error?.message || 'Erro ao excluir transportadora';
+
+      const mensagemErro = getApiErrorMessage(error, 'Erro ao excluir transportadora');
       
       closeConfirmModal();
       toast.showError(`❌ ${mensagemErro}`);
@@ -364,8 +365,8 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
     );
 
     return [...filtrados].sort((a, b) => {
-      let valorA: any;
-      let valorB: any;
+      let valorA: unknown;
+      let valorB: unknown;
 
       if (ordenacaoCampo === 'endereco.nomeMunicipio') {
         valorA = a.endereco?.nomeMunicipio || '';
@@ -409,7 +410,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                 <label className="block font-semibold text-slate-700 mb-1">Tipo</label>
                 <select
                   value={tipoPessoa}
-                  onChange={(e) => setTipoPessoa(e.target.value as any)}
+                  onChange={(e) => setTipoPessoa(e.target.value as 'PJ' | 'PF' | 'EXTERIOR')}
                   className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
                 >
                   <option value="PJ">Pessoa Jurídica</option>
@@ -534,7 +535,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                 <label className="block font-semibold text-slate-700 mb-1">Regime Tributário</label>
                 <select
                   value={regimeTributario}
-                  onChange={(e) => setRegimeTributario(e.target.value as any)}
+                  onChange={(e) => setRegimeTributario(e.target.value as 'SIMPLES_NACIONAL' | 'SIMPLES_EXCESSO' | 'NORMAL')}
                   className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
                 >
                   <option value="SIMPLES_NACIONAL">Simples Nacional</option>

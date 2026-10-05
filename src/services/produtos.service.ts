@@ -33,12 +33,12 @@ export const produtosService = {
     return response.data;
   },
 
-  async criar(data: any) {
+  async criar(data: Omit<Produto, 'id' | 'empresaId' | 'createdAt' | 'updatedAt'>) {
     const response = await api.post('/produtos', data);
     return response.data;
   },
 
-  async atualizar(id: string, data: any) {
+  async atualizar(id: string, data: Partial<Omit<Produto, 'id' | 'empresaId' | 'createdAt' | 'updatedAt'>>) {
     const response = await api.put(`/produtos/${id}`, data);
     return response.data;
   },
@@ -49,7 +49,7 @@ export const produtosService = {
   },
 
   // 🔥 CORRIGIDO: SEMPRE RETORNA UM ARRAY
-  async buscarEstoqueCritico(): Promise<any[]> {
+  async buscarEstoqueCritico(): Promise<Produto[]> {
     try {
       const response = await api.get('/produtos/estoque-critico');
       

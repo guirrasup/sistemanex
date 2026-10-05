@@ -1,6 +1,7 @@
 // backend/src/controllers/transportadora.controller.ts
+import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
-import { TransportadoraService } from '../services/transportadora.service';
+import { TransportadoraService } from '../services/transportadora.service.js';
 
 export class TransportadoraController {
   private transportadoraService: TransportadoraService;
@@ -31,11 +32,11 @@ export class TransportadoraController {
       );
 
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
-      console.error('❌ Erro ao listar transportadoras:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao listar transportadoras:', error);
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao listar transportadoras'
+        erro: error instanceof Error ? error.message : 'Erro ao listar transportadoras'
       });
     }
   }
@@ -62,10 +63,10 @@ export class TransportadoraController {
       }
 
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar transportadora'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar transportadora'
       });
     }
   }
@@ -92,10 +93,10 @@ export class TransportadoraController {
       }
 
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar transportadora por CNPJ'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar transportadora por CNPJ'
       });
     }
   }
@@ -113,10 +114,10 @@ export class TransportadoraController {
 
       const dados = await this.transportadoraService.buscarAtivos(empresaId);
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar transportadoras ativas'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar transportadoras ativas'
       });
     }
   }
@@ -135,10 +136,10 @@ export class TransportadoraController {
 
       const dados = await this.transportadoraService.buscarPorTipo(empresaId, tipo);
       return res.json({ sucesso: true, dados });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro ao buscar transportadoras por tipo'
+        erro: error instanceof Error ? error.message : 'Erro ao buscar transportadoras por tipo'
       });
     }
   }
@@ -164,11 +165,11 @@ export class TransportadoraController {
         dados,
         mensagem: 'Transportadora criada com sucesso'
       });
-    } catch (error: any) {
-      console.error('❌ Erro ao criar transportadora:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao criar transportadora:', error);
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao criar transportadora'
+        erro: error instanceof Error ? error.message : 'Erro ao criar transportadora'
       });
     }
   }
@@ -192,10 +193,10 @@ export class TransportadoraController {
         dados,
         mensagem: 'Transportadora atualizada com sucesso'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(400).json({
         sucesso: false,
-        erro: error.message || 'Erro ao atualizar transportadora'
+        erro: error instanceof Error ? error.message : 'Erro ao atualizar transportadora'
       });
     }
   }
@@ -227,26 +228,28 @@ export class TransportadoraController {
         mensagem: 'Transportadora excluída com sucesso'
       });
 
-    } catch (error: any) {
-      console.error('❌ Erro ao excluir transportadora:', error);
+    } catch (error: unknown) {
+      logger.error('❌ Erro ao excluir transportadora:', error);
 
-      if (error.message.includes('não encontrada')) {
+      const mensagem = error instanceof Error ? error.message : 'Erro interno ao excluir transportadora';
+
+      if (mensagem.includes('não encontrada')) {
         return res.status(404).json({
           sucesso: false,
-          erro: error.message
+          erro: mensagem
         });
       }
 
-      if (error.message.includes('vínculo') || error.message.includes('CT-e')) {
+      if (mensagem.includes('vínculo') || mensagem.includes('CT-e')) {
         return res.status(409).json({
           sucesso: false,
-          erro: error.message
+          erro: mensagem
         });
       }
 
       return res.status(500).json({
         sucesso: false,
-        erro: error.message || 'Erro interno ao excluir transportadora'
+        erro: mensagem
       });
     }
   }

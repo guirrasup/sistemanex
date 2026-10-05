@@ -4,6 +4,7 @@ import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { LandingPageView } from './components/landing/LandingPageView';
 import { LoginView } from './components/auth/LoginView';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { DashboardReal } from './components/dashboard/DashboardReal';
 import { AlertasSistema } from './components/ui/AlertasSistema';
 import { NfseEmissor } from './components/fiscal/NfseEmissor';
@@ -14,7 +15,7 @@ import { NfaeEmissor } from './components/fiscal/NfaeEmissor';
 // 🔥 NOVO - MDF-e
 import { MdfeEmissor } from './components/fiscal/MdfeEmissor';
 import { DamdfeViewer } from './components/fiscal/DamdfeViewer';
-import { DocumentosFiscaisList } from './components/fiscal/DocumentosFiscaisList';
+import { DocumentosFiscaisList, TipoDocumentoFiltro } from './components/fiscal/DocumentosFiscaisList';
 import { DanfseViewer } from './components/fiscal/DanfseViewer';
 import { DanfeViewer } from './components/fiscal/DanfeViewer';
 import { DanfceViewer } from './components/fiscal/DanfceViewer';
@@ -46,8 +47,10 @@ import { nfaeService } from './services/nfae.service';
 // 🔥 NOVO - MDF-e service
 import { mdfeService } from './services/mdfe.service';
 import { transportadoraService, Transportadora } from './services/transportadora.service';
+import { cfopService, Cfop } from './services/cfop.service';
+import { empresaService } from './services/empresa.service';
 import { LoadingDinamico } from './components/ui/LoadingDinamico';
-import api from './services/api';
+import api, { EVENTO_SESSAO_EXPIRADA } from './services/api';
 
 // 🔥 CACHE DE DADOS PARA EVITAR REQUISIÇÕES DUPLICADAS
 interface CacheData {
@@ -63,10 +66,12 @@ interface CacheData {
   // 🔥 NOVO - MDF-e
   mdfes: MDFeDocumento[];
   transportadoras: Transportadora[];
+  empresa: ConfiguracaoEmpresa;
   timestamp: number;
 }
 
 const CACHE_TTL = 30000; // 30 segundos
+const REFRESH_DEBOUNCE_MS = 2000;
 
 export default function App() {
   // 🔥 Autenticação e Sessão
@@ -86,10 +91,24 @@ export default function App() {
     return null;
   });
 
-  const [telaNaoLogado, setTelaNaoLogado] = useState<'landing' | 'login'>('landing');
+  // Link do e-mail de recuperação: /redefinir-senha?token=... abre direto o
+  // formulário de nova senha (nginx e vite já fazem fallback para o index.html).
+  const [tokenRedefinicao, setTokenRedefinicao] = useState<string | null>(() =>
+    window.location.pathname.replace(/\/+$/, '') === '/redefinir-senha'
+      ? new URLSearchParams(window.location.search).get('token')
+      : null
+  );
+  const [telaNaoLogado, setTelaNaoLogado] = useState<'landing' | 'login'>(() =>
+    tokenRedefinicao ? 'login' : 'landing'
+  );
+  const [avisoLogin, setAvisoLogin] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [carregando, setCarregando] = useState<boolean>(true);
+  // 🔥 Com qual tipo a tela de Documentos Emitidos deve abrir — null (ou
+  // navegação genérica pelo menu) mostra todos os tipos; um atalho por tipo
+  // (ex.: badge do Dashboard) já entra filtrado, sem exigir seleção manual.
+  const [documentosTipoInicial, setDocumentosTipoInicial] = useState<TipoDocumentoFiltro | null>(null);
 
   // App State
   const [empresa, setEmpresa] = useState<ConfiguracaoEmpresa>(StorageService.getConfiguracao());
@@ -105,12 +124,23 @@ export default function App() {
   const [servicos, setServicos] = useState<ServicoCatalogo[]>([]);
   const [titulos, setTitulos] = useState<TituloFinanceiro[]>([]);
   const [transportadoras, setTransportadoras] = useState<Transportadora[]>([]);
+  // 🔥 CFOP é catálogo nacional estático (Ajuste SINIEF 07/2001) — buscado uma
+  // única vez, fora do ciclo de cache/refresh de 30s dos dados transacionais.
+  const [cfops, setCfops] = useState<Cfop[]>([]);
 
   // Modal Viewers
-  const [viewingDanfse, setViewingDanfse] = useState<NFSeDocumento | null>(null);
-  const [viewingDanfe, setViewingDanfe] = useState<NFeDocumento | null>(null);
-  const [viewingDanfce, setViewingDanfce] = useState<NFCeDocumento | null>(null);
-  const [viewingDacte, setViewingDacte] = useState<CTeDocumento | null>(null);
+  // 🔥 Só o id — DanfseViewer busca o registro completo (mesmo padrão do
+  // DanfeViewer/DanfceViewer).
+  const [viewingDanfse, setViewingDanfse] = useState<string | null>(null);
+  // 🔥 Guarda só o id — DanfeViewer busca o registro completo por conta
+  // própria (a listagem de NF-e não inclui os dados da empresa emitente).
+  const [viewingDanfe, setViewingDanfe] = useState<string | null>(null);
+  // 🔥 Só o id — DanfceViewer busca o registro completo (mesmo padrão do
+  // DanfeViewer, NF-e).
+  const [viewingDanfce, setViewingDanfce] = useState<string | null>(null);
+  // 🔥 Só o id — DacteViewer busca o registro completo (mesmo padrão do
+  // DanfeViewer/DanfceViewer/DanfseViewer).
+  const [viewingDacte, setViewingDacte] = useState<string | null>(null);
   const [viewingDanfae, setViewingDanfae] = useState<NFAeDocumento | null>(null);
   // 🔥 NOVO - MDF-e Viewer
   const [viewingMdfe, setViewingMdfe] = useState<MDFeDocumento | null>(null);
@@ -119,6 +149,14 @@ export default function App() {
   const isRefreshing = useRef(false);
   const lastRefreshTime = useRef(0);
   const cacheRef = useRef<CacheData | null>(null);
+  // 🔥 `carregando` faz o App inteiro dar `return <LoadingScreen/>` (ver
+  // render abaixo) — ótimo pro carregamento inicial, mas um refresh forçado
+  // em segundo plano (chamado por handleNfeEmitida e equivalentes, toda vez
+  // que um documento é emitido) usava o mesmo flag e desmontava a árvore
+  // inteira por um instante, resetando qualquer state local de componente
+  // (ex.: um modal de resumo pós-emissão) antes mesmo do usuário conseguir
+  // vê-lo. Só a primeira carga (login) deve acionar a tela cheia de loading.
+  const jaCarregouUmaVez = useRef(false);
 
   // ============================================================
   // FUNÇÃO DE REFRESH COM CACHE E CONTROLE DE CONCORRÊNCIA
@@ -146,12 +184,13 @@ export default function App() {
         // 🔥 NOVO - MDF-e
         setMdfes(cache.mdfes || []);
         setTransportadoras(cache.transportadoras || []);
+        if (cache.empresa) setEmpresa(cache.empresa);
                 return;
       }
     }
 
     const now = Date.now();
-    if (now - lastRefreshTime.current < 2000) {
+    if (now - lastRefreshTime.current < REFRESH_DEBOUNCE_MS) {
             return;
     }
     lastRefreshTime.current = now;
@@ -159,8 +198,8 @@ export default function App() {
     isRefreshing.current = true;
 
     try {
-      setCarregando(true);
-      
+      if (!jaCarregouUmaVez.current) setCarregando(true);
+
       const token = localStorage.getItem('@sup:token');
             
       if (!token) {
@@ -186,18 +225,33 @@ export default function App() {
         clientesService.listar(1, 100),
         servicosService.listar(1, 100),
         financeiroService.listar(1, 100),
-        nfseService.listar(1, 100),
-        nfeService.listar(1, 100),
-        nfceService.listar(1, 100),
-        cteService.listar(1, 100),
-        nfaeService.listar(1, 100),
+        // 🔥 nfse/nfe/nfce/cte/nfae/mdfe usam filtros como objeto, não (page, limit)
+        // posicional — chamar como as outras services acima faz o limit=100 ser
+        // silenciosamente ignorado (cai no default interno de cada service, 50),
+        // truncando a lista sempre que o tipo passar de 50 documentos.
+        nfseService.listar({ page: 1, limit: 100 }),
+        nfeService.listar({ page: 1, limit: 100 }),
+        nfceService.listar({ page: 1, limit: 100 }),
+        cteService.listar({ page: 1, limit: 100 }),
+        nfaeService.listar({ page: 1, limit: 100 }),
         // 🔥 NOVO - MDF-e
-        mdfeService.listar(1, 100),
+        mdfeService.listar({ page: 1, limit: 100 }),
         transportadoraService.listar(1, 100),
       ];
 
-            
-      const results = await Promise.allSettled(servicePromises);
+      // 🔥 empresa nunca era buscada da API real em lugar nenhum do app — o
+      // estado `empresa` ficava travado no fallback local (StorageService,
+      // dados fictícios do protótipo) pra sempre, mesmo logado e com token
+      // válido. Buscada à parte porque devolve um objeto único, não uma lista
+      // paginada como os outros serviços acima (getData() abaixo espera
+      // {data: [...]} em todos os itens de servicePromises).
+      const [results, empresaReal] = await Promise.all([
+        Promise.allSettled(servicePromises),
+        empresaService.obterMinhaEmpresa().catch((err) => {
+          console.warn('⚠️ Falha ao buscar dados reais da empresa, usando fallback local:', err);
+          return null;
+        }),
+      ]);
 
             let hasError = false;
       
@@ -219,7 +273,7 @@ export default function App() {
         console.warn('⚠️ Algumas requisições falharam, mas continuando...');
       }
 
-      const getData = (result: PromiseSettledResult<any>, index: number) => {
+      const getData = (result: PromiseSettledResult<{ dados?: { data?: unknown[] }; data?: unknown[] }>, index: number) => {
         if (result.status === 'fulfilled') {
           const value = result.value;
           const data = value?.dados?.data || value?.data || [];
@@ -244,7 +298,7 @@ export default function App() {
         transportadorasResult
       ] = results.map((r, i) => getData(r, i));
 
-      const empresaConfig = StorageService.getConfiguracao();
+      const empresaConfig = empresaReal || StorageService.getConfiguracao();
 
       const cacheData: CacheData = {
         produtos: produtosResult.data || [],
@@ -259,6 +313,7 @@ export default function App() {
         // 🔥 NOVO - MDF-e
         mdfes: mdfesResult.data || [],
         transportadoras: transportadorasResult.data || [],
+        empresa: empresaConfig,
         timestamp: Date.now()
       };
 
@@ -282,12 +337,20 @@ export default function App() {
       StorageService.saveClientes(cacheData.clientes);
       StorageService.saveServicos(cacheData.servicos);
       StorageService.saveTitulos(cacheData.titulos);
+      // 🔥 Sem isso, uma busca real da empresa bem-sucedida nunca atualizava o
+      // cache local (sup_empresa_config) — se uma busca FUTURA falhasse (rede,
+      // etc.), o fallback usaria um snapshot desatualizado da empresa (ex.:
+      // código de município errado corrigido no servidor, mas ainda velho no
+      // localStorage), reintroduzindo um bug já corrigido no banco.
+      if (empresaReal) {
+        StorageService.saveConfiguracao(empresaReal);
+      }
       
                                                                          // 🔥 NOVO
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ ERRO GLOBAL no refreshData:');
-      console.error('   Mensagem:', error.message);
+      console.error('   Mensagem:', error instanceof Error ? error.message : error);
       
       console.warn('⚠️ Usando fallback para cache local');
       setProdutos(StorageService.getProdutos());
@@ -303,6 +366,7 @@ export default function App() {
       setTransportadoras([]);
     } finally {
       setCarregando(false);
+      jaCarregouUmaVez.current = true;
       isRefreshing.current = false;
           }
   }, []);
@@ -312,7 +376,7 @@ export default function App() {
   // ============================================================
 
   const handleLogin = async (user: UsuarioAuth) => {
-            
+    setAvisoLogin(null);
     StorageService.saveUsuarioLogado(user);
     setUsuarioLogado(user);
     setCurrentView('dashboard');
@@ -345,6 +409,20 @@ export default function App() {
     setTransportadoras([]);
     cacheRef.current = null;
   };
+
+  // O backend recusou a sessão (token expirado ou JWT_SECRET trocado no
+  // servidor): o api.ts já limpou o token — aqui volta para o login com aviso.
+  // handleLogout só usa setters e localStorage, então a closure inicial basta.
+  useEffect(() => {
+    const handleSessaoExpirada = () => {
+      handleLogout();
+      setTelaNaoLogado('login');
+      setAvisoLogin('Sua sessão expirou ou é inválida. Faça login novamente.');
+    };
+    window.addEventListener(EVENTO_SESSAO_EXPIRADA, handleSessaoExpirada);
+    return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, handleSessaoExpirada);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleExportBackup = () => {
     const jsonStr = StorageService.exportBackupJson();
@@ -382,14 +460,32 @@ export default function App() {
     refreshData(true);
   };
 
+  // 🔥 Navegação genérica (Header/Sidebar): ao entrar em "Documentos Emitidos"
+  // por um item de menu comum, limpa qualquer tipo herdado de um atalho
+  // anterior — essa entrada sempre mostra todos os tipos.
+  const handleNavigate = (view: string) => {
+    if (view === 'documentos-fiscais') {
+      setDocumentosTipoInicial(null);
+    }
+    setCurrentView(view);
+  };
+
+  // 🔥 Navegação por tipo (ex.: atalho de um tipo específico no Dashboard):
+  // já abre "Documentos Emitidos" filtrado, sem exigir seleção manual.
+  const handleNavigateDocumentosTipo = (tipo: TipoDocumentoFiltro) => {
+    setDocumentosTipoInicial(tipo);
+    setCurrentView('documentos-fiscais');
+  };
+
   // ============================================================
   // EFFECT
   // ============================================================
 
   useEffect(() => {
-            
+
     if (usuarioLogado) {
             refreshData(false);
+            cfopService.listar().then(setCfops);
     } else {
             setCarregando(false);
     }
@@ -434,7 +530,13 @@ export default function App() {
       <LoginView 
         empresa={empresa} 
         onLogin={handleLogin} 
-        onBackToLanding={() => setTelaNaoLogado('landing')} 
+        onBackToLanding={() => setTelaNaoLogado('landing')}
+        tokenRedefinicao={tokenRedefinicao}
+        aviso={avisoLogin}
+        onRedefinicaoConcluida={() => {
+          setTokenRedefinicao(null);
+          window.history.replaceState(null, '', '/');
+        }}
       />
     );
   }
@@ -451,7 +553,7 @@ export default function App() {
           empresa={empresa}
           usuario={usuarioLogado}
           currentView={currentView}
-          onNavigate={(view) => setCurrentView(view)}
+          onNavigate={handleNavigate}
           onExportarBackup={handleExportBackup}
           onLogout={handleLogout}
         />
@@ -460,7 +562,7 @@ export default function App() {
           
           <Sidebar
             currentView={currentView}
-            onNavigate={(view) => setCurrentView(view)}
+            onNavigate={handleNavigate}
             isOpen={sidebarOpen}
             onToggle={() => setSidebarOpen(!sidebarOpen)}
             contadores={{
@@ -482,18 +584,23 @@ export default function App() {
 
           <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50">
             <div className="max-w-7xl mx-auto">
-              
+              {/* key: trocar de tela remonta o boundary e limpa o erro anterior */}
+              <ErrorBoundary key={currentView} onVoltar={() => handleNavigate('dashboard')}>
+
               {currentView === 'dashboard' && (
-                <DashboardReal 
+                <DashboardReal
                   nfses={nfses}
                   nfes={nfes}
                   nfces={nfces}
                   ctes={ctes}
                   nfaes={nfaes}
+                  mdfes={mdfes}
                   produtos={produtos}
                   clientes={clientes}
-                  servicos={servicos} 
                   titulos={titulos}
+                  transportadoras={transportadoras}
+                  onNavigateDocumentosTipo={handleNavigateDocumentosTipo}
+                  onNavigate={handleNavigate}
                 />
               )}
 
@@ -502,6 +609,8 @@ export default function App() {
                   empresa={empresa}
                   clientes={clientes}
                   produtos={produtos}
+                  transportadoras={transportadoras}
+                  cfops={cfops}
                   onNfeEmitida={handleNfeEmitida}
                   onViewDanfe={(doc) => setViewingDanfe(doc)}
                 />
@@ -558,16 +667,22 @@ export default function App() {
 
               {currentView === 'documentos-fiscais' && (
                 <DocumentosFiscaisList
+                  // 🔥 Remonta ao trocar de tipo inicial (atalho por tipo), pra
+                  // limpar filtros/ordenação residuais de uma entrada anterior.
+                  key={documentosTipoInicial || 'todos'}
+                  initialTipo={documentosTipoInicial || 'TODOS'}
                   nfses={nfses}
                   nfes={nfes}
                   nfces={nfces}
                   ctes={ctes}
                   nfaes={nfaes}
+                  mdfes={mdfes}
                   onViewDanfse={(doc) => setViewingDanfse(doc)}
                   onViewDanfe={(doc) => setViewingDanfe(doc)}
                   onViewDanfce={(doc) => setViewingDanfce(doc)}
                   onViewDacte={(doc) => setViewingDacte(doc)}
                   onViewDanfae={(doc) => setViewingDanfae(doc)}
+                  onViewMdfe={(doc) => setViewingMdfe(doc)}
                   onEmitirNovaNfse={() => setCurrentView('nfse-emissor')}
                   onEmitirNovaNfe={() => setCurrentView('nfe-emissor')}
                   onEmitirNovaNfce={() => setCurrentView('nfce-emissor')}
@@ -581,6 +696,7 @@ export default function App() {
               {currentView === 'produtos' && (
                 <ProdutosView
                   produtos={produtos}
+                  cfops={cfops}
                   onProdutosChange={() => {
                     cacheRef.current = null;
                     refreshData(true);
@@ -653,6 +769,7 @@ export default function App() {
                 <ConsultaCnpjView onNavigate={(view) => setCurrentView(view)} />
               )}
 
+              </ErrorBoundary>
             </div>
           </main>
         </div>
@@ -661,14 +778,15 @@ export default function App() {
 
         {viewingDanfse && (
           <DanfseViewer
-            nfse={viewingDanfse}
+            nfseId={viewingDanfse}
             onClose={() => setViewingDanfse(null)}
           />
         )}
 
         {viewingDanfe && (
           <DanfeViewer
-            nfe={viewingDanfe}
+            nfeId={viewingDanfe}
+            empresa={empresa}
             onClose={() => setViewingDanfe(null)}
           />
         )}
@@ -677,7 +795,8 @@ export default function App() {
           <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 relative">
               <DanfceViewer
-                nfce={viewingDanfce}
+                nfceId={viewingDanfce}
+                empresa={empresa}
                 onBack={() => setViewingDanfce(null)}
               />
             </div>
@@ -688,7 +807,7 @@ export default function App() {
           <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-4 relative">
               <DacteViewer
-                cte={viewingDacte}
+                cteId={viewingDacte}
                 onBack={() => setViewingDacte(null)}
               />
             </div>

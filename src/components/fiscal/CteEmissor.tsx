@@ -1,12 +1,12 @@
 // src/components/fiscal/CteEmissor.tsx
 import React, { useState } from 'react';
 import { 
-  Truck, Send, CheckCircle2, AlertTriangle, Eye, Download,
+  Truck, Send, AlertTriangle,
   MapPin, Package, FileText, UserCheck, CreditCard,
   Plus, Trash2, Navigation, Route, Weight, Box,
   User, Building, Calculator, Receipt, Barcode,
   Calendar, Clock, Info, Shield, DollarSign, Layers,
-  Hash, Mail, Phone, Home, MapPinned, Users, FileBadge2
+  Hash, Mail, Phone, Home, MapPinned, Users, FileBadge2, RefreshCw
 } from 'lucide-react';
 import { CTeDocumento, CTeComponenteValor, CTeQuantidade, CTeDocumentoTransportado } from '../../types/fiscal';
 import { ClienteFornecedor, ConfiguracaoEmpresa, TransportadoraERP } from '../../types/erp';
@@ -15,6 +15,9 @@ import { formatarMoeda, formatarCpfCnpj, validarCpfOuCnpj, limparDocumento } fro
 import { gerarChaveAcessoNFe, calcularDVMod11NFe } from '../../utils/chaveAcesso';
 import { cteService } from '../../services/cte.service';
 import { useToast } from '../../hooks/useToast';
+import { getApiErrorMessage } from '../../utils/apiError';
+import { DacteLayout } from './DacteLayout';
+import { ResumoEmissaoModal } from './ResumoEmissaoModal';
 
 // ============================================================
 // INTERFACES
@@ -25,7 +28,7 @@ interface CteEmissorProps {
   clientes: ClienteFornecedor[];
   transportadoras: TransportadoraERP[];
   onCteEmitido: (cte: CTeDocumento) => void;
-  onViewDacte: (cte: CTeDocumento) => void;
+  onViewDacte: (cteId: string) => void;
 }
 
 // ============================================================
@@ -54,10 +57,14 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
   // ============================================================
   // STATE - IDENTIFICAÇÃO (ide)
   // ============================================================
-  const [cUF, setCUF] = useState<string>(empresa.endereco?.codigoMunicipio?.slice(0, 2) || '35');
   const [cCT, setCCT] = useState<string>('');
   const [CFOP, setCFOP] = useState<string>('6353');
-  const [natOp, setNatOp] = useState<string>('Prestação de Serviço de Transporte de Cargas Intermunicipal / Interestadual');
+  // 🔥 CTe.natOp é VarChar(60) — o texto completo anterior ("Prestação de
+  // Serviço de Transporte de Cargas Intermunicipal / Interestadual", 75
+  // caracteres) sempre estourava a coluna e quebrava toda emissão real com
+  // "value too long for the column's type" (mesma classe de bug já corrigida
+  // pra NFS-e nesta sessão). Encurtado pra caber com folga.
+  const [natOp, setNatOp] = useState<string>('Prestação de Serviço de Transporte de Cargas');
   const [serie, setSerie] = useState<number>(1);
   const [tpImp, setTpImp] = useState<string>('1');
   const [tpEmis, setTpEmis] = useState<string>('1');
@@ -163,8 +170,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
   const [produtoPredominante, setProdutoPredominante] = useState<string>('Equipamentos de Tecnologia, Servidores e Peças de TI');
   const [xOutCat, setXOutCat] = useState<string>('FRIA, GRANEL, REFRIGERADA');
   const [valorCargaAverbada, setValorCargaAverbada] = useState<number>(85000);
-  const [vCarga, setVCarga] = useState<number>(85000);
-  
+
   const [quantidades, setQuantidades] = useState<CTeQuantidade[]>([
     { cUnid: '01', tpMed: 'PESO BRUTO', qCarga: 280 },
     { cUnid: '03', tpMed: 'VOLUMES', qCarga: 6 },
@@ -174,17 +180,26 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
   // STATE - DOCUMENTOS TRANSPORTADOS (infDoc)
   // ============================================================
   const [documentos, setDocumentos] = useState<CTeDocumentoTransportado[]>([]);
-  const [chavesNfeTexto, setChavesNfeTexto] = useState<string>('35260818236447000190550010000010411123456784');
+  // 🔥 O placeholder anterior tinha DV errado e, mesmo depois de corrigido o
+  // DV, ainda embutia um "CNPJ" que parece real mas não passa no dígito
+  // verificador de CNPJ (18236447000190) — a SEFAZ real valida os dois
+  // digitos, então toda emissão de teste era rejeitada ("DV inválido" e
+  // depois "CNPJ zerado ou inválido"). Refeito com um CNPJ de verdade
+  // (público, check-digit válido) e DV mod-11 correto.
+  const [chavesNfeTexto, setChavesNfeTexto] = useState<string>('35260847960950051702550010000010411123456780');
 
   // ============================================================
-  // STATE - VEÍCULO E MOTORISTA
+  // STATE - TRANSPORTADORA
   // ============================================================
-  const [rntrc, setRntrc] = useState<string>('09847123');
-  const [placaVeiculo, setPlacaVeiculo] = useState<string>('BRA2E26');
-  const [ufVeiculo, setUfVeiculo] = useState<string>('SP');
-  const [rntrcProprietario, setRntrcProprietario] = useState<string>('09847123');
-  const [motoristaNome, setMotoristaNome] = useState<string>('Marcos Vinicius de Castro');
-  const [motoristaCpf, setMotoristaCpf] = useState<string>('34298144891');
+  // 🔥 RNTRC/veículo/motorista foram removidos daqui — o modelo CTe no banco
+  // não tem coluna nenhuma pra esses 3 campos (confirmado no schema.prisma), e
+  // o XML real (layout 4.00) só usa o RNTRC vindo da Transportadora vinculada
+  // (Transportadora.rntrc, via transportadoraId — veículo/condutor migraram
+  // pro MDF-e no layout 4.00). Os campos antigos eram só teatro: coletados,
+  // validados pelo backend, e depois descartados (transportadoraId nunca era
+  // enviado). Agora seleciona a transportadora de verdade; sem transportadora
+  // (carga própria), o XML usa RNTRC "ISENTO" — comportamento legítimo.
+  const [selectedTransportadoraId, setSelectedTransportadoraId] = useState<string>('');
 
   // ============================================================
   // STATE - COMPONENTES DO VALOR (vPrest)
@@ -243,8 +258,11 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
   // STATE - UI
   // ============================================================
   const [isTransmitting, setIsTransmitting] = useState<boolean>(false);
+  const [isCarregandoUltima, setIsCarregandoUltima] = useState<boolean>(false);
   const [erros, setErros] = useState<string[]>([]);
   const [sucessoCte, setSucessoCte] = useState<CTeDocumento | null>(null);
+  const [tentouEnviar, setTentouEnviar] = useState<boolean>(false);
+  const [showPreview, setShowPreview] = useState<boolean>(false);
 
   // ============================================================
   // CÁLCULOS
@@ -356,7 +374,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
       .map(s => s.trim().replace(/\D/g, ''))
       .filter(s => s.length === 44);
 
-    const novosDocs = chaves.map(chave => ({
+    const novosDocs: CTeDocumentoTransportado[] = chaves.map(chave => ({
       tipo: 'NFe',
       chave,
       dEmi: new Date().toISOString(),
@@ -378,8 +396,12 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
     setQuantidades(prev => prev.filter((_, i) => i !== index));
   };
 
-  const atualizarQuantidade = (index: number, campo: string, valor: any) => {
-    setQuantidades(prev => prev.map((q, i) => 
+  const atualizarQuantidade = <K extends keyof (typeof quantidades)[number]>(
+    index: number,
+    campo: K,
+    valor: (typeof quantidades)[number][K]
+  ) => {
+    setQuantidades(prev => prev.map((q, i) =>
       i === index ? { ...q, [campo]: valor } : q
     ));
   };
@@ -393,9 +415,55 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
   };
 
   const atualizarAutXML = (index: number, campo: 'CNPJ' | 'CPF', valor: string) => {
-    setAutXML(prev => prev.map((a, i) => 
+    setAutXML(prev => prev.map((a, i) =>
       i === index ? { ...a, [campo]: valor } : a
     ));
+  };
+
+  // ============================================================
+  // CARREGAR ÚLTIMA NOTA
+  // ============================================================
+
+  const handleCarregarUltima = async () => {
+    setIsCarregandoUltima(true);
+    setErros([]);
+    try {
+      const resposta = await cteService.listar({ page: 1, limit: 1 });
+      const ultima = resposta.data?.[0];
+      if (!ultima) {
+        toast.showError('Nenhum CT-e anterior encontrado.');
+        return;
+      }
+
+      // Shape cru do backend (schema.prisma do CT-e segue o leiaute SEFAZ ao
+      // pé da letra) — não são chaves de documentos ou municípios de
+      // descarga/carga de propósito: são específicos da viagem anterior.
+      const raw = ultima as unknown as {
+        remetenteId?: string;
+        destinatarioId?: string;
+        transportadoraId?: string | null;
+        modal?: string;
+        tpServ?: string;
+        toma?: string;
+        natOp?: string;
+        CFOP?: string;
+        proPred?: string;
+      };
+
+      if (raw.remetenteId) handleSelectRemetente(raw.remetenteId);
+      if (raw.destinatarioId) handleSelectDestinatario(raw.destinatarioId);
+      setSelectedTransportadoraId(raw.transportadoraId || '');
+      if (raw.modal) setModal(raw.modal as ModalCTe);
+      if (raw.natOp) setNatOp(raw.natOp);
+      if (raw.CFOP) setCFOP(raw.CFOP);
+      if (raw.proPred) setProdutoPredominante(raw.proPred);
+
+      toast.showSuccess('Dados do último CT-e carregados (remetente, destinatário, modal, produto). Municípios de descarga e documentos transportados ficam de fora de propósito — revise antes de emitir.');
+    } catch (error: unknown) {
+      toast.showError(getApiErrorMessage(error, 'Erro ao carregar o último CT-e'));
+    } finally {
+      setIsCarregandoUltima(false);
+    }
   };
 
   // ============================================================
@@ -419,22 +487,12 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
       errs.push('Informe o Valor da Carga para fins de averbação securitária.');
     }
 
-    if (!placaVeiculo.trim()) {
-      errs.push('Informe a Placa do Veículo.');
-    }
-    if (!rntrc.trim()) {
-      errs.push('Informe o RNTRC (Registro Nacional de Transportadores).');
-    }
-
-    if (!motoristaNome.trim()) {
-      errs.push('Informe o Nome do Motorista.');
-    }
-    if (!motoristaCpf.trim()) {
-      errs.push('Informe o CPF do Motorista.');
-    }
-
     if (totalFrete <= 0) {
       errs.push('O valor total da prestação do frete deve ser maior que zero.');
+    }
+
+    if (documentos.length === 0) {
+      errs.push('Adicione pelo menos 1 documento transportado (chave de NF-e).');
     }
 
     if (tpCTe === 'SUBSTITUICAO' && !chCteSub) {
@@ -449,6 +507,22 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
     return errs.length === 0;
   };
 
+  // 🔥 Classe do input: borda vermelha só depois de tentar emitir (tentouEnviar)
+  // e o campo estar vazio — mesmo padrão já usado em NfeEmissor/NfceEmissor/NfseEmissor.
+  const classeCampo = (valor: string, base = `w-full border rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`) =>
+    tentouEnviar && !valor.trim()
+      ? `${base} border-rose-400 bg-rose-50 focus:ring-rose-500`
+      : `${base} border-slate-300`;
+
+  const handleClickEmitir = () => {
+    setTentouEnviar(true);
+    if (!validarCte()) {
+      toast.showError('Preencha os campos obrigatórios destacados em vermelho antes de emitir.');
+      return;
+    }
+    setShowPreview(true);
+  };
+
   // ============================================================
   // TRANSMISSÃO
   // ============================================================
@@ -461,9 +535,17 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
     try {
       const numero = Math.floor(100 + Math.random() * 900);
       const aamm = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
-      
+      // 🔥 cUF (código IBGE da UF) tem que ser da EMPRESA emitente, não do
+      // remetente da carga — usar o remetente aqui fazia o cUF do CT-e (e da
+      // própria chave de acesso) sair errado sempre que remetente e emitente
+      // são de UFs diferentes. Isso confundia o autorizador SVRS (rejeição real:
+      // "O tpEmis informado é incompatível com SVC-RS" — o SVRS interpretava o
+      // documento como uma tentativa de contingência de outra UF, por causa do
+      // cUF errado, em vez de emissão normal da própria UF autorizada por ele).
+      const codigoUfEmitente = empresa.endereco?.codigoMunicipio?.slice(0, 2) || '35';
+
       const chaveData = gerarChaveAcessoNFe({
-        codigoUf: remetenteMunIbge.slice(0, 2) || '35',
+        codigoUf: codigoUfEmitente,
         anoMes: aamm,
         cnpjEmitente: empresa.cnpj,
         modelo: '57',
@@ -474,17 +556,26 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
 
       const chavesList = documentos.map(d => d.chave);
 
-      const novoCte: any = {
+      const novoCte = {
         // IDENTIFICAÇÃO
         versao: '4.00',
         Id: `CTe${chaveData.chaveCompleta}`,
-        cUF: remetenteMunIbge.slice(0, 2) || '35',
+        // 🔥 emitenteCNPJ é o que o backend usa pra gerar a CHAVE DE ACESSO REAL
+        // (gerarChaveAcessoNFe, dentro de cteService.emitirCte) — sem essa chave
+        // aqui, o backend sempre caía no default "00000000000000" e emitia com
+        // uma chave de acesso com CNPJ errado embutido (rejeitável pela SEFAZ).
+        emitenteCNPJ: empresa.cnpj,
+        cUF: codigoUfEmitente,
         cCT: chaveData.codigoNumerico,
         CFOP,
         natOp,
         mod: '57',
         serie,
-        nCT: numero,
+        // ⚠️ nCT NÃO é enviado de propósito: o backend usa `data.nCT` se vier
+        // preenchido, ignorando sua própria numeração sequencial — o `numero`
+        // sorteado aqui (100-999) era só pra montar a chave de acesso local de
+        // preview; enviá-lo faria o backend gravar um número de CT-e não
+        // sequencial e sujeito a colisão. O backend gera o número real.
         dhEmi: new Date().toISOString(),
         tpImp,
         tpEmis,
@@ -508,8 +599,11 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         retira: '1',
         indIEToma,
 
-        // TOMADOR
+        // 🔥 TOMADOR — backend lê data.tomadorServico (não "toma") pra decidir o
+        // TomadorServicoCTe; mandar só "toma" fazia o backend sempre cair no
+        // default REMETENTE, ignorando o que o usuário escolheu no formulário.
         toma: tomadorServico,
+        tomadorServico,
         tomadorCNPJ: tomadorServico === 4 ? tomadorCNPJ : undefined,
         tomadorCPF: tomadorServico === 4 ? tomadorCPF : undefined,
         tomadorIE: tomadorServico === 4 ? tomadorIE : undefined,
@@ -558,6 +652,12 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         // VALORES DA PRESTAÇÃO
         vTPrest: totalFrete,
         vRec: totalFrete,
+
+        // 🔥 aliquotaICMS é o que o backend usa pra montar o grupo ICMS00 de
+        // verdade (hoje o único CST realmente persistido — ver observação mais
+        // abaixo); sem essa chave o backend sempre usava 12% fixo, ignorando o
+        // valor escolhido no formulário.
+        aliquotaICMS,
 
         // IMPOSTOS
         CST00: cstICMS === '00' ? '00' : undefined,
@@ -617,11 +717,16 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         // TOTAL DO DOCUMENTO
         vTotDFe: totalFrete,
 
-        // INFORMAÇÕES DA CARGA
-        vCarga,
-        proPred: produtoPredominante,
+        // 🔥 INFORMAÇÕES DA CARGA — as chaves aqui precisam bater com o que
+        // cteService.emitirCte() (backend) lê (data.produtoPredominante /
+        // data.valorCargaAverbada), não com os nomes de coluna do Prisma
+        // (proPred/vCarga/vCargaAverb, que o backend monta sozinho a partir
+        // dessas duas chaves). Antes disso, produtoPredominante/valorCargaAverbada
+        // nunca chegavam no banco — sempre "undefined" no create(), e como proPred
+        // é NOT NULL, a emissão real sempre quebrava com "Argument proPred is missing".
+        produtoPredominante,
+        valorCargaAverbada,
         xOutCat,
-        vCargaAverb: valorCargaAverbada,
 
         // VEÍCULOS NOVOS
         veicChassi: undefined,
@@ -644,19 +749,18 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         // CT-e GLOBALIZADO
         xObsGlobalizado: xObsGlobalizado || undefined,
 
-        // STATUS
-        status: 'AUTORIZADA',
-        chaveAcesso: chaveData.chaveCompleta,
-        protocoloAutorizacao: `1352600${Math.floor(1000000 + Math.random() * 9000000)}`,
-        dataHoraAutorizacao: new Date().toISOString(),
-        xmlAssinado: `<cteProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/cte"><CTe><infCte Id="CTe${chaveData.chaveCompleta}" versao="4.00"><ide><cUF>${remetenteMunIbge.slice(0, 2)}</cUF><mod>57</mod><nCT>${numero}</nCT></ide></infCte></CTe></cteProc>`,
+        // 🔥 status/chaveAcesso/protocoloAutorizacao/xmlAssinado NÃO são enviados —
+        // o backend gera e assina tudo isso de verdade (chave própria, transmissão
+        // real à SEFAZ) e ignora qualquer valor vindo do cliente pra esses campos;
+        // mandar um "AUTORIZADA"/protocolo fabricado aqui só confundiria quem lê o
+        // payload, sem efeito real algum.
 
         // RELACIONAMENTOS
         empresaId: empresa.id,
         emitenteId: empresa.id,
         remetenteId: selectedRemetenteId,
         destinatarioId: selectedDestinatarioId,
-        transportadoraId: undefined,
+        transportadoraId: selectedTransportadoraId || undefined,
 
         // SUB-ESTRUTURAS
         componentes: [
@@ -667,26 +771,36 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
           ...(outrasTaxas > 0 ? [{ xNome: 'OUTRAS TAXAS', vComp: outrasTaxas }] : []),
         ],
         quantidades,
+        // ⚠️ Achado nesta revisão: o formulário juntava as chaves de NF-e (seção
+        // "Documentos Transportados") mas nunca as incluía no payload — a SEFAZ
+        // rejeita todo CT-e sem esse grupo ("Grupo Documentos Transportados deve
+        // ser informado"), confirmado testando contra a SEFAZ real.
+        documentos,
         duplicatas: [{ nDup: `${numero}/01`, dVenc: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), vDup: totalFrete }],
         observacoes: xObs ? [{ xCampo: 'obsGeral', xTexto: xObs }] : [],
         autorizadosDownload: autXML.filter(a => a.CNPJ || a.CPF),
       };
 
-      const response = await cteService.emitir(novoCte);
+      const response = await cteService.emitir(novoCte as unknown as CTeDocumento);
 
       if (response) {
         StorageService.addCte(response);
         onCteEmitido(response);
         setSucessoCte(response);
-        toast.showSuccess(`✅ CT-e Nº ${numero} emitido com sucesso!`);
+        setTentouEnviar(false);
+        // 🔥 O backend não lança erro quando a SEFAZ rejeita — o modal de
+        // resumo abaixo mostra o status real (AUTORIZADA/REJEITADA) e o
+        // motivo, então não tem mais um toast que sempre dizia "sucesso".
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao emitir CT-e:', error);
-      setErros([error.message || 'Falha ao emitir CT-e junto à SEFAZ.']);
-      toast.showError(`❌ ${error.message || 'Falha ao emitir CT-e'}`);
+      const mensagemErro = getApiErrorMessage(error, 'Falha ao emitir CT-e junto à SEFAZ.');
+      setErros([mensagemErro]);
+      toast.showError(`❌ ${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
+      setShowPreview(false);
     }
   };
 
@@ -724,60 +838,40 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
             Documento fiscal oficial para prestação de serviços de transporte de cargas rodoviário intermunicipal e interestadual.
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Série {serie}</div>
-          <div className={`text-[10px] font-medium ${corText}`}>Próximo CT-e: Nº {Math.floor(Math.random() * 900) + 100}</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCarregarUltima}
+            disabled={isCarregandoUltima}
+            title="Preenche o formulário com os dados do último CT-e autorizado"
+            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
+            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-semibold text-slate-700">Série {serie}</div>
+            <div className={`text-[10px] font-medium ${corText}`}>Próximo CT-e: Nº previsto {empresa.proximoNumeroCte || 1}</div>
+          </div>
         </div>
       </div>
 
       {sucessoCte && (
-        <div className={`${corBg} border ${corBorder} rounded-xl p-4 shadow-sm animate-fadeIn`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2 className={`w-5 h-5 ${corText} shrink-0 mt-0.5`} />
-              <div>
-                <h3 className={`text-sm font-bold ${corTextDark}`}>
-                  CT-e Nº {sucessoCte.nCT} Autorizado com Sucesso!
-                </h3>
-                <p className="text-xs text-cyan-800 font-mono mt-0.5">
-                  Chave: {sucessoCte.chaveAcesso}
-                </p>
-                <div className="text-[11px] text-cyan-700 mt-1">
-                  Origem: {sucessoCte.xMunIni}/{sucessoCte.UFIni} ➔ Destino: {sucessoCte.xMunFim}/{sucessoCte.UFFim} • Total: {formatarMoeda(sucessoCte.vTPrest)}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onViewDacte(sucessoCte as any)}
-                className={`${corBgButton} text-white font-medium text-xs px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Visualizar DACTE</span>
-              </button>
-              <button
-                onClick={() => {
-                  const blob = new Blob([sucessoCte.xmlAssinado], { type: 'application/xml' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `CTe_${sucessoCte.nCT}_SUP.xml`;
-                  a.click();
-                }}
-                className="bg-white hover:bg-slate-100 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>XML</span>
-              </button>
-              <button
-                onClick={() => setSucessoCte(null)}
-                className="text-xs text-slate-600 hover:text-slate-900 underline ml-2 cursor-pointer"
-              >
-                Novo CT-e
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResumoEmissaoModal
+          aberto={!!sucessoCte}
+          onClose={() => setSucessoCte(null)}
+          status={((sucessoCte as unknown as { status?: string }).status as 'AUTORIZADA' | 'REJEITADA' | 'PROCESSANDO') || 'PROCESSANDO'}
+          tipoDocumentoLabel="CT-e"
+          numero={Number(sucessoCte.nCT) || 0}
+          serie={Number(sucessoCte.serie) || 1}
+          chaveAcesso={sucessoCte.chaveAcesso}
+          protocolo={sucessoCte.protocoloAutorizacao || undefined}
+          motivoRejeicao={(sucessoCte as unknown as { motivoRejeicao?: string }).motivoRejeicao || undefined}
+          valorTotal={Number(sucessoCte.vTPrest) || 0}
+          destinatarioNome={sucessoCte.destinatario?.nomeRazaoSocial || undefined}
+          emailSugerido={empresa.contadorEmail || empresa.endereco?.email || ''}
+          onVisualizar={() => sucessoCte?.id && onViewDacte(sucessoCte.id)}
+          onEnviarEmail={(email) => cteService.enviarPorEmail(sucessoCte.id, email)}
+        />
       )}
 
       {erros.length > 0 && (
@@ -803,7 +897,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
           <select
             value={selectedRemetenteId}
             onChange={(e) => handleSelectRemetente(e.target.value)}
-            className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[200px]`}
+            className={classeCampo(selectedRemetenteId, `text-xs bg-slate-50 border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[200px]`)}
           >
             <option value="">-- Escolher Cliente --</option>
             {clientes.map(c => (
@@ -968,7 +1062,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
           <select
             value={selectedDestinatarioId}
             onChange={(e) => handleSelectDestinatario(e.target.value)}
-            className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[200px]`}
+            className={classeCampo(selectedDestinatarioId, `text-xs bg-slate-50 border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[200px]`)}
           >
             <option value="">-- Escolher Cliente --</option>
             {clientes.map(c => (
@@ -1190,6 +1284,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
                 onChange={(e) => setNatOp(e.target.value)}
                 className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="Descrição da natureza"
+                maxLength={60}
               />
             </div>
           </div>
@@ -1482,7 +1577,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
               type="text"
               value={produtoPredominante}
               onChange={(e) => setProdutoPredominante(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={classeCampo(produtoPredominante)}
             />
           </div>
           <div>
@@ -1491,7 +1586,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
               type="number"
               value={valorCargaAverbada}
               onChange={(e) => setValorCargaAverbada(parseFloat(e.target.value) || 0)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
+              className={classeCampo(tentouEnviar && valorCargaAverbada <= 0 ? '' : 'x', `w-full border rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-bold`)}
             />
           </div>
           <div>
@@ -1593,7 +1688,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
                 <span>Adicionar</span>
               </button>
             </div>
-            {documentos.length > 0 && (
+            {documentos.length > 0 ? (
               <div className="mt-2 space-y-1">
                 {documentos.map((doc, idx) => (
                   <div key={idx} className="flex items-center justify-between bg-slate-50 rounded-lg px-2 py-1 text-xs">
@@ -1608,89 +1703,47 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
                   </div>
                 ))}
               </div>
+            ) : (
+              <div className={`mt-2 text-center py-2 rounded-lg border ${
+                tentouEnviar ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-slate-200 bg-slate-50/70 text-slate-400'
+              }`}>
+                <p className="text-xs font-semibold">Nenhum documento transportado adicionado</p>
+                <p className="text-[11px]">Adicione ao menos 1 chave de NF-e acima</p>
+              </div>
             )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-            <Truck className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">7. Veículo</h3>
-          </div>
-          <div className="space-y-2.5 text-xs">
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">RNTRC *</label>
-              <input
-                type="text"
-                value={rntrc}
-                onChange={(e) => setRntrc(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
-                placeholder="Registro Nacional de Transportadores"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
-                <label className="block font-medium text-slate-600 mb-1">Placa *</label>
-                <input
-                  type="text"
-                  value={placaVeiculo}
-                  onChange={(e) => setPlacaVeiculo(e.target.value.toUpperCase())}
-                  className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
-                  placeholder="BRA2E26"
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">UF</label>
-                <input
-                  type="text"
-                  value={ufVeiculo}
-                  onChange={(e) => setUfVeiculo(e.target.value.toUpperCase())}
-                  className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
-                  maxLength={2}
-                  placeholder="SP"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-            <User className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">8. Motorista</h3>
-          </div>
-          <div className="space-y-2.5 text-xs">
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Nome *</label>
-              <input
-                type="text"
-                value={motoristaNome}
-                onChange={(e) => setMotoristaNome(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
-                placeholder="Nome completo do motorista"
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">CPF *</label>
-              <input
-                type="text"
-                value={motoristaCpf}
-                onChange={(e) => setMotoristaCpf(e.target.value.replace(/\D/g, ''))}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
-                placeholder="000.000.000-00"
-                maxLength={11}
-              />
-            </div>
           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
+          <Truck className={`w-4 h-4 ${corText}`} />
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">7. Transportadora</h3>
+        </div>
+        <div className="text-xs">
+          <label className="block font-medium text-slate-600 mb-1">Transportadora (opcional — carga própria fica ISENTO de RNTRC)</label>
+          <select
+            value={selectedTransportadoraId}
+            onChange={(e) => setSelectedTransportadoraId(e.target.value)}
+            className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+          >
+            <option value="">-- Carga própria (sem transportadora terceirizada) --</option>
+            {transportadoras.map(t => (
+              <option key={t.id} value={t.id}>{t.razaoSocial} {t.rntrc ? `— RNTRC ${t.rntrc}` : ''}</option>
+            ))}
+          </select>
+          {selectedTransportadoraId && (
+            <p className="text-[11px] text-slate-500 mt-1">
+              RNTRC: {transportadoras.find(t => t.id === selectedTransportadoraId)?.rntrc || 'não cadastrado para esta transportadora'}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <Calculator className={`w-4 h-4 ${corText}`} />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">9. Componentes do Frete</h3>
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">8. Componentes do Frete</h3>
         </div>
 
         <div className="space-y-2.5 text-xs">
@@ -1761,7 +1814,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <Shield className={`w-4 h-4 ${corText}`} />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">10. Tributação ICMS</h3>
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">9. Tributação ICMS</h3>
         </div>
         <div className="space-y-2.5 text-xs">
           <div>
@@ -1843,7 +1896,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <Calendar className={`w-4 h-4 ${corText}`} />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">11. Previsão de Entrega</h3>
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">10. Previsão de Entrega</h3>
         </div>
         <div className="space-y-2.5 text-xs">
           <div>
@@ -1949,7 +2002,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
           <FileText className={`w-4 h-4 ${corText}`} />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">12. Observações</h3>
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">11. Observações</h3>
         </div>
         <div className="space-y-2.5 text-xs">
           <div>
@@ -2004,7 +2057,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
         <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
           <div className="flex items-center gap-2">
             <Users className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">13. Autorizados para Download</h3>
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">12. Autorizados para Download</h3>
           </div>
           <button
             type="button"
@@ -2059,23 +2112,155 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
 
       <button
         type="button"
-        onClick={handleTransmitirCte}
+        onClick={handleClickEmitir}
         disabled={isTransmitting}
         id="btn-emitir-cte"
         className={`w-full ${corBgButton} disabled:bg-slate-300 text-white text-xs font-bold py-3 px-4 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
       >
-        {isTransmitting ? (
-          <>
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span>Assinando e transmitindo CT-e...</span>
-          </>
-        ) : (
-          <>
-            <Send className="w-4 h-4" />
-            <span>EMITIR & AUTORIZAR CT-e (MODELO 57)</span>
-          </>
-        )}
+        <Send className="w-4 h-4" />
+        <span>REVISAR & EMITIR CT-e (MODELO 57)</span>
       </button>
+
+      {/* ============================================================
+          PREVIEW ANTES DE TRANSMITIR — nada é enviado pra SEFAZ até o
+          usuário confirmar aqui dentro. Chancela "APENAS PARA VISUALIZAÇÃO"
+          deixa claro que isso não é o CT-e autorizado ainda. Mesmo
+          DacteLayout usado na visualização pós-emissão (DacteViewer) — é um
+          espelho de verdade do DACTE real, não uma versão resumida à parte.
+          ============================================================ */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-xl max-w-4xl w-full shadow-2xl max-h-[95vh] overflow-hidden flex flex-col">
+
+            <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden select-none">
+              <span
+                className="absolute text-rose-600/25 text-5xl sm:text-6xl font-black uppercase tracking-widest whitespace-nowrap border-4 border-rose-600/25 px-10 py-3"
+                style={{ top: '48%', left: '48%', transform: 'translate(-50%, -50%) rotate(-30deg)' }}
+              >
+                Apenas para Visualização
+              </span>
+            </div>
+
+            <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-center justify-between z-20">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">
+                  Espelho do DACTE — documento ainda NÃO emitido/transmitido
+                </span>
+              </div>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                tpAmb === '1'
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                  : 'bg-blue-100 text-blue-800 border-blue-300'
+              }`}>
+                {tpAmb === '1' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'}
+              </span>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-4">
+              <DacteLayout
+                numero={0}
+                serie={serie}
+                cfop={CFOP}
+                naturezaOperacao={natOp}
+                municipioInicioNome={munInicioNome}
+                municipioInicioUf={munInicioUf}
+                municipioFimNome={munFimNome}
+                municipioFimUf={munFimUf}
+                tomadorServico={tomadorServico}
+                emitente={{
+                  razaoSocial: empresa.razaoSocial,
+                  nomeFantasia: empresa.nomeFantasia,
+                  cnpj: empresa.cnpj,
+                  inscricaoEstadual: empresa.inscricaoEstadual,
+                  endereco: {
+                    logradouro: empresa.endereco?.logradouro || '',
+                    numero: empresa.endereco?.numero || '',
+                    bairro: empresa.endereco?.bairro || '',
+                    nomeMunicipio: empresa.endereco?.nomeMunicipio || '',
+                    uf: empresa.endereco?.uf || '',
+                    cep: empresa.endereco?.cep || '',
+                  },
+                }}
+                remetente={{
+                  razaoSocial: remetenteNome,
+                  documento: remetenteDoc,
+                  inscricaoEstadual: remetenteIE,
+                  endereco: {
+                    logradouro: remetenteLogradouro,
+                    numero: remetenteNumero,
+                    bairro: remetenteBairro,
+                    nomeMunicipio: remetenteMun,
+                    uf: remetenteUf,
+                    cep: remetenteCep,
+                  },
+                }}
+                destinatario={{
+                  razaoSocial: destinatarioNome,
+                  documento: destinatarioDoc,
+                  inscricaoEstadual: destinatarioIE,
+                  endereco: {
+                    logradouro: destinatarioLogradouro,
+                    numero: destinatarioNumero,
+                    bairro: destinatarioBairro,
+                    nomeMunicipio: destinatarioMun,
+                    uf: destinatarioUf,
+                    cep: destinatarioCep,
+                  },
+                }}
+                produtoPredominante={produtoPredominante}
+                valorCargaAverbada={valorCargaAverbada}
+                quantidades={quantidades}
+                documentos={documentos}
+                componentes={[
+                  { xNome: 'FRETE PESO', vComp: fretePeso },
+                  { xNome: 'FRETE VALOR', vComp: freteValor },
+                  { xNome: 'PEDAGIO', vComp: pedagio },
+                  { xNome: 'GRIS', vComp: taxaGris },
+                  ...(outrasTaxas > 0 ? [{ xNome: 'OUTRAS TAXAS', vComp: outrasTaxas }] : []),
+                ]}
+                transportadora={(() => {
+                  const t = transportadoras.find(tr => tr.id === selectedTransportadoraId);
+                  return t ? { razaoSocial: t.razaoSocial, rntrc: t.rntrc } : undefined;
+                })()}
+                aliquotaICMS={aliquotaICMS}
+                baseCalculoICMS={baseCalculoICMS}
+                valorICMS={valorICMS}
+                valorTotalFrete={totalFrete}
+              />
+            </div>
+
+            <div className="shrink-0 bg-white border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPreview(false)}
+                disabled={isTransmitting}
+                className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium cursor-pointer transition-colors disabled:opacity-50"
+              >
+                Voltar e Revisar
+              </button>
+              <button
+                type="button"
+                onClick={handleTransmitirCte}
+                disabled={isTransmitting}
+                className={`px-4 py-2 rounded-lg ${corBgButton} text-white font-semibold shadow-sm cursor-pointer disabled:opacity-60 flex items-center gap-2 transition-colors`}
+              >
+                {isTransmitting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Transmitindo para SEFAZ...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Confirmar e Transmitir para SEFAZ</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -1,7 +1,9 @@
 // backend/src/services/auth.service.ts
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { UsuarioRepository } from '../repositories/usuario.repository';
+import { PerfilUsuario } from '@prisma/client';
+import { UsuarioRepository } from '../repositories/usuario.repository.js';
+import { EmailService } from './email.service.js';
 
 // Segurança (P1): fail-fast — a API nunca deve subir com segredo conhecido/padrão.
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
@@ -13,11 +15,22 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 const JWT_SECRET = process.env.JWT_SECRET;
 const RESET_TOKEN_EXPIRES = '1h'; // tempo do token de redefinição
 
+function escaparHtml(valor: string): string {
+  return valor
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export class AuthService {
   private usuarioRepo: UsuarioRepository;
+  private emailService: EmailService;
 
   constructor() {
     this.usuarioRepo = new UsuarioRepository();
+    this.emailService = new EmailService();
   }
 
   async login(email: string, senha: string) {
@@ -61,8 +74,11 @@ export class AuthService {
         empresaId: string;
         perfil?: string;
       };
-    } catch {
-      throw new Error('Token inválido');
+    } catch (erro) {
+      // Mantém o motivo real (TokenExpiredError / "invalid signature" quando o
+      // JWT_SECRET mudou) para o log do middleware.
+      const motivo = erro instanceof Error ? `${erro.name}: ${erro.message}` : String(erro);
+      throw new Error(`Token inválido (${motivo})`);
     }
   }
 
@@ -86,7 +102,7 @@ export class AuthService {
       email: data.email.toLowerCase().trim(),
       senhaHash,
       cargo: data.cargo || null,
-      perfil: (data.perfil as any) || 'OPERADOR',
+      perfil: (data.perfil as PerfilUsuario) || 'OPERADOR',
       ativo: true,
       empresa: { connect: { id: data.empresaId } },
     });
@@ -123,6 +139,10 @@ export class AuthService {
     await this.usuarioRepo.updateSenha(userId, novaSenhaHash);
   }
 
+  envioEmailConfigurado(): boolean {
+    return this.emailService.estaConfigurado();
+  }
+
   async solicitarRecuperacaoSenha(email: string) {
     const usuario = await this.usuarioRepo.findByEmail(email.toLowerCase().trim());
 
@@ -146,12 +166,23 @@ export class AuthService {
       { expiresIn: RESET_TOKEN_EXPIRES }
     );
 
-    // TODO: Enviar e-mail real
-    // Exemplo de link que o frontend deve consumir:
-    // `${process.env.FRONTEND_URL}/redefinir-senha?token=${resetToken}`
-                        
-    // Em produção você faria algo como:
-    // await emailService.enviarRecuperacaoSenha(usuario.email, resetToken);
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
+    const link = `${frontendUrl}/redefinir-senha?token=${encodeURIComponent(resetToken)}`;
+
+    await this.emailService.enviar({
+      destinatario: usuario.email,
+      assunto: 'Redefinição de senha',
+      corpoTexto:
+        `Olá, ${usuario.nome}.\n\n` +
+        `Recebemos uma solicitação para redefinir sua senha. Acesse o link abaixo (válido por 1 hora):\n\n` +
+        `${link}\n\n` +
+        `Se você não fez essa solicitação, ignore este e-mail.`,
+      corpoHtml:
+        `<p>Olá, ${escaparHtml(usuario.nome)}.</p>` +
+        `<p>Recebemos uma solicitação para redefinir sua senha. Clique no link abaixo (válido por 1 hora):</p>` +
+        `<p><a href="${escaparHtml(link)}">Redefinir minha senha</a></p>` +
+        `<p>Se você não fez essa solicitação, ignore este e-mail.</p>`,
+    });
   }
 
   async redefinirSenha(token: string, novaSenha: string) {
@@ -159,9 +190,9 @@ export class AuthService {
       throw new Error('Nova senha deve ter pelo menos 6 caracteres');
     }
 
-    let payload: any;
+    let payload: { id: string; email: string; type: string };
     try {
-      payload = jwt.verify(token, JWT_SECRET);
+      payload = jwt.verify(token, JWT_SECRET) as { id: string; email: string; type: string };
     } catch {
       throw new Error('Token inválido ou expirado');
     }

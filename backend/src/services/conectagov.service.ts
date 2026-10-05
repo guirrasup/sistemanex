@@ -1,8 +1,12 @@
 // backend/src/services/conectagov.service.ts
+import { logger } from '../lib/logger.js';
 import axios from 'axios';
 import * as jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { ConectaGovTokenResponse, ConectaGovEmpresaResponse } from '../types/cnpj.js';
+
+const TOKEN_EXPIRY_MARGIN_MS = 60000;
+const CONECTAGOV_REQUEST_TIMEOUT_MS = 30000;
 
 export class ConectaGovService {
   private static instance: ConectaGovService;
@@ -17,12 +21,16 @@ export class ConectaGovService {
   }
 
   async getToken(): Promise<string> {
-    if (this.token && this.tokenExpiresAt > Date.now() + 60000) {
+    if (this.token && this.tokenExpiresAt > Date.now() + TOKEN_EXPIRY_MARGIN_MS) {
       return this.token;
     }
 
     const clientId = process.env.CONECTAGOV_CLIENT_ID || '';
-    const clientSecret = process.env.CONECTAGOV_CLIENT_SECRET || '';
+    const clientSecret = (() => {
+  const v = process.env.CONECTAGOV_CLIENT_SECRET;
+  if (!v) throw new Error("Variável obrigatória ausente: CONECTAGOV_CLIENT_SECRET");
+  return v;
+})();
     const cpfUsuario = process.env.CONECTAGOV_CPF_USUARIO || '';
 
     if (!clientId || !clientSecret) {
@@ -40,7 +48,7 @@ export class ConectaGovService {
         : 'https://h-apigateway.conectagov.np.estaleiro.serpro.gov.br/oauth2/jwt-token';
 
       // 🔥 GERA JWT PARA AUTENTICAÇÃO (client_assertion)
-      const clientAssertion = this.generateClientAssertion(clientId);
+      const clientAssertion = this.generateClientAssertion(clientId, tokenUrl);
 
       const params = new URLSearchParams();
       params.append('grant_type', 'client_credentials');
@@ -54,33 +62,42 @@ export class ConectaGovService {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        timeout: 30000,
+        timeout: CONECTAGOV_REQUEST_TIMEOUT_MS,
       });
 
       this.token = response.data.access_token;
       this.tokenExpiresAt = Date.now() + (response.data.expires_in * 1000);
 
             return this.token;
-    } catch (error: any) {
-      console.error('❌ Erro ao obter token ConectaGov:', error.response?.data || error.message);
-      throw new Error(`Erro na autenticação ConectaGov: ${error.response?.data?.message || error.message}`);
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        logger.error('❌ Erro ao obter token ConectaGov:', error.response?.data || error.message);
+        throw new Error(`Erro na autenticação ConectaGov: ${error.response?.data?.message || error.message}`);
+      }
+      const mensagem = error instanceof Error ? error.message : 'Erro desconhecido';
+      logger.error('❌ Erro ao obter token ConectaGov:', mensagem);
+      throw new Error(`Erro na autenticação ConectaGov: ${mensagem}`);
     }
   }
 
-  private generateClientAssertion(clientId: string): string {
+  private generateClientAssertion(clientId: string, audience: string): string {
     const now = Math.floor(Date.now() / 1000);
     const jti = randomBytes(16).toString('hex');
 
     const payload = {
       iss: clientId,
       sub: clientId,
-      aud: 'https://apigateway.conectagov.estaleiro.serpro.gov.br/oauth2/jwt-token',
+      aud: audience,
       jti: jti,
       iat: now,
       exp: now + 300,
     };
 
-    const privateKey = process.env.CONECTAGOV_PRIVATE_KEY || '';
+    const privateKey = (() => {
+  const v = process.env.CONECTAGOV_PRIVATE_KEY;
+  if (!v) throw new Error("Variável obrigatória ausente: CONECTAGOV_PRIVATE_KEY");
+  return v;
+})();
     
     if (!privateKey) {
       throw new Error('Chave privada do ConectaGov não configurada. Configure CONECTAGOV_PRIVATE_KEY');
@@ -89,7 +106,9 @@ export class ConectaGovService {
     return jwt.sign(payload, privateKey, { algorithm: 'RS256' });
   }
 
-  async consultarCnpj(cnpj: string, cpfUsuario?: string): Promise<ConectaGovEmpresaResponse> {
+  // jaRenovouToken: no 401 renova o token e tenta UMA vez; se o novo token também
+  // for recusado, propaga o erro em vez de repetir indefinidamente.
+  async consultarCnpj(cnpj: string, cpfUsuario?: string, jaRenovouToken = false): Promise<ConectaGovEmpresaResponse> {
     const cnpjLimpo = cnpj.replace(/\D/g, '');
     
     if (cnpjLimpo.length !== 14) {
@@ -117,21 +136,27 @@ export class ConectaGovService {
           'x-cpf-usuario': cpf,
           'Accept': 'application/json',
         },
-        timeout: 30000,
+        timeout: CONECTAGOV_REQUEST_TIMEOUT_MS,
       });
 
             return response.data;
 
-    } catch (error: any) {
-      console.error('❌ Erro ao consultar ConectaGov:', error.response?.data || error.message);
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        logger.error('❌ Erro ao consultar ConectaGov:', error.response?.data || error.message);
 
-      if (error.response?.status === 401) {
-        this.token = null;
-        this.tokenExpiresAt = 0;
-        return this.consultarCnpj(cnpj, cpfUsuario);
+        if (error.response?.status === 401 && !jaRenovouToken) {
+          this.token = null;
+          this.tokenExpiresAt = 0;
+          return this.consultarCnpj(cnpj, cpfUsuario, true);
+        }
+
+        throw new Error(error.response?.data?.message || error.message || 'Erro na consulta');
       }
 
-      throw new Error(error.response?.data?.message || error.message || 'Erro na consulta');
+      const mensagem = error instanceof Error ? error.message : 'Erro na consulta';
+      logger.error('❌ Erro ao consultar ConectaGov:', mensagem);
+      throw new Error(mensagem);
     }
   }
 }

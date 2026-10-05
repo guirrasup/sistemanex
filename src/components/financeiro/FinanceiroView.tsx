@@ -22,6 +22,7 @@ import { TituloFinanceiro, ConfiguracaoEmpresa } from '../../types/erp';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { gerarPayloadPix } from '../../utils/pixGenerator';
 import { financeiroService } from '../../services/financeiro.service';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmModal } from '../ui/ConfirmModal';
 
@@ -124,10 +125,10 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
       
       toast.showSuccess(`✅ Título "${titulo}" liquidado com sucesso! Valor: ${formatarMoeda(valor)}`);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao liquidar título:', error);
-      
-      const mensagemErro = error.response?.data?.erro || error.message || 'Erro ao liquidar título';
+
+      const mensagemErro = getApiErrorMessage(error, 'Erro ao liquidar título');
       
       closeConfirmModal();
       toast.showError(`❌ ${mensagemErro}`);

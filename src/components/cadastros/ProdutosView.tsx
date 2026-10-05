@@ -1,5 +1,5 @@
 // src/components/cadastros/ProdutosView.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Package, 
   Plus, 
@@ -23,18 +23,23 @@ import {
 import { Produto } from '../../types/erp';
 import { formatarMoeda } from '../../utils/cpfCnpjValidator';
 import { produtosService } from '../../services/produtos.service';
+import { Cfop } from '../../services/cfop.service';
+import { ncmService, Ncm } from '../../services/ncm.service';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { Combobox } from '../ui/Combobox';
 
 interface ProdutosViewProps {
   produtos: Produto[];
+  cfops: Cfop[];
   onProdutosChange: () => void;
 }
 
 type OrdenacaoCampo = 'codigo' | 'descricao' | 'ncm' | 'unidade' | 'precoVenda' | 'estoqueAtual' | 'categoria';
 type OrdenacaoDirecao = 'asc' | 'desc';
 
-export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutosChange }) => {
+export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, cfops, onProdutosChange }) => {
   const toast = useToast();
 
   const [busca, setBusca] = useState('');
@@ -78,22 +83,51 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
   const [descricao, setDescricao] = useState('');
   const [categoria, setCategoria] = useState('GERAL');
   const [unidade, setUnidade] = useState('UN');
-  const [ncm, setNcm] = useState('84714100');
+  // 🔥 NCM/CFOP nunca podem vir com um código específico "de exemplo" — é
+  // classificação fiscal real do produto, não um placeholder neutro como
+  // "UN"/"GERAL". Um valor pré-preenchido aqui arrisca ser esquecido e
+  // submetido como se fosse a classificação real de um produto diferente.
+  const [ncm, setNcm] = useState('');
+  const [ncmResultados, setNcmResultados] = useState<Ncm[]>([]);
   const [cest, setCest] = useState('');
-  const [cfop, setCfop] = useState('5102');
+  const [cfop, setCfop] = useState('');
   const [origem, setOrigem] = useState(0);
+  // 🔥 Sem CSOSN, a emissão de NF-e/NFC-e rejeita o item na hora de transmitir
+  // pra SEFAZ ("sem CSOSN informado, obrigatório para emitente do Simples
+  // Nacional") — mas até agora não existia campo nenhum pra defini-lo aqui,
+  // então não tinha como corrigir um produto cadastrado sem ele pela UI.
+  const [csosnICMS, setCsosnICMS] = useState('102');
   const [precoCusto, setPrecoCusto] = useState<number>(0);
   const [precoVenda, setPrecoVenda] = useState<number>(0);
-  const [estoqueAtual, setEstoqueAtual] = useState<number>(10);
-  const [estoqueMinimo, setEstoqueMinimo] = useState<number>(2);
+  // 🔥 Estoque fictício (10/2) num produto que ainda não existe é dado
+  // inventado — um produto novo começa genuinamente sem estoque contado.
+  const [estoqueAtual, setEstoqueAtual] = useState<number>(0);
+  const [estoqueMinimo, setEstoqueMinimo] = useState<number>(0);
 
-  // ✅ NOVOS CAMPOS: ALÍQUOTAS
-  const [aliquotaICMS, setAliquotaICMS] = useState<number>(18.0);
-  const [aliquotaPIS, setAliquotaPIS] = useState<number>(1.65);
-  const [aliquotaCOFINS, setAliquotaCOFINS] = useState<number>(7.60);
+  // ✅ ALÍQUOTAS — variam de verdade por produto/regime/NCM (18%/1,65%/7,6%
+  // só valem pra quem está no Lucro Real, por exemplo), então não têm um
+  // valor "neutro" universal — zeradas por padrão, cada produto informa a sua.
+  const [aliquotaICMS, setAliquotaICMS] = useState<number>(0);
+  const [aliquotaPIS, setAliquotaPIS] = useState<number>(0);
+  const [aliquotaCOFINS, setAliquotaCOFINS] = useState<number>(0);
   const [aliquotaIPI, setAliquotaIPI] = useState<number>(0);
-  const [aliquotaIBS, setAliquotaIBS] = useState<number>(0.10);
-  const [aliquotaCBS, setAliquotaCBS] = useState<number>(0.90);
+  const [aliquotaIBS, setAliquotaIBS] = useState<number>(0);
+  const [aliquotaCBS, setAliquotaCBS] = useState<number>(0);
+
+  // 🔥 NCM tem ~10.400 linhas — busca no servidor com debounce, nunca
+  // client-side. Não busca mais quando o campo já é um código completo (8
+  // dígitos), pra não ficar sugerindo depois de uma seleção já feita.
+  useEffect(() => {
+    const termo = ncm.trim();
+    if (!termo || /^\d{8}$/.test(termo)) {
+      setNcmResultados([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      ncmService.buscar(termo).then(setNcmResultados);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ncm]);
 
   // ============================================================
   // HANDLERS
@@ -107,20 +141,21 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
     setDescricao('');
     setCategoria('GERAL');
     setUnidade('UN');
-    setNcm('84714100');
+    setNcm('');
     setCest('');
-    setCfop('5102');
+    setCfop('');
     setOrigem(0);
+    setCsosnICMS('102');
     setPrecoCusto(0);
     setPrecoVenda(0);
-    setEstoqueAtual(10);
-    setEstoqueMinimo(2);
-    setAliquotaICMS(18.0);
-    setAliquotaPIS(1.65);
-    setAliquotaCOFINS(7.60);
+    setEstoqueAtual(0);
+    setEstoqueMinimo(0);
+    setAliquotaICMS(0);
+    setAliquotaPIS(0);
+    setAliquotaCOFINS(0);
     setAliquotaIPI(0);
-    setAliquotaIBS(0.10);
-    setAliquotaCBS(0.90);
+    setAliquotaIBS(0);
+    setAliquotaCBS(0);
     setModalOpen(true);
   };
 
@@ -136,16 +171,21 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
     setCest(p.cest || '');
     setCfop(p.cfopPadrao);
     setOrigem(p.origem || 0);
+    setCsosnICMS(p.csosnICMS || '102');
     setPrecoCusto(p.precoCusto);
     setPrecoVenda(p.precoVenda);
     setEstoqueAtual(p.estoqueAtual);
     setEstoqueMinimo(p.estoqueMinimo);
-    setAliquotaICMS(p.aliquotaICMS || 18.0);
-    setAliquotaPIS(p.aliquotaPIS || 1.65);
-    setAliquotaCOFINS(p.aliquotaCOFINS || 7.60);
-    setAliquotaIPI(p.aliquotaIPI || 0);
-    setAliquotaIBS(p.aliquotaIBS || 0.10);
-    setAliquotaCBS(p.aliquotaCBS || 0.90);
+    // 🔥 `??` (não `||`): uma alíquota configurada como 0 é um valor real e
+    // válido (ex.: produto isento) — `||` a tratava como "vazia" e substituía
+    // pelo mock antigo, corrompendo silenciosamente qualquer produto com
+    // alíquota zero legítima ao reabrir pra editar.
+    setAliquotaICMS(p.aliquotaICMS ?? 0);
+    setAliquotaPIS(p.aliquotaPIS ?? 0);
+    setAliquotaCOFINS(p.aliquotaCOFINS ?? 0);
+    setAliquotaIPI(p.aliquotaIPI ?? 0);
+    setAliquotaIBS(p.aliquotaIBS ?? 0);
+    setAliquotaCBS(p.aliquotaCBS ?? 0);
     setModalOpen(true);
   };
 
@@ -203,6 +243,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
         cest: cestLimpo || undefined,
         cfopPadrao: cfop,
         origem,
+        csosnICMS,
         precoCusto,
         precoVenda,
         estoqueAtual,
@@ -227,9 +268,9 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
       setModalOpen(false);
       onProdutosChange();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao salvar produto:', error);
-      const mensagem = error.response?.data?.erro || error.message || 'Erro ao salvar produto';
+      const mensagem = getApiErrorMessage(error, 'Erro ao salvar produto');
       setErro(mensagem);
       toast.showError(`❌ ${mensagem}`);
     } finally {
@@ -265,9 +306,9 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
       closeConfirmModal();
       onProdutosChange();
       toast.showSuccess(`✅ Produto "${descricao}" excluído com sucesso!`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Erro ao excluir produto:', error);
-      const mensagemErro = error.response?.data?.erro || error.message || 'Erro ao excluir produto';
+      const mensagemErro = getApiErrorMessage(error, 'Erro ao excluir produto');
       closeConfirmModal();
       toast.showError(`❌ ${mensagemErro}`);
       setErro(mensagemErro);
@@ -293,8 +334,8 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
     );
 
     return [...filtrados].sort((a, b) => {
-      let valorA: any = a[ordenacaoCampo];
-      let valorB: any = b[ordenacaoCampo];
+      let valorA: unknown = a[ordenacaoCampo];
+      let valorB: unknown = b[ordenacaoCampo];
 
       if (typeof valorA === 'number' && typeof valorB === 'number') {
         return ordenacaoDirecao === 'asc' ? valorA - valorB : valorB - valorA;
@@ -320,6 +361,11 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
   };
 
   const thClass = "py-2.5 px-3 text-left text-xs font-semibold text-slate-700 cursor-pointer hover:text-green-600 transition-colors select-none";
+
+  // 🔥 Sem campo de busca separado — o próprio campo de código (só dígitos)
+  // filtra por prefixo enquanto o usuário digita (ex.: "51" já mostra 5101,
+  // 5102, 5151...), sem precisar digitar a descrição num campo à parte.
+  const cfopsFiltrados = cfop ? cfops.filter(c => c.codigo.startsWith(cfop)) : [];
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
@@ -597,15 +643,26 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                   <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">Tributação</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <div>
+                  <div className="relative">
                     <label className="block font-medium text-slate-600 mb-1">NCM *</label>
-                    <input
-                      type="text"
+                    <Combobox
                       value={ncm}
-                      onChange={(e) => setNcm(e.target.value.replace(/\D/g, ''))}
-                      maxLength={8}
-                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
-                      required
+                      onInputChange={setNcm}
+                      onSelect={(item: Ncm) => setNcm(item.codigo)}
+                      options={ncmResultados}
+                      getKey={(n) => n.id}
+                      placeholder="Buscar por código ou nome do produto..."
+                      emptyMessage="Nenhum NCM encontrado."
+                      inputClassName={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+                      inputProps={{ required: true }}
+                      renderOption={(n: Ncm, destacado) => (
+                        <div className={`p-2 rounded-lg border cursor-pointer transition-colors text-xs ${
+                          destacado ? 'bg-green-50 border-green-300' : 'bg-white border-slate-200'
+                        }`}>
+                          <span className="font-mono font-bold text-green-700">{n.codigo}</span>
+                          <span className="text-slate-700"> — {n.descricao}</span>
+                        </div>
+                      )}
                     />
                   </div>
                   <div>
@@ -619,16 +676,46 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, onProdutos
                       placeholder="7 dígitos"
                     />
                   </div>
-                  <div>
+                  <div className="relative">
                     <label className="block font-medium text-slate-600 mb-1">CFOP *</label>
-                    <input
-                      type="text"
+                    <Combobox
                       value={cfop}
-                      onChange={(e) => setCfop(e.target.value.replace(/\D/g, ''))}
-                      maxLength={4}
-                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
-                      required
+                      onInputChange={(texto) => setCfop(texto.replace(/\D/g, '').slice(0, 4))}
+                      onSelect={(c: Cfop) => setCfop(c.codigo)}
+                      options={cfopsFiltrados}
+                      getKey={(c) => c.id}
+                      inputClassName={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+                      inputProps={{ maxLength: 4, required: true }}
+                      renderOption={(c: Cfop, destacado) => (
+                        <div className={`p-2 rounded-lg border cursor-pointer transition-colors text-xs ${
+                          destacado ? 'bg-green-50 border-green-300' : 'bg-white border-slate-200'
+                        }`}>
+                              <span className="font-mono font-bold text-green-700">{c.codigo}</span>
+                          <span className="text-slate-700"> — {c.descricao}</span>
+                        </div>
+                      )}
                     />
+                  </div>
+                  <div className="col-span-3">
+                    <label className="block font-medium text-slate-600 mb-1">
+                      CSOSN * <span className="text-[10px] text-slate-400">(obrigatório p/ Simples Nacional)</span>
+                    </label>
+                    <select
+                      value={csosnICMS}
+                      onChange={(e) => setCsosnICMS(e.target.value)}
+                      className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+                    >
+                      <option value="101">101 - Tributada com permissão de crédito</option>
+                      <option value="102">102 - Tributada sem permissão de crédito</option>
+                      <option value="103">103 - Isenção (faixa de receita bruta)</option>
+                      <option value="201">201 - Tributada com crédito e cobrança de ICMS por ST</option>
+                      <option value="202">202 - Tributada sem crédito e cobrança de ICMS por ST</option>
+                      <option value="203">203 - Isenção (faixa de receita) e cobrança de ICMS por ST</option>
+                      <option value="300">300 - Imune</option>
+                      <option value="400">400 - Não tributada pelo Simples Nacional</option>
+                      <option value="500">500 - ICMS cobrado anteriormente por ST/antecipação</option>
+                      <option value="900">900 - Outros</option>
+                    </select>
                   </div>
                 </div>
               </div>

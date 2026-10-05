@@ -1,6 +1,6 @@
 // backend/src/utils/storage.ts
-import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento } from '../types/fiscal';
-import { Produto, ServicoCatalogo, ClienteFornecedor, TituloFinanceiro, ConfiguracaoEmpresa, UsuarioAuth } from '../types/erp';
+import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento } from '../types/fiscal.js';
+import { Produto, ServicoCatalogo, ClienteFornecedor, TituloFinanceiro, ConfiguracaoEmpresa, UsuarioAuth } from '../types/erp.js';
 
 // 🔥 EXPORTA AS MESMAS FUNÇÕES DO FRONTEND PARA COMPATIBILIDADE
 // Em produção, estas funções devem usar o banco de dados

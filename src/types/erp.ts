@@ -23,6 +23,7 @@ import {
   RegimeTributario,
   StatusDocumentoFiscal,
   FormaPagamento,
+  TChNFe,
   CSTICMS,
   CSOSN
 } from './fiscal';
@@ -61,7 +62,13 @@ export interface Produto {
   estoqueMinimo: TDec_0803;
   
   aliquotaICMS: TDec_0302_04;
-  
+
+  // CST (regime normal) ou CSOSN (Simples Nacional) — mutuamente exclusivos.
+  // Sem csosnICMS, um emitente do Simples Nacional é rejeitado pela SEFAZ
+  // ("CSOSN obrigatório para emitente do Simples Nacional, CRT=1").
+  cstICMS?: string;
+  csosnICMS?: string;
+
   aliquotaPIS: TDec_0302_04;
   
   aliquotaCOFINS: TDec_0302_04;
@@ -319,7 +326,7 @@ export interface ConfiguracaoEmpresa {
   
   regimeTributario: RegimeTributario;
   
-  aliquotaSimplesNacional: TDec_0302;
+  aliquotaSimplesNacional: number;
   
   ambienteEmissao: TAmb;
   
@@ -340,9 +347,13 @@ export interface ConfiguracaoEmpresa {
   proximoNumeroCte: TNF;
   
   serieNfae: TSerie;
-  
+
   proximoNumeroNfae: TNF;
-  
+
+  serieMdfe: TSerie;
+
+  proximoNumeroMdfe: TNF;
+
   endereco: {
     logradouro: string;
     numero: string;
@@ -366,6 +377,10 @@ export interface ConfiguracaoEmpresa {
   certificado: CertificadoDigitalInfo;
   chavePixPadrao?: string;
   bancoPadrao?: string;
+  contadorNome?: string;
+  contadorEmail?: string;
+  contadorTelefone?: string;
+  contadorCRC?: string;
   
   optanteSimples: boolean;
   optanteMEI: boolean;
