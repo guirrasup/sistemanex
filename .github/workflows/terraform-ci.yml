@@ -1,0 +1,101 @@
+# NOTE: terraform/environments/${{ matrix.environment }}/backend.tf points at a real S3 backend that must already exist (via terraform/bootstrap) for "terraform init" to succeed here, and TF_PLAN_ROLE_ARN must be set as a repository-level GitHub Actions variable (Settings -> Secrets and variables -> Actions -> Variables) before this workflow will run successfully -- it does nothing until that manual setup step happens.
+name: Terraform CI
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  lint-and-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: terraform fmt check
+        run: terraform fmt -check -recursive terraform/
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Run TFLint
+        run: |
+          for dir in terraform/bootstrap terraform/environments/* terraform/modules/*; do
+            echo "::group::tflint $dir"
+            (cd "$dir" && tflint --init && tflint) || exit 1
+            echo "::endgroup::"
+          done
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform
+          soft_fail: true
+
+  plan:
+    runs-on: ubuntu-latest
+    needs: lint-and-scan
+    strategy:
+      matrix:
+        environment: [dev, prod]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: Configure AWS credentials (OIDC, read-only)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.TF_PLAN_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Terraform init
+        working-directory: terraform/environments/${{ matrix.environment }}
+        run: terraform init
+
+      - name: Terraform validate
+        working-directory: terraform/environments/${{ matrix.environment }}
+        run: terraform validate
+
+      - name: Terraform plan
+        id: plan
+        working-directory: terraform/environments/${{ matrix.environment }}
+        continue-on-error: true
+        run: |
+          # pipefail: sem isso, o exit code da linha abaixo seria o do "tee"
+          # (que quase sempre é 0), nunca o do "terraform plan" — o passo
+          # sempre pareceria ter sucesso mesmo quando o plan falha de verdade.
+          set -o pipefail
+          terraform plan -no-color -input=false \
+            ${{ matrix.environment == 'prod' && '-var=alert_email=placeholder@example.com' || '' }} \
+            | tee /tmp/plan-${{ matrix.environment }}.txt
+
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('/tmp/plan-${{ matrix.environment }}.txt', 'utf8').slice(-60000);
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `### Terraform plan — ${{ matrix.environment }}\n\n<details><summary>Show plan</summary>\n\n\`\`\`\n${plan}\n\`\`\`\n</details>`
+            });
+
+      - name: Fail if plan errored
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
