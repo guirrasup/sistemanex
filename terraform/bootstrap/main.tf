@@ -124,9 +124,19 @@ resource "aws_dynamodb_table" "terraform_lock" {
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
+
+  # A AWS/GitHub documentaram por anos os dois primeiros thumbprints abaixo
+  # (cadeia DigiCert) — mas em 2026-10 o GitHub passou a servir
+  # token.actions.githubusercontent.com via Let's Encrypt (confirmado via
+  # "openssl s_client" direto no endpoint), invalidando os antigos e causando
+  # "Not authorized to perform sts:AssumeRoleWithWebIdentity" em produção.
+  # Mantidos os dois antigos (não custam nada, até 5 thumbprints são aceitos)
+  # e adicionados o intermediário e a raiz atuais da cadeia Let's Encrypt.
   thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1",
-    "1c58a3a8518e8759bf075b76b750d4f2df264fcd",
+    "6938fd4d98bab03faadb97b34396831e3780aea1", # antigo (DigiCert) — legado
+    "1c58a3a8518e8759bf075b76b750d4f2df264fcd", # antigo (DigiCert) — legado
+    "2d74d6dfd96eea55ad7baafa0d3c6552b2dadc37", # intermediário "Let's Encrypt YR2" (atual)
+    "ab9d0263244dd0326eb67015705a667e79cfe998", # raiz "ISRG Root YR" (atual)
   ]
 }
 
