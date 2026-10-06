@@ -591,7 +591,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   );
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
+    <div className="space-y-4 max-w-6xl mx-auto">
       
       <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
         <div>
