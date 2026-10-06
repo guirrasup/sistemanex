@@ -1,6 +1,4 @@
 {
   "name": "SUP TECNOLOGIA - Emissor Fiscal & Gestão",
-    "description": "Sistema completo e integrado de emissão de todos os modelos fiscais: NF-e (Produtos), NFS-e (Serviços), NFC-e (Consumidor), CT-e (Transporte) e NFA-e (Avulsa), com DANFE, DACTE, Cupom e gestão integrada.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "description": "Sistema completo e integrado de emissão de todos os modelos fiscais: NF-e (Produtos), NFS-e (Serviços), NFC-e (Consumidor), CT-e (Transporte) e NFA-e (Avulsa), com DANFE, DACTE, Cupom e gestão integrada."
 }
