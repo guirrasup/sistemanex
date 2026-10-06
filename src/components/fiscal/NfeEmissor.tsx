@@ -18,6 +18,7 @@ import { Cfop } from '../../services/cfop.service';
 import { Combobox } from '../ui/Combobox';
 import { ResumoEmissaoModal } from './ResumoEmissaoModal';
 import { useToast } from '../../hooks/useToast';
+import { CampoCpfCnpj } from '../ui/CampoCpfCnpj';
 
 // ============================================================
 // INTERFACE
@@ -676,7 +677,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 text-xs">
           <div>
             <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
-            <input type="text" value={destinatarioDoc} onChange={(e) => setDestinatarioDoc(e.target.value.toUpperCase())} className={classeCampo(destinatarioDoc)} placeholder="00.000.000/0000-00" />
+            <CampoCpfCnpj value={destinatarioDoc} onChange={setDestinatarioDoc} className={classeCampo(destinatarioDoc)} placeholder="00.000.000/0000-00" />
           </div>
           <div className="sm:col-span-2 md:col-span-3">
             <label className="block font-medium text-slate-600 mb-1">Razão Social / Nome *</label>

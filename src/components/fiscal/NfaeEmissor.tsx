@@ -17,6 +17,7 @@ import { nfaeService } from '../../services/nfae.service';
 import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { ResumoEmissaoModal } from './ResumoEmissaoModal';
+import { CampoCpfCnpj } from '../ui/CampoCpfCnpj';
 
 interface NfaeEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -561,10 +562,9 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         <div className="space-y-2.5 text-xs">
           <div>
             <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
-            <input
-              type="text"
+            <CampoCpfCnpj
               value={requerenteDoc}
-              onChange={(e) => setRequerenteDoc(e.target.value.toUpperCase())}
+              onChange={setRequerenteDoc}
               className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="00.000.000/0000-00"
             />
@@ -710,10 +710,9 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         <div className="space-y-2.5 text-xs">
           <div>
             <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
-            <input
-              type="text"
+            <CampoCpfCnpj
               value={destinatarioDoc}
-              onChange={(e) => setDestinatarioDoc(e.target.value.toUpperCase())}
+              onChange={setDestinatarioDoc}
               className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="00.000.000/0000-00"
             />

@@ -43,6 +43,7 @@ import { getApiErrorMessage } from '../../utils/apiError';
 import { nfseService } from '../../services/nfse.service';
 import { DanfseLayout } from './DanfseLayout';
 import { ResumoEmissaoModal } from './ResumoEmissaoModal';
+import { CampoCpfCnpj } from '../ui/CampoCpfCnpj';
 
 interface NfseEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -580,10 +581,9 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <div>
             <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
-            <input
-              type="text"
+            <CampoCpfCnpj
               value={tomadorDoc}
-              onChange={(e) => setTomadorDoc(e.target.value.toUpperCase())}
+              onChange={setTomadorDoc}
               className={classeCampo(tomadorDoc)}
               placeholder="00.000.000/0000-00"
             />

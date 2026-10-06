@@ -40,6 +40,7 @@ import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { ResumoEmissaoModal } from './ResumoEmissaoModal';
+import { CampoCpfCnpj } from '../ui/CampoCpfCnpj';
 
 interface MdfeEmissorProps {
   empresa: ConfiguracaoEmpresa;
@@ -849,10 +850,9 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div>
               <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
-              <input
-                type="text"
+              <CampoCpfCnpj
                 value={emitenteDoc}
-                onChange={(e) => setEmitenteDoc(e.target.value.toUpperCase())}
+                onChange={setEmitenteDoc}
                 className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="00.000.000/0000-00"
               />
@@ -1088,10 +1088,9 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
                   placeholder="Nome do condutor"
                   className={`flex-1 min-w-[160px] border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
                 />
-                <input
-                  type="text"
+                <CampoCpfCnpj tipo="CPF"
                   value={novoCondutorCpf}
-                  onChange={(e) => setNovoCondutorCpf(e.target.value)}
+                  onChange={setNovoCondutorCpf}
                   placeholder="CPF (só números)"
                   className={`w-40 border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
                 />
@@ -1759,21 +1758,19 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
           </div>
 
           <div className="flex flex-wrap gap-2 mb-3">
-            <input
-              type="text"
+            <CampoCpfCnpj tipo="CNPJ"
               value={novoAutCNPJ}
-              onChange={(e) => setNovoAutCNPJ(limparCpfCnpj(e.target.value))}
+              onChange={setNovoAutCNPJ}
               placeholder="CNPJ (14 caracteres)"
-              maxLength={14}
+              maxLength={18}
               className={`w-36 border border-slate-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
             />
             <span className="text-xs text-slate-400 self-center">ou</span>
-            <input
-              type="text"
+            <CampoCpfCnpj tipo="CPF"
               value={novoAutCPF}
-              onChange={(e) => setNovoAutCPF(e.target.value.replace(/\D/g, ''))}
+              onChange={setNovoAutCPF}
               placeholder="CPF (11 dígitos)"
-              maxLength={11}
+              maxLength={14}
               className={`w-32 border border-slate-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
             />
             <button

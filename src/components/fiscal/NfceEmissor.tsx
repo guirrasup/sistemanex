@@ -47,6 +47,7 @@ import { getApiErrorMessage } from '../../utils/apiError';
 import { nfceService, EmitirNfceItemParams } from '../../services/nfce.service';
 import { DanfceLayout } from './DanfceLayout';
 import { ResumoEmissaoModal } from './ResumoEmissaoModal';
+import { CampoCpfCnpj } from '../ui/CampoCpfCnpj';
 
 // CSOSN sem base própria (ICMSSN102/ICMSSN500 no XML) — não declaram vBC/vICMS;
 // mandar um valor aqui infla o total do documento sem lastro em nenhum item,
@@ -706,10 +707,9 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
                 <label className="block font-medium text-slate-600 mb-1">CPF ou CNPJ *</label>
-                <input
-                  type="text"
+                <CampoCpfCnpj
                   value={consumidorDoc}
-                  onChange={(e) => setConsumidorDoc(e.target.value.toUpperCase())}
+                  onChange={setConsumidorDoc}
                   className={classeCampo(consumidorDoc)}
                   placeholder="000.000.000-00"
                 />
