@@ -1,6 +1,7 @@
 // backend/src/utils/xmlMdfeGenerator.ts
-import { limparDocumento } from './cpfCnpjValidator.js';
+import { limparDocumento, limparCpfCnpj } from './cpfCnpjValidator.js';
 import { formatarDataHoraSefaz } from './dataHoraSefaz.js';
+import { isChaveAcesso44 } from './chaveAcesso.js';
 
 function escapeXml(str: string | undefined | null): string {
   if (!str) return '';
@@ -48,7 +49,7 @@ export function gerarXmlMDFe(params: {
 }): string {
   const { mdfe, emitente, municipiosCarrega, percursos, municipiosDescarga, seguros, lacres, autorizadosDownload, produtoPredominante, totalizadores } = params;
 
-  const cnpjEmit = limparDocumento(emitente.documento);
+  const cnpjEmit = limparCpfCnpj(emitente.documento);
   const isCnpj = cnpjEmit.length === 14;
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -130,7 +131,7 @@ export function gerarXmlMDFe(params: {
           ${(mdfe.condutores || []).map((c: any) => `
           <condutor>
             <xNome>${escapeXml(c.xNome)}</xNome>
-            <CPF>${limparDocumento(c.CPF)}</CPF>
+            <CPF>${limparCpfCnpj(c.CPF)}</CPF>
           </condutor>`).join('')}
           <tpRod>${escapeXml(mdfe.veicTracaoTpRod)}</tpRod>
           <tpCar>${escapeXml(mdfe.veicTracaoTpCar)}</tpCar>
@@ -353,7 +354,7 @@ export function gerarXmlCancelamentoMdfe(params: {
   protocoloAutorizacao: string;
   ambiente?: 1 | 2;
 }): string {
-  if (!/^[0-9]{44}$/.test(params.chaveAcessoMdfe)) {
+  if (!isChaveAcesso44(params.chaveAcessoMdfe)) {
     throw new Error('Chave de acesso do MDF-e inválida: deve ter 44 dígitos');
   }
   if (params.justificativa.length < 15 || params.justificativa.length > 255) {
@@ -364,7 +365,7 @@ export function gerarXmlCancelamentoMdfe(params: {
   }
 
   const dhEvento = formatarDataHoraSefaz();
-  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const cnpjLimpo = limparCpfCnpj(params.cnpjAutor);
   const nSeq = params.sequencialEvento.toString().padStart(2, '0');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -398,7 +399,7 @@ export function gerarXmlEncerramentoMdfe(params: {
   dataEncerramento?: string; // YYYY-MM-DD; padrão: hoje
   ambiente?: 1 | 2;
 }): string {
-  if (!/^[0-9]{44}$/.test(params.chaveAcessoMdfe)) {
+  if (!isChaveAcesso44(params.chaveAcessoMdfe)) {
     throw new Error('Chave de acesso do MDF-e inválida: deve ter 44 dígitos');
   }
   if (!/^[0-9]{15}$/.test(params.protocoloAutorizacao) && !/^[0-9]{17}$/.test(params.protocoloAutorizacao)) {
@@ -406,7 +407,7 @@ export function gerarXmlEncerramentoMdfe(params: {
   }
 
   const dhEvento = formatarDataHoraSefaz();
-  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const cnpjLimpo = limparCpfCnpj(params.cnpjAutor);
   const nSeq = params.sequencialEvento.toString().padStart(2, '0');
   const dtEnc = params.dataEncerramento || dhEvento.slice(0, 10);
 

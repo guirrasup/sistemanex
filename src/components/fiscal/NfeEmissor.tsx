@@ -10,7 +10,7 @@ import {
 import { NFeDocumento, ItemNfe } from '../../types/fiscal';
 import { Produto, ClienteFornecedor, ConfiguracaoEmpresa, TransportadoraERP } from '../../types/erp';
 import { DanfeLayout } from './DanfeLayout';
-import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
+import { formatarMoeda, formatarCpfCnpj, limparCpfCnpj, validarCpfOuCnpj } from '../../utils/cpfCnpjValidator';
 import { calcularTotaisNfe } from '../../utils/tributosEngine';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { nfeService, NfeApiRecord } from '../../services/nfe.service';
@@ -359,6 +359,10 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
     // cliente — mas se o cadastro do cliente tiver algum desses campos faltando,
     // eles chegam vazios aqui também, e a SEFAZ exige todos no XML do destinatário.
     if (!destinatarioDoc.trim()) errs.push('CPF/CNPJ do destinatário está vazio');
+    else if (
+      clientes.find(c => c.id === selectedClienteId)?.tipoPessoa !== 'EXTERIOR' &&
+      !validarCpfOuCnpj(destinatarioDoc).valido
+    ) errs.push('CPF/CNPJ do destinatário inválido — confira os dígitos verificadores');
     if (!destinatarioNome.trim()) errs.push('Razão Social/Nome do destinatário está vazio');
     if (!destinatarioLogradouro.trim()) errs.push('Logradouro do destinatário está vazio');
     if (!destinatarioNumero.trim()) errs.push('Número do destinatário está vazio');
@@ -539,10 +543,10 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   const clientesFiltrados = (() => {
     const q = buscaCliente.toLowerCase().trim();
     if (!q) return [];
-    const qDoc = q.replace(/\D/g, '');
+    const qDoc = limparCpfCnpj(q);
     return clientes.filter(c =>
       c.razaoSocial.toLowerCase().includes(q) ||
-      (qDoc && (c.documento || '').replace(/\D/g, '').includes(qDoc))
+      (qDoc && limparCpfCnpj(c.documento).includes(qDoc))
     );
   })();
 
@@ -672,7 +676,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 text-xs">
           <div>
             <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
-            <input type="text" value={destinatarioDoc} onChange={(e) => setDestinatarioDoc(e.target.value)} className={classeCampo(destinatarioDoc)} placeholder="00.000.000/0000-00" />
+            <input type="text" value={destinatarioDoc} onChange={(e) => setDestinatarioDoc(e.target.value.toUpperCase())} className={classeCampo(destinatarioDoc)} placeholder="00.000.000/0000-00" />
           </div>
           <div className="sm:col-span-2 md:col-span-3">
             <label className="block font-medium text-slate-600 mb-1">Razão Social / Nome *</label>

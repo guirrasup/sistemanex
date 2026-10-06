@@ -12,7 +12,7 @@ import { CTeDocumento, CTeComponenteValor, CTeQuantidade, CTeDocumentoTransporta
 import { ClienteFornecedor, ConfiguracaoEmpresa, TransportadoraERP } from '../../types/erp';
 import { StorageService } from '../../utils/storage';
 import { formatarMoeda, formatarCpfCnpj, validarCpfOuCnpj, limparDocumento } from '../../utils/cpfCnpjValidator';
-import { gerarChaveAcessoNFe, calcularDVMod11NFe } from '../../utils/chaveAcesso';
+import { gerarChaveAcessoNFe, calcularDVMod11NFe, isChaveAcesso44, limparChaveAcesso } from '../../utils/chaveAcesso';
 import { cteService } from '../../services/cte.service';
 import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
@@ -371,8 +371,8 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
   const adicionarDocumento = () => {
     const chaves = chavesNfeTexto
       .split(/[\n,;]/)
-      .map(s => s.trim().replace(/\D/g, ''))
-      .filter(s => s.length === 44);
+      .map(s => limparChaveAcesso(s))
+      .filter(s => isChaveAcesso44(s));
 
     const novosDocs: CTeDocumentoTransportado[] = chaves.map(chave => ({
       tipo: 'NFe',
@@ -474,10 +474,18 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
 
     if (!remetenteDoc || !remetenteNome) {
       errs.push('Informe os dados completos do Remetente (embarcador da carga).');
+    } else if (!validarCpfOuCnpj(remetenteDoc).valido) {
+      errs.push('CPF/CNPJ do Remetente inválido — confira os dígitos verificadores.');
     }
 
     if (!destinatarioDoc || !destinatarioNome) {
       errs.push('Informe os dados completos do Destinatário da carga.');
+    } else if (!validarCpfOuCnpj(destinatarioDoc).valido) {
+      errs.push('CPF/CNPJ do Destinatário inválido — confira os dígitos verificadores.');
+    }
+
+    if (tomadorServico === 4 && tomadorCNPJ && !validarCpfOuCnpj(tomadorCNPJ).valido) {
+      errs.push('CPF/CNPJ do Tomador inválido — confira os dígitos verificadores.');
     }
 
     if (!produtoPredominante.trim()) {
@@ -912,7 +920,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
             <input
               type="text"
               value={remetenteDoc}
-              onChange={(e) => setRemetenteDoc(e.target.value)}
+              onChange={(e) => setRemetenteDoc(e.target.value.toUpperCase())}
               className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="00.000.000/0000-00"
             />
@@ -1077,7 +1085,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
             <input
               type="text"
               value={destinatarioDoc}
-              onChange={(e) => setDestinatarioDoc(e.target.value)}
+              onChange={(e) => setDestinatarioDoc(e.target.value.toUpperCase())}
               className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="00.000.000/0000-00"
             />
@@ -1294,7 +1302,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
               <input
                 type="text"
                 value={chCteSub}
-                onChange={(e) => setChCteSub(e.target.value)}
+                onChange={(e) => setChCteSub(limparChaveAcesso(e.target.value))}
                 className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
                 placeholder="44 dígitos"
                 maxLength={44}
@@ -1307,7 +1315,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
               <input
                 type="text"
                 value={chCTeComplementado}
-                onChange={(e) => setChCTeComplementado(e.target.value)}
+                onChange={(e) => setChCTeComplementado(limparChaveAcesso(e.target.value))}
                 className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
                 placeholder="44 dígitos"
                 maxLength={44}
@@ -1346,7 +1354,7 @@ export const CteEmissor: React.FC<CteEmissorProps> = ({
                   <input
                     type="text"
                     value={tomadorCNPJ}
-                    onChange={(e) => setTomadorCNPJ(e.target.value)}
+                    onChange={(e) => setTomadorCNPJ(e.target.value.toUpperCase())}
                     className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                     placeholder="00.000.000/0000-00"
                   />

@@ -1,6 +1,7 @@
 // backend/src/repositories/mdfe.repository.ts
 import { Prisma, StatusMDFe, ModalMDFe } from '@prisma/client';
 import { BaseRepository } from './base.repository.js';
+import { isChaveAcesso44 } from '../utils/chaveAcesso.js';
 
 // ============================================================
 // INTERFACES
@@ -98,7 +99,7 @@ export class MdfeRepository extends BaseRepository {
   }
 
   async findByChave(chaveAcesso: string) {
-    if (!/^[0-9]{44}$/.test(chaveAcesso)) {
+    if (!isChaveAcesso44(chaveAcesso)) {
       throw new Error('Chave de acesso inválida: deve ter 44 dígitos');
     }
 
@@ -216,7 +217,7 @@ export class MdfeRepository extends BaseRepository {
 
     // ✅ Filtro por chave de acesso
     if (chaveAcesso) {
-      if (!/^[0-9]{44}$/.test(chaveAcesso)) {
+      if (!isChaveAcesso44(chaveAcesso)) {
         throw new Error('Chave de acesso inválida: deve ter 44 dígitos');
       }
       where.chaveAcesso = chaveAcesso;
@@ -265,7 +266,7 @@ export class MdfeRepository extends BaseRepository {
     if (!data.chaveAcesso) {
       throw new Error('Chave de acesso é obrigatória');
     }
-    if (!/^[0-9]{44}$/.test(data.chaveAcesso)) {
+    if (!isChaveAcesso44(data.chaveAcesso)) {
       throw new Error('Chave de acesso inválida: deve ter 44 dígitos');
       }
       if (!data.empresaId) {

@@ -583,7 +583,7 @@ export const NfseEmissor: React.FC<NfseEmissorProps> = ({
             <input
               type="text"
               value={tomadorDoc}
-              onChange={(e) => setTomadorDoc(e.target.value)}
+              onChange={(e) => setTomadorDoc(e.target.value.toUpperCase())}
               className={classeCampo(tomadorDoc)}
               placeholder="00.000.000/0000-00"
             />

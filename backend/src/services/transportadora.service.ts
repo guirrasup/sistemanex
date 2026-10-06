@@ -2,6 +2,7 @@
 import { TransportadoraRepository } from '../repositories/transportadora.repository.js';
 import { EmpresaRepository } from '../repositories/empresa.repository.js';
 import { codigoUfPorSigla } from '../utils/ufCodigos.js';
+import { validarCNPJ } from '../utils/cpfCnpjValidator.js';
 
 export class TransportadoraService {
   private transportadoraRepo: TransportadoraRepository;
@@ -39,8 +40,8 @@ export class TransportadoraService {
 
   async criar(data: any) {
     // Validações
-    if (!data.cnpj || data.cnpj.replace(/\D/g, '').length !== 14) {
-      throw new Error('CNPJ inválido (deve ter 14 dígitos)');
+    if (!data.cnpj || !validarCNPJ(data.cnpj)) {
+      throw new Error('CNPJ inválido');
     }
 
     if (!data.razaoSocial || data.razaoSocial.trim().length < 3) {

@@ -1,6 +1,6 @@
 // src/utils/xmlNfseGenerator.ts
 import { NFSeDocumento } from '../types/fiscal';
-import { limparDocumento } from './cpfCnpjValidator';
+import { limparDocumento, limparCpfCnpj } from './cpfCnpjValidator';
 
 function formatarNumeroXml(num: number | undefined | null, decimais = 2): string {
   if (num === undefined || num === null || isNaN(num)) return '0.00';
@@ -18,8 +18,8 @@ function escapeXml(str: string | undefined | null): string {
 }
 
 export function gerarXmlNfseNacional(nfse: NFSeDocumento): string {
-  const cnpjEmit = limparDocumento(nfse.emitente.cnpj);
-  const docToma = limparDocumento(nfse.tomador.documento);
+  const cnpjEmit = limparCpfCnpj(nfse.emitente.cnpj);
+  const docToma = limparCpfCnpj(nfse.tomador.documento);
   const isCnpjToma = docToma.length === 14;
 
   const ibs = nfse.servico.ibscbs;
@@ -266,7 +266,7 @@ export function gerarSoapEnviarLoteDpsSincrono(nfse: NFSeDocumento): string {
       <LoteDps versao="1.01">
         <NumeroLote>${nfse.numeroDPS}</NumeroLote>
         <Prestador>
-          <CNPJ>${limparDocumento(nfse.emitente.cnpj)}</CNPJ>
+          <CNPJ>${limparCpfCnpj(nfse.emitente.cnpj)}</CNPJ>
           <IM>${escapeXml(nfse.emitente.inscricaoMunicipal)}</IM>
         </Prestador>
         <QuantidadeDPS>1</QuantidadeDPS>
@@ -293,7 +293,7 @@ export function gerarXmlCancelamentoNfse(params: {
     <tpAmb>1</tpAmb>
     <verAplic>SUP-TECNOLOGIA-1.01</verAplic>
     <dhEvento>${dhEvento}</dhEvento>
-    <CNPJAutor>${limparDocumento(params.cnpjAutor)}</CNPJAutor>
+    <CNPJAutor>${limparCpfCnpj(params.cnpjAutor)}</CNPJAutor>
     <chNFSe>${params.chaveNFSe}</chNFSe>
     <e101101>
       <xDesc>Cancelamento de NFS-e</xDesc>

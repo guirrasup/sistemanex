@@ -1,6 +1,6 @@
 // backend/src/utils/__tests__/chaveAcesso.test.ts
 import { describe, it, expect } from 'vitest';
-import { calcularDVMod11NFe, gerarChaveAcessoNFe, gerarChaveAcessoNFSe, formatarChaveAcesso44 } from '../chaveAcesso.js';
+import { calcularDVMod11NFe, gerarChaveAcessoNFe, gerarChaveAcessoNFSe, formatarChaveAcesso44, isChaveAcesso44 } from '../chaveAcesso.js';
 
 describe('calcularDVMod11NFe', () => {
   it('calcula o dígito verificador módulo 11 conforme o algoritmo oficial da NF-e', () => {
@@ -151,5 +151,44 @@ describe('formatarChaveAcesso44', () => {
   it('remove caracteres não numéricos antes de formatar', () => {
     const formatada = formatarChaveAcesso44('3526-0118.2364/4700-0190');
     expect(formatada).toBe('3526 0118 2364 4700 0190');
+  });
+});
+
+describe('chave de acesso com CNPJ alfanumérico', () => {
+  it('no DV, cada letra vale o código ASCII menos 48 (A=17, B=18)', () => {
+    // Só o último caractere é diferente de zero: 'B' (18) x peso 2 = 36;
+    // 36 % 11 = 3 → DV = 11 - 3 = 8.
+    expect(calcularDVMod11NFe('0'.repeat(42) + 'B')).toBe(8);
+    // 'A' (17) na penúltima posição (peso 3) = 51; 51 % 11 = 7 → DV = 4.
+    expect(calcularDVMod11NFe('0'.repeat(41) + 'A0')).toBe(4);
+  });
+
+  it('gera a chave mantendo as letras do CNPJ nas posições 7 a 20', () => {
+    const { chaveCompleta, dv } = gerarChaveAcessoNFe({
+      codigoUf: '35',
+      anoMes: '2610',
+      cnpjEmitente: '12.abc.345/01de-35',
+      modelo: '55',
+      serie: 1,
+      numero: 1,
+      tipoEmissao: 1,
+      codigoNumerico: '12345678',
+    });
+
+    expect(chaveCompleta).toHaveLength(44);
+    expect(chaveCompleta.slice(6, 20)).toBe('12ABC34501DE35');
+    expect(isChaveAcesso44(chaveCompleta)).toBe(true);
+    expect(dv).toBe(calcularDVMod11NFe(chaveCompleta.slice(0, 43)));
+  });
+
+  it('isChaveAcesso44 só aceita letras na faixa do CNPJ', () => {
+    expect(isChaveAcesso44('35261012ABC34501DE35550010000000011123456780')).toBe(true);
+    expect(isChaveAcesso44('35261018236447000120550010000000011123456789')).toBe(true);
+    expect(isChaveAcesso44('A5261012ABC34501DE35550010000000011123456780')).toBe(false);
+    expect(isChaveAcesso44('35261012ABC34501DE3555001000000001112345678A')).toBe(false);
+  });
+
+  it('formatarChaveAcesso44 preserva as letras', () => {
+    expect(formatarChaveAcesso44('3526 1012ab c345')).toBe('3526 1012 ABC3 45');
   });
 });

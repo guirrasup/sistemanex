@@ -3,6 +3,7 @@ import { logger } from '../lib/logger.js';
 import forge from 'node-forge'
 import { EmpresaRepository } from '../repositories/empresa.repository.js'
 import { encryptSecret, decryptSecret } from '../utils/crypto.js'
+import { limparCpfCnpj } from '../utils/cpfCnpjValidator.js'
 
 const BRASILAPI_TIMEOUT_MS = 5000
 
@@ -62,8 +63,10 @@ export class CertificadoService {
 
       // Extrai CNPJ do subject
       let cnpj = ''
-      const cnpjMatch = subjectName.match(/\d{14}/)
-      if (cnpjMatch) cnpj = cnpjMatch[0]
+      // O CN vem como "RAZÃO SOCIAL:CNPJ"; procura primeiro depois do ":" para
+      // aceitar o CNPJ alfanumérico sem confundir com letras da razão social.
+      const cnpjMatch = subjectName.toUpperCase().match(/:([0-9A-Z]{12}[0-9]{2})(?![0-9A-Z])/) || subjectName.match(/(\d{14})/)
+      if (cnpjMatch) cnpj = cnpjMatch[1]
 
       // Calcula validade
       const validadeInicio = certX509?.validity?.notBefore || new Date()
@@ -163,7 +166,7 @@ export class CertificadoService {
   private async buscarDadosCnpj(cnpj: string) {
     try {
       const response = await fetch(
-        `https://brasilapi.com.br/api/cnpj/v1/${cnpj.replace(/\D/g, '')}`,
+        `https://brasilapi.com.br/api/cnpj/v1/${limparCpfCnpj(cnpj)}`,
         { signal: AbortSignal.timeout(BRASILAPI_TIMEOUT_MS) }
       )
 

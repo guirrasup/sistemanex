@@ -1,11 +1,12 @@
 // backend/src/utils/chaveAcessoMDFe.ts
-import { limparDocumento } from './cpfCnpjValidator.js';
+import { limparCpfCnpj, valorCaractereFiscal } from './cpfCnpjValidator.js';
+import { isChaveAcesso44, limparChaveAcesso } from './chaveAcesso.js';
 
 export function calcularDVMod11MDFe(chave43: string): number {
   let soma = 0;
   let peso = 2;
   for (let i = chave43.length - 1; i >= 0; i--) {
-    soma += parseInt(chave43.charAt(i), 10) * peso;
+    soma += valorCaractereFiscal(chave43.charAt(i)) * peso;
     peso++;
     if (peso > 9) peso = 2;
   }
@@ -27,12 +28,12 @@ export function gerarChaveAcessoMDFe(params: {
 }): { chaveCompleta: string; cMDF: string; cDV: number } {
   const cUF = params.cUF.padStart(2, '0');
   const aamm = params.aamm;
-  const cnpj = limparDocumento(params.cnpj).padStart(14, '0');
+  const cnpj = limparCpfCnpj(params.cnpj).padStart(14, '0');
   const mod = params.modelo.padStart(2, '0');
   const serie = params.serie.toString().padStart(3, '0');
   const nNF = params.numero.toString().padStart(9, '0');
   const tpEmis = params.tpEmis.toString();
-  
+
   // Gera cMDF aleatório (8 dígitos)
   const cMDF = params.cMDF || Math.floor(10000000 + Math.random() * 90000000).toString();
 
@@ -44,16 +45,15 @@ export function gerarChaveAcessoMDFe(params: {
 }
 
 export function formatarChaveAcessoMDFe(chave: string): string {
-  const limpa = chave.replace(/\D/g, '');
-  return limpa.replace(/(\d{4})/g, '$1 ').trim();
+  return limparChaveAcesso(chave).replace(/(.{4})/g, '$1 ').trim();
 }
 
 export function validarChaveAcessoMDFe(chave: string): boolean {
-  if (!/^[0-9]{44}$/.test(chave)) return false;
-  
+  if (!isChaveAcesso44(chave)) return false;
+
   const chave43 = chave.slice(0, 43);
   const dvInformado = parseInt(chave.charAt(43), 10);
   const dvCalculado = calcularDVMod11MDFe(chave43);
-  
+
   return dvInformado === dvCalculado;
 }

@@ -203,7 +203,7 @@ export const DanfceLayout: React.FC<DanfceLayoutProps> = ({
         </div>
         <div className="text-[9px] break-all font-mono bg-slate-50 p-1 rounded border border-slate-200">
           CHAVE DE ACESSO:<br />
-          <strong>{chaveAcesso ? chaveAcesso.replace(/(\d{4})/g, '$1 ') : 'GERADA NA AUTORIZAÇÃO PELA SEFAZ'}</strong>
+          <strong>{chaveAcesso ? chaveAcesso.replace(/(.{4})/g, '$1 ') : 'GERADA NA AUTORIZAÇÃO PELA SEFAZ'}</strong>
         </div>
         <div className="text-[10px] text-emerald-700 font-bold">
           {protocoloAutorizacao ? `Protocolo de Autorização: ${protocoloAutorizacao}` : 'Aguardando transmissão para a SEFAZ'}

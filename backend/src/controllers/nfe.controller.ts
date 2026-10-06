@@ -4,6 +4,8 @@ import { Request, Response } from 'express';
 import { NfeService } from '../services/nfe.service.js';
 import { EmailService } from '../services/email.service.js';
 import { StatusDocumento } from '@prisma/client';
+import { isChaveAcesso44 } from '../utils/chaveAcesso.js';
+import { limparCpfCnpj, REGEX_CNPJ } from '../utils/cpfCnpjValidator.js';
 import { 
   TChNFe, 
   TJust, 
@@ -32,7 +34,7 @@ interface RequestComUsuario extends Request {
 // ============================================================
 
 function validarChaveAcesso(chave: string): boolean {
-  return /^[0-9]{44}$/.test(chave);
+  return isChaveAcesso44(chave);
 }
 
 function validarTJust(texto: string): boolean {
@@ -44,7 +46,7 @@ function validarProtocolo(protocolo: string): boolean {
 }
 
 function validarTCnpj(cnpj: string): boolean {
-  return /^[0-9]{14}$/.test(cnpj.replace(/\D/g, ''));
+  return REGEX_CNPJ.test(limparCpfCnpj(cnpj));
 }
 
 function validarTSerie(serie: number): boolean {
@@ -641,11 +643,11 @@ export class NfeController {
         });
       }
 
-      // ✅ VALIDA TCnpj (14 dígitos)
+      // ✅ VALIDA TCnpj (14 caracteres, aceita o CNPJ alfanumérico)
       if (!validarTCnpj(cnpjAutor)) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'CNPJ do autor inválido: deve ter 14 dígitos (TCnpj)'
+          erro: 'CNPJ do autor inválido: deve ter 14 caracteres (TCnpj)'
         });
       }
 

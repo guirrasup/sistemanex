@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import { MdfeService } from '../services/mdfe.service.js';
 import { EmailService } from '../services/email.service.js';
 import { StatusMDFe } from '@prisma/client';
+import { isChaveAcesso44 } from '../utils/chaveAcesso.js';
 
 interface RequestComUsuario extends Request {
   user?: {
@@ -181,7 +182,7 @@ export class MdfeController {
         });
       }
 
-      if (!/^[0-9]{44}$/.test(chave)) {
+      if (!isChaveAcesso44(chave)) {
         return res.status(400).json({
           sucesso: false,
           erro: 'Chave de acesso inválida: deve ter 44 dígitos'

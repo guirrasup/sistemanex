@@ -105,7 +105,7 @@ function criarTomador(overrides: Record<string, any> = {}) {
   return {
     id: 'tomador-1',
     tipoPessoa: 'PJ',
-    documento: '12345678000199',
+    documento: '12345678000195',
     razaoSocial: 'Tomador Teste LTDA',
     endereco: {
       logradouro: 'Rua Tomador', numero: '10', bairro: 'Centro',

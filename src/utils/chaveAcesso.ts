@@ -1,11 +1,23 @@
 // src/utils/chaveAcesso.ts
-import { limparDocumento } from './cpfCnpjValidator';
+import { limparCpfCnpj, valorCaractereFiscal } from './cpfCnpjValidator';
+
+// Chave de 44 posições (NF-e, NFC-e, CT-e, MDF-e, NFA-e). Com o CNPJ alfanumérico
+// as posições 7–20 (CNPJ do emitente) podem ter letras; o resto continua numérico.
+export const REGEX_CHAVE_ACESSO_44 = /^[0-9]{6}[0-9A-Z]{14}[0-9]{24}$/;
+
+export function limparChaveAcesso(chave: string | null | undefined): string {
+  return (chave ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+}
+
+export function isChaveAcesso44(chave: string | null | undefined): boolean {
+  return REGEX_CHAVE_ACESSO_44.test(chave ?? '');
+}
 
 export function calcularDVMod11NFe(chave43: string): number {
   let soma = 0;
   let peso = 2;
   for (let i = chave43.length - 1; i >= 0; i--) {
-    soma += parseInt(chave43.charAt(i), 10) * peso;
+    soma += valorCaractereFiscal(chave43.charAt(i)) * peso;
     peso++;
     if (peso > 9) peso = 2;
   }
@@ -27,7 +39,7 @@ export function gerarChaveAcessoNFe(params: {
 }): { chaveCompleta: string; codigoNumerico: string; dv: number } {
   const cUF = params.codigoUf.padStart(2, '0');
   const aamm = params.anoMes;
-  const cnpj = limparDocumento(params.cnpjEmitente).padStart(14, '0');
+  const cnpj = limparCpfCnpj(params.cnpjEmitente).padStart(14, '0');
   const mod = params.modelo.padStart(2, '0');
   const serie = params.serie.toString().padStart(3, '0');
   const nNF = params.numero.toString().padStart(9, '0');
@@ -53,7 +65,7 @@ export function gerarChaveAcessoNFSe(params: {
   const codMun = params.codigoMunicipioIBGE.padStart(7, '0');
   const ambGer = params.ambienteGerador.toString();
   const tipoInsc = params.tipoInscricao.toString();
-  const doc = limparDocumento(params.documentoEmitente).padStart(14, '0');
+  const doc = limparCpfCnpj(params.documentoEmitente).padStart(14, '0');
   const nNFSe = params.numeroNfse.toString().padStart(13, '0');
   const anoMes = params.anoMesDPS;
   const codNum = params.codigoNumerico || Math.floor(100000000 + Math.random() * 900000000).toString();
@@ -62,9 +74,9 @@ export function gerarChaveAcessoNFSe(params: {
   let soma = 0;
   let peso = 2;
   for (let i = rawString.length - 1; i >= 0; i--) {
-    const digit = parseInt(rawString.charAt(i), 10);
-    if (!isNaN(digit)) {
-      soma += digit * peso;
+    const caractere = rawString.charAt(i);
+    if (/[0-9A-Z]/.test(caractere)) {
+      soma += valorCaractereFiscal(caractere) * peso;
       peso++;
       if (peso > 9) peso = 2;
     }
@@ -84,6 +96,5 @@ export function gerarChaveAcessoNFSe(params: {
 }
 
 export function formatarChaveAcesso44(chave: string): string {
-  const limpa = chave.replace(/\D/g, '');
-  return limpa.replace(/(\d{4})/g, '$1 ').trim();
+  return limparChaveAcesso(chave).replace(/(.{4})/g, '$1 ').trim();
 }

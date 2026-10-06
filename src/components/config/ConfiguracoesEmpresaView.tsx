@@ -32,7 +32,7 @@ import {
   FileBadge2
 } from 'lucide-react';
 import { ConfiguracaoEmpresa } from '../../types/erp';
-import { formatarCpfCnpj, formatarCEP, limparDocumento } from '../../utils/cpfCnpjValidator';
+import { formatarCpfCnpj, formatarCEP, limparCpfCnpj, validarCNPJ } from '../../utils/cpfCnpjValidator';
 import { StorageService } from '../../utils/storage';
 import { processarCertificadoA1 } from '../../utils/certificadoParser';
 import { consultarCnpjConectaGov, ConsultaCnpjResponse } from '../../utils/consultaCnpjApi';
@@ -348,10 +348,10 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
   };
 
   const handleConsultarCnpj = async () => {
-    const cnpjLimpo = formData.cnpj.replace(/\D/g, '');
+    const cnpjLimpo = limparCpfCnpj(formData.cnpj);
     
-    if (cnpjLimpo.length !== 14) {
-      toast.showWarning('⚠️ Digite um CNPJ válido (14 dígitos).');
+    if (!validarCNPJ(cnpjLimpo)) {
+      toast.showWarning('⚠️ CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.');
       return;
     }
 
@@ -551,6 +551,10 @@ const handleCarregarCertificadoEPreencher = async () => {
 
   const handleSalvar = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validarCNPJ(formData.cnpj)) {
+      toast.showWarning('⚠️ CNPJ da empresa inválido. Confira os 14 caracteres e os dígitos verificadores.');
+      return;
+    }
     setSalvando(true);
     setErroSalvar(null);
 
@@ -590,8 +594,8 @@ const handleCarregarCertificadoEPreencher = async () => {
   // se o cadastro for editado manualmente, ou se uma consulta de CNPJ falhar
   // no meio do carregamento de um certificado novo. Avisa isso ANTES de
   // emitir, em vez de deixar o usuário só descobrir na rejeição da SEFAZ.
-  const cnpjBaseEmpresa = limparDocumento(formData.cnpj).slice(0, 8);
-  const cnpjBaseCertificado = limparDocumento(formData.certificado?.cnpjCpf || '').slice(0, 8);
+  const cnpjBaseEmpresa = limparCpfCnpj(formData.cnpj).slice(0, 8);
+  const cnpjBaseCertificado = limparCpfCnpj(formData.certificado?.cnpjCpf).slice(0, 8);
   const cnpjDivergeDoCertificado =
     formData.certificado?.instalado &&
     cnpjBaseEmpresa.length === 8 &&
@@ -933,7 +937,7 @@ const handleCarregarCertificadoEPreencher = async () => {
                 <input
                   type="text"
                   value={formData.cnpj}
-                  onChange={(e) => handleChange('cnpj', e.target.value)}
+                  onChange={(e) => handleChange('cnpj', e.target.value.toUpperCase())}
                   className={`w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 bg-slate-50/50 focus:outline-none ${corFocus}`}
                   placeholder="00.000.000/0000-00"
                   required
@@ -942,7 +946,7 @@ const handleCarregarCertificadoEPreencher = async () => {
               <button
                 type="button"
                 onClick={handleConsultarCnpj}
-                disabled={consultandoCnpj || !formData.cnpj || formData.cnpj.replace(/\D/g, '').length < 14}
+                disabled={consultandoCnpj || limparCpfCnpj(formData.cnpj).length < 14}
                 className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer h-[42px]"
                 title="Consultar dados oficiais na Receita Federal"
               >

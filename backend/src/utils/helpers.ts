@@ -1,5 +1,6 @@
 // backend/src/utils/helpers.ts
 import { randomBytes } from 'crypto';
+import { formatarCpfCnpj } from './cpfCnpjValidator.js';
 
 export function gerarIdUnico(prefixo: string = ''): string {
   const timestamp = Date.now().toString(36);
@@ -182,14 +183,7 @@ export function extrairNumeros(texto: string): string {
 }
 
 export function mascararDocumento(documento: string): string {
-  const limpo = extrairNumeros(documento);
-  if (limpo.length === 11) {
-    return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  }
-  if (limpo.length === 14) {
-    return limpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
-  }
-  return documento;
+  return formatarCpfCnpj(documento);
 }
 
 export function mascararCEP(cep: string): string {

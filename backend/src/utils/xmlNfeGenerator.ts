@@ -1,7 +1,8 @@
 // backend/src/utils/xmlNfeGenerator.ts
 import { NFeDocumento, NFCeDocumento, ItemNfe } from '../types/fiscal.js';
-import { limparDocumento } from './cpfCnpjValidator.js';
+import { limparDocumento, limparCpfCnpj } from './cpfCnpjValidator.js';
 import { formatarDataHoraSefaz } from './dataHoraSefaz.js';
+import { isChaveAcesso44 } from './chaveAcesso.js';
 
 // ============================================================
 // FUNÇÕES AUXILIARES
@@ -30,7 +31,7 @@ function escapeXml(str: string | undefined | null): string {
 }
 
 function validarChaveAcesso(chave: string): boolean {
-  return /^[0-9]{44}$/.test(chave);
+  return isChaveAcesso44(chave);
 }
 
 function validarProtocolo(protocolo: string): boolean {
@@ -136,8 +137,8 @@ export function gerarXmlNfe400(nfe: NFeDocumento): string {
     throw new Error('Protocolo inválido: deve ter 15 ou 17 dígitos (TProt)');
   }
 
-  const cnpjEmit = limparDocumento(nfe.emitente.cnpj);
-  const docDest = limparDocumento(nfe.destinatario.documento);
+  const cnpjEmit = limparCpfCnpj(nfe.emitente.cnpj);
+  const docDest = limparCpfCnpj(nfe.destinatario.documento);
   const isCnpjDest = docDest.length === 14;
 
   // 🔥 CALCULA idDest CORRETAMENTE (PL_006h: 1=Interna, 2=Interestadual, 3=Exterior)
@@ -312,7 +313,7 @@ export function gerarXmlNfe400(nfe: NFeDocumento): string {
       ${nfe.transporte.transportadora ? `
       <transporta>
         <xNome>${escapeXml(nfe.transporte.transportadora.razaoSocial)}</xNome>
-        ${nfe.transporte.transportadora.cnpjCpf ? `<CNPJ>${limparDocumento(nfe.transporte.transportadora.cnpjCpf)}</CNPJ>` : ''}
+        ${nfe.transporte.transportadora.cnpjCpf ? `<CNPJ>${limparCpfCnpj(nfe.transporte.transportadora.cnpjCpf)}</CNPJ>` : ''}
         <xEnder>${escapeXml(nfe.transporte.transportadora.enderecoCompleto || '')}</xEnder>
         <xMun>${escapeXml(nfe.transporte.transportadora.municipio || '')}</xMun>
         <UF>${escapeXml(nfe.transporte.transportadora.uf || '')}</UF>
@@ -383,7 +384,7 @@ export function gerarXmlNfce400(nfce: NFCeDocumento): string {
     throw new Error('Protocolo inválido: deve ter 15 ou 17 dígitos (TProt)');
   }
 
-  const cnpjEmit = limparDocumento(nfce.emitente.cnpj);
+  const cnpjEmit = limparCpfCnpj(nfce.emitente.cnpj);
 
   // 🔥 TOTALIZADORES DE ICMS/PIS/COFINS CALCULADOS A PARTIR DOS ITENS
   // (NFC-e não guarda esses totais no documento, apenas por item)
@@ -449,7 +450,7 @@ export function gerarXmlNfce400(nfce: NFCeDocumento): string {
     <!-- CONSUMIDOR (opcional na NFC-e) -->
     ${nfce.consumidorIdentificado && nfce.consumidorCpf ? `
     <dest>
-      ${limparDocumento(nfce.consumidorCpf).length === 14 ? `<CNPJ>${limparDocumento(nfce.consumidorCpf)}</CNPJ>` : `<CPF>${limparDocumento(nfce.consumidorCpf)}</CPF>`}
+      ${limparCpfCnpj(nfce.consumidorCpf).length === 14 ? `<CNPJ>${limparCpfCnpj(nfce.consumidorCpf)}</CNPJ>` : `<CPF>${limparCpfCnpj(nfce.consumidorCpf)}</CPF>`}
       ${nfce.consumidorNome ? `<xNome>${escapeXml(nfce.consumidorNome)}</xNome>` : ''}
       ${nfce.consumidorEmail ? `<email>${escapeXml(nfce.consumidorEmail)}</email>` : ''}
     </dest>` : ''}
@@ -585,7 +586,7 @@ export function gerarXmlCartaCorrecao(params: {
   }
 
   const dhEvento = formatarDataHoraSefaz();
-  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const cnpjLimpo = limparCpfCnpj(params.cnpjAutor);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">
@@ -638,7 +639,7 @@ export function gerarXmlCancelamentoNFe(params: {
   }
 
   const dhEvento = formatarDataHoraSefaz();
-  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const cnpjLimpo = limparCpfCnpj(params.cnpjAutor);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">
@@ -689,7 +690,7 @@ export function gerarXmlInutilizacaoNFe(params: {
     throw new Error('Número inicial deve ser menor ou igual ao número final (TNF)');
   }
 
-  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const cnpjLimpo = limparCpfCnpj(params.cnpjAutor);
   const cUF = params.cUF.padStart(2, '0');
   const serie = params.serie.toString().padStart(3, '0');
   const nNFIni = params.numeroInicial.toString().padStart(9, '0');

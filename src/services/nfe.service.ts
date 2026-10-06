@@ -2,6 +2,8 @@
 import api from './api';
 import { NFeDocumento, TChNFe, TJust, TProt, TCnpj, TSerie, TNF } from '../types/fiscal';
 import { getApiErrorMessage } from '../utils/apiError';
+import { isChaveAcesso44 } from '../utils/chaveAcesso';
+import { limparCpfCnpj, REGEX_CNPJ } from '../utils/cpfCnpjValidator';
 
 // ============================================================
 // INTERFACES
@@ -101,7 +103,7 @@ export interface EmitirNfeParams {
 // ============================================================
 
 function validarChaveAcesso(chave: string): boolean {
-  return /^[0-9]{44}$/.test(chave);
+  return isChaveAcesso44(chave);
 }
 
 function validarTJust(texto: string): boolean {
@@ -109,7 +111,7 @@ function validarTJust(texto: string): boolean {
 }
 
 function validarTCnpj(cnpj: string): boolean {
-  return /^[0-9]{14}$/.test(cnpj.replace(/\D/g, ''));
+  return REGEX_CNPJ.test(limparCpfCnpj(cnpj));
 }
 
 function validarTSerie(serie: number): boolean {

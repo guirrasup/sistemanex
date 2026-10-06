@@ -18,7 +18,7 @@ import { enviarDps, enviarEventoNfse } from './adnNfseClient.js';
 import { enviarDpsMunicipal } from './nfseMunicipalSoapClient.js';
 import { obterWebservicePropio } from '../config/nfseMunicipiosWebservicePropio.js';
 import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
-import { limparDocumento } from '../utils/cpfCnpjValidator.js';
+import { limparDocumento, limparCpfCnpj, exigirCpfCnpjValido } from '../utils/cpfCnpjValidator.js';
 
 interface ServicoOverrideInput {
   valorServico?: number;
@@ -128,6 +128,7 @@ export class NfseService {
 
     const tomador = await this.clienteRepo.findById(data.tomadorId);
     if (!tomador) throw new Error('Tomador não encontrado');
+    if (tomador.tipoPessoa !== 'EXTERIOR') exigirCpfCnpjValido(tomador.documento, 'Tomador');
 
     // Valida certificado
     if (!empresa.certificado || empresa.certificado.status !== 'VALIDO') {
@@ -225,7 +226,7 @@ export class NfseService {
       // o usuário pode digitar com pontuação ("12.345.678/0001-99"). A coluna
       // tomadorDocumento aqui é VarChar(14) (só dígitos), então precisa limpar
       // antes, senão o Postgres rejeita com "value too long for the column's type".
-      tomadorDocumento: limparDocumento(tomador.documento),
+      tomadorDocumento: limparCpfCnpj(tomador.documento),
       tomadorRazaoSocial: tomador.razaoSocial,
       tomadorNomeFantasia: tomador.nomeFantasia,
       tomadorInscricaoMunicipal: tomador.inscricaoMunicipal,

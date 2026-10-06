@@ -9,7 +9,7 @@
 import React, { useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 import { formatarMoeda, formatarCpfCnpj, formatarCEP } from '../../utils/cpfCnpjValidator';
-import { formatarChaveAcesso44 } from '../../utils/chaveAcesso';
+import { formatarChaveAcesso44, limparChaveAcesso } from '../../utils/chaveAcesso';
 
 interface DanfeEndereco {
   logradouro: string;
@@ -105,7 +105,7 @@ export const DanfeLayout: React.FC<DanfeLayoutProps> = ({
   informacoesAdicionais,
 }) => {
   const barcodeSvgRef = useRef<SVGSVGElement | null>(null);
-  const temChaveAcesso = !!chaveAcesso && chaveAcesso.replace(/\D/g, '').length === 44;
+  const temChaveAcesso = !!chaveAcesso && limparChaveAcesso(chaveAcesso).length === 44;
 
   useEffect(() => {
     if (barcodeSvgRef.current && temChaveAcesso) {

@@ -79,7 +79,7 @@ export const DanfaeViewer: React.FC<DanfaeViewerProps> = ({ nfae, onBack }) => {
           <div className="col-span-4 text-center flex flex-col justify-center">
             <div className="font-mono text-xs font-black">SÉRIE {nfae.serie} • Nº {nfae.numero}</div>
             <div className="text-[9px] font-mono break-all bg-slate-100 p-1 border border-slate-300 mt-1">
-              CHAVE: {nfae.chaveAcesso.replace(/(\d{4})/g, '$1 ')}
+              CHAVE: {nfae.chaveAcesso.replace(/(.{4})/g, '$1 ')}
             </div>
             <div className="text-[9px] font-bold text-emerald-800 mt-0.5">
               Protocolo: {nfae.protocoloAutorizacao}

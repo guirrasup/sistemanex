@@ -11,7 +11,7 @@ import {
 import { NFAeDocumento, ItemNfae } from '../../types/fiscal';
 import { ClienteFornecedor, ConfiguracaoEmpresa, Produto } from '../../types/erp';
 import { StorageService } from '../../utils/storage';
-import { formatarMoeda, formatarCpfCnpj, validarCpfOuCnpj, limparDocumento } from '../../utils/cpfCnpjValidator';
+import { formatarMoeda, formatarCpfCnpj, validarCpfOuCnpj, limparCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { gerarChaveAcessoNFe } from '../../utils/chaveAcesso';
 import { nfaeService } from '../../services/nfae.service';
 import { useToast } from '../../hooks/useToast';
@@ -132,7 +132,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
     if (cli) {
       setRequerenteDoc(cli.documento);
       setRequerenteNome(cli.razaoSocial);
-      setRequerenteTipoPessoa(cli.documento.replace(/\D/g, '').length === 11 ? 'PF' : 'PJ');
+      setRequerenteTipoPessoa(limparCpfCnpj(cli.documento).length === 11 ? 'PF' : 'PJ');
       setRequerenteLogradouro(cli.endereco.logradouro);
       setRequerenteNumero(cli.endereco.numero);
       setRequerenteComplemento(cli.endereco.complemento || '');
@@ -153,7 +153,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
     if (cli) {
       setDestinatarioDoc(cli.documento);
       setDestinatarioNome(cli.razaoSocial);
-      setDestinatarioTipoPessoa(cli.documento.replace(/\D/g, '').length === 11 ? 'PF' : 'PJ');
+      setDestinatarioTipoPessoa(limparCpfCnpj(cli.documento).length === 11 ? 'PF' : 'PJ');
       setDestinatarioIE(cli.inscricaoEstadual || '');
       setDestinatarioLogradouro(cli.endereco.logradouro);
       setDestinatarioNumero(cli.endereco.numero);
@@ -237,9 +237,13 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
 
     if (!requerenteDoc || !requerenteNome) {
       errs.push('1. Informe os dados do Requerente (emitente avulso).');
+    } else if (!validarCpfOuCnpj(requerenteDoc).valido) {
+      errs.push('1. CPF/CNPJ do Requerente inválido — confira os dígitos verificadores.');
     }
     if (!destinatarioDoc || !destinatarioNome) {
       errs.push('2. Informe os dados do Destinatário.');
+    } else if (!validarCpfOuCnpj(destinatarioDoc).valido) {
+      errs.push('2. CPF/CNPJ do Destinatário inválido — confira os dígitos verificadores.');
     }
     if (itens.length === 0) {
       errs.push('3. Adicione pelo menos um produto/insumo.');
@@ -361,7 +365,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         tipoEmissao: 1,
       });
 
-      const docDestLimpo = limparDocumento(destinatarioDoc);
+      const docDestLimpo = limparCpfCnpj(destinatarioDoc);
       const isCnpjDest = docDestLimpo.length === 14;
 
       const novaNfae = {
@@ -560,7 +564,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
             <input
               type="text"
               value={requerenteDoc}
-              onChange={(e) => setRequerenteDoc(e.target.value)}
+              onChange={(e) => setRequerenteDoc(e.target.value.toUpperCase())}
               className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="00.000.000/0000-00"
             />
@@ -709,7 +713,7 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
             <input
               type="text"
               value={destinatarioDoc}
-              onChange={(e) => setDestinatarioDoc(e.target.value)}
+              onChange={(e) => setDestinatarioDoc(e.target.value.toUpperCase())}
               className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="00.000.000/0000-00"
             />

@@ -1,5 +1,5 @@
 // src/utils/consultaCnpjApi.ts
-import { limparDocumento } from './cpfCnpjValidator';
+import { limparCpfCnpj, validarCNPJ } from './cpfCnpjValidator';
 
 export interface ConsultaCnpjResponse {
   sucesso: boolean;
@@ -124,12 +124,12 @@ interface OpenCnpjRawResponse {
 }
 
 export async function consultarCnpjConectaGov(cnpj: string): Promise<ConsultaCnpjResponse> {
-  const cnpjLimpo = limparDocumento(cnpj);
+  const cnpjLimpo = limparCpfCnpj(cnpj);
   
-  if (cnpjLimpo.length !== 14) {
+  if (!validarCNPJ(cnpjLimpo)) {
     return {
       sucesso: false,
-      erro: 'CNPJ inválido. Digite 14 dígitos.'
+      erro: 'CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.'
     };
   }
 

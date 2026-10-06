@@ -4,6 +4,7 @@ import axios from 'axios';
 import * as jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { ConectaGovTokenResponse, ConectaGovEmpresaResponse } from '../types/cnpj.js';
+import { limparCpfCnpj, validarCNPJ } from '../utils/cpfCnpjValidator.js';
 
 const TOKEN_EXPIRY_MARGIN_MS = 60000;
 const CONECTAGOV_REQUEST_TIMEOUT_MS = 30000;
@@ -109,10 +110,10 @@ export class ConectaGovService {
   // jaRenovouToken: no 401 renova o token e tenta UMA vez; se o novo token também
   // for recusado, propaga o erro em vez de repetir indefinidamente.
   async consultarCnpj(cnpj: string, cpfUsuario?: string, jaRenovouToken = false): Promise<ConectaGovEmpresaResponse> {
-    const cnpjLimpo = cnpj.replace(/\D/g, '');
+    const cnpjLimpo = limparCpfCnpj(cnpj);
     
-    if (cnpjLimpo.length !== 14) {
-      throw new Error('CNPJ inválido. Digite 14 dígitos.');
+    if (!validarCNPJ(cnpjLimpo)) {
+      throw new Error('CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.');
     }
 
     const token = await this.getToken();

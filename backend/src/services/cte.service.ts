@@ -8,6 +8,7 @@ import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
 import { EmpresaRepository } from '../repositories/empresa.repository.js';
 import { autorizarCte, enviarEventoCte } from './cteSefazClient.js';
+import { exigirCpfCnpjValido } from '../utils/cpfCnpjValidator.js';
 
 interface EmitirCteInput {
   cUF?: string;
@@ -95,6 +96,9 @@ export class CteService {
     if (!empresa.certificado || empresa.certificado.status !== 'VALIDO') {
       throw new Error('Certificado digital inválido ou não configurado');
     }
+
+    if (data.tomadorCNPJ) exigirCpfCnpjValido(String(data.tomadorCNPJ), 'Tomador');
+    if (data.tomadorCPF) exigirCpfCnpjValido(String(data.tomadorCPF), 'Tomador');
 
     // 1. Gerar chave de acesso
     // 🔥 cUF e cnpjEmitente SEMPRE vêm do registro fresco de `empresa` buscado

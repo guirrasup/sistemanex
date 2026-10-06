@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import { CteService } from '../services/cte.service.js';
 import { EmailService } from '../services/email.service.js';
 import { StatusCTe } from '@prisma/client';
+import { isChaveAcesso44 } from '../utils/chaveAcesso.js';
 
 // ============================================================
 // INTERFACES
@@ -23,7 +24,7 @@ interface RequestComUsuario extends Request {
 // ============================================================
 
 function validarChaveAcesso(chave: string): boolean {
-  return /^[0-9]{44}$/.test(chave);
+  return isChaveAcesso44(chave);
 }
 
 function validarTJust(texto: string): boolean {

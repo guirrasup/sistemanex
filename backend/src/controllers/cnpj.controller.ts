@@ -2,6 +2,7 @@
 import { logger } from '../lib/logger.js';
 import { Request, Response } from 'express';
 import { ConectaGovService } from '../services/conectagov.service.js';
+import { limparCpfCnpj, validarCNPJ } from '../utils/cpfCnpjValidator.js';
 
 interface CnaeSecundarioConectaGov {
   codigo?: string;
@@ -35,11 +36,11 @@ export class CnpjController {
       const cpfUsuario = req.headers['x-cpf-usuario'] as string || (req.user as { cpf?: string } | undefined)?.cpf;
 
       // 🔥 VALIDA CNPJ
-      const cnpjLimpo = cnpj.replace(/\D/g, '');
-      if (cnpjLimpo.length !== 14) {
+      const cnpjLimpo = limparCpfCnpj(cnpj);
+      if (!validarCNPJ(cnpjLimpo)) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'CNPJ inválido. Digite 14 dígitos.'
+          erro: 'CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.'
         });
       }
 
@@ -138,11 +139,11 @@ export class CnpjController {
       const { cnpj } = req.params;
       const cpfUsuario = req.headers['x-cpf-usuario'] as string || (req.user as { cpf?: string } | undefined)?.cpf;
 
-      const cnpjLimpo = cnpj.replace(/\D/g, '');
-      if (cnpjLimpo.length !== 14) {
+      const cnpjLimpo = limparCpfCnpj(cnpj);
+      if (!validarCNPJ(cnpjLimpo)) {
         return res.status(400).json({
           sucesso: false,
-          erro: 'CNPJ inválido. Digite 14 dígitos.'
+          erro: 'CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.'
         });
       }
 

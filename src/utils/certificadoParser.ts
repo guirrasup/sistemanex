@@ -28,6 +28,11 @@ function bufferParaBinaryString(buffer: ArrayBuffer): string {
 }
 
 function extrairCnpj(texto: string): string {
+  // CN no padrão ICP-Brasil ("RAZÃO SOCIAL:CNPJ"): procura depois do ":" para
+  // aceitar o CNPJ alfanumérico sem confundir com letras da razão social.
+  const alfanumerico = texto.toUpperCase().match(/:([0-9A-Z]{12}[0-9]{2})(?![0-9A-Z])/);
+  if (alfanumerico) return alfanumerico[1];
+
   // Tenta encontrar CNPJ no formato 14 dígitos consecutivos
   let match = texto.match(/\d{14}/);
   if (match) return match[0];
@@ -46,7 +51,8 @@ function extrairCnpj(texto: string): string {
 function extrairRazaoSocial(texto: string): string {
   let razao = texto;
 
-  // 1. Remove o CNPJ (14 dígitos consecutivos)
+  // 1. Remove o CNPJ (14 dígitos consecutivos, ou alfanumérico depois do ":")
+  razao = razao.replace(/:[0-9A-Za-z]{12}[0-9]{2}(?![0-9A-Za-z])/g, '');
   razao = razao.replace(/\d{14}/g, '');
   
   // 2. Remove números com espaços (ex: "29 535 022")

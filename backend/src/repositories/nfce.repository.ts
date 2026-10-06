@@ -1,6 +1,7 @@
 // backend/src/repositories/nfce.repository.ts
 import { Prisma, StatusDocumento } from '@prisma/client';
 import { BaseRepository } from './base.repository.js';
+import { isChaveAcesso44 } from '../utils/chaveAcesso.js';
 
 // ============================================================
 // INTERFACES
@@ -53,7 +54,7 @@ export class NfceRepository extends BaseRepository {
   }
 
   async findByChave(chaveAcesso: string) {
-    if (!/^[0-9]{44}$/.test(chaveAcesso)) {
+    if (!isChaveAcesso44(chaveAcesso)) {
       throw new Error('Chave de acesso inválida: deve ter 44 dígitos');
     }
 
@@ -148,7 +149,7 @@ export class NfceRepository extends BaseRepository {
 
     // ✅ Filtro por chave de acesso (TChNFe - 44 dígitos)
     if (chaveAcesso) {
-      if (!/^[0-9]{44}$/.test(chaveAcesso)) {
+      if (!isChaveAcesso44(chaveAcesso)) {
         throw new Error('Chave de acesso inválida: deve ter 44 dígitos');
       }
       where.chaveAcesso = chaveAcesso;
@@ -189,7 +190,7 @@ export class NfceRepository extends BaseRepository {
     if (!data.chaveAcesso) {
       throw new Error('Chave de acesso é obrigatória');
     }
-    if (!/^[0-9]{44}$/.test(data.chaveAcesso)) {
+    if (!isChaveAcesso44(data.chaveAcesso)) {
       throw new Error('Chave de acesso inválida: deve ter 44 dígitos');
     }
     if (!data.empresaId) {

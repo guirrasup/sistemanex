@@ -16,6 +16,7 @@ import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
 import { autorizarNfe, consultarRecibo, enviarEvento, inutilizarNfe } from './nfeSefazClient.js';
 import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
+import { limparCpfCnpj, exigirCpfCnpjValido } from '../utils/cpfCnpjValidator.js';
 
 interface ItemNfeRequestInput {
   produtoId: string;
@@ -58,6 +59,7 @@ export class NfeService {
 
     const destinatario = await this.clienteRepo.findById(data.destinatarioId);
     if (!destinatario) throw new Error('Destinatário não encontrado');
+    if (destinatario.tipoPessoa !== 'EXTERIOR') exigirCpfCnpjValido(destinatario.documento, 'Destinatário');
 
     if (!empresa.certificado || empresa.certificado.status !== 'VALIDO') {
       throw new Error('Certificado digital inválido ou não configurado');
@@ -644,7 +646,7 @@ export class NfeService {
       numeroFinal: params.numeroFinal,
       ano: Number(`20${ano}`),
       cUF,
-      cnpj: empresa.cnpj.replace(/\D/g, ''),
+      cnpj: limparCpfCnpj(empresa.cnpj),
       justificativa: params.justificativa,
       protocolo,
       status,

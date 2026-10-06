@@ -8,7 +8,7 @@
 // não foi encontrado publicamente nesta pesquisa, valide a estrutura exata contra o
 // ambiente de Produção Restrita (homologação) antes de transmitir em produção.
 import { NFSeDocumento } from '../types/fiscal.js';
-import { limparDocumento } from './cpfCnpjValidator.js';
+import { limparDocumento, limparCpfCnpj } from './cpfCnpjValidator.js';
 
 function escapeXml(str: string | undefined | null): string {
   if (!str) return '';
@@ -30,9 +30,9 @@ function formatarNumero(val: number | undefined | null, decimais = 2): string {
  * (NFSeDocumento). O elemento assinado é "infDPS".
  */
 export function gerarXmlDps(nfse: NFSeDocumento): string {
-  const cnpjEmit = limparDocumento(nfse.emitente.cnpj);
+  const cnpjEmit = limparCpfCnpj(nfse.emitente.cnpj);
   const isCnpjEmit = cnpjEmit.length === 14;
-  const docToma = limparDocumento(nfse.tomador.documento);
+  const docToma = limparCpfCnpj(nfse.tomador.documento);
   const isCnpjToma = docToma.length === 14;
   const tpAmb = nfse.ambiente === 1 ? '1' : '2';
   // O Id da DPS (TSIdDPS) NÃO é "DPS"+chave de acesso da NFS-e (que é um

@@ -33,7 +33,8 @@ import {
 } from 'lucide-react';
 import { MDFeDocumento, ModalMDFe, TipoEmitenteMDFe, TipoCargaMDFe, SeguroMDFe } from '../../types/mdfe';
 import { ClienteFornecedor, ConfiguracaoEmpresa } from '../../types/erp';
-import { formatarMoeda, formatarCpfCnpj, limparDocumento } from '../../utils/cpfCnpjValidator';
+import { formatarMoeda, formatarCpfCnpj, limparDocumento, limparCpfCnpj, validarCNPJ, validarCPF, validarCpfOuCnpj } from '../../utils/cpfCnpjValidator';
+import { isChaveAcesso44, limparChaveAcesso } from '../../utils/chaveAcesso';
 import { mdfeService } from '../../services/mdfe.service';
 import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
@@ -319,9 +320,9 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
       toast.showWarning('⚠️ Informe a chave do CT-e (44 dígitos).');
       return;
     }
-    const chaveLimpa = novaChaveCTe.replace(/\D/g, '');
-    if (chaveLimpa.length !== 44) {
-      toast.showWarning('⚠️ Chave do CT-e deve ter 44 dígitos.');
+    const chaveLimpa = limparChaveAcesso(novaChaveCTe);
+    if (!isChaveAcesso44(chaveLimpa)) {
+      toast.showWarning('⚠️ Chave do CT-e inválida: deve ter 44 caracteres.');
       return;
     }
     const mun = municipiosDescarga[index];
@@ -341,9 +342,9 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
       toast.showWarning('⚠️ Informe a chave da NF-e (44 dígitos).');
       return;
     }
-    const chaveLimpa = novaChaveNFe.replace(/\D/g, '');
-    if (chaveLimpa.length !== 44) {
-      toast.showWarning('⚠️ Chave da NF-e deve ter 44 dígitos.');
+    const chaveLimpa = limparChaveAcesso(novaChaveNFe);
+    if (!isChaveAcesso44(chaveLimpa)) {
+      toast.showWarning('⚠️ Chave da NF-e inválida: deve ter 44 caracteres.');
       return;
     }
     const totalNFe = municipiosDescarga.reduce((acc, m) => acc + (m.nfes?.length || 0), 0);
@@ -362,9 +363,9 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
       toast.showWarning('⚠️ Informe a chave do MDF-e (44 dígitos).');
       return;
     }
-    const chaveLimpa = novaChaveMDFe.replace(/\D/g, '');
-    if (chaveLimpa.length !== 44) {
-      toast.showWarning('⚠️ Chave do MDF-e deve ter 44 dígitos.');
+    const chaveLimpa = limparChaveAcesso(novaChaveMDFe);
+    if (!isChaveAcesso44(chaveLimpa)) {
+      toast.showWarning('⚠️ Chave do MDF-e inválida: deve ter 44 caracteres.');
       return;
     }
     const totalMDFe = municipiosDescarga.reduce((acc, m) => acc + (m.mdfesTransp?.length || 0), 0);
@@ -429,6 +430,10 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
       toast.showWarning('⚠️ Informe nome e CPF do condutor.');
       return;
     }
+    if (!validarCPF(novoCondutorCpf)) {
+      toast.showWarning('⚠️ CPF do condutor inválido — confira os dígitos verificadores.');
+      return;
+    }
     setCondutores([...condutores, { nome: novoCondutorNome, cpf: novoCondutorCpf }]);
     setNovoCondutorNome('');
     setNovoCondutorCpf('');
@@ -470,17 +475,17 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
     }
     const novo: { cnpj?: string; cpf?: string } = {};
     if (novoAutCNPJ) {
-      const cnpjLimpo = novoAutCNPJ.replace(/\D/g, '');
-      if (cnpjLimpo.length !== 14) {
-        toast.showWarning('⚠️ CNPJ deve ter 14 dígitos.');
+      const cnpjLimpo = limparCpfCnpj(novoAutCNPJ);
+      if (!validarCNPJ(cnpjLimpo)) {
+        toast.showWarning('⚠️ CNPJ do autorizado inválido — confira os dígitos verificadores.');
         return;
       }
       novo.cnpj = cnpjLimpo;
     }
     if (novoAutCPF) {
-      const cpfLimpo = novoAutCPF.replace(/\D/g, '');
-      if (cpfLimpo.length !== 11) {
-        toast.showWarning('⚠️ CPF deve ter 11 dígitos.');
+      const cpfLimpo = limparDocumento(novoAutCPF);
+      if (!validarCPF(cpfLimpo)) {
+        toast.showWarning('⚠️ CPF do autorizado inválido — confira os dígitos verificadores.');
         return;
       }
       novo.cpf = cpfLimpo;
@@ -568,6 +573,8 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
     // Emitente
     if (!emitenteDoc || !emitenteNome) {
       errs.push('Emitente: CPF/CNPJ e Razão Social são obrigatórios.');
+    } else if (!validarCpfOuCnpj(emitenteDoc).valido) {
+      errs.push('Emitente: CPF/CNPJ inválido — confira os dígitos verificadores.');
     }
 
     // Veículo/condutores — a SEFAZ exige esse bloco para o modal rodoviário
@@ -845,7 +852,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
               <input
                 type="text"
                 value={emitenteDoc}
-                onChange={(e) => setEmitenteDoc(e.target.value)}
+                onChange={(e) => setEmitenteDoc(e.target.value.toUpperCase())}
                 className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="00.000.000/0000-00"
               />
@@ -1315,7 +1322,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
                           <input
                             type="text"
                             value={novaChaveCTe}
-                            onChange={(e) => setNovaChaveCTe(e.target.value.replace(/\D/g, ''))}
+                            onChange={(e) => setNovaChaveCTe(limparChaveAcesso(e.target.value))}
                             placeholder="Chave CT-e (44 dígitos)"
                             maxLength={44}
                             className={`flex-1 border border-slate-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
@@ -1356,7 +1363,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
                           <input
                             type="text"
                             value={novaChaveNFe}
-                            onChange={(e) => setNovaChaveNFe(e.target.value.replace(/\D/g, ''))}
+                            onChange={(e) => setNovaChaveNFe(limparChaveAcesso(e.target.value))}
                             placeholder="Chave NF-e (44 dígitos)"
                             maxLength={44}
                             className={`flex-1 border border-slate-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
@@ -1397,7 +1404,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
                           <input
                             type="text"
                             value={novaChaveMDFe}
-                            onChange={(e) => setNovaChaveMDFe(e.target.value.replace(/\D/g, ''))}
+                            onChange={(e) => setNovaChaveMDFe(limparChaveAcesso(e.target.value))}
                             placeholder="Chave MDF-e (44 dígitos)"
                             maxLength={44}
                             className={`flex-1 border border-slate-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
@@ -1755,8 +1762,8 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
             <input
               type="text"
               value={novoAutCNPJ}
-              onChange={(e) => setNovoAutCNPJ(e.target.value.replace(/\D/g, ''))}
-              placeholder="CNPJ (14 dígitos)"
+              onChange={(e) => setNovoAutCNPJ(limparCpfCnpj(e.target.value))}
+              placeholder="CNPJ (14 caracteres)"
               maxLength={14}
               className={`w-36 border border-slate-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
             />

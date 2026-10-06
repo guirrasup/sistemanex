@@ -33,7 +33,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { consultarCnpjConectaGov, ConsultaCnpjResponse } from '../../utils/consultaCnpjApi';
-import { formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
+import { formatarCpfCnpj, limparCpfCnpj, validarCNPJ } from '../../utils/cpfCnpjValidator';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { useToast } from '../../hooks/useToast';
 
@@ -60,10 +60,10 @@ export const ConsultaCnpjView: React.FC<ConsultaCnpjViewProps> = ({ onNavigate }
   const corIconBg = 'bg-rose-600';
 
   const handleConsultar = async () => {
-    const cnpjLimpo = cnpj.replace(/\D/g, '');
+    const cnpjLimpo = limparCpfCnpj(cnpj);
     
-    if (cnpjLimpo.length !== 14) {
-      setErro('Digite um CNPJ válido com 14 dígitos');
+    if (!validarCNPJ(cnpjLimpo)) {
+      setErro('CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.');
       return;
     }
 
@@ -222,11 +222,11 @@ const formatarData = (data: string) => {
               <input
                 type="text"
                 value={cnpj}
-                onChange={(e) => setCnpj(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => setCnpj(e.target.value.toUpperCase())}
                 onKeyPress={handleKeyPress}
-                placeholder="Ex: 18.236.447/0001-90 ou 12.ABC.345/01DE-35"
+                placeholder="Ex: 11.222.333/0001-81 ou 12.ABC.345/01DE-35"
                 className={`w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none ${corFocus} focus:border-rose-600 focus:ring-2 focus:ring-rose-600/20 transition-all font-mono`}
-                maxLength={20}
+                maxLength={18}
               />
             </div>
             <div className="mt-1 text-[10px] text-slate-400 flex items-center gap-2">
@@ -563,7 +563,7 @@ const formatarData = (data: string) => {
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = `cnpj_${resultado.cnpj?.replace(/\D/g, '') || 'consulta'}.json`;
+                  a.download = `cnpj_${limparCpfCnpj(resultado.cnpj) || 'consulta'}.json`;
                   a.click();
                 }}
                 className="bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium px-4 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-2 cursor-pointer"
@@ -575,7 +575,7 @@ const formatarData = (data: string) => {
               <button
                 type="button"
                 onClick={() => {
-                  const cnpjLimpo = resultado.cnpj?.replace(/\D/g, '') || '';
+                  const cnpjLimpo = limparCpfCnpj(resultado.cnpj);
                   window.open(`https://api.opencnpj.org/${cnpjLimpo}?datasets=receita,rntrc`, '_blank', 'noopener,noreferrer');
                 }}
                 className="bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium px-4 py-2 rounded-lg border border-slate-300 transition-colors flex items-center gap-2 cursor-pointer"

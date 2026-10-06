@@ -1,5 +1,5 @@
 // src/services/openCnpj.service.ts
-import { limparDocumento } from '../utils/cpfCnpjValidator';
+import { limparCpfCnpj, validarCNPJ } from '../utils/cpfCnpjValidator';
 
 const API_BASE = 'https://api.opencnpj.org';
 
@@ -142,12 +142,12 @@ export async function consultarCnpjOpen(
   cnpj: string, 
   datasets: string[] = ['receita']
 ): Promise<OpenCnpjConsultaResultado> {
-  const cnpjLimpo = limparDocumento(cnpj);
+  const cnpjLimpo = limparCpfCnpj(cnpj);
   
-  if (cnpjLimpo.length !== 14) {
+  if (!validarCNPJ(cnpjLimpo)) {
     return {
       sucesso: false,
-      erro: 'CNPJ inválido. Digite 14 dígitos.'
+      erro: 'CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.'
     };
   }
 

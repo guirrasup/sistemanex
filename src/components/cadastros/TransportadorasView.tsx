@@ -214,7 +214,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
 
     const val = validarCpfOuCnpj(cnpj);
     if (!val.valido || val.tipo !== 'CNPJ') {
-      toast.showWarning('⚠️ CNPJ inválido. Digite um CNPJ válido com 14 dígitos.');
+      toast.showWarning('⚠️ CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.');
       return;
     }
 
@@ -423,7 +423,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                 <input
                   type="text"
                   value={cnpj}
-                  onChange={(e) => setCnpj(e.target.value)}
+                  onChange={(e) => setCnpj(e.target.value.toUpperCase())}
                   placeholder="00.000.000/0000-00"
                   className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
                   required

@@ -15,6 +15,7 @@ import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
 import { autorizarNfe, enviarEvento } from './nfeSefazClient.js';
 import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
+import { exigirCpfCnpjValido } from '../utils/cpfCnpjValidator.js';
 
 // URL do portal de consulta pública da NFC-e por UF — usada tanto para montar o
 // QR Code (padrão V3 "online": <base>?p=<chave44>|3|<tpAmb>, sem hash/CSC — a
@@ -188,6 +189,7 @@ export class NfceService {
     // Valida consumidor identificado
     let consumidorId = null;
     if (data.consumidorIdentificado && data.consumidorDoc) {
+      exigirCpfCnpjValido(data.consumidorDoc, 'Consumidor');
       const consumidor = await this.clienteRepo.findByDocumento(data.consumidorDoc, data.empresaId);
       if (!consumidor) {
         throw new Error('Consumidor não encontrado. Cadastre-o primeiro ou desmarque a identificação.');

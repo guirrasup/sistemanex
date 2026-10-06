@@ -1,6 +1,7 @@
 // src/utils/xmlNfeGenerator.ts
 import { NFeDocumento, TChNFe, TProt, TDec_1104v, TUf, TCnpj } from '../types/fiscal';
-import { limparDocumento } from './cpfCnpjValidator';
+import { limparDocumento, limparCpfCnpj } from './cpfCnpjValidator';
+import { isChaveAcesso44 } from './chaveAcesso';
 
 // ============================================================
 // FUNÇÕES AUXILIARES
@@ -42,7 +43,7 @@ function base64Encode(str: string): string {
 }
 
 function validarChaveAcesso(chave: string): boolean {
-  return /^[0-9]{44}$/.test(chave);
+  return isChaveAcesso44(chave);
 }
 
 function validarProtocolo(protocolo: string): boolean {
@@ -64,8 +65,8 @@ export function gerarXmlNfe400(nfe: NFeDocumento): string {
     throw new Error('Protocolo inválido: deve ter 15 ou 17 dígitos (TProt)');
   }
 
-  const cnpjEmit = limparDocumento(nfe.emitente.cnpj);
-  const docDest = limparDocumento(nfe.destinatario.documento);
+  const cnpjEmit = limparCpfCnpj(nfe.emitente.cnpj);
+  const docDest = limparCpfCnpj(nfe.destinatario.documento);
   const isCnpjDest = docDest.length === 14;
   
   // 🔥 CALCULA idDest CORRETAMENTE
@@ -239,7 +240,7 @@ export function gerarXmlNfe400(nfe: NFeDocumento): string {
       ${nfe.transporte.transportadora ? `
       <transporta>
         <xNome>${escapeXml(nfe.transporte.transportadora.razaoSocial)}</xNome>
-        ${nfe.transporte.transportadora.cnpjCpf ? `<CNPJ>${limparDocumento(nfe.transporte.transportadora.cnpjCpf)}</CNPJ>` : ''}
+        ${nfe.transporte.transportadora.cnpjCpf ? `<CNPJ>${limparCpfCnpj(nfe.transporte.transportadora.cnpjCpf)}</CNPJ>` : ''}
         <xEnder>${escapeXml(nfe.transporte.transportadora.enderecoCompleto || '')}</xEnder>
         <xMun>${escapeXml(nfe.transporte.transportadora.municipio || '')}</xMun>
         <UF>${escapeXml(nfe.transporte.transportadora.uf || '')}</UF>
@@ -336,7 +337,7 @@ export function gerarXmlCartaCorrecao(params: {
   }
 
   const dhEvento = new Date().toISOString();
-  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const cnpjLimpo = limparCpfCnpj(params.cnpjAutor);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">
@@ -391,7 +392,7 @@ export function gerarXmlCancelamentoNFe(params: {
   }
 
   const dhEvento = new Date().toISOString();
-  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const cnpjLimpo = limparCpfCnpj(params.cnpjAutor);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">

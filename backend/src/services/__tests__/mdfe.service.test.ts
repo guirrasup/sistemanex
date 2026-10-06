@@ -120,7 +120,7 @@ beforeEach(() => {
   mocks.empresaFindById.mockResolvedValue(criarEmpresa());
   mocks.empresaUpdate.mockResolvedValue({});
   mocks.empresaReservarNumero.mockResolvedValue(1);
-  mocks.clienteFindById.mockResolvedValue({ id: 'emitente-1', empresaId: 'empresa-1', razaoSocial: 'Transportadora Teste', documento: '18236447000190', endereco: { logradouro: 'Rua X', numero: '1', bairro: 'Centro', codigoMunicipio: '3550308', nomeMunicipio: 'São Paulo', uf: 'SP', cep: '01000000' } });
+  mocks.clienteFindById.mockResolvedValue({ id: 'emitente-1', empresaId: 'empresa-1', razaoSocial: 'Transportadora Teste', documento: '18236447000120', endereco: { logradouro: 'Rua X', numero: '1', bairro: 'Centro', codigoMunicipio: '3550308', nomeMunicipio: 'São Paulo', uf: 'SP', cep: '01000000' } });
   mocks.mdfeCreate.mockImplementation((dados: any) => Promise.resolve({ id: 'mdfe-1', ...dados, dhEmi: new Date() }));
   mocks.createManyMunCarrega.mockResolvedValue({});
   mocks.createMunDescarga.mockResolvedValue({ id: 'mun-desc-1' });

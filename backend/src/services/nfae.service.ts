@@ -9,6 +9,7 @@ import { EmpresaRepository } from '../repositories/empresa.repository.js';
 import { formatarDataHoraSefaz } from '../utils/dataHoraSefaz.js';
 
 import { prisma } from '../lib/prisma.js';
+import { limparCpfCnpj, exigirCpfCnpjValido } from '../utils/cpfCnpjValidator.js';
 
 // 🔥 LIMITES DE RECURSOS (mitigação CWE-770 / CWE-400)
 const MAX_PAGE_SIZE = 100;
@@ -224,6 +225,9 @@ export class NFAeService {
       throw new Error('Certificado digital inválido ou não configurado');
     }
 
+    exigirCpfCnpjValido(data.requerente?.documento, 'Requerente');
+    if (data.destinatario?.documento) exigirCpfCnpjValido(data.destinatario.documento, 'Destinatário');
+
     const itens = Array.isArray(data.itens) ? data.itens : [];
 
     // 🔥 Limite de itens por nota (CWE-770)
@@ -238,7 +242,7 @@ export class NFAeService {
     const { chaveCompleta, codigoNumerico, dv } = gerarChaveAcessoNFe({
       codigoUf: data.requerente?.municipioIbge?.slice(0, 2) || '35',
       anoMes: aamm,
-      cnpjEmitente: data.requerente?.documento?.replace(/\D/g, '') || '00000000000000',
+      cnpjEmitente: limparCpfCnpj(data.requerente?.documento) || '00000000000000',
       modelo: '63',
       serie: data.serie || 900,
       numero,

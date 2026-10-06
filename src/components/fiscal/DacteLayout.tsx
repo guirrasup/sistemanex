@@ -137,7 +137,7 @@ export const DacteLayout: React.FC<DacteLayoutProps> = ({
           {chaveAcesso ? (
             <>
               <div className="bg-slate-100 p-1 border border-slate-300 text-center font-mono text-[9px] font-bold tracking-wider">
-                {chaveAcesso.replace(/(\d{4})/g, '$1 ')}
+                {chaveAcesso.replace(/(.{4})/g, '$1 ')}
               </div>
               <div className="text-[9px] text-center text-slate-600">
                 Consulta de autenticidade no portal nacional do CT-e (www.cte.fazenda.gov.br) ou SEFAZ autorizadora

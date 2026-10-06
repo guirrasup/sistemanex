@@ -2,6 +2,7 @@
 import { Prisma, StatusDocumento } from '@prisma/client';
 import { BaseRepository } from './base.repository.js';
 import { TChNFe, TProt, TJust } from '../../src/types/fiscal.js';
+import { isChaveAcesso44 } from '../utils/chaveAcesso.js';
 
 // ============================================================
 // INTERFACES
@@ -66,7 +67,7 @@ export class NfeRepository extends BaseRepository {
 
   async findByChave(chaveAcesso: string) {
     // ✅ VALIDA TChNFe (44 dígitos)
-    if (!/^[0-9]{44}$/.test(chaveAcesso)) {
+    if (!isChaveAcesso44(chaveAcesso)) {
       throw new Error('Chave de acesso inválida: deve ter 44 dígitos (TChNFe)');
     }
 
@@ -148,7 +149,7 @@ export class NfeRepository extends BaseRepository {
 
     // ✅ Filtro por chave de acesso (TChNFe - PL_006h)
     if (chaveAcesso) {
-      if (!/^[0-9]{44}$/.test(chaveAcesso)) {
+      if (!isChaveAcesso44(chaveAcesso)) {
         throw new Error('Chave de acesso inválida: deve ter 44 dígitos (TChNFe)');
       }
       where.chaveAcesso = chaveAcesso;
@@ -193,7 +194,7 @@ export class NfeRepository extends BaseRepository {
     if (!data.chaveAcesso) {
       throw new Error('Chave de acesso é obrigatória (TChNFe)');
     }
-    if (!/^[0-9]{44}$/.test(data.chaveAcesso)) {
+    if (!isChaveAcesso44(data.chaveAcesso)) {
       throw new Error('Chave de acesso inválida: deve ter 44 dígitos (TChNFe)');
     }
     if (!data.empresaId) {

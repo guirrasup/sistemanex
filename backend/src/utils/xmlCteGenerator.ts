@@ -6,9 +6,10 @@
 // incluídos), pois os campos do schema Prisma já seguem os nomes oficiais do manual
 // (CST00, vBC00, cUF, etc.), dispensando uma camada extra de DTO — mesmo padrão usado
 // pelo gerador de XML do MDF-e neste projeto.
-import { limparDocumento } from './cpfCnpjValidator.js';
+import { limparDocumento, limparCpfCnpj } from './cpfCnpjValidator.js';
 import { formatarDataHoraSefaz } from './dataHoraSefaz.js';
 import { CRT_POR_REGIME } from './fiscalMappers.js';
+import { isChaveAcesso44 } from './chaveAcesso.js';
 
 function escapeXml(str: unknown): string {
   if (str === undefined || str === null) return '';
@@ -71,7 +72,7 @@ function enderecoXml(tag: string, endereco: any, isEmit = false): string {
 
 function pessoaXml(tag: string, pessoa: any, tagIE = 'IE'): string {
   if (!pessoa) return '';
-  const doc = limparDocumento(pessoa.cnpj || pessoa.documento || '');
+  const doc = limparCpfCnpj(pessoa.cnpj || pessoa.documento || '');
   const isCnpj = doc.length === 14;
   // O grupo <emit> do CT-e 4.00 (diferente de rem/exped/receb/dest) não tem
   // <fone>/<email> e exige <CRT> logo após o endereço — confirmado via rejeição
@@ -216,7 +217,7 @@ function blocoInfModal(cte: any): string {
             <nOcc>${escapeXml(occ.nOcc)}</nOcc>
             <dEmi>${occ.dEmi instanceof Date ? occ.dEmi.toISOString().slice(0, 10) : occ.dEmi}</dEmi>
             <emiOcc>
-              <CNPJ>${limparDocumento(occ.emiCNPJ)}</CNPJ>
+              <CNPJ>${limparCpfCnpj(occ.emiCNPJ)}</CNPJ>
               ${occ.emiCInt ? `<cInt>${escapeXml(occ.emiCInt)}</cInt>` : ''}
               ${occ.emiIE ? `<IE>${escapeXml(occ.emiIE)}</IE>` : ''}
               <UF>${escapeXml(occ.emiUF)}</UF>
@@ -232,7 +233,7 @@ function blocoInfModal(cte: any): string {
 }
 
 export function gerarXmlCte400(cte: any): string {
-  if (!cte.chaveAcesso || !/^[0-9]{44}$/.test(cte.chaveAcesso)) {
+  if (!cte.chaveAcesso || !isChaveAcesso44(cte.chaveAcesso)) {
     throw new Error('Chave de acesso do CT-e inválida: deve ter 44 dígitos');
   }
 
@@ -280,8 +281,8 @@ export function gerarXmlCte400(cte: any): string {
       <indIEToma>${IND_IE_CODIGO[cte.indIEToma] ?? '9'}</indIEToma>
       ${cte.toma === 'OUTROS' ? `<toma4>
         <toma>4</toma>
-        ${cte.tomadorCNPJ ? `<CNPJ>${limparDocumento(cte.tomadorCNPJ)}</CNPJ>` : ''}
-        ${cte.tomadorCPF ? `<CPF>${limparDocumento(cte.tomadorCPF)}</CPF>` : ''}
+        ${cte.tomadorCNPJ ? `<CNPJ>${limparCpfCnpj(cte.tomadorCNPJ)}</CNPJ>` : ''}
+        ${cte.tomadorCPF ? `<CPF>${limparCpfCnpj(cte.tomadorCPF)}</CPF>` : ''}
         ${cte.tomadorIE ? `<IE>${escapeXml(cte.tomadorIE)}</IE>` : ''}
         <xNome>${escapeXml(cte.tomadorxNome)}</xNome>
         ${cte.tomadorxFant ? `<xFant>${escapeXml(cte.tomadorxFant)}</xFant>` : ''}
@@ -426,8 +427,8 @@ export function gerarXmlCte400(cte: any): string {
 
     ${autXML.length > 0 ? autXML.map((a) => `
     <autXML>
-      ${a.CNPJ ? `<CNPJ>${limparDocumento(a.CNPJ)}</CNPJ>` : ''}
-      ${a.CPF ? `<CPF>${limparDocumento(a.CPF)}</CPF>` : ''}
+      ${a.CNPJ ? `<CNPJ>${limparCpfCnpj(a.CNPJ)}</CNPJ>` : ''}
+      ${a.CPF ? `<CPF>${limparCpfCnpj(a.CPF)}</CPF>` : ''}
     </autXML>`).join('') : ''}
   </infCte>
 </CTe>`;
@@ -449,7 +450,7 @@ export function gerarXmlCancelamentoCte(params: {
   protocoloAutorizacao: string;
   ambiente?: 1 | 2;
 }): string {
-  if (!/^[0-9]{44}$/.test(params.chaveAcessoCte)) {
+  if (!isChaveAcesso44(params.chaveAcessoCte)) {
     throw new Error('Chave de acesso do CT-e inválida: deve ter 44 dígitos');
   }
   if (params.justificativa.length < 15 || params.justificativa.length > 255) {
@@ -460,7 +461,7 @@ export function gerarXmlCancelamentoCte(params: {
   }
 
   const dhEvento = formatarDataHoraSefaz();
-  const cnpjLimpo = limparDocumento(params.cnpjAutor);
+  const cnpjLimpo = limparCpfCnpj(params.cnpjAutor);
   const nSeq = params.sequencialEvento.toString().padStart(2, '0');
 
   return `<?xml version="1.0" encoding="UTF-8"?>

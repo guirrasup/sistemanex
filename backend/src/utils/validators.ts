@@ -1,5 +1,6 @@
 // backend/src/utils/validators.ts
-import { limparDocumento } from './cpfCnpjValidator.js';
+import { limparDocumento, isCnpj, validarCPF, validarCNPJ, validarCpfOuCnpj } from './cpfCnpjValidator.js';
+import { isChaveAcesso44, limparChaveAcesso } from './chaveAcesso.js';
 
 export function isRequired(value: any): boolean {
   if (value === null || value === undefined) return false;
@@ -46,61 +47,17 @@ export function isPhone(phone: string): boolean {
   return limpo.length >= 10 && limpo.length <= 11;
 }
 
+// Delegam para cpfCnpjValidator, que aceita o CNPJ alfanumérico.
 export function isValidDocument(document: string): boolean {
-  const limpo = limparDocumento(document);
-  if (limpo.length === 11) {
-    return isValidCPF(limpo);
-  }
-  if (limpo.length === 14) {
-    return isValidCNPJ(limpo);
-  }
-  return false;
+  return validarCpfOuCnpj(document).valido;
 }
 
 export function isValidCPF(cpf: string): boolean {
-  const limpo = limparDocumento(cpf);
-  if (limpo.length !== 11) return false;
-  if (/^(\d)\1{10}$/.test(limpo)) return false;
-
-  let soma = 0;
-  for (let i = 0; i < 9; i++) {
-    soma += parseInt(limpo.charAt(i), 10) * (10 - i);
-  }
-  let resto = 11 - (soma % 11);
-  let dv1 = (resto === 10 || resto === 11) ? 0 : resto;
-  if (dv1 !== parseInt(limpo.charAt(9), 10)) return false;
-
-  soma = 0;
-  for (let i = 0; i < 10; i++) {
-    soma += parseInt(limpo.charAt(i), 10) * (11 - i);
-  }
-  resto = 11 - (soma % 11);
-  let dv2 = (resto === 10 || resto === 11) ? 0 : resto;
-  return dv2 === parseInt(limpo.charAt(10), 10);
+  return validarCPF(cpf);
 }
 
 export function isValidCNPJ(cnpj: string): boolean {
-  const limpo = limparDocumento(cnpj);
-  if (limpo.length !== 14) return false;
-  if (/^(\d)\1{13}$/.test(limpo)) return false;
-
-  const pesos1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-  let soma = 0;
-  for (let i = 0; i < 12; i++) {
-    soma += parseInt(limpo.charAt(i), 10) * pesos1[i];
-  }
-  let resto = soma % 11;
-  let dv1 = resto < 2 ? 0 : 11 - resto;
-  if (dv1 !== parseInt(limpo.charAt(12), 10)) return false;
-
-  const pesos2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-  soma = 0;
-  for (let i = 0; i < 13; i++) {
-    soma += parseInt(limpo.charAt(i), 10) * pesos2[i];
-  }
-  resto = soma % 11;
-  let dv2 = resto < 2 ? 0 : 11 - resto;
-  return dv2 === parseInt(limpo.charAt(13), 10);
+  return validarCNPJ(cnpj);
 }
 
 export function isValidCEP(cep: string): boolean {
@@ -140,8 +97,7 @@ export function isValidBarcode(barcode: string): boolean {
 }
 
 export function isValidNFeKey(chave: string): boolean {
-  const limpo = limparDocumento(chave);
-  return limpo.length === 44;
+  return isChaveAcesso44(limparChaveAcesso(chave));
 }
 
 export function isValidNFSeKey(chave: string): boolean {
@@ -230,8 +186,8 @@ export function isValidPixKey(key: string): boolean {
   
   // CPF (11 dígitos)
   if (limparDocumento(limpo).length === 11) return true;
-  // CNPJ (14 dígitos)
-  if (limparDocumento(limpo).length === 14) return true;
+  // CNPJ (numérico ou alfanumérico)
+  if (isCnpj(limpo)) return true;
   // Email
   if (isEmail(limpo)) return true;
   // Telefone (com DDD)

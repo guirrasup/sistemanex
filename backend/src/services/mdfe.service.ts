@@ -6,7 +6,7 @@ import { MdfeComponentRepository } from '../repositories/mdfe.component.reposito
 import { ClienteRepository } from '../repositories/cliente.repository.js';
 import { EmpresaRepository } from '../repositories/empresa.repository.js';
 import { gerarChaveAcessoMDFe } from '../utils/chaveAcessoMDFe.js';
-import { limparDocumento } from '../utils/cpfCnpjValidator.js';
+import { limparDocumento, limparCpfCnpj, exigirCpfCnpjValido } from '../utils/cpfCnpjValidator.js';
 import { gerarXmlMDFe, gerarXmlCancelamentoMdfe, gerarXmlEncerramentoMdfe } from '../utils/xmlMdfeGenerator.js';
 import { CertificadoService } from './certificado.service.js';
 import { extrairChaveECertificadoDoPfx, assinarXmlEnvelopado } from '../utils/xmlSigner.js';
@@ -287,6 +287,9 @@ export class MdfeService {
     if (emitente.empresaId !== data.empresaId) {
       throw new Error('Emitente não pertence à empresa');
     }
+    exigirCpfCnpjValido(emitente.documento, 'Emitente');
+    for (const c of data.condutores ?? []) exigirCpfCnpjValido(c.cpf, `Condutor ${c.nome}`);
+    for (const a of data.autorizadosDownload ?? []) exigirCpfCnpjValido(a.cnpj || a.cpf, 'Autorizado a baixar o XML');
 
     // Valida municípios de carregamento
     if (!data.municipiosCarrega || data.municipiosCarrega.length === 0) {
@@ -395,7 +398,7 @@ export class MdfeService {
       veicTracaoTpCar: data.veiculo?.tpCar,
       veicTracaoUF: data.veiculo?.uf,
       condutores: data.condutores?.length
-        ? { create: data.condutores.map((c) => ({ xNome: c.nome, CPF: limparDocumento(c.cpf) })) }
+        ? { create: data.condutores.map((c) => ({ xNome: c.nome, CPF: limparCpfCnpj(c.cpf) })) }
         : undefined,
 
       // Relacionamentos

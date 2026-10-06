@@ -6,7 +6,8 @@
 // têm estruturas distintas). Esta função gera uma estrutura genérica, alinhada ao
 // padrão mais comum entre estados (muito próxima da NFe simplificada), pensada para
 // ser ajustada ao manual da UF específica de cada emitente antes da transmissão real.
-import { limparDocumento } from './cpfCnpjValidator.js';
+import { limparDocumento, limparCpfCnpj } from './cpfCnpjValidator.js';
+import { isChaveAcesso44 } from './chaveAcesso.js';
 
 function escapeXml(str: string | undefined | null): string {
   if (!str) return '';
@@ -100,13 +101,13 @@ function enderecoXml(tag: string, endereco: EnderecoNfae): string {
 }
 
 export function gerarXmlNfae(nfae: NfaeParaXml): string {
-  if (!/^[0-9]{44}$/.test(nfae.chaveAcesso)) {
+  if (!isChaveAcesso44(nfae.chaveAcesso)) {
     throw new Error('Chave de acesso inválida: deve ter 44 dígitos');
   }
 
-  const docRequerente = limparDocumento(nfae.requerente.documento);
+  const docRequerente = limparCpfCnpj(nfae.requerente.documento);
   const isCnpjRequerente = docRequerente.length === 14;
-  const docDest = limparDocumento(nfae.destinatario.documento);
+  const docDest = limparCpfCnpj(nfae.destinatario.documento);
   const isCnpjDest = docDest.length === 14;
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

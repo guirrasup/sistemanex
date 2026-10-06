@@ -1,6 +1,7 @@
 // backend/src/services/cliente.service.ts
 import { Prisma } from '@prisma/client';
 import { ClienteRepository } from '../repositories/cliente.repository.js';
+import { validarCpfOuCnpj } from '../utils/cpfCnpjValidator.js';
 
 export class ClienteService {
   private clienteRepo: ClienteRepository;
@@ -34,7 +35,7 @@ export class ClienteService {
     if (!data.razaoSocial || data.razaoSocial.trim().length < 3) {
       throw new Error('Razão Social é obrigatória (mínimo 3 caracteres)');
     }
-    if (!data.documento || data.documento.replace(/\D/g, '').length < 11) {
+    if (!data.documento || !validarCpfOuCnpj(data.documento).valido) {
       throw new Error('CPF/CNPJ inválido');
     }
     if (!data.endereco) {

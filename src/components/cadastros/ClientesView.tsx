@@ -15,7 +15,7 @@ import {
   Save
 } from 'lucide-react';
 import { ClienteFornecedor } from '../../types/erp';
-import { formatarCpfCnpj, validarCpfOuCnpj } from '../../utils/cpfCnpjValidator';
+import { formatarCpfCnpj, validarCpfOuCnpj, limparCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { clientesService } from '../../services/clientes.service';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { useToast } from '../../hooks/useToast';
@@ -146,7 +146,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
     try {
       const dadosCliente = {
         tipo,
-        tipoPessoa: documento.replace(/\D/g, '').length === 14 ? 'PJ' : 'PF',
+        tipoPessoa: limparCpfCnpj(documento).length === 14 ? 'PJ' : 'PF',
         documento,
         razaoSocial,
         nomeFantasia,
@@ -479,7 +479,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
                   <input
                     type="text"
                     value={documento}
-                    onChange={(e) => setDocumento(e.target.value)}
+                    onChange={(e) => setDocumento(e.target.value.toUpperCase())}
                     placeholder="00.000.000/0000-00"
                     className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                     required
