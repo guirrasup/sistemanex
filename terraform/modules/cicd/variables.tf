@@ -16,8 +16,8 @@ variable "github_repo" {
   default = "sistemanex"
 }
 
-variable "github_branch" {
-  description = "Branch que tem permissão de assumir esta role (main->prod, develop->dev). Escopo estreito de propósito: a role de dev NUNCA deve conseguir tocar em prod."
+variable "github_environment" {
+  description = "Nome do GitHub Environment (dev, prod) que tem permissão de assumir esta role. Escopo estreito de propósito: a role de dev NUNCA deve conseguir tocar em prod. IMPORTANTE: quando o job do workflow declara 'environment:', o claim 'sub' do token OIDC do GitHub usa o formato 'repo:ORG@id/REPO@id:environment:NOME' em vez do formato baseado em branch ('repo:ORG/REPO:ref:refs/heads/BRANCH') — confirmado empiricamente decodificando o JWT real, não documentado com clareza em lugar nenhum."
   type        = string
 }
 
