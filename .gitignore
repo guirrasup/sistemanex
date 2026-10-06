@@ -33,3 +33,6 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+estrutura_projeto_raiz.txt
+.gitignore
+allcoderoot.bat
