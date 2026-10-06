@@ -15,12 +15,23 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  # Produção (main): runner self-hosted rodando direto no servidor jrnex — o job
+  # executa o script local do próprio checkout (Docker Compose), sem SSH/secrets.
+  deploy-prod:
+    if: github.ref_name == 'main'
+    runs-on: self-hosted
+    steps:
+      - name: Deploy
+        run: /root/sistemanex/scripts/deploy.sh /root/sistemanex main
+
+  # Dev (develop): AWS — backend no ECS, frontend no S3 + CloudFront.
+  deploy-dev:
+    if: github.ref_name == 'develop'
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+    environment: dev
     env:
       AWS_REGION: us-east-1
-      NAME: sistemanex-${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      NAME: sistemanex-dev
     steps:
       - name: Checkout
         uses: actions/checkout@v4
