@@ -56,11 +56,16 @@ data "aws_iam_policy_document" "trust" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Escopo estreito de propósito: só esta branch, deste repo, pode assumir.
+    # Escopo estreito de propósito: só este GitHub Environment, deste repo,
+    # pode assumir. StringLike (não StringEquals) por causa do "@*" — o sub
+    # inclui os IDs numéricos imutáveis de owner/repo
+    # ("repo:guirrasup@149546320/sistemanex@1330964651:environment:dev"),
+    # não só o nome — ver comentário na variável github_environment pra como
+    # isso foi descoberto.
     condition {
-      test     = "StringEquals"
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_org}/${var.github_repo}:ref:refs/heads/${var.github_branch}"]
+      values   = ["repo:${var.github_org}@*/${var.github_repo}@*:environment:${var.github_environment}"]
     }
   }
 }

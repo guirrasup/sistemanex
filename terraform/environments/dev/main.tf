@@ -107,9 +107,9 @@ module "compute" {
 module "cicd" {
   source = "../../modules/cicd"
 
-  project       = var.project
-  environment   = local.environment
-  github_branch = "develop"
+  project            = var.project
+  environment        = local.environment
+  github_environment = "dev"
 
   # Provider OIDC já existe (criado uma vez no bootstrap) — nunca deixar mais
   # de um ambiente com create_oidc_provider=true (ver comentário lá).

@@ -153,9 +153,9 @@ module "waf" {
 module "cicd" {
   source = "../../modules/cicd"
 
-  project       = var.project
-  environment   = local.environment
-  github_branch = "main" # só workflows rodando em main podem assumir a role de prod
+  project            = var.project
+  environment        = local.environment
+  github_environment = "prod" # só workflows rodando no Environment "prod" (branch main) podem assumir
 
   # Provider OIDC já existe (criado uma vez no bootstrap) — nunca deixar mais
   # de um ambiente com create_oidc_provider=true (ver comentário lá; "dev"
