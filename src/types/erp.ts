@@ -306,6 +306,10 @@ export interface UsuarioAuth {
   empresaCnpj: TCnpj;
   
   dataLogin: TDateTimeUTC;
+
+  // Permissões efetivas calculadas pelo backend (login e /auth/me).
+  permissoes?: string[];
+  perfilAcesso?: { id: string; nome: string; cor: string } | null;
 }
 
 // ============================================================

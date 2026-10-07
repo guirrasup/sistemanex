@@ -27,6 +27,7 @@ import {
   Banknote,
   FileText
 } from 'lucide-react';
+import { usePermissoes } from '../../hooks/usePermissoes';
 import { Transportadora } from '../../services/transportadora.service';
 import { formatarCpfCnpj, validarCpfOuCnpj } from '../../utils/cpfCnpjValidator';
 import { transportadoraService } from '../../services/transportadora.service';
@@ -47,6 +48,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
   transportadoras, 
   onTransportadorasChange 
 }) => {
+  const { pode } = usePermissoes();
   const toast = useToast();
 
   const [busca, setBusca] = useState('');
@@ -812,6 +814,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
           )}
         </div>
 
+        {pode('transportadoras.criar') && (
         <button
           onClick={handleOpenNovo}
           disabled={carregando}
@@ -820,6 +823,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
           <Plus className="w-3.5 h-3.5" />
           <span>Nova Transportadora</span>
         </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -892,6 +896,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {pode('transportadoras.editar') && (
                         <button
                           onClick={() => handleOpenEdit(t)}
                           className="p-1.5 text-slate-500 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors cursor-pointer"
@@ -899,6 +904,8 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+                        )}
+                        {pode('transportadoras.excluir') && (
                         <button
                           onClick={() => openConfirmModal(t.id, t.razaoSocial)}
                           className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -906,6 +913,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -14,6 +14,7 @@ import {
   X,
   Save
 } from 'lucide-react';
+import { usePermissoes } from '../../hooks/usePermissoes';
 import { ClienteFornecedor } from '../../types/erp';
 import { formatarCpfCnpj, validarCpfOuCnpj, limparCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { clientesService } from '../../services/clientes.service';
@@ -30,6 +31,7 @@ type OrdenacaoCampo = 'tipo' | 'razaoSocial' | 'nomeFantasia' | 'documento' | 'e
 type OrdenacaoDirecao = 'asc' | 'desc';
 
 export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientesChange }) => {
+  const { pode } = usePermissoes();
   const toast = useToast();
 
   const [busca, setBusca] = useState('');
@@ -328,6 +330,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
           )}
         </div>
 
+        {pode('clientes.criar') && (
         <button
           onClick={handleOpenNovo}
           disabled={carregando}
@@ -336,6 +339,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
           <Plus className="w-3.5 h-3.5" />
           <span>Novo Cliente</span>
         </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -396,6 +400,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
                     <td className="py-3 px-4">{c.endereco.nomeMunicipio} - {c.endereco.uf}</td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {pode('clientes.editar') && (
                         <button
                           onClick={() => handleOpenEdit(c)}
                           className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
@@ -403,6 +408,8 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+                        )}
+                        {pode('clientes.excluir') && (
                         <button
                           onClick={() => openConfirmModal(c.id, c.razaoSocial)}
                           className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -410,6 +417,7 @@ export const ClientesView: React.FC<ClientesViewProps> = ({ clientes, onClientes
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                        )}
                       </div>
                     </td>
                   </tr>

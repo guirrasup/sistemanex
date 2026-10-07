@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { PerfilUsuario } from '@prisma/client';
 import { UsuarioRepository } from '../repositories/usuario.repository.js';
 import { EmailService } from './email.service.js';
+import { calcularPermissoesEfetivas, invalidarAcesso } from './acesso.service.js';
 
 // Segurança (P1): fail-fast — a API nunca deve subir com segredo conhecido/padrão.
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
@@ -57,13 +58,13 @@ export class AuthService {
         email: usuario.email,
         empresaId: usuario.empresaId,
         perfil: usuario.perfil,
+        sv: usuario.sessaoVersao,
       },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    const { senhaHash, ...usuarioSemSenha } = usuario;
-    return { usuario: usuarioSemSenha, token };
+    return { usuario: this.comPermissoes(usuario), token };
   }
 
   async verificarToken(token: string) {
@@ -73,6 +74,7 @@ export class AuthService {
         email: string;
         empresaId: string;
         perfil?: string;
+        sv?: number;
       };
     } catch (erro) {
       // Mantém o motivo real (TokenExpiredError / "invalid signature" quando o
@@ -112,8 +114,29 @@ export class AuthService {
     const usuario = await this.usuarioRepo.findById(id);
     if (!usuario) return null;
 
-    const { senhaHash, ...usuarioSemSenha } = usuario;
-    return usuarioSemSenha;
+    return this.comPermissoes(usuario);
+  }
+
+  // Remove o hash e anexa as permissões efetivas (o frontend usa para montar
+  // menus e telas; quem garante o acesso de fato é o backend).
+  private comPermissoes<T extends {
+    senhaHash: string;
+    perfil: string;
+    permissoesConcedidas: string[];
+    permissoesNegadas: string[];
+    perfilAcesso: { id: string; nome: string; cor: string; permissoes: string[] } | null;
+  }>(usuario: T) {
+    const { senhaHash, perfilAcesso, ...resto } = usuario;
+    return {
+      ...resto,
+      perfilAcesso: perfilAcesso ? { id: perfilAcesso.id, nome: perfilAcesso.nome, cor: perfilAcesso.cor } : null,
+      permissoes: calcularPermissoesEfetivas({
+        perfil: usuario.perfil,
+        perfilAcessoPermissoes: perfilAcesso?.permissoes ?? null,
+        permissoesConcedidas: usuario.permissoesConcedidas,
+        permissoesNegadas: usuario.permissoesNegadas,
+      }),
+    };
   }
 
   async alterarSenha(userId: string, senhaAtual: string, novaSenha: string) {
@@ -211,6 +234,8 @@ export class AuthService {
     }
 
     const novaSenhaHash = await bcrypt.hash(novaSenha, 12);
-    await this.usuarioRepo.updateSenha(usuario.id, novaSenhaHash);
+    // Redefinição por e-mail encerra as sessões abertas (ex.: conta comprometida).
+    await this.usuarioRepo.updateSenha(usuario.id, novaSenhaHash, { revogarSessoes: true });
+    invalidarAcesso(usuario.id);
   }
 }

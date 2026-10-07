@@ -3,8 +3,12 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { CertificadoController } from '../controllers/certificado.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { exigirPermissao } from '../middlewares/permissao.middleware.js';
 
 const router = Router();
+// 🔐 Permissões (catálogo em config/permissoes.ts)
+const podeGerenciarCertificado = exigirPermissao('certificado.gerenciar');
+
 const controller = new CertificadoController();
 
 // Segurança: upload/renovação de certificado é operação sensível e pouco frequente.
@@ -22,7 +26,7 @@ const certificadoLimiter = rateLimit({
 router.use(authMiddleware);
 
 router.get('/status', controller.status.bind(controller));
-router.post('/upload', certificadoLimiter, controller.upload.bind(controller));
-router.post('/renovar', certificadoLimiter, controller.renovar.bind(controller));
+router.post('/upload', podeGerenciarCertificado, certificadoLimiter, controller.upload.bind(controller));
+router.post('/renovar', podeGerenciarCertificado, certificadoLimiter, controller.renovar.bind(controller));
 
 export default router;

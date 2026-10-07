@@ -20,6 +20,7 @@ import {
   Box,
   Layers
 } from 'lucide-react';
+import { usePermissoes } from '../../hooks/usePermissoes';
 import { Produto } from '../../types/erp';
 import { formatarMoeda } from '../../utils/cpfCnpjValidator';
 import { produtosService } from '../../services/produtos.service';
@@ -40,6 +41,7 @@ type OrdenacaoCampo = 'codigo' | 'descricao' | 'ncm' | 'unidade' | 'precoVenda' 
 type OrdenacaoDirecao = 'asc' | 'desc';
 
 export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, cfops, onProdutosChange }) => {
+  const { pode } = usePermissoes();
   const toast = useToast();
 
   const [busca, setBusca] = useState('');
@@ -405,6 +407,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, cfops, onP
             <button onClick={() => setBusca('')} className="text-xs text-slate-400 hover:text-slate-600 px-2">✕</button>
           )}
         </div>
+        {pode('produtos.criar') && (
         <button
           onClick={handleOpenNovo}
           disabled={carregando}
@@ -413,6 +416,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, cfops, onP
           <Plus className="w-3.5 h-3.5" />
           <span>Novo Produto</span>
         </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -490,6 +494,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, cfops, onP
                       </td>
                       <td className="py-2.5 px-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {pode('produtos.editar') && (
                           <button
                             onClick={() => handleOpenEdit(p)}
                             className="p-1.5 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors cursor-pointer"
@@ -497,6 +502,8 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, cfops, onP
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
+                          )}
+                          {pode('produtos.excluir') && (
                           <button
                             onClick={() => openConfirmModal(p.id, p.descricao)}
                             className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -504,6 +511,7 @@ export const ProdutosView: React.FC<ProdutosViewProps> = ({ produtos, cfops, onP
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
+                          )}
                         </div>
                       </td>
                     </tr>

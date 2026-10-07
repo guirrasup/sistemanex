@@ -18,6 +18,7 @@ import {
   Wallet,
   Loader2
 } from 'lucide-react';
+import { usePermissoes } from '../../hooks/usePermissoes';
 import { TituloFinanceiro, ConfiguracaoEmpresa } from '../../types/erp';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { gerarPayloadPix } from '../../utils/pixGenerator';
@@ -37,6 +38,7 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
   titulos,
   onTitulosChange,
 }) => {
+  const { pode } = usePermissoes();
   const toast = useToast();
 
   const [tipoFiltro, setTipoFiltro] = useState<'TODOS' | 'RECEBER' | 'PAGAR'>('TODOS');
@@ -404,7 +406,7 @@ export const FinanceiroView: React.FC<FinanceiroViewProps> = ({
                           </button>
                         )}
 
-                        {t.status === 'PENDENTE' && (
+                        {t.status === 'PENDENTE' && pode('financeiro.baixar') && (
                           <button
                             onClick={() => openConfirmModal(t.id, t.numeroDocumento, t.valorOriginal)}
                             className={`inline-flex items-center gap-1 px-2.5 py-1.5 ${corBgButton} text-white rounded-lg text-xs font-medium transition-colors cursor-pointer shadow-sm`}

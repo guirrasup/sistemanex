@@ -13,7 +13,7 @@ interface RequestComUsuario extends Request {
   };
 }
 
-const PERFIS_AUTORIZADOS_ATUALIZAR = ['ADMIN'];
+// Quem pode atualizar: permissão 'empresa.editar' (empresa.routes.ts).
 
 export class EmpresaController {
   private empresaRepo: EmpresaRepository;
@@ -49,10 +49,6 @@ export class EmpresaController {
       const empresaId = req.user?.empresaId;
       if (!empresaId) {
         return res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
-      }
-
-      if (req.user?.perfil && !PERFIS_AUTORIZADOS_ATUALIZAR.includes(req.user.perfil)) {
-        return res.status(403).json({ sucesso: false, erro: 'Apenas ADMIN pode atualizar os dados cadastrais da empresa' });
       }
 
       const entrada = req.body as AtualizarEmpresaInput;

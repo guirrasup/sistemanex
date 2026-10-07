@@ -14,6 +14,7 @@ import {
   X,
   Save
 } from 'lucide-react';
+import { usePermissoes } from '../../hooks/usePermissoes';
 import { ServicoCatalogo } from '../../types/erp';
 import { formatarMoeda } from '../../utils/cpfCnpjValidator';
 import { servicosService } from '../../services/servicos.service';
@@ -30,6 +31,7 @@ type OrdenacaoCampo = 'codigoInterno' | 'descricao' | 'codigoTributacaoNacional'
 type OrdenacaoDirecao = 'asc' | 'desc';
 
 export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicosChange }) => {
+  const { pode } = usePermissoes();
   const toast = useToast();
 
   const [busca, setBusca] = useState('');
@@ -299,6 +301,7 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
           )}
         </div>
 
+        {pode('servicos.criar') && (
         <button
           onClick={handleOpenNovo}
           disabled={carregando}
@@ -307,6 +310,7 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
           <Plus className="w-3.5 h-3.5" />
           <span>Novo Serviço</span>
         </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -357,6 +361,7 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
                     <td className="py-2.5 px-3 font-bold text-slate-900 text-right">{formatarMoeda(s.valorUnitario)}</td>
                     <td className="py-2.5 px-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {pode('servicos.editar') && (
                         <button
                           onClick={() => handleOpenEdit(s)}
                           className="p-1.5 text-slate-500 hover:text-pink-600 hover:bg-pink-50 rounded-lg transition-colors cursor-pointer"
@@ -364,6 +369,8 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+                        )}
+                        {pode('servicos.excluir') && (
                         <button
                           onClick={() => openConfirmModal(s.id, s.descricao)}
                           className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -371,6 +378,7 @@ export const ServicosView: React.FC<ServicosViewProps> = ({ servicos, onServicos
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                        )}
                       </div>
                     </td>
                   </tr>

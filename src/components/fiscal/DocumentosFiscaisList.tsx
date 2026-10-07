@@ -33,6 +33,7 @@ import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento
 import { MDFeDocumento } from '../../types/mdfe';
 import { formatarMoeda, formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { formatarChaveAcesso44 } from '../../utils/chaveAcesso';
+import { usePermissoes } from '../../hooks/usePermissoes';
 
 // 🔥 Tipo de filtro exportado para o App.tsx conseguir tipar o estado de
 // "com qual tipo o usuário entrou nesta tela" sem duplicar a união em dois lugares.
@@ -174,6 +175,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
   onEmitirNovaNfae,
   onEmitirNovoMdfe,
 }) => {
+  const { pode } = usePermissoes();
   const [tipoFiltro, setTipoFiltro] = useState<TipoDocumentoFiltro>(initialTipo);
   const [statusFiltro, setStatusFiltro] = useState<'TODOS' | 'AUTORIZADA' | 'CANCELADA'>('TODOS');
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>('TODOS');
@@ -588,6 +590,8 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
 
   // 🔥 Função para renderizar botão de filtro
   const renderFiltroBotao = (tipo: TipoDocumentoFiltro, label: string, count: number) => {
+    // 🔐 Tipo que o usuário não pode consultar nem aparece como filtro.
+    if (tipo !== 'TODOS' && !pode(`${tipo.toLowerCase()}.ver`)) return null;
     const isActive = tipoFiltro === tipo;
     const cores = coresPorTipo[tipo];
     
@@ -864,6 +868,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
             </div>
 
             <div className="relative flex items-center gap-2">
+              {Object.values(emitirPorTipo).some((e) => e?.onEmitir) && (
               <div className="relative inline-block text-left">
                 <div className="flex rounded-lg shadow-sm">
                   <button
@@ -893,6 +898,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Selecione o Tipo de Documento Fiscal</span>
                       </div>
 
+                      {onEmitirNovaNfe && (
                       <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfe) onEmitirNovaNfe(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
                         <div className="w-7 h-7 rounded bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors mt-0.5">
                           <Receipt className="w-3.5 h-3.5" />
@@ -902,7 +908,9 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                           <div className="text-[10px] text-slate-500">Modelo 55 • Venda de Produtos e Mercadorias</div>
                         </div>
                       </button>
+                      )}
 
+                      {onEmitirNovaNfse && (
                       <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfse) onEmitirNovaNfse(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
                         <div className="w-7 h-7 rounded bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors mt-0.5">
                           <FileText className="w-3.5 h-3.5" />
@@ -912,7 +920,9 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                           <div className="text-[10px] text-slate-500">Padrão Nacional • Prestação de Serviços DPS</div>
                         </div>
                       </button>
+                      )}
 
+                      {onEmitirNovaNfce && (
                       <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfce) onEmitirNovaNfce(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
                         <div className="w-7 h-7 rounded bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-colors mt-0.5">
                           <ShoppingBag className="w-3.5 h-3.5" />
@@ -922,7 +932,9 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                           <div className="text-[10px] text-slate-500">Modelo 65 • Cupom Fiscal Varejo / PDV</div>
                         </div>
                       </button>
+                      )}
 
+                      {onEmitirNovoCte && (
                       <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovoCte) onEmitirNovoCte(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
                         <div className="w-7 h-7 rounded bg-cyan-100 text-cyan-700 flex items-center justify-center shrink-0 group-hover:bg-cyan-600 group-hover:text-white transition-colors mt-0.5">
                           <Truck className="w-3.5 h-3.5" />
@@ -932,7 +944,9 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                           <div className="text-[10px] text-slate-500">Modelo 57 • Prestação de Frete Rodoviário</div>
                         </div>
                       </button>
+                      )}
 
+                      {onEmitirNovaNfae && (
                       <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfae) onEmitirNovaNfae(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
                         <div className="w-7 h-7 rounded bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors mt-0.5">
                           <FileBadge2 className="w-3.5 h-3.5" />
@@ -942,7 +956,9 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                           <div className="text-[10px] text-slate-500">Série 900 • Produtor Rural / MEI / Avulsa SEFAZ</div>
                         </div>
                       </button>
+                      )}
 
+                      {onEmitirNovoMdfe && (
                       <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovoMdfe) onEmitirNovoMdfe(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
                         <div className="w-7 h-7 rounded bg-orange-100 text-orange-700 flex items-center justify-center shrink-0 group-hover:bg-orange-600 group-hover:text-white transition-colors mt-0.5">
                           <FileArchive className="w-3.5 h-3.5" />
@@ -952,14 +968,19 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                           <div className="text-[10px] text-slate-500">Modelo 58 • Manifesto de Documentos Fiscais</div>
                         </div>
                       </button>
+                      )}
                     </div>
                   </>
                 )}
               </div>
 
+              )}
+
+              {pode('relatorios.exportar') && (
               <button onClick={handleExportarCsv} className="p-2 text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer" title="Exportar dados da grid para CSV">
                 <FileSpreadsheet className="w-4 h-4" />
               </button>
+              )}
             </div>
           </div>
         </div>
@@ -1076,9 +1097,11 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
                           <span>Visualizar</span>
                         </button>
 
+                        {pode(`${doc.tipo.toLowerCase()}.download`) && (
                         <button onClick={() => { const blob = new Blob([doc.xml], { type: 'application/xml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${doc.tipo}_${doc.numero}_SUP.xml`; a.click(); }} className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer" title="Baixar XML assinado pela SEFAZ">
                           <Download className="w-3.5 h-3.5" />
                         </button>
+                        )}
                       </div>
                     </td>
                   </tr>

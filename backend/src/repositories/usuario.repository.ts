@@ -12,7 +12,8 @@ export class UsuarioRepository extends BaseRepository {
             endereco: true,
             certificado: true
           }
-        }
+        },
+        perfilAcesso: true
       }
     });
   }
@@ -26,7 +27,8 @@ export class UsuarioRepository extends BaseRepository {
             endereco: true,
             certificado: true
           }
-        }
+        },
+        perfilAcesso: true
       }
     });
   }
@@ -40,7 +42,8 @@ export class UsuarioRepository extends BaseRepository {
             endereco: true,
             certificado: true
           }
-        }
+        },
+        perfilAcesso: true
       }
     });
   }
@@ -98,7 +101,8 @@ export class UsuarioRepository extends BaseRepository {
             endereco: true,
             certificado: true
           }
-        }
+        },
+        perfilAcesso: true
       }
     });
   }
@@ -113,7 +117,8 @@ export class UsuarioRepository extends BaseRepository {
             endereco: true,
             certificado: true
           }
-        }
+        },
+        perfilAcesso: true
       }
     });
   }
@@ -125,10 +130,13 @@ export class UsuarioRepository extends BaseRepository {
     });
   }
 
-  async updateSenha(id: string, novaSenhaHash: string) {
+  async updateSenha(id: string, novaSenhaHash: string, opcoes: { revogarSessoes?: boolean } = {}) {
     return this.prisma.usuario.update({
       where: { id },
-      data: { senhaHash: novaSenhaHash }
+      data: {
+        senhaHash: novaSenhaHash,
+        ...(opcoes.revogarSessoes ? { sessaoVersao: { increment: 1 } } : {}),
+      }
     });
   }
 

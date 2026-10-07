@@ -2,6 +2,7 @@
 import { logger } from '../lib/logger.js';
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service.js';
+import { carregarAcesso } from '../services/acesso.service.js';
 
 declare global {
   namespace Express {
@@ -11,6 +12,7 @@ declare global {
         email: string;
         empresaId: string;
         perfil?: string;
+        permissoes?: Set<string>;
       };
     }
   }
@@ -46,7 +48,24 @@ export async function authMiddleware(
     }
 
     const decoded = await authService.verificarToken(token);
-    req.user = decoded;
+
+    // Estado atual do banco, não o do token: um usuário desativado, com senha
+    // redefinida pelo ADMIN ou com permissões alteradas é afetado na hora.
+    const acesso = await carregarAcesso(decoded.id);
+    if (!acesso || !acesso.ativo) {
+      throw new Error(acesso ? 'Usuário desativado' : 'Usuário não existe mais');
+    }
+    if ((decoded.sv ?? 0) !== acesso.sessaoVersao) {
+      throw new Error('Sessão revogada pelo administrador');
+    }
+
+    req.user = {
+      id: acesso.id,
+      email: decoded.email,
+      empresaId: acesso.empresaId,
+      perfil: acesso.perfil,
+      permissoes: acesso.permissoes,
+    };
 
     next();
   } catch (error) {

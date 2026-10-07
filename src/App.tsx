@@ -29,6 +29,9 @@ import { TransportadorasView } from './components/cadastros/TransportadorasView'
 import { FinanceiroView } from './components/financeiro/FinanceiroView';
 import { ConfiguracoesEmpresaView } from './components/config/ConfiguracoesEmpresaView';
 import { ConsultaCnpjView } from './components/tools/ConsultaCnpjView';
+import { AdminUsuariosView } from './components/admin/AdminUsuariosView';
+import { PermissoesProvider, criarPermissoes } from './hooks/usePermissoes';
+import { VIEW_ADMIN } from './utils/permissoes';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { StorageService } from './utils/storage';
 import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento } from './types/fiscal';
@@ -50,6 +53,7 @@ import { transportadoraService, Transportadora } from './services/transportadora
 import { cfopService, Cfop } from './services/cfop.service';
 import { empresaService } from './services/empresa.service';
 import { LoadingDinamico } from './components/ui/LoadingDinamico';
+import { ShieldOff } from 'lucide-react';
 import api, { EVENTO_SESSAO_EXPIRADA } from './services/api';
 
 // 🔥 CACHE DE DADOS PARA EVITAR REQUISIÇÕES DUPLICADAS
@@ -109,6 +113,15 @@ export default function App() {
   // navegação genérica pelo menu) mostra todos os tipos; um atalho por tipo
   // (ex.: badge do Dashboard) já entra filtrado, sem exigir seleção manual.
   const [documentosTipoInicial, setDocumentosTipoInicial] = useState<TipoDocumentoFiltro | null>(null);
+
+  // 🔐 Permissões do usuário logado. O ref deixa o refreshData (useCallback
+  // sem dependências) ler sempre as permissões atuais.
+  const permissoes = React.useMemo(() => criarPermissoes(usuarioLogado), [usuarioLogado]);
+  const permissoesRef = useRef(permissoes);
+  permissoesRef.current = permissoes;
+  // Id do usuário cujas permissões já foram confirmadas com o backend nesta sessão.
+  const usuarioSincronizado = useRef<string | null>(null);
+  const [permissoesSincronizadas, setPermissoesSincronizadas] = useState(false);
 
   // App State
   const [empresa, setEmpresa] = useState<ConfiguracaoEmpresa>(StorageService.getConfiguracao());
@@ -220,23 +233,31 @@ export default function App() {
       }
 
       
+      // 🔐 Só busca o que o usuário pode ler — o resto vira lista vazia em vez
+      // de uma enxurrada de 403. As regras espelham as rotas do backend.
+      const { pode, podeAlguma } = permissoesRef.current;
+      const vazio = Promise.resolve({ data: [] });
+      const seLiberado = <T,>(liberado: boolean, chamada: () => Promise<T>) => (liberado ? chamada() : vazio);
+      const emiteProdutos = podeAlguma('nfe.emitir', 'nfce.emitir', 'nfae.emitir');
+      const emiteAlgo = emiteProdutos || podeAlguma('nfse.emitir', 'cte.emitir', 'mdfe.emitir');
+
       const servicePromises = [
-        produtosService.listar(1, 100),
-        clientesService.listar(1, 100),
-        servicosService.listar(1, 100),
-        financeiroService.listar(1, 100),
+        seLiberado(pode('produtos.ver') || emiteProdutos, () => produtosService.listar(1, 100)),
+        seLiberado(podeAlguma('clientes.ver', 'fornecedores.ver') || emiteAlgo, () => clientesService.listar(1, 100)),
+        seLiberado(podeAlguma('servicos.ver', 'nfse.emitir'), () => servicosService.listar(1, 100)),
+        seLiberado(pode('financeiro.ver'), () => financeiroService.listar(1, 100)),
         // 🔥 nfse/nfe/nfce/cte/nfae/mdfe usam filtros como objeto, não (page, limit)
         // posicional — chamar como as outras services acima faz o limit=100 ser
         // silenciosamente ignorado (cai no default interno de cada service, 50),
         // truncando a lista sempre que o tipo passar de 50 documentos.
-        nfseService.listar({ page: 1, limit: 100 }),
-        nfeService.listar({ page: 1, limit: 100 }),
-        nfceService.listar({ page: 1, limit: 100 }),
-        cteService.listar({ page: 1, limit: 100 }),
-        nfaeService.listar({ page: 1, limit: 100 }),
+        seLiberado(pode('nfse.ver'), () => nfseService.listar({ page: 1, limit: 100 })),
+        seLiberado(pode('nfe.ver'), () => nfeService.listar({ page: 1, limit: 100 })),
+        seLiberado(pode('nfce.ver'), () => nfceService.listar({ page: 1, limit: 100 })),
+        seLiberado(pode('cte.ver'), () => cteService.listar({ page: 1, limit: 100 })),
+        seLiberado(pode('nfae.ver'), () => nfaeService.listar({ page: 1, limit: 100 })),
         // 🔥 NOVO - MDF-e
-        mdfeService.listar({ page: 1, limit: 100 }),
-        transportadoraService.listar(1, 100),
+        seLiberado(pode('mdfe.ver'), () => mdfeService.listar({ page: 1, limit: 100 })),
+        seLiberado(pode('transportadoras.ver') || podeAlguma('nfe.emitir', 'cte.emitir', 'mdfe.emitir'), () => transportadoraService.listar(1, 100)),
       ];
 
       // 🔥 empresa nunca era buscada da API real em lugar nenhum do app — o
@@ -379,7 +400,11 @@ export default function App() {
     setAvisoLogin(null);
     StorageService.saveUsuarioLogado(user);
     setUsuarioLogado(user);
-    setCurrentView('dashboard');
+    permissoesRef.current = criarPermissoes(user);
+    // O login já devolve as permissões atuais: não precisa do /auth/me.
+    usuarioSincronizado.current = user.id;
+    setPermissoesSincronizadas(true);
+    setCurrentView(permissoesRef.current.primeiraView() ?? 'dashboard');
     
         cacheRef.current = null;
     
@@ -395,6 +420,8 @@ export default function App() {
     localStorage.removeItem('@sup:user');
     StorageService.saveUsuarioLogado(null);
     setUsuarioLogado(null);
+    usuarioSincronizado.current = null;
+    setPermissoesSincronizadas(false);
     setTelaNaoLogado('landing');
     setProdutos([]);
     setClientes([]);
@@ -481,15 +508,47 @@ export default function App() {
   // EFFECT
   // ============================================================
 
+  // 🔐 Permissões podem ter mudado desde o login (ou o usuário veio de uma
+  // versão sem permissões no localStorage): busca o estado atual uma vez por
+  // sessão antes de carregar os dados.
+  useEffect(() => {
+    const id = usuarioLogado?.id;
+    if (!id || usuarioSincronizado.current === id) return;
+    usuarioSincronizado.current = id;
+    api.get('/auth/me')
+      .then(({ data }) => {
+        const atual = data?.dados;
+        if (!atual) return;
+        setUsuarioLogado((anterior) => {
+          if (!anterior) return anterior;
+          const atualizado = { ...anterior, nome: atual.nome, perfil: atual.perfil, permissoes: atual.permissoes, perfilAcesso: atual.perfilAcesso };
+          localStorage.setItem('@sup:user', JSON.stringify(atualizado));
+          return atualizado;
+        });
+      })
+      .catch((err) => console.warn('⚠️ Não foi possível atualizar as permissões do usuário:', err))
+      // A carga inicial dos dados (effect abaixo) espera por isto.
+      .finally(() => setPermissoesSincronizadas(true));
+  }, [usuarioLogado?.id]);
+
+  // Se a tela atual deixou de ser permitida, vai para a primeira que é.
+  useEffect(() => {
+    if (usuarioLogado && !permissoes.podeVerView(currentView)) {
+      const destino = permissoes.primeiraView();
+      if (destino && destino !== currentView) setCurrentView(destino);
+    }
+  }, [usuarioLogado, permissoes, currentView]);
+
   useEffect(() => {
 
     if (usuarioLogado) {
+      if (!permissoesSincronizadas) return;
             refreshData(false);
             cfopService.listar().then(setCfops);
     } else {
             setCarregando(false);
     }
-  }, [usuarioLogado, refreshData]);
+  }, [usuarioLogado, permissoesSincronizadas, refreshData]);
 
   // ============================================================
   // SEPARA CLIENTES E FORNECEDORES
@@ -545,7 +604,10 @@ export default function App() {
   // APP PRINCIPAL COM TOAST PROVIDER
   // ============================================================
 
+  const telaPermitida = permissoes.podeVerView(currentView);
+
   return (
+    <PermissoesProvider valor={permissoes}>
     <ToastProvider>
       <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
         
@@ -585,7 +647,21 @@ export default function App() {
           <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50">
             <div className="max-w-7xl mx-auto">
               {/* key: trocar de tela remonta o boundary e limpa o erro anterior */}
-              <ErrorBoundary key={currentView} onVoltar={() => handleNavigate('dashboard')}>
+              <ErrorBoundary key={currentView} onVoltar={() => handleNavigate(permissoes.primeiraView() ?? 'dashboard')}>
+
+              {!telaPermitida && (
+                <div className="max-w-md mx-auto mt-16 text-center bg-white border border-slate-200 rounded-xl p-8 shadow-sm">
+                  <ShieldOff className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <h2 className="text-sm font-bold text-slate-900">Acesso não liberado</h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {permissoes.primeiraView()
+                      ? 'Você não tem permissão para acessar esta tela. Fale com o administrador do sistema.'
+                      : 'Seu usuário ainda não tem nenhuma tela liberada. Peça ao administrador para configurar suas permissões.'}
+                  </p>
+                </div>
+              )}
+
+              {telaPermitida && (<>
 
               {currentView === 'dashboard' && (
                 <DashboardReal
@@ -683,13 +759,14 @@ export default function App() {
                   onViewDacte={(doc) => setViewingDacte(doc)}
                   onViewDanfae={(doc) => setViewingDanfae(doc)}
                   onViewMdfe={(doc) => setViewingMdfe(doc)}
-                  onEmitirNovaNfse={() => setCurrentView('nfse-emissor')}
-                  onEmitirNovaNfe={() => setCurrentView('nfe-emissor')}
-                  onEmitirNovaNfce={() => setCurrentView('nfce-emissor')}
-                  onEmitirNovoCte={() => setCurrentView('cte-emissor')}
-                  onEmitirNovaNfae={() => setCurrentView('nfae-emissor')}
+                  // 🔐 Sem permissão de emitir, o atalho nem é passado (a lista esconde o item).
+                  onEmitirNovaNfse={permissoes.pode('nfse.emitir') ? () => setCurrentView('nfse-emissor') : undefined}
+                  onEmitirNovaNfe={permissoes.pode('nfe.emitir') ? () => setCurrentView('nfe-emissor') : undefined}
+                  onEmitirNovaNfce={permissoes.pode('nfce.emitir') ? () => setCurrentView('nfce-emissor') : undefined}
+                  onEmitirNovoCte={permissoes.pode('cte.emitir') ? () => setCurrentView('cte-emissor') : undefined}
+                  onEmitirNovaNfae={permissoes.pode('nfae.emitir') ? () => setCurrentView('nfae-emissor') : undefined}
                   // 🔥 NOVO - MDF-e
-                  onEmitirNovoMdfe={() => setCurrentView('mdfe-emissor')}
+                  onEmitirNovoMdfe={permissoes.pode('mdfe.emitir') ? () => setCurrentView('mdfe-emissor') : undefined}
                 />
               )}
 
@@ -766,8 +843,14 @@ export default function App() {
               )}
 
               {currentView === 'consulta-cnpj' && (
-                <ConsultaCnpjView onNavigate={(view) => setCurrentView(view)} />
+                <ConsultaCnpjView onNavigate={(view) => handleNavigate(view)} />
               )}
+
+              {currentView === VIEW_ADMIN && (
+                <AdminUsuariosView usuarioLogadoId={usuarioLogado.id} />
+              )}
+
+              </>)}
 
               </ErrorBoundary>
             </div>
@@ -838,5 +921,6 @@ export default function App() {
 
       </div>
     </ToastProvider>
+    </PermissoesProvider>
   );
 }

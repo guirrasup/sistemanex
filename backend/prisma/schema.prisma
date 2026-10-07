@@ -281,6 +281,7 @@ model Empresa {
   parametros              ParametroSistema?
   historicoBackup         HistoricoBackup[]
   logs                    LogAcao[]
+  perfisAcesso            PerfilAcesso[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -346,10 +347,39 @@ model Usuario {
   empresaId   String
   empresa     Empresa       @relation(fields: [empresaId], references: [id])
   logs        LogAcao[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
 
+  // === CONTROLE DE ACESSO ===
+  // Permissões efetivas = (perfil de acesso, ou o padrão do nível `perfil`)
+  // + permissoesConcedidas - permissoesNegadas. ADMIN ignora tudo isso.
+  perfilAcessoId       String?
+  perfilAcesso         PerfilAcesso? @relation(fields: [perfilAcessoId], references: [id], onDelete: SetNull)
+  permissoesConcedidas String[]      @default([])
+  permissoesNegadas    String[]      @default([])
+  // Vai no JWT; incrementar invalida todas as sessões abertas do usuário.
+  sessaoVersao         Int           @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([perfilAcessoId])
   @@map("usuarios")
+}
+
+// Perfil de acesso configurável pelo ADMIN da empresa (ex.: "Caixa", "Faturista").
+model PerfilAcesso {
+  id         String    @id @default(cuid())
+  empresaId  String
+  empresa    Empresa   @relation(fields: [empresaId], references: [id])
+  nome       String    @db.VarChar(60)
+  descricao  String?   @db.VarChar(255)
+  cor        String    @default("slate") @db.VarChar(20)
+  permissoes String[]  @default([])
+  usuarios   Usuario[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([empresaId, nome])
+  @@map("perfis_acesso")
 }
 
 // ============================================

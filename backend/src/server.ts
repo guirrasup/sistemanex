@@ -27,6 +27,7 @@ import certificadoRoutes from './routes/certificado.routes.js';
 import empresaRoutes from './routes/empresa.routes.js';
 import cfopRoutes from './routes/cfop.routes.js';
 import ncmRoutes from './routes/ncm.routes.js';
+import adminRoutes from './routes/admin.routes.js';
 
 dotenv.config();
 
@@ -104,6 +105,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Rotas
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/nfse', nfseRoutes);
 app.use('/api/nfe', nfeRoutes);
 app.use('/api/financeiro', financeiroRoutes);

@@ -23,7 +23,10 @@ import {
   Menu,
   X,
   FileArchive, // 🔥 NOVO - MDF-e
+  Lock,
 } from 'lucide-react';
+import { usePermissoes } from '../../hooks/usePermissoes';
+import { VIEW_ADMIN } from '../../utils/permissoes';
 import { ConfiguracaoEmpresa, UsuarioAuth } from '../../types/erp';
 import { AlertasSistema } from '../ui/AlertasSistema';
 
@@ -56,6 +59,7 @@ const coresPorItem: Record<string, { cor: string; corAtiva: string; corHover: st
   dashboard: { cor: 'text-blue-500', corAtiva: 'text-blue-600', corHover: 'hover:text-blue-600' },
   'documentos-fiscais': { cor: 'text-indigo-500', corAtiva: 'text-indigo-600', corHover: 'hover:text-indigo-600' },
   'nfe-emissor': { cor: 'text-emerald-500', corAtiva: 'text-emerald-600', corHover: 'hover:text-emerald-600' },
+  [VIEW_ADMIN]: { cor: 'text-indigo-500', corAtiva: 'text-indigo-600', corHover: 'hover:text-indigo-600' },
   'nfse-emissor': { cor: 'text-blue-500', corAtiva: 'text-blue-600', corHover: 'hover:text-blue-600' },
   'nfce-emissor': { cor: 'text-purple-500', corAtiva: 'text-purple-600', corHover: 'hover:text-purple-600' },
   'cte-emissor': { cor: 'text-cyan-500', corAtiva: 'text-cyan-600', corHover: 'hover:text-cyan-600' },
@@ -145,7 +149,9 @@ export const Header: React.FC<HeaderProps> = ({
   });
 
   // 🔥 MESMA ORDEM DO SIDEBAR - COM FORNECEDORES, TRANSPORTADORAS E MDF-e
-  const ferramentas = [
+  const { podeVerView, pode, isAdmin } = usePermissoes();
+
+  const todasFerramentas = [
     // GERAL
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
     
@@ -172,7 +178,13 @@ export const Header: React.FC<HeaderProps> = ({
     
     // FERRAMENTAS
     { id: 'consulta-cnpj', label: 'CNPJ', icon: Search },
+
+    // ADMINISTRAÇÃO (só ADMIN)
+    ...(isAdmin ? [{ id: VIEW_ADMIN, label: 'Usuários', icon: Lock }] : []),
   ];
+
+  // 🔐 Só mostra atalhos para telas liberadas ao usuário.
+  const ferramentas = todasFerramentas.filter((item) => podeVerView(item.id));
 
   return (
     <header className="w-full bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 sticky top-0 z-30 shadow-sm">
@@ -240,13 +252,15 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-slate-400 font-mono text-[10px]">{horaFormatada}</span>
             </div>
 
-            <button
-              onClick={onExportarBackup}
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-              title="Backup"
-            >
-              <Download className="w-4 h-4" />
-            </button>
+            {pode('relatorios.exportar') && (
+              <button
+                onClick={onExportarBackup}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                title="Backup"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+            )}
 
             <AlertasSistema />
 
@@ -259,7 +273,7 @@ export const Header: React.FC<HeaderProps> = ({
                     {primeiroNome}
                   </div>
                   <div className="text-[10px] text-slate-500 font-medium">
-                    {usuario.perfil}
+                    {usuario.perfil === 'ADMIN' ? 'ADMIN' : usuario.perfilAcesso?.nome || usuario.perfil}
                   </div>
                 </div>
 

@@ -31,6 +31,7 @@ import {
   Map as MapIcon,
   FileBadge2
 } from 'lucide-react';
+import { usePermissoes } from '../../hooks/usePermissoes';
 import { ConfiguracaoEmpresa } from '../../types/erp';
 import { formatarCpfCnpj, formatarCEP, limparCpfCnpj, validarCNPJ } from '../../utils/cpfCnpjValidator';
 import { StorageService } from '../../utils/storage';
@@ -231,6 +232,7 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
   empresa,
   onEmpresaChange,
 }) => {
+  const { pode } = usePermissoes();
   const toast = useToast();
   const [confirmarLimpeza, setConfirmarLimpeza] = useState(false);
   const [verificandoCertificado, setVerificandoCertificado] = useState(false);
@@ -744,6 +746,7 @@ const handleCarregarCertificadoEPreencher = async () => {
                 </div>
               </div>
 
+              {pode('certificado.gerenciar') && (
               <button
                 type="button"
                 onClick={handleCarregarCertificadoEPreencher}
@@ -767,6 +770,7 @@ const handleCarregarCertificadoEPreencher = async () => {
                   </>
                 )}
               </button>
+              )}
               <p className="text-[10px] text-slate-400/80 leading-relaxed">
                 O certificado é criptografado (AES-256-GCM) e armazenado no servidor —
                 é ele que assina e transmite os documentos fiscais à SEFAZ.
@@ -1341,6 +1345,7 @@ const handleCarregarCertificadoEPreencher = async () => {
         )}
 
         <div className="flex items-center justify-end gap-3 pt-2">
+          {pode('empresa.editar') && (
           <button
             type="button"
             onClick={() => setConfirmarLimpeza(true)}
@@ -1350,7 +1355,9 @@ const handleCarregarCertificadoEPreencher = async () => {
             <Trash2 className="w-4 h-4" />
             <span>Limpar Formulário</span>
           </button>
+          )}
 
+          {pode('empresa.editar') && (
           <button
             type="submit"
             id="btn-salvar-config-empresa"
@@ -1360,6 +1367,7 @@ const handleCarregarCertificadoEPreencher = async () => {
             {salvando ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             <span>{salvando ? 'Salvando no servidor...' : 'Salvar Configurações'}</span>
           </button>
+          )}
         </div>
 
       </form>

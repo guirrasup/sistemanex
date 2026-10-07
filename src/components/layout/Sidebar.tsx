@@ -18,7 +18,10 @@ import {
   UserPlus,
   UserCheck,
   X,
+  Lock,
 } from 'lucide-react';
+import { usePermissoes } from '../../hooks/usePermissoes';
+import { VIEW_ADMIN } from '../../utils/permissoes';
 
 interface SidebarProps {
   currentView: string;
@@ -62,6 +65,7 @@ const coresMenu: Record<string, { ativo: string; icone: string; badge: string; h
   financeiro: { ativo: 'bg-yellow-50 text-yellow-700', icone: 'text-yellow-500', badge: 'bg-yellow-100 text-yellow-700', hover: 'hover:bg-yellow-50' },
   configuracoes: { ativo: 'bg-slate-50 text-slate-700', icone: 'text-slate-500', badge: 'bg-slate-100 text-slate-700', hover: 'hover:bg-slate-50' },
   'consulta-cnpj': { ativo: 'bg-rose-50 text-rose-700', icone: 'text-rose-500', badge: 'bg-rose-100 text-rose-700', hover: 'hover:bg-rose-50' },
+  [VIEW_ADMIN]: { ativo: 'bg-indigo-50 text-indigo-700', icone: 'text-indigo-500', badge: 'bg-indigo-100 text-indigo-700', hover: 'hover:bg-indigo-50' },
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -74,6 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onMenuToggle,
 }) => {
   const handleSelect = onSelectView || onNavigate || (() => {});
+  const { podeVerView, isAdmin } = usePermissoes();
   
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -112,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     (contadores.nfaeCount || 0) + 
     (contadores.mdfeCount || 0); // 🔥 ADICIONAR MDF-e
 
-  const menuGrupos = [
+  const todosGrupos = [
     {
       titulo: 'GERAL',
       itens: [
@@ -155,7 +160,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'consulta-cnpj', label: 'Consulta CNPJ', icon: Search },
       ],
     },
+    ...(isAdmin
+      ? [{ titulo: 'ADMINISTRAÇÃO', itens: [{ id: VIEW_ADMIN, label: 'Usuários e Permissões', icon: Lock }] }]
+      : []),
   ];
+
+  // 🔐 Só mostra o que o usuário pode abrir; grupo sem itens some.
+  const menuGrupos = todosGrupos
+    .map((grupo) => ({ ...grupo, itens: grupo.itens.filter((item) => podeVerView(item.id)) }))
+    .filter((grupo) => grupo.itens.length > 0);
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">

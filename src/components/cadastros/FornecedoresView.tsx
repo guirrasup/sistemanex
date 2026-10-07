@@ -14,6 +14,7 @@ import {
   X,
   Save
 } from 'lucide-react';
+import { usePermissoes } from '../../hooks/usePermissoes';
 import { ClienteFornecedor } from '../../types/erp';
 import { formatarCpfCnpj, validarCpfOuCnpj, limparCpfCnpj } from '../../utils/cpfCnpjValidator';
 import { clientesService } from '../../services/clientes.service';
@@ -30,6 +31,7 @@ type OrdenacaoCampo = 'tipo' | 'razaoSocial' | 'nomeFantasia' | 'documento' | 'e
 type OrdenacaoDirecao = 'asc' | 'desc';
 
 export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores, onFornecedoresChange }) => {
+  const { pode } = usePermissoes();
   const toast = useToast();
 
   const [busca, setBusca] = useState('');
@@ -328,6 +330,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
           )}
         </div>
 
+        {pode('fornecedores.criar') && (
         <button
           onClick={handleOpenNovo}
           disabled={carregando}
@@ -336,6 +339,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
           <Plus className="w-3.5 h-3.5" />
           <span>Novo Fornecedor</span>
         </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -396,6 +400,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
                     <td className="py-3 px-4">{c.endereco.nomeMunicipio} - {c.endereco.uf}</td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {pode('fornecedores.editar') && (
                         <button
                           onClick={() => handleOpenEdit(c)}
                           className="p-1.5 text-slate-500 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors cursor-pointer"
@@ -403,6 +408,8 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+                        )}
+                        {pode('fornecedores.excluir') && (
                         <button
                           onClick={() => openConfirmModal(c.id, c.razaoSocial)}
                           className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -410,6 +417,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -15,7 +15,7 @@ interface RequestComUsuario extends Request {
 // 🔥 Limite defensivo: um .pfx real tem no máximo alguns KB/poucas centenas de KB.
 const MAX_ARQUIVO_BASE64_LENGTH = 2 * 1024 * 1024; // ~1.5MB decodificado
 
-const PERFIS_AUTORIZADOS = ['ADMIN', 'FISCAL'];
+// Quem pode enviar/renovar: permissão 'certificado.gerenciar' (certificado.routes.ts).
 
 export class CertificadoController {
   private certificadoService: CertificadoService;
@@ -28,11 +28,6 @@ export class CertificadoController {
     const empresaId = req.user?.empresaId;
     if (!empresaId) {
       res.status(401).json({ sucesso: false, erro: 'Empresa não autenticada' });
-      return null;
-    }
-
-    if (req.user?.perfil && !PERFIS_AUTORIZADOS.includes(req.user.perfil)) {
-      res.status(403).json({ sucesso: false, erro: 'Apenas ADMIN ou FISCAL podem gerenciar o certificado digital' });
       return null;
     }
 
