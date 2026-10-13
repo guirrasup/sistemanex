@@ -46,6 +46,7 @@ import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { nfceService, EmitirNfceItemParams } from '../../services/nfce.service';
 import { DanfceLayout } from './DanfceLayout';
+import { BotaoCabecalho, EmissorLayout, ResumoEmissor, SecaoEmissor } from './emissor/EmissorKit';
 import { ResumoEmissaoModal } from './ResumoEmissaoModal';
 import { CampoCpfCnpj } from '../ui/CampoCpfCnpj';
 
@@ -63,15 +64,15 @@ interface NfceEmissorProps {
 }
 
 // 🔥 COR DO MÓDULO - ROXO
-const cor = 'purple';
-const corBg = 'bg-purple-50';
-const corBorder = 'border-purple-200';
-const corText = 'text-purple-700';
-const corTextDark = 'text-purple-800';
-const corBgButton = 'bg-purple-600 hover:bg-purple-700';
-const corBgBadge = 'bg-purple-100';
-const corFocus = 'focus:ring-purple-500';
-const corIconBg = 'bg-purple-600';
+const cor = 'brand';
+const corBg = 'bg-brand-50';
+const corBorder = 'border-brand-200';
+const corText = 'text-brand-700';
+const corTextDark = 'text-brand-800';
+const corBgButton = 'bg-brand-600 hover:bg-brand-700';
+const corBgBadge = 'bg-brand-100';
+const corFocus = 'focus:ring-brand-500';
+const corIconBg = 'bg-brand-600';
 
 export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   empresa,
@@ -217,12 +218,12 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   const handleAddItem = (prodId: string) => {
     const prod = produtos.find(p => p.id === prodId);
     if (!prod) {
-      toast.showWarning('⚠️ Produto não encontrado.');
+      toast.showWarning('Produto não encontrado.');
       return;
     }
 
     if (prod.estoqueAtual <= 0) {
-      toast.showWarning(`⚠️ Produto "${prod.descricao}" sem estoque disponível.`);
+      toast.showWarning(`Produto "${prod.descricao}" sem estoque disponível.`);
       return;
     }
 
@@ -233,7 +234,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
       const novaQtd = it.quantidade + 1;
 
       if (novaQtd > prod.estoqueAtual) {
-        toast.showWarning(`⚠️ Estoque insuficiente para "${prod.descricao}". Disponível: ${prod.estoqueAtual}`);
+        toast.showWarning(`Estoque insuficiente para "${prod.descricao}". Disponível: ${prod.estoqueAtual}`);
         return;
       }
 
@@ -250,7 +251,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         valorTributosAproximados: novoTotal * 0.314,
       };
       setItens(novos);
-      toast.showSuccess(`✅ Quantidade aumentada para "${prod.descricao}"`);
+      toast.showSuccess(`Quantidade aumentada para "${prod.descricao}"`);
       return;
     }
 
@@ -297,7 +298,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
 
     setItens([...itens, novoItem]);
     setBuscaProduto('');
-    toast.showSuccess(`✅ "${prod.descricao}" adicionado ao cupom.`);
+    toast.showSuccess(`"${prod.descricao}" adicionado ao cupom.`);
   };
 
   const handleUpdateItemQtd = (itemId: string, novaQtd: number) => {
@@ -311,7 +312,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
     
     const produto = produtos.find(p => p.codigo === item.codigoProduto);
     if (produto && novaQtd > produto.estoqueAtual) {
-      toast.showWarning(`⚠️ Estoque insuficiente. Disponível: ${produto.estoqueAtual}`);
+      toast.showWarning(`Estoque insuficiente. Disponível: ${produto.estoqueAtual}`);
       return;
     }
 
@@ -338,14 +339,55 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
     const item = itens.find(i => i.id === itemId);
     setItens(itens.filter(i => i.id !== itemId));
     if (item) {
-      toast.showInfo(`ℹ️ "${item.descricao}" removido do cupom.`);
+      toast.showInfo(`"${item.descricao}" removido do cupom.`);
     }
   };
 
   const handleLimparItens = () => {
     if (itens.length === 0) return;
     setItens([]);
-    toast.showInfo('ℹ️ Todos os itens foram removidos.');
+    toast.showInfo('Todos os itens foram removidos.');
+  };
+
+  // Volta o formulário ao estado inicial (mesmo comportamento do "Limpar tudo" dos outros emissores).
+  const handleLimparTudo = () => {
+    setIdentificarConsumidor(false);
+    setSelectedClienteId('');
+    setConsumidorDoc('');
+    setConsumidorNome('');
+    setConsumidorEmail('');
+    setConsumidorTelefone('');
+    setConsumidorLogradouro('');
+    setConsumidorNumero('');
+    setConsumidorComplemento('');
+    setConsumidorBairro('');
+    setConsumidorCodigoMunicipio('');
+    setConsumidorNomeMunicipio('');
+    setConsumidorUf('SP');
+    setConsumidorCep('');
+    setNaturezaOperacao('Venda a Consumidor Final');
+    setIndPres(1);
+    setTpEmis(1);
+    setItens([]);
+    setBuscaProduto('');
+    setFormaPagamento('17');
+    setTPag('17');
+    setXPag('PIX');
+    setVPag(0);
+    setDPag('');
+    setTpIntegra('1');
+    setCNPJInstPag('');
+    setTBand('');
+    setCAut('');
+    setCNPJReceb('');
+    setIdTermPag('');
+    setValorDesconto(0);
+    setValorAcrescimo(0);
+    setValorRecebido(0);
+    setInfAdFisco('');
+    setInfCpl('');
+    setErros([]);
+    setTentouEnviar(false);
   };
 
   // ============================================================
@@ -422,7 +464,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   const classeCampo = (valor: string, base = `w-full border rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`) =>
     tentouEnviar && !valor.trim()
       ? `${base.replace(corFocus, 'focus:ring-rose-500')} border-rose-400 bg-rose-50`
-      : `${base} border-slate-300`;
+      : `${base} border-ink-300`;
 
   const handleClickEmitir = () => {
     setTentouEnviar(true);
@@ -571,10 +613,10 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         // motivo, então não tem mais um toast que sempre dizia "sucesso".
       }
     } catch (error: unknown) {
-      console.error('❌ Erro na transmissão:', error);
+      console.error('Erro na transmissão:', error);
       const mensagemErro = getApiErrorMessage(error, 'Erro ao emitir NFC-e. Tente novamente.');
       setErros([mensagemErro]);
-      toast.showError(`❌ ${mensagemErro}`);
+      toast.showError(`${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
       setShowPreview(false);
@@ -592,41 +634,55 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
   );
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto">
-      
-      <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
-              <ShoppingBag className="w-4 h-4" />
-            </span>
-            <h1 className="text-base font-bold text-slate-900">Emissão de NFC-e (Modelo 65)</h1>
-            <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
-              Cupom Fiscal
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Emissão de cupom fiscal eletrônico para consumidor final com QR Code.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleCarregarUltima}
-            disabled={isCarregandoUltima}
-            title="Preenche o formulário com os dados da última NFC-e autorizada"
-            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
-            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
-          </button>
-          <div className="text-right">
-            <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfce || 1}</div>
-            <div className={`text-[10px] font-medium ${corText}`}>Próxima NFC-e: Nº previsto {empresa.proximoNumeroNfce || 1}</div>
-          </div>
-        </div>
-      </div>
-
+    <EmissorLayout
+      icone={ShoppingBag}
+      titulo="Nova NFC-e"
+      descricao="Cupom fiscal eletrônico para consumidor final, com QR Code de consulta."
+      modelo="Mod. 65"
+      serie={empresa.serieNfce || 1}
+      proximoNumero={empresa.proximoNumeroNfce || 1}
+      ambiente={empresa.ambienteEmissao}
+      acoes={
+        <BotaoCabecalho
+          onClick={handleCarregarUltima}
+          icone={RefreshCw}
+          carregando={isCarregandoUltima}
+          title="Preenche o formulário com os dados da última NFC-e autorizada"
+        >
+          {isCarregandoUltima ? 'Carregando…' : 'Carregar última nota'}
+        </BotaoCabecalho>
+      }
+      secoes={[
+        { id: 'consumidor', titulo: 'Consumidor' },
+        { id: 'identificacao', titulo: 'Identificação' },
+        { id: 'produtos', titulo: 'Produtos' },
+        { id: 'pagamento', titulo: 'Pagamento' },
+        { id: 'adicionais', titulo: 'Informações adicionais' },
+      ]}
+      resumo={
+        <ResumoEmissor
+          total={{ rotulo: 'Total do cupom', valor: valorTotalFinal }}
+          linhas={[
+            { rotulo: 'Produtos', valor: totais.valorTotalProdutos },
+            { rotulo: 'Desconto', valor: valorDesconto, tom: 'negativo' },
+            { rotulo: 'Acréscimo', valor: valorAcrescimo },
+            { rotulo: 'Valor recebido', valor: valorRecebido },
+            { rotulo: 'Troco', valor: troco },
+            { rotulo: 'ICMS', valor: totais.valorTotalICMS, tom: 'sutil' },
+            { rotulo: 'Tributos aprox. (Lei 12.741)', valor: totais.valorTotalTributosAproximados, tom: 'sutil' },
+          ]}
+          info={[
+            { rotulo: 'Itens', valor: `${itens.length} · qtd ${itens.reduce((acc, i) => acc + i.quantidade, 0)}` },
+            { rotulo: 'Consumidor', valor: identificarConsumidor ? 'Identificado' : 'Não identificado' },
+          ]}
+          pronto={tentouEnviar ? erros.length === 0 : itens.length > 0}
+          pendencias={erros}
+          emitir={{ rotulo: 'Revisar e emitir NFC-e', onClick: handleClickEmitir, transmitindo: isTransmitting }}
+          onPreview={handleClickEmitir}
+          onLimpar={handleLimparTudo}
+        />
+      }
+    >
       {sucessoNfce && (
         <ResumoEmissaoModal
           aberto={!!sucessoNfce}
@@ -653,27 +709,15 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         />
       )}
 
-      {erros.length > 0 && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 space-y-1">
-          <div className="font-bold flex items-center gap-1.5 text-rose-900">
-            <AlertTriangle className="w-4 h-4 text-rose-600" />
-            <span>Pendências na NFC-e ({erros.length}):</span>
-          </div>
-          <ul className="list-disc list-inside space-y-0.5 pl-2">
-            {erros.map((err, idx) => (
-              <li key={idx}>{err}</li>
-            ))}
-          </ul>
-        </div>
-      )}
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-          <div className="flex items-center gap-2">
-            <User className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">1. Consumidor</h3>
-          </div>
-          <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+      <SecaoEmissor
+        id="consumidor"
+        numero={1}
+        titulo="Consumidor"
+        icone={User}
+        descricao="Sem identificação, sai como consumidor final (padrão do varejo)"
+        acao={
+          <label className="flex items-center gap-2 text-xs font-medium text-ink-700 cursor-pointer">
             <input
               type="checkbox"
               checked={identificarConsumidor}
@@ -682,20 +726,21 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             />
             <span>Identificar CPF/CNPJ</span>
           </label>
-        </div>
+        }
+      >
 
         {!identificarConsumidor ? (
-          <div className="bg-slate-50 border border-dashed border-slate-300 rounded-lg p-4 text-center text-xs text-slate-600">
-            <span>👤 <strong>Consumidor Não Identificado</strong> (Padrão Varejo)</span>
+          <div className="bg-ink-50 border border-dashed border-ink-300 rounded-lg p-4 text-center text-xs text-ink-600">
+            <span><strong>Consumidor não identificado</strong> (padrão do varejo)</span>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-500">Cliente cadastrado:</span>
+              <span className="text-xs text-ink-500">Cliente cadastrado:</span>
               <select
                 value={selectedClienteId}
                 onChange={(e) => handleSelectCliente(e.target.value)}
-                className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[350px]`}
+                className={`text-xs bg-ink-50 border border-ink-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-ink-700 max-w-[350px]`}
               >
                 <option value="">-- Escolher Cliente --</option>
                 {clientes.map(c => (
@@ -706,7 +751,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block font-medium text-slate-600 mb-1">CPF ou CNPJ *</label>
+                <label className="block font-medium text-ink-600 mb-1">CPF ou CNPJ <span className="text-danger">*</span></label>
                 <CampoCpfCnpj
                   value={consumidorDoc}
                   onChange={setConsumidorDoc}
@@ -715,7 +760,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
                 />
               </div>
               <div>
-                <label className="block font-medium text-slate-600 mb-1">Nome / Razão Social *</label>
+                <label className="block font-medium text-ink-600 mb-1">Nome / Razão Social <span className="text-danger">*</span></label>
                 <input
                   type="text"
                   value={consumidorNome}
@@ -725,108 +770,108 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
                 />
               </div>
               <div>
-                <label className="block font-medium text-slate-600 mb-1">E-mail</label>
+                <label className="block font-medium text-ink-600 mb-1">E-mail</label>
                 <input
                   type="email"
                   value={consumidorEmail}
                   onChange={(e) => setConsumidorEmail(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   placeholder="email@consumidor.com"
                 />
               </div>
               <div>
-                <label className="block font-medium text-slate-600 mb-1">Telefone</label>
+                <label className="block font-medium text-ink-600 mb-1">Telefone</label>
                 <input
                   type="text"
                   value={consumidorTelefone}
                   onChange={(e) => setConsumidorTelefone(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   placeholder="(11) 99999-9999"
                 />
               </div>
             </div>
 
-            <div className="border-t border-slate-200 pt-3">
-              <div className="text-xs font-medium text-slate-700 mb-2">Endereço do Consumidor</div>
+            <div className="border-t border-ink-200 pt-3">
+              <div className="text-xs font-medium text-ink-700 mb-2">Endereço do Consumidor</div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div className="sm:col-span-2">
-                  <label className="block font-medium text-slate-600 mb-1">Logradouro</label>
+                  <label className="block font-medium text-ink-600 mb-1">Logradouro</label>
                   <input
                     type="text"
                     value={consumidorLogradouro}
                     onChange={(e) => setConsumidorLogradouro(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                     placeholder="Rua, Avenida..."
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">Número</label>
+                  <label className="block font-medium text-ink-600 mb-1">Número</label>
                   <input
                     type="text"
                     value={consumidorNumero}
                     onChange={(e) => setConsumidorNumero(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                     placeholder="123"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">Complemento</label>
+                  <label className="block font-medium text-ink-600 mb-1">Complemento</label>
                   <input
                     type="text"
                     value={consumidorComplemento}
                     onChange={(e) => setConsumidorComplemento(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                     placeholder="Sala, Bloco..."
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">Bairro</label>
+                  <label className="block font-medium text-ink-600 mb-1">Bairro</label>
                   <input
                     type="text"
                     value={consumidorBairro}
                     onChange={(e) => setConsumidorBairro(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                     placeholder="Bairro"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">Município</label>
+                  <label className="block font-medium text-ink-600 mb-1">Município</label>
                   <input
                     type="text"
                     value={consumidorNomeMunicipio}
                     onChange={(e) => setConsumidorNomeMunicipio(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                     placeholder="São Paulo"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">Cód. IBGE</label>
+                  <label className="block font-medium text-ink-600 mb-1">Cód. IBGE</label>
                   <input
                     type="text"
                     value={consumidorCodigoMunicipio}
                     onChange={(e) => setConsumidorCodigoMunicipio(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                     placeholder="3550308"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">UF</label>
+                  <label className="block font-medium text-ink-600 mb-1">UF</label>
                   <input
                     type="text"
                     maxLength={2}
                     value={consumidorUf}
                     onChange={(e) => setConsumidorUf(e.target.value.toUpperCase())}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
                     placeholder="SP"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">CEP</label>
+                  <label className="block font-medium text-ink-600 mb-1">CEP</label>
                   <input
                     type="text"
                     value={consumidorCep}
                     onChange={(e) => setConsumidorCep(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                     placeholder="01000-000"
                   />
                 </div>
@@ -834,42 +879,38 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             </div>
           </div>
         )}
-      </div>
+      </SecaoEmissor>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-          <FileText className={`w-4 h-4 ${corText}`} />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">2. Identificação da NFC-e</h3>
-        </div>
+      <SecaoEmissor id="identificacao" numero={2} titulo="Identificação" icone={FileText} descricao="Natureza da operação, presença do comprador e forma de emissão">
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
           <div className="sm:col-span-2">
-            <label className="block font-medium text-slate-600 mb-1">Natureza da Operação *</label>
+            <label className="block font-medium text-ink-600 mb-1">Natureza da Operação <span className="text-danger">*</span></label>
             <input
               type="text"
               value={naturezaOperacao}
               onChange={(e) => setNaturezaOperacao(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="Venda a Consumidor Final"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Tipo NF (TpNF)</label>
+            <label className="block font-medium text-ink-600 mb-1">Tipo NF (TpNF)</label>
             <select
               value={tpNF}
               onChange={(e) => setTpNF(parseInt(e.target.value) as 0 | 1)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value={0}>0 - Entrada</option>
               <option value={1}>1 - Saída</option>
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Finalidade (FinNFe)</label>
+            <label className="block font-medium text-ink-600 mb-1">Finalidade (FinNFe)</label>
             <select
               value={finNFe}
               onChange={(e) => setFinNFe(parseInt(e.target.value) as 1 | 2 | 3 | 4)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value={1}>1 - Normal</option>
               <option value={2}>2 - Complementar</option>
@@ -878,22 +919,22 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Consumidor Final (IndFinal)</label>
+            <label className="block font-medium text-ink-600 mb-1">Consumidor Final (IndFinal)</label>
             <select
               value={indFinal}
               onChange={(e) => setIndFinal(parseInt(e.target.value) as 0 | 1)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value={0}>0 - Não</option>
               <option value={1}>1 - Sim</option>
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Presença (IndPres)</label>
+            <label className="block font-medium text-ink-600 mb-1">Presença (IndPres)</label>
             <select
               value={indPres}
               onChange={(e) => setIndPres(parseInt(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5 | 9)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value={0}>0 - Não se aplica</option>
               <option value={1}>1 - Presencial</option>
@@ -905,11 +946,11 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">ID Destino</label>
+            <label className="block font-medium text-ink-600 mb-1">ID Destino</label>
             <select
               value={idDest}
               onChange={(e) => setIdDest(parseInt(e.target.value) as 1 | 2 | 3)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value={1}>1 - Operação Interna</option>
               <option value={2}>2 - Interestadual</option>
@@ -917,11 +958,11 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Processo de Emissão</label>
+            <label className="block font-medium text-ink-600 mb-1">Processo de Emissão</label>
             <select
               value={procEmi}
               onChange={(e) => setProcEmi(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value="0">0 - Aplicativo do contribuinte</option>
               <option value="1">1 - Avulsa</option>
@@ -930,20 +971,20 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Versão do Processo</label>
+            <label className="block font-medium text-ink-600 mb-1">Versão do Processo</label>
             <input
               type="text"
               value={verProc}
               onChange={(e) => setVerProc(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Tipo Emissão</label>
+            <label className="block font-medium text-ink-600 mb-1">Tipo Emissão</label>
             <select
               value={tpEmis}
               onChange={(e) => setTpEmis(parseInt(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 9)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value={1}>1 - Normal</option>
               <option value={2}>2 - Contingência</option>
@@ -954,25 +995,24 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             </select>
           </div>
         </div>
-      </div>
+      </SecaoEmissor>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3 mb-4">
-          <div className="flex items-center gap-2">
-            <Package className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              3. Produtos ({itens.length})
-            </h3>
-          </div>
+      <SecaoEmissor
+        id="produtos"
+        numero={3}
+        titulo={`Produtos (${itens.length})`}
+        icone={Package}
+        descricao="Busque pelo nome ou código; impostos calculados por item"
+        acao={
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-3.5 h-3.5 text-ink-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={buscaProduto}
                 onChange={(e) => setBuscaProduto(e.target.value)}
                 placeholder="Buscar produto..."
-                className={`text-xs pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 ${corFocus} w-56`}
+                className={`text-xs pl-8 pr-3 py-1.5 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 ${corFocus} w-56`}
               />
             </div>
             <button
@@ -982,26 +1022,27 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
               Limpar
             </button>
           </div>
-        </div>
+        }
+      >
 
         {buscaProduto.trim() && (
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 max-h-48 overflow-y-auto space-y-1 mb-3">
+          <div className="bg-ink-50 border border-ink-200 rounded-lg p-2 max-h-48 overflow-y-auto space-y-1 mb-3">
             {produtosFiltrados.length === 0 ? (
-              <div className="text-xs text-slate-500 p-2 text-center">Nenhum produto encontrado.</div>
+              <div className="text-xs text-ink-500 p-2 text-center">Nenhum produto encontrado.</div>
             ) : (
               produtosFiltrados.map(p => (
                 <div
                   key={p.id}
                   onClick={() => handleAddItem(p.id)}
-                  className="flex items-center justify-between p-2 bg-white hover:bg-purple-50 rounded-lg border border-slate-200 hover:border-purple-300 cursor-pointer transition-colors text-xs"
+                  className="flex items-center justify-between p-2 bg-white hover:bg-brand-50 rounded-lg border border-ink-200 hover:border-brand-300 cursor-pointer transition-colors text-xs"
                 >
                   <div>
-                    <div className="font-semibold text-slate-900">{p.descricao}</div>
-                    <div className="text-[10px] text-slate-500">Cód: {p.codigo} • Estoque: {p.estoqueAtual} {p.unidade}</div>
+                    <div className="font-semibold text-ink-900">{p.descricao}</div>
+                    <div className="text-[10px] text-ink-500">Cód: {p.codigo} • Estoque: {p.estoqueAtual} {p.unidade}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-purple-700">{formatarMoeda(p.precoVenda)}</div>
-                    <span className="text-[10px] text-purple-600 hover:underline">+ Incluir</span>
+                    <div className="font-bold text-brand-700">{formatarMoeda(p.precoVenda)}</div>
+                    <span className="text-[10px] text-brand-600 hover:underline">+ Incluir</span>
                   </div>
                 </div>
               ))
@@ -1011,59 +1052,59 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
 
         {itens.length === 0 ? (
           <div className={`p-6 border-2 border-dashed rounded-lg text-center ${
-            tentouEnviar ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50/70'
+            tentouEnviar ? 'border-rose-300 bg-rose-50' : 'border-ink-200 bg-ink-50/70'
           }`}>
-            <ShoppingBag className={`w-8 h-8 mx-auto mb-2 ${tentouEnviar ? 'text-rose-300' : 'text-slate-300'}`} />
-            <p className={`text-xs font-semibold ${tentouEnviar ? 'text-rose-700' : 'text-slate-700'}`}>Cupom Fiscal em Branco</p>
-            <p className={`text-[11px] ${tentouEnviar ? 'text-rose-500' : 'text-slate-500'}`}>Pesquise um produto acima para adicionar</p>
+            <ShoppingBag className={`w-8 h-8 mx-auto mb-2 ${tentouEnviar ? 'text-rose-300' : 'text-ink-300'}`} />
+            <p className={`text-xs font-semibold ${tentouEnviar ? 'text-rose-700' : 'text-ink-700'}`}>Cupom Fiscal em Branco</p>
+            <p className={`text-[11px] ${tentouEnviar ? 'text-rose-500' : 'text-ink-500'}`}>Pesquise um produto acima para adicionar</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+          <div className="divide-y divide-ink-100 border border-ink-200 rounded-lg overflow-hidden">
             {itens.map((item, idx) => (
-              <div key={item.id} className="p-3 bg-white hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div key={item.id} className="p-3 bg-white hover:bg-ink-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">
+                    <span className="font-mono text-[10px] bg-ink-100 text-ink-600 px-1.5 py-0.5 rounded font-semibold">
                       #{idx + 1}
                     </span>
-                    <span className="font-bold text-slate-900 truncate">{item.descricao}</span>
+                    <span className="font-bold text-ink-900 truncate">{item.descricao}</span>
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">
+                  <div className="text-[10px] text-ink-500 mt-0.5">
                     NCM {item.ncm} • ICMS {item.aliquotaICMS}% • Unit: {formatarMoeda(item.valorUnitario)}
                     {item.cest && ` • CEST: ${item.cest}`}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                  <div className="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+                  <div className="flex items-center border border-ink-300 rounded-lg bg-white overflow-hidden">
                     <button
                       type="button"
                       onClick={() => handleUpdateItemQtd(item.id, item.quantidade - 1)}
-                      className="px-2 py-1 text-slate-600 hover:bg-slate-100 font-bold cursor-pointer"
+                      className="px-2 py-1 text-ink-600 hover:bg-ink-100 font-bold cursor-pointer"
                     >
                       -
                     </button>
-                    <span className="px-2 py-1 font-semibold text-slate-900 min-w-[24px] text-center">
+                    <span className="px-2 py-1 font-semibold text-ink-900 min-w-[24px] text-center">
                       {item.quantidade}
                     </span>
                     <button
                       type="button"
                       onClick={() => handleUpdateItemQtd(item.id, item.quantidade + 1)}
-                      className="px-2 py-1 text-slate-600 hover:bg-slate-100 font-bold cursor-pointer"
+                      className="px-2 py-1 text-ink-600 hover:bg-ink-100 font-bold cursor-pointer"
                     >
                       +
                     </button>
                   </div>
 
                   <div className="text-right min-w-[70px]">
-                    <div className="font-bold text-slate-900">{formatarMoeda(item.valorTotalBruto)}</div>
-                    <div className="text-[10px] text-slate-400">Total</div>
+                    <div className="font-bold text-ink-900">{formatarMoeda(item.valorTotalBruto)}</div>
+                    <div className="text-[10px] text-ink-400">Total</div>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => handleRemoveItem(item.id)}
-                    className="text-slate-400 hover:text-rose-600 p-1 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                    className="text-ink-400 hover:text-rose-600 p-1 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -1074,50 +1115,46 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         )}
 
         {itens.length > 0 && (
-          <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-xs mt-3">
+          <div className="bg-ink-50 rounded-lg p-3 border border-ink-200 text-xs mt-3">
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               <div>
-                <span className="text-slate-500">Itens:</span>
+                <span className="text-ink-500">Itens:</span>
                 <span className="font-bold ml-1">{itens.length}</span>
               </div>
               <div>
-                <span className="text-slate-500">Qtd:</span>
+                <span className="text-ink-500">Qtd:</span>
                 <span className="font-bold ml-1">{itens.reduce((acc, i) => acc + i.quantidade, 0)}</span>
               </div>
               <div>
-                <span className="text-slate-500">Subtotal:</span>
+                <span className="text-ink-500">Subtotal:</span>
                 <span className="font-bold ml-1">{formatarMoeda(totais.valorTotalProdutos)}</span>
               </div>
               <div>
-                <span className="text-slate-500">ICMS:</span>
+                <span className="text-ink-500">ICMS:</span>
                 <span className="font-bold ml-1">{formatarMoeda(totais.valorTotalICMS)}</span>
               </div>
               <div>
-                <span className="text-slate-500">Tributos:</span>
+                <span className="text-ink-500">Tributos:</span>
                 <span className="font-bold ml-1">{formatarMoeda(totais.valorTotalTributosAproximados)}</span>
               </div>
               <div>
-                <span className="text-slate-500">Desconto:</span>
+                <span className="text-ink-500">Desconto:</span>
                 <span className="font-bold text-rose-600 ml-1">-{formatarMoeda(valorDesconto)}</span>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </SecaoEmissor>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-          <CreditCard className={`w-4 h-4 ${corText}`} />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">4. Pagamento</h3>
-        </div>
+      <SecaoEmissor id="pagamento" numero={4} titulo="Pagamento" icone={CreditCard} descricao="Forma de pagamento, desconto, acréscimo e troco">
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Forma de Pagamento *</label>
+            <label className="block font-medium text-ink-600 mb-1">Forma de Pagamento <span className="text-danger">*</span></label>
             <select
               value={formaPagamento}
               onChange={(e) => handleFormaPagamentoChange(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
               <option value="01">Dinheiro</option>
               <option value="02">Cheque</option>
@@ -1135,7 +1172,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Valor do Pagamento (R$) *</label>
+            <label className="block font-medium text-ink-600 mb-1">Valor do Pagamento (R$) <span className="text-danger">*</span></label>
             {/* 🔥 Faltava o destaque em vermelho aqui — validarNfce já exigia
                 vPag > 0 (exceto formaPagamento "90" Sem Pagamento) mas o campo
                 nunca refletia isso visualmente. */}
@@ -1150,22 +1187,22 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Data do Pagamento</label>
+            <label className="block font-medium text-ink-600 mb-1">Data do Pagamento</label>
             <input
               type="date"
               value={dPag}
               onChange={(e) => setDPag(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
             />
           </div>
         </div>
 
         {['03', '04'].includes(formaPagamento) && (
           <div className={`${corBg} border ${corBorder} rounded-lg p-4 space-y-3 mt-3`}>
-            <div className="text-xs font-medium text-slate-700">Detalhes do Cartão</div>
+            <div className="text-xs font-medium text-ink-700">Detalhes do Cartão</div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
-                <label className="block font-medium text-slate-600 mb-1">Bandeira {['03', '04'].includes(formaPagamento) ? '*' : ''}</label>
+                <label className="block font-medium text-ink-600 mb-1">Bandeira {['03', '04'].includes(formaPagamento) ? '*' : ''}</label>
                 <select
                   value={tBand}
                   onChange={(e) => setTBand(e.target.value)}
@@ -1181,22 +1218,22 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
                 </select>
               </div>
               <div>
-                <label className="block font-medium text-slate-600 mb-1">CNPJ da Instituição</label>
+                <label className="block font-medium text-ink-600 mb-1">CNPJ da Instituição</label>
                 <input
                   type="text"
                   value={CNPJInstPag}
                   onChange={(e) => setCNPJInstPag(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   placeholder="00.000.000/0000-00"
                 />
               </div>
               <div>
-                <label className="block font-medium text-slate-600 mb-1">Código de Autorização</label>
+                <label className="block font-medium text-ink-600 mb-1">Código de Autorização</label>
                 <input
                   type="text"
                   value={cAut}
                   onChange={(e) => setCAut(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   placeholder="Código da transação"
                 />
               </div>
@@ -1205,34 +1242,34 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         )}
 
         {formaPagamento === '17' && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mt-3">
-            <div className="flex items-center gap-2 text-xs font-medium text-emerald-800">
+          <div className="bg-brand-50 border border-brand-200 rounded-lg p-4 mt-3">
+            <div className="flex items-center gap-2 text-xs font-medium text-brand-800">
               <QrCode className="w-4 h-4" />
               <span>Pagamento via PIX</span>
             </div>
-            <p className="text-[10px] text-emerald-600 mt-1">O QR Code será gerado no cupom fiscal após a emissão.</p>
+            <p className="text-[10px] text-brand-600 mt-1">O QR Code será gerado no cupom fiscal após a emissão.</p>
           </div>
         )}
 
         {formaPagamento === '01' && (
           <div className={`${corBg} border ${corBorder} rounded-lg p-4 space-y-3 mt-3`}>
-            <div className="text-xs font-medium text-slate-700">Pagamento em Dinheiro</div>
+            <div className="text-xs font-medium text-ink-700">Pagamento em Dinheiro</div>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block font-medium text-slate-600 mb-1">Valor Recebido (R$)</label>
+                <label className="block font-medium text-ink-600 mb-1">Valor Recebido (R$)</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
                   value={valorRecebido || ''}
                   onChange={(e) => setValorRecebido(parseFloat(e.target.value) || 0)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 text-sm font-bold focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 text-sm font-bold focus:outline-none focus:ring-2 ${corFocus}`}
                   placeholder="0,00"
                 />
               </div>
               <div>
-                <label className="block font-medium text-slate-600 mb-1">Troco</label>
-                <div className="w-full bg-white border border-slate-300 rounded-lg p-2 text-sm font-bold text-emerald-700">
+                <label className="block font-medium text-ink-600 mb-1">Troco</label>
+                <div className="w-full bg-white border border-ink-300 rounded-lg p-2 text-sm font-bold text-brand-700">
                   {formatarMoeda(troco)}
                 </div>
               </div>
@@ -1240,28 +1277,28 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-200 text-xs">
+        <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-ink-200 text-xs">
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Desconto (R$)</label>
+            <label className="block font-medium text-ink-600 mb-1">Desconto (R$)</label>
             <input
               type="number"
               step="0.01"
               min="0"
               value={valorDesconto || ''}
               onChange={(e) => setValorDesconto(parseFloat(e.target.value) || 0)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="0,00"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Acréscimo (R$)</label>
+            <label className="block font-medium text-ink-600 mb-1">Acréscimo (R$)</label>
             <input
               type="number"
               step="0.01"
               min="0"
               value={valorAcrescimo || ''}
               onChange={(e) => setValorAcrescimo(parseFloat(e.target.value) || 0)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="0,00"
             />
           </div>
@@ -1270,84 +1307,58 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         <div className={`mt-3 p-3 ${corBg} rounded-lg border ${corBorder} text-xs`}>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
             <div>
-              <span className="text-slate-500">Subtotal:</span>
+              <span className="text-ink-500">Subtotal:</span>
               <span className="font-bold ml-1">{formatarMoeda(totais.valorTotalProdutos)}</span>
             </div>
             <div>
-              <span className="text-slate-500">Desconto:</span>
+              <span className="text-ink-500">Desconto:</span>
               <span className="font-bold text-rose-600 ml-1">-{formatarMoeda(valorDesconto)}</span>
             </div>
             <div>
-              <span className="text-slate-500">Acréscimo:</span>
-              <span className="font-bold text-emerald-600 ml-1">+{formatarMoeda(valorAcrescimo)}</span>
+              <span className="text-ink-500">Acréscimo:</span>
+              <span className="font-bold text-brand-600 ml-1">+{formatarMoeda(valorAcrescimo)}</span>
             </div>
             <div>
-              <span className="text-slate-500">Tributos Aprox.:</span>
+              <span className="text-ink-500">Tributos Aprox.:</span>
               <span className="font-bold ml-1">{formatarMoeda(totais.valorTotalTributosAproximados)}</span>
             </div>
-            <div className="bg-purple-100 p-2 rounded-lg text-center">
-              <span className="text-slate-700 font-bold">Total:</span>
-              <span className="font-bold text-purple-800 ml-1">{formatarMoeda(valorTotalFinal)}</span>
+            <div className="bg-brand-100 p-2 rounded-lg text-center">
+              <span className="text-ink-700 font-bold">Total:</span>
+              <span className="font-bold text-brand-800 ml-1">{formatarMoeda(valorTotalFinal)}</span>
             </div>
           </div>
         </div>
-      </div>
+      </SecaoEmissor>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-          <Info className={`w-4 h-4 ${corText}`} />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">5. Informações Adicionais</h3>
-        </div>
+      <SecaoEmissor id="adicionais" numero={5} titulo="Informações adicionais" icone={Info} descricao="Observações que saem impressas no cupom">
 
         <div className="space-y-3 text-xs">
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Informações de Interesse do Fisco</label>
+            <label className="block font-medium text-ink-600 mb-1">Informações de Interesse do Fisco</label>
             <textarea
               rows={2}
               value={infAdFisco}
               onChange={(e) => setInfAdFisco(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
               placeholder="Normas referenciadas, informações complementares..."
               maxLength={2000}
             />
-            <span className="text-[10px] text-slate-400">{infAdFisco.length}/2000</span>
+            <span className="text-[10px] text-ink-400">{infAdFisco.length}/2000</span>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Informações Complementares do Contribuinte</label>
+            <label className="block font-medium text-ink-600 mb-1">Informações Complementares do Contribuinte</label>
             <textarea
               rows={2}
               value={infCpl}
               onChange={(e) => setInfCpl(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
               placeholder="Informações adicionais..."
               maxLength={5000}
             />
-            <span className="text-[10px] text-slate-400">{infCpl.length}/5000</span>
+            <span className="text-[10px] text-ink-400">{infCpl.length}/5000</span>
           </div>
         </div>
-      </div>
-
-      {/* 🔥 Clicável mesmo com dados incompletos — dispara a validação que pinta
-          os campos obrigatórios vazios de vermelho (handleClickEmitir), e só
-          abre o preview (não transmite ainda) quando tudo estiver ok. */}
-      <button
-        type="button"
-        onClick={handleClickEmitir}
-        disabled={isTransmitting}
-        className={`w-full ${corBgButton} disabled:bg-slate-300 text-white font-bold text-sm py-3 px-4 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
-      >
-        {isTransmitting ? (
-          <>
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Transmitindo NFC-e para SEFAZ...</span>
-          </>
-        ) : (
-          <>
-            <Send className="w-4 h-4" />
-            <span>REVISAR & EMITIR NFC-e (MODELO 65)</span>
-          </>
-        )}
-      </button>
+      </SecaoEmissor>
 
       {/* ============================================================
           PREVIEW ANTES DE TRANSMITIR — mesmo componente DanfceLayout usado na
@@ -1355,7 +1366,7 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
           VISUALIZAÇÃO". Nada é enviado pra SEFAZ até confirmar aqui dentro.
           ============================================================ */}
       {showPreview && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-ink-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="relative bg-white rounded-xl max-w-md w-full shadow-2xl max-h-[95vh] overflow-hidden flex flex-col">
 
             <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden select-none">
@@ -1367,17 +1378,17 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
               </span>
             </div>
 
-            <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-center justify-between z-20">
+            <div className="shrink-0 bg-brand-50 border-b border-brand-200 px-4 py-3 flex items-center justify-between z-20">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wide">
+                <AlertTriangle className="w-4 h-4 text-brand-600" />
+                <span className="text-[11px] font-bold text-brand-800 uppercase tracking-wide">
                   Espelho do cupom — não emitido
                 </span>
               </div>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                 (empresa.ambienteEmissao as unknown as string) === 'PRODUCAO'
                   ? 'bg-rose-100 text-rose-800 border-rose-300'
-                  : 'bg-blue-100 text-blue-800 border-blue-300'
+                  : 'bg-brand-100 text-brand-800 border-brand-300'
               }`}>
                 {(empresa.ambienteEmissao as unknown as string) === 'PRODUCAO' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'}
               </span>
@@ -1415,12 +1426,12 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
               />
             </div>
 
-            <div className="shrink-0 bg-white border-t border-slate-100 px-4 py-3 flex items-center justify-end gap-2">
+            <div className="shrink-0 bg-white border-t border-ink-100 px-4 py-3 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowPreview(false)}
                 disabled={isTransmitting}
-                className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium text-sm cursor-pointer transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-lg text-ink-600 hover:bg-ink-100 font-medium text-sm cursor-pointer transition-colors disabled:opacity-50"
               >
                 Voltar e Revisar
               </button>
@@ -1447,6 +1458,6 @@ export const NfceEmissor: React.FC<NfceEmissorProps> = ({
         </div>
       )}
 
-    </div>
+    </EmissorLayout>
   );
 };

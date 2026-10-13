@@ -21,6 +21,7 @@ import { clientesService } from '../../services/clientes.service';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { CabecalhoPagina } from '../ui/CabecalhoPagina';
 
 interface FornecedoresViewProps {
   fornecedores: ClienteFornecedor[];
@@ -59,14 +60,14 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
 
   // 🔥 COR DO MÓDULO (VIOLETA)
   const cor = 'violet';
-  const corBg = 'bg-violet-50';
-  const corBorder = 'border-violet-200';
-  const corText = 'text-violet-700';
-  const corTextDark = 'text-violet-800';
-  const corBgButton = 'bg-violet-600 hover:bg-violet-700';
-  const corBgBadge = 'bg-violet-100';
-  const corFocus = 'focus:ring-violet-500';
-  const corIconBg = 'bg-violet-600';
+  const corBg = 'bg-brand-50';
+  const corBorder = 'border-brand-200';
+  const corText = 'text-brand-700';
+  const corTextDark = 'text-brand-800';
+  const corBgButton = 'bg-brand-600 hover:bg-brand-700';
+  const corBgBadge = 'bg-brand-100';
+  const corFocus = 'focus:ring-brand-500';
+  const corIconBg = 'bg-brand-600';
 
   // Form State
   const [tipo, setTipo] = useState<'CLIENTE' | 'FORNECEDOR' | 'AMBOS'>('FORNECEDOR');
@@ -134,12 +135,12 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
 
     const val = validarCpfOuCnpj(documento);
     if (!val.valido) {
-      toast.showWarning('⚠️ CPF ou CNPJ inválido. Verifique os dígitos.');
+      toast.showWarning('CPF ou CNPJ inválido. Verifique os dígitos.');
       return;
     }
 
     if (!razaoSocial.trim()) {
-      toast.showWarning('⚠️ Razão Social / Nome é obrigatório.');
+      toast.showWarning('Razão Social / Nome é obrigatório.');
       return;
     }
 
@@ -169,10 +170,10 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
 
       if (editandoFornecedor) {
         await clientesService.atualizar(editandoFornecedor.id, dadosFornecedor);
-        toast.showSuccess(`✅ Fornecedor "${razaoSocial}" atualizado com sucesso!`);
+        toast.showSuccess(`Fornecedor "${razaoSocial}" atualizado com sucesso!`);
       } else {
         await clientesService.criar(dadosFornecedor);
-        toast.showSuccess(`✅ Fornecedor "${razaoSocial}" criado com sucesso!`);
+        toast.showSuccess(`Fornecedor "${razaoSocial}" criado com sucesso!`);
       }
 
       setModalOpen(false);
@@ -182,7 +183,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
       console.error('Erro ao salvar fornecedor:', error);
       const mensagem = getApiErrorMessage(error, 'Erro ao salvar fornecedor');
       setErro(mensagem);
-      toast.showError(`❌ ${mensagem}`);
+      toast.showError(`${mensagem}`);
     } finally {
       setCarregando(false);
     }
@@ -208,7 +209,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
   const handleConfirmExclusao = async () => {
     const { id, razaoSocial } = confirmModal;
     if (!id) {
-      toast.showError('❌ ID do fornecedor não informado');
+      toast.showError('ID do fornecedor não informado');
       closeConfirmModal();
       return;
     }
@@ -222,15 +223,15 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
       closeConfirmModal();
       onFornecedoresChange();
       
-      toast.showSuccess(`✅ Fornecedor "${razaoSocial}" excluído com sucesso!`);
+      toast.showSuccess(`Fornecedor "${razaoSocial}" excluído com sucesso!`);
       
     } catch (error: unknown) {
-      console.error('❌ Erro ao excluir fornecedor:', error);
+      console.error('Erro ao excluir fornecedor:', error);
 
       const mensagemErro = getApiErrorMessage(error, 'Erro ao excluir fornecedor');
       
       closeConfirmModal();
-      toast.showError(`❌ ${mensagemErro}`);
+      toast.showError(`${mensagemErro}`);
       setErro(mensagemErro);
       
     } finally {
@@ -281,43 +282,28 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
 
   const IconeOrdenacao = ({ campo }: { campo: OrdenacaoCampo }) => {
     if (ordenacaoCampo !== campo) {
-      return <ArrowUpDown className="w-3 h-3 text-slate-400 ml-1" />;
+      return <ArrowUpDown className="w-3 h-3 text-ink-400 ml-1" />;
     }
     return ordenacaoDirecao === 'asc'
-      ? <ArrowUp className="w-3 h-3 text-violet-600 ml-1" />
-      : <ArrowDown className="w-3 h-3 text-violet-600 ml-1" />;
+      ? <ArrowUp className="w-3 h-3 text-brand-600 ml-1" />
+      : <ArrowDown className="w-3 h-3 text-brand-600 ml-1" />;
   };
 
-  const thClass = "py-3 px-4 text-left text-xs font-bold text-slate-700 cursor-pointer hover:text-violet-600 transition-colors select-none";
+  const thClass = "py-3 px-4 text-left text-xs font-bold text-ink-700 cursor-pointer hover:text-brand-600 transition-colors select-none";
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
+    <div className="space-y-4 max-w-[1400px] mx-auto">
       
-      <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
-              <UserCheck className="w-4 h-4" />
-            </span>
-            <h1 className="text-base font-bold text-slate-900">Fornecedores</h1>
-            <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
-              {fornecedores.length} cadastros
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Cadastro de fornecedores e prestadores de serviços com validação fiscal.
-          </p>
-        </div>
-
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Cadastro de Fornecedores</div>
-          <div className={`text-[10px] font-medium ${corText}`}>{fornecedores.length} fornecedores ativos</div>
-        </div>
-      </div>
+      <CabecalhoPagina
+        icone={UserCheck}
+        titulo="Fornecedores"
+        descricao="Cadastro de fornecedores e prestadores de serviços com validação fiscal."
+        contagem={`${fornecedores.length} cadastros`}
+      />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex-1 flex items-center bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm">
-          <Search className="w-4 h-4 text-slate-400 ml-1.5" />
+        <div className="flex-1 flex items-center bg-white border border-ink-200 rounded-lg p-1.5 shadow-sm">
+          <Search className="w-4 h-4 text-ink-400 ml-1.5" />
           <input
             type="text"
             placeholder="Buscar por Razão Social, Nome Fantasia ou CPF/CNPJ..."
@@ -326,7 +312,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
             className="w-full text-xs px-2 py-1 focus:outline-none"
           />
           {busca && (
-            <button onClick={() => setBusca('')} className="text-xs text-slate-400 hover:text-slate-600 px-2">✕</button>
+            <button onClick={() => setBusca('')} className="text-xs text-ink-400 hover:text-ink-600 px-2"></button>
           )}
         </div>
 
@@ -342,10 +328,10 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+          <table className="w-full text-left text-xs text-ink-600">
+            <thead className="bg-ink-50 text-ink-700 font-bold border-b border-ink-200">
               <tr>
                 <th className={thClass} onClick={() => handleOrdenar('tipo')}>
                   <div className="flex items-center">Tipo <IconeOrdenacao campo="tipo" /></div>
@@ -365,37 +351,37 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-ink-100">
               {fornecedoresOrdenados.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
-                    <UserCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="font-semibold text-slate-700">Nenhum fornecedor encontrado</p>
-                    <p className="text-xs text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-ink-500">
+                    <UserCheck className="w-8 h-8 text-ink-300 mx-auto mb-2" />
+                    <p className="font-semibold text-ink-700">Nenhum fornecedor encontrado</p>
+                    <p className="text-xs text-ink-400">
                       {busca ? 'Tente ajustar os termos da busca' : 'Clique em "Novo Fornecedor" para começar'}
                     </p>
                   </td>
                 </tr>
               ) : (
                 fornecedoresOrdenados.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={c.id} className="hover:bg-ink-50/80 transition-colors">
                     <td className="py-3 px-4 font-semibold">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                        c.tipo === 'FORNECEDOR' ? 'bg-violet-100 text-violet-800' :
-                        c.tipo === 'AMBOS' ? 'bg-sky-100 text-sky-800' :
-                        'bg-violet-100 text-violet-800'
+                        c.tipo === 'FORNECEDOR' ? 'bg-brand-100 text-brand-800' :
+                        c.tipo === 'AMBOS' ? 'bg-brand-100 text-brand-800' :
+                        'bg-brand-100 text-brand-800'
                       }`}>
                         {c.tipo}
                       </span>
                     </td>
-                    <td className="py-3 px-4 font-bold text-slate-900">
+                    <td className="py-3 px-4 font-bold text-ink-900">
                       <div>{c.razaoSocial}</div>
-                      {c.nomeFantasia && <div className="text-[10px] text-slate-400 font-normal">{c.nomeFantasia}</div>}
+                      {c.nomeFantasia && <div className="text-[10px] text-ink-400 font-normal">{c.nomeFantasia}</div>}
                     </td>
                     <td className="py-3 px-4 font-mono">{formatarCpfCnpj(c.documento)}</td>
                     <td className="py-3 px-4">
                       <div>{c.email || '-'}</div>
-                      <div className="text-[10px] text-slate-400">{c.telefone || '-'}</div>
+                      <div className="text-[10px] text-ink-400">{c.telefone || '-'}</div>
                     </td>
                     <td className="py-3 px-4">{c.endereco.nomeMunicipio} - {c.endereco.uf}</td>
                     <td className="py-3 px-4 text-right">
@@ -403,7 +389,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
                         {pode('fornecedores.editar') && (
                         <button
                           onClick={() => handleOpenEdit(c)}
-                          className="p-1.5 text-slate-500 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-ink-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors cursor-pointer"
                           title="Editar"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -412,7 +398,7 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
                         {pode('fornecedores.excluir') && (
                         <button
                           onClick={() => openConfirmModal(c.id, c.razaoSocial)}
-                          className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-ink-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           title="Excluir"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -441,21 +427,21 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
       />
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-ink-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-xl w-full p-6 shadow-xl space-y-4">
             
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center justify-between border-b border-ink-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className={`w-7 h-7 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
                   <UserCheck className="w-3.5 h-3.5" />
                 </span>
-                <h2 className="text-sm font-bold text-slate-900">
+                <h2 className="text-sm font-bold text-ink-900">
                   {editandoFornecedor ? 'Editar Fornecedor' : 'Novo Fornecedor'}
                 </h2>
               </div>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-1.5 text-ink-400 hover:text-ink-600 hover:bg-ink-100 rounded-lg transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -471,11 +457,11 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
             <form onSubmit={handleSave} className="space-y-3 text-xs">
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Tipo</label>
+                  <label className="block font-semibold text-ink-700 mb-1">Tipo</label>
                   <select
                     value={tipo}
                     onChange={(e) => setTipo(e.target.value as 'CLIENTE' | 'FORNECEDOR' | 'AMBOS')}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
                   >
                     <option value="FORNECEDOR">Fornecedor</option>
                     <option value="CLIENTE">Cliente</option>
@@ -483,13 +469,13 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="block font-semibold text-slate-700 mb-1">CPF ou CNPJ *</label>
+                  <label className="block font-semibold text-ink-700 mb-1">CPF ou CNPJ <span className="text-danger">*</span></label>
                   <input
                     type="text"
                     value={documento}
                     onChange={(e) => setDocumento(e.target.value.toUpperCase())}
                     placeholder="00.000.000/0000-00"
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                     required
                   />
                 </div>
@@ -497,103 +483,103 @@ export const FornecedoresView: React.FC<FornecedoresViewProps> = ({ fornecedores
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Razão Social / Nome *</label>
+                  <label className="block font-semibold text-ink-700 mb-1">Razão Social / Nome <span className="text-danger">*</span></label>
                   <input
                     type="text"
                     value={razaoSocial}
                     onChange={(e) => setRazaoSocial(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                     required
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Nome Fantasia</label>
+                  <label className="block font-semibold text-ink-700 mb-1">Nome Fantasia</label>
                   <input
                     type="text"
                     value={nomeFantasia}
                     onChange={(e) => setNomeFantasia(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">E-mail</label>
+                  <label className="block font-semibold text-ink-700 mb-1">E-mail</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Telefone</label>
+                  <label className="block font-semibold text-ink-700 mb-1">Telefone</label>
                   <input
                     type="text"
                     value={telefone}
                     onChange={(e) => setTelefone(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
-                  <label className="block font-semibold text-slate-700 mb-1">Logradouro</label>
+                  <label className="block font-semibold text-ink-700 mb-1">Logradouro</label>
                   <input
                     type="text"
                     value={logradouro}
                     onChange={(e) => setLogradouro(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Número</label>
+                  <label className="block font-semibold text-ink-700 mb-1">Número</label>
                   <input
                     type="text"
                     value={numero}
                     onChange={(e) => setNumero(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Bairro</label>
+                  <label className="block font-semibold text-ink-700 mb-1">Bairro</label>
                   <input
                     type="text"
                     value={bairro}
                     onChange={(e) => setBairro(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Município</label>
+                  <label className="block font-semibold text-ink-700 mb-1">Município</label>
                   <input
                     type="text"
                     value={nomeMunicipio}
                     onChange={(e) => setNomeMunicipio(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">UF</label>
+                  <label className="block font-semibold text-ink-700 mb-1">UF</label>
                   <input
                     type="text"
                     value={uf}
                     onChange={(e) => setUf(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-ink-100">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium cursor-pointer transition-colors"
+                  className="px-4 py-2 rounded-lg text-ink-600 hover:bg-ink-100 font-medium cursor-pointer transition-colors"
                   disabled={carregando}
                 >
                   Cancelar

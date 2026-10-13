@@ -96,13 +96,16 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
 
       // 🔥 2. Verifica certificado
       const empresa = StorageService.getEmpresa();
-      if (empresa?.certificado?.diasRestantes !== undefined) {
-        if (empresa.certificado.diasRestantes < 15 && empresa.certificado.diasRestantes > 0) {
+      // Dias pela data de vencimento (o diasRestantes gravado fica desatualizado).
+      const fimCert = empresa?.certificado?.dataValidadeFim ? new Date(empresa.certificado.dataValidadeFim as unknown as string).getTime() : NaN;
+      const diasCert = Number.isNaN(fimCert) ? empresa?.certificado?.diasRestantes : Math.ceil((fimCert - Date.now()) / 86_400_000);
+      if (diasCert !== undefined) {
+        if (diasCert < 15 && diasCert > 0) {
           novosAlertas.push({
             id: 'certificado-vencendo',
             tipo: 'CERTIFICADO',
-            nivel: empresa.certificado.diasRestantes < 5 ? 'CRITICO' : 'ATENCAO',
-            mensagem: `Certificado Digital vence em ${empresa.certificado.diasRestantes} dias. Renove para não interromper as emissões.`,
+            nivel: diasCert < 5 ? 'CRITICO' : 'ATENCAO',
+            mensagem: `Certificado Digital vence em ${diasCert} dias. Renove para não interromper as emissões.`,
             data: new Date().toISOString(),
             destino: 'configuracoes',
             acaoTexto: 'Renovar',
@@ -215,15 +218,15 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
       <div className="relative">
         <button
           onClick={() => setExpandido(!expandido)}
-          className={`relative bg-white hover:bg-slate-50 rounded-full border border-slate-200 p-1.5 transition-all hover:shadow-sm ${
-            expandido ? 'scale-95 bg-slate-50' : ''
+          className={`relative bg-white hover:bg-ink-50 rounded-full border border-ink-200 p-1.5 transition-all hover:shadow-sm ${
+            expandido ? 'scale-95 bg-ink-50' : ''
           }`}
           title={totalAlertasCount > 0 ? `${totalAlertasCount} alerta(s) pendente(s)` : 'Nenhum alerta'}
         >
           {totalAlertasCount > 0 ? (
-            <BellDot className="w-5 h-5 text-slate-600" />
+            <BellDot className="w-5 h-5 text-ink-600" />
           ) : (
-            <Bell className="w-5 h-5 text-slate-400" />
+            <Bell className="w-5 h-5 text-ink-400" />
           )}
           
           {totalAlertasCount > 0 && (
@@ -238,10 +241,10 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
         </button>
 
         {expandido && (
-          <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden max-h-96 overflow-y-auto z-50">
-            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between sticky top-0 z-10">
+          <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-ink-200 overflow-hidden max-h-96 overflow-y-auto z-50">
+            <div className="px-4 py-3 bg-ink-50 border-b border-ink-200 flex items-center justify-between sticky top-0 z-10">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-900 text-sm">Alertas do Sistema</span>
+                <span className="font-bold text-ink-900 text-sm">Alertas do Sistema</span>
                 {totalAlertasCount > 0 && (
                   <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                     {totalAlertasCount}
@@ -250,7 +253,7 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
               </div>
               <button
                 onClick={() => setExpandido(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="text-ink-400 hover:text-ink-600 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -258,17 +261,17 @@ export const AlertasSistema: React.FC<AlertasSistemaProps> = ({
 
             {alertas.length === 0 ? (
               <div className="p-8 text-center">
-                <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-                <p className="text-sm font-medium text-slate-700">Tudo certo!</p>
-                <p className="text-xs text-slate-500">Nenhum alerta pendente no sistema.</p>
+                <CheckCircle2 className="w-10 h-10 text-brand-500 mx-auto mb-2" />
+                <p className="text-sm font-medium text-ink-700">Tudo certo!</p>
+                <p className="text-xs text-ink-500">Nenhum alerta pendente no sistema.</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-ink-100">
                 {alertas.map(alerta => {
                   const cores = {
                     CRITICO: 'bg-rose-50 border-rose-200 text-rose-800',
-                    ATENCAO: 'bg-amber-50 border-amber-200 text-amber-800',
-                    INFO: 'bg-blue-50 border-blue-200 text-blue-800',
+                    ATENCAO: 'bg-brand-50 border-brand-200 text-brand-800',
+                    INFO: 'bg-brand-50 border-brand-200 text-brand-800',
                   };
                   const icones = {
                     ESTOQUE: <Package className="w-4 h-4" />,

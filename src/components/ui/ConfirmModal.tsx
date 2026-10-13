@@ -35,31 +35,31 @@ const modalStyles = {
     messageColor: 'text-rose-700',
   },
   warning: {
-    icon: <AlertTriangle className="w-8 h-8 text-amber-600" />,
-    iconBg: 'bg-amber-100',
-    iconBorder: 'border-amber-200',
-    confirmBg: 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500',
-    confirmTextColor: 'text-amber-600',
-    titleColor: 'text-amber-800',
-    messageColor: 'text-amber-700',
+    icon: <AlertTriangle className="w-8 h-8 text-brand-600" />,
+    iconBg: 'bg-brand-100',
+    iconBorder: 'border-brand-200',
+    confirmBg: 'bg-brand-600 hover:bg-brand-700 focus:ring-brand-500',
+    confirmTextColor: 'text-brand-600',
+    titleColor: 'text-brand-800',
+    messageColor: 'text-brand-700',
   },
   success: {
-    icon: <CheckCircle2 className="w-8 h-8 text-emerald-600" />,
-    iconBg: 'bg-emerald-100',
-    iconBorder: 'border-emerald-200',
-    confirmBg: 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500',
-    confirmTextColor: 'text-emerald-600',
-    titleColor: 'text-emerald-800',
-    messageColor: 'text-emerald-700',
+    icon: <CheckCircle2 className="w-8 h-8 text-brand-600" />,
+    iconBg: 'bg-brand-100',
+    iconBorder: 'border-brand-200',
+    confirmBg: 'bg-brand-600 hover:bg-brand-700 focus:ring-brand-500',
+    confirmTextColor: 'text-brand-600',
+    titleColor: 'text-brand-800',
+    messageColor: 'text-brand-700',
   },
   info: {
-    icon: <Info className="w-8 h-8 text-blue-600" />,
-    iconBg: 'bg-blue-100',
-    iconBorder: 'border-blue-200',
-    confirmBg: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
-    confirmTextColor: 'text-blue-600',
-    titleColor: 'text-blue-800',
-    messageColor: 'text-blue-700',
+    icon: <Info className="w-8 h-8 text-brand-600" />,
+    iconBg: 'bg-brand-100',
+    iconBorder: 'border-brand-200',
+    confirmBg: 'bg-brand-600 hover:bg-brand-700 focus:ring-brand-500',
+    confirmTextColor: 'text-brand-600',
+    titleColor: 'text-brand-800',
+    messageColor: 'text-brand-700',
   },
 };
 
@@ -81,7 +81,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
       <div 
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-ink-900/60 backdrop-blur-sm"
         onClick={onClose}
       />
       
@@ -89,7 +89,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          className="absolute top-3 right-3 p-1.5 text-ink-400 hover:text-ink-600 hover:bg-ink-100 rounded-lg transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
@@ -115,7 +115,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <button
             onClick={onClose}
             disabled={loading}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 text-sm font-medium text-ink-600 bg-ink-100 hover:bg-ink-200 rounded-xl transition-colors disabled:opacity-50"
           >
             {cancelText}
           </button>

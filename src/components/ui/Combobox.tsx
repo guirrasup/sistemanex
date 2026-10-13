@@ -103,10 +103,10 @@ export function Combobox<T>({
           ref={listRef}
           id={listboxId}
           role="listbox"
-          className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg p-1.5 max-h-56 overflow-y-auto space-y-1 z-30 shadow-lg"
+          className="absolute left-0 right-0 top-full mt-1 bg-white border border-ink-200 rounded-lg p-1.5 max-h-56 overflow-y-auto space-y-1 z-30 shadow-lg"
         >
           {visibleOptions.length === 0 ? (
-            <div className="text-xs text-slate-500 p-2 text-center" role="status">{emptyMessage}</div>
+            <div className="text-xs text-ink-500 p-2 text-center" role="status">{emptyMessage}</div>
           ) : (
             visibleOptions.map((item, i) => (
               <div

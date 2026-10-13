@@ -40,6 +40,7 @@ import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { ResumoEmissaoModal } from './ResumoEmissaoModal';
+import { BotaoCabecalho, EmissorLayout, ResumoEmissor, SecaoEmissor } from './emissor/EmissorKit';
 import { CampoCpfCnpj } from '../ui/CampoCpfCnpj';
 
 interface MdfeEmissorProps {
@@ -51,17 +52,18 @@ interface MdfeEmissorProps {
 
 // 🔥 COR DO MÓDULO - LARANJA/TEAL (COR ÚNICA PARA MDF-e)
 const MODAL_COLOR = 'orange';
-const corBg = 'bg-orange-50';
-const corBorder = 'border-orange-200';
-const corText = 'text-orange-700';
-const corTextDark = 'text-orange-800';
-const corBgButton = 'bg-orange-600 hover:bg-orange-700';
-const corBgBadge = 'bg-orange-100';
-const corFocus = 'focus:ring-orange-500';
-const corIconBg = 'bg-orange-600';
-const corGradient = 'from-orange-600 to-orange-700';
+const corBg = 'bg-brand-50';
+const corBorder = 'border-brand-200';
+const corText = 'text-brand-700';
+const corTextDark = 'text-brand-800';
+const corBgButton = 'bg-brand-600 hover:bg-brand-700';
+const corBgBadge = 'bg-brand-100';
+const corFocus = 'focus:ring-brand-500';
+const corIconBg = 'bg-brand-600';
+const corGradient = 'from-brand-600 to-brand-700';
 
-export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
+const MdfeEmissorConteudo: React.FC<MdfeEmissorProps & { onLimparTudo: () => void }> = ({
+  onLimparTudo,
   empresa,
   clientes,
   onMdfeEmitido,
@@ -247,11 +249,11 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
   const handleAddMunCarrega = () => {
     if (!novoMunCarregaCodigo || !novoMunCarregaNome) {
-      toast.showWarning('⚠️ Informe código e nome do município de carregamento.');
+      toast.showWarning('Informe código e nome do município de carregamento.');
       return;
     }
     if (municipiosCarrega.length >= 50) {
-      toast.showWarning('⚠️ Máximo de 50 municípios de carregamento.');
+      toast.showWarning('Máximo de 50 municípios de carregamento.');
       return;
     }
     setMunicipiosCarrega([
@@ -272,15 +274,15 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
   const handleAddPercurso = () => {
     if (!novoPercurso) {
-      toast.showWarning('⚠️ Informe a UF do percurso.');
+      toast.showWarning('Informe a UF do percurso.');
       return;
     }
     if (percursos.includes(novoPercurso)) {
-      toast.showWarning('⚠️ UF já adicionada ao percurso.');
+      toast.showWarning('UF já adicionada ao percurso.');
       return;
     }
     if (percursos.length >= 25) {
-      toast.showWarning('⚠️ Máximo de 25 UFs no percurso.');
+      toast.showWarning('Máximo de 25 UFs no percurso.');
       return;
     }
     setPercursos([...percursos, novoPercurso]);
@@ -297,11 +299,11 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
   const handleAddMunDescarga = () => {
     if (!novoMunDescargaCodigo || !novoMunDescargaNome) {
-      toast.showWarning('⚠️ Informe código e nome do município de descarga.');
+      toast.showWarning('Informe código e nome do município de descarga.');
       return;
     }
     if (municipiosDescarga.length >= 1000) {
-      toast.showWarning('⚠️ Máximo de 1000 municípios de descarga.');
+      toast.showWarning('Máximo de 1000 municípios de descarga.');
       return;
     }
     setMunicipiosDescarga([
@@ -318,18 +320,18 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
   const handleAddCTe = (index: number) => {
     if (!novaChaveCTe) {
-      toast.showWarning('⚠️ Informe a chave do CT-e (44 dígitos).');
+      toast.showWarning('Informe a chave do CT-e (44 dígitos).');
       return;
     }
     const chaveLimpa = limparChaveAcesso(novaChaveCTe);
     if (!isChaveAcesso44(chaveLimpa)) {
-      toast.showWarning('⚠️ Chave do CT-e inválida: deve ter 44 caracteres.');
+      toast.showWarning('Chave do CT-e inválida: deve ter 44 caracteres.');
       return;
     }
     const mun = municipiosDescarga[index];
     const totalCTe = municipiosDescarga.reduce((acc, m) => acc + (m.ctes?.length || 0), 0);
     if (totalCTe >= 20000) {
-      toast.showWarning('⚠️ Máximo de 20000 CT-e no manifesto.');
+      toast.showWarning('Máximo de 20000 CT-e no manifesto.');
       return;
     }
     const novos = [...municipiosDescarga];
@@ -340,17 +342,17 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
   const handleAddNFe = (index: number) => {
     if (!novaChaveNFe) {
-      toast.showWarning('⚠️ Informe a chave da NF-e (44 dígitos).');
+      toast.showWarning('Informe a chave da NF-e (44 dígitos).');
       return;
     }
     const chaveLimpa = limparChaveAcesso(novaChaveNFe);
     if (!isChaveAcesso44(chaveLimpa)) {
-      toast.showWarning('⚠️ Chave da NF-e inválida: deve ter 44 caracteres.');
+      toast.showWarning('Chave da NF-e inválida: deve ter 44 caracteres.');
       return;
     }
     const totalNFe = municipiosDescarga.reduce((acc, m) => acc + (m.nfes?.length || 0), 0);
     if (totalNFe >= 20000) {
-      toast.showWarning('⚠️ Máximo de 20000 NF-e no manifesto.');
+      toast.showWarning('Máximo de 20000 NF-e no manifesto.');
       return;
     }
     const novos = [...municipiosDescarga];
@@ -361,17 +363,17 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
   const handleAddMDFeTransp = (index: number) => {
     if (!novaChaveMDFe) {
-      toast.showWarning('⚠️ Informe a chave do MDF-e (44 dígitos).');
+      toast.showWarning('Informe a chave do MDF-e (44 dígitos).');
       return;
     }
     const chaveLimpa = limparChaveAcesso(novaChaveMDFe);
     if (!isChaveAcesso44(chaveLimpa)) {
-      toast.showWarning('⚠️ Chave do MDF-e inválida: deve ter 44 caracteres.');
+      toast.showWarning('Chave do MDF-e inválida: deve ter 44 caracteres.');
       return;
     }
     const totalMDFe = municipiosDescarga.reduce((acc, m) => acc + (m.mdfesTransp?.length || 0), 0);
     if (totalMDFe >= 20000) {
-      toast.showWarning('⚠️ Máximo de 20000 MDF-e no manifesto (Aquaviário).');
+      toast.showWarning('Máximo de 20000 MDF-e no manifesto (Aquaviário).');
       return;
     }
     const novos = [...municipiosDescarga];
@@ -404,12 +406,12 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
   const handleAddSeguro = () => {
     if (!novoSeguro.responsavel) {
-      toast.showWarning('⚠️ Informe o responsável pelo seguro.');
+      toast.showWarning('Informe o responsável pelo seguro.');
       return;
     }
     if (novoSeguro.responsavel === '2') {
       if (!novoSeguro.responsavelCNPJ && !novoSeguro.responsavelCPF) {
-        toast.showWarning('⚠️ Informe CNPJ ou CPF do responsável pelo seguro.');
+        toast.showWarning('Informe CNPJ ou CPF do responsável pelo seguro.');
         return;
       }
     }
@@ -428,11 +430,11 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
   const handleAddCondutor = () => {
     if (!novoCondutorNome.trim() || !novoCondutorCpf.trim()) {
-      toast.showWarning('⚠️ Informe nome e CPF do condutor.');
+      toast.showWarning('Informe nome e CPF do condutor.');
       return;
     }
     if (!validarCPF(novoCondutorCpf)) {
-      toast.showWarning('⚠️ CPF do condutor inválido — confira os dígitos verificadores.');
+      toast.showWarning('CPF do condutor inválido — confira os dígitos verificadores.');
       return;
     }
     setCondutores([...condutores, { nome: novoCondutorNome, cpf: novoCondutorCpf }]);
@@ -450,7 +452,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
   const handleAddLacre = () => {
     if (!novoLacre) {
-      toast.showWarning('⚠️ Informe o número do lacre.');
+      toast.showWarning('Informe o número do lacre.');
       return;
     }
     setLacres([...lacres, novoLacre]);
@@ -467,18 +469,18 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
 
   const handleAddAutXML = () => {
     if (!novoAutCNPJ && !novoAutCPF) {
-      toast.showWarning('⚠️ Informe CNPJ ou CPF do autorizado.');
+      toast.showWarning('Informe CNPJ ou CPF do autorizado.');
       return;
     }
     if (autorizadosDownload.length >= 10) {
-      toast.showWarning('⚠️ Máximo de 10 autorizados para download.');
+      toast.showWarning('Máximo de 10 autorizados para download.');
       return;
     }
     const novo: { cnpj?: string; cpf?: string } = {};
     if (novoAutCNPJ) {
       const cnpjLimpo = limparCpfCnpj(novoAutCNPJ);
       if (!validarCNPJ(cnpjLimpo)) {
-        toast.showWarning('⚠️ CNPJ do autorizado inválido — confira os dígitos verificadores.');
+        toast.showWarning('CNPJ do autorizado inválido — confira os dígitos verificadores.');
         return;
       }
       novo.cnpj = cnpjLimpo;
@@ -486,7 +488,7 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
     if (novoAutCPF) {
       const cpfLimpo = limparDocumento(novoAutCPF);
       if (!validarCPF(cpfLimpo)) {
-        toast.showWarning('⚠️ CPF do autorizado inválido — confira os dígitos verificadores.');
+        toast.showWarning('CPF do autorizado inválido — confira os dígitos verificadores.');
         return;
       }
       novo.cpf = cpfLimpo;
@@ -739,14 +741,14 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         // motivo, então não tem mais um toast que sempre dizia "sucesso".
       } else {
         setErros(['Erro ao emitir MDF-e. Tente novamente.']);
-        toast.showError('❌ Erro ao emitir MDF-e.');
+        toast.showError('Erro ao emitir MDF-e.');
       }
 
     } catch (error: unknown) {
-      console.error('❌ Erro na transmissão:', error);
+      console.error('Erro na transmissão:', error);
       const mensagem = getApiErrorMessage(error, 'Erro ao emitir MDF-e');
       setErros([mensagem]);
-      toast.showError(`❌ ${mensagem}`);
+      toast.showError(`${mensagem}`);
     } finally {
       setIsTransmitting(false);
     }
@@ -757,42 +759,58 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
   // ============================================================
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto">
-      
-      <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
-              <Truck className="w-4 h-4" />
-            </span>
-            <h1 className="text-base font-bold text-slate-900">
-              Emissão de MDF-e (Manifesto de Documentos Fiscais)
-            </h1>
-            <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
-              Modelo 58
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Agrupamento de documentos fiscais para transporte de cargas.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleCarregarUltima}
-            disabled={isCarregandoUltima}
-            title="Preenche identificação, veículo e rota com os dados do último MDF-e autorizado"
-            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
-            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
-          </button>
-          <div className="text-right">
-            <div className="text-xs font-semibold text-slate-700">Série {empresa.serieMdfe || 1}</div>
-            <div className={`text-[10px] font-medium ${corText}`}>Próximo MDF-e: Nº previsto {empresa.proximoNumeroMdfe || 1}</div>
-          </div>
-        </div>
-      </div>
+    <EmissorLayout
+      icone={Truck}
+      titulo="Novo MDF-e"
+      descricao="Manifesto que reúne os documentos fiscais da viagem, com percurso, veículo e seguro."
+      modelo="Mod. 58"
+      serie={empresa.serieMdfe || 1}
+      proximoNumero={empresa.proximoNumeroMdfe || 1}
+      ambiente={empresa.ambienteEmissao}
+      acoes={
+        <BotaoCabecalho
+          onClick={handleCarregarUltima}
+          icone={RefreshCw}
+          carregando={isCarregandoUltima}
+          title="Preenche o formulário com os dados do último MDF-e autorizado"
+        >
+          {isCarregandoUltima ? 'Carregando…' : 'Carregar último MDF-e'}
+        </BotaoCabecalho>
+      }
+      secoes={[
+        { id: 'emitente', titulo: 'Emitente' },
+        { id: 'identificacao', titulo: 'Identificação' },
+        { id: 'veiculo', titulo: 'Veículo e condutores' },
+        { id: 'carregamento', titulo: 'Carregamento' },
+        { id: 'percurso', titulo: 'Percurso' },
+        { id: 'descarga', titulo: 'Descarga' },
+        { id: 'produto', titulo: 'Produto predominante' },
+        { id: 'totalizadores', titulo: 'Totalizadores' },
+        { id: 'seguro', titulo: 'Seguro' },
+        { id: 'lacres', titulo: 'Lacres' },
+        { id: 'autorizados', titulo: 'Autorizados para download' },
+        { id: 'adicionais', titulo: 'Informações adicionais' },
+      ]}
+      resumo={
+        <ResumoEmissor
+          total={{ rotulo: 'Valor da carga', valor: vCarga }}
+          linhas={[
+            { rotulo: 'Peso bruto (kg)', valor: qCarga.toLocaleString('pt-BR', { maximumFractionDigits: 3 }) },
+            { rotulo: 'CT-e vinculados', valor: String(municipiosDescarga.reduce((acc, m) => acc + (m.ctes?.length || 0), 0)) },
+            { rotulo: 'NF-e vinculadas', valor: String(municipiosDescarga.reduce((acc, m) => acc + (m.nfes?.length || 0), 0)) },
+            { rotulo: 'Seguros', valor: String(seguros.length) },
+          ]}
+          info={[
+            { rotulo: 'Percurso', valor: `${UFIni} → ${UFFim}` },
+            { rotulo: 'Veículo', valor: veiculoPlaca || '—' },
+          ]}
+          pronto={erros.length === 0 && vCarga > 0 && qCarga > 0}
+          pendencias={erros}
+          emitir={{ rotulo: 'Emitir e autorizar MDF-e', onClick: handleTransmitirMdfe, transmitindo: isTransmitting }}
+          onLimpar={onLimparTudo}
+        />
+      }
+    >
 
       {sucessoMdfe && (
         <ResumoEmissaoModal
@@ -813,1053 +831,968 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         />
       )}
 
-      {erros.length > 0 && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 space-y-1">
-          <div className="font-bold flex items-center gap-1.5 text-rose-900">
-            <AlertTriangle className="w-4 h-4 text-rose-600" />
-            <span>Pendências no MDF-e ({erros.length}):</span>
-          </div>
-          <ul className="list-disc list-inside space-y-0.5 pl-2">
-            {erros.map((err, idx) => (
-              <li key={idx}>{err}</li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       <div className="space-y-4">
         
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-            <div className="flex items-center gap-2">
-              <User className={`w-4 h-4 ${corText}`} />
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">1. Emitente</h3>
-            </div>
+      <SecaoEmissor id="emitente" numero={1} titulo="Emitente" icone={User} descricao="Quem emite o manifesto e o tipo de emitente"
+        acao={
+          <>
+          <select
+            value={selectedEmitenteId}
+            onChange={(e) => handleSelectEmitente(e.target.value)}
+            className={`text-xs bg-ink-50 border border-ink-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-ink-700 max-w-[280px]`}
+          >
+            <option value="">-- Escolher Cliente --</option>
+            {clientes.map(c => (
+              <option key={c.id} value={c.id}>{c.razaoSocial} ({c.documento})</option>
+            ))}
+          </select>
+          </>
+        }
+      >
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">CPF / CNPJ <span className="text-danger">*</span></label>
+            <CampoCpfCnpj
+              value={emitenteDoc}
+              onChange={setEmitenteDoc}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="00.000.000/0000-00"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block font-medium text-ink-600 mb-1">Razão Social / Nome <span className="text-danger">*</span></label>
+            <input
+              type="text"
+              value={emitenteNome}
+              onChange={(e) => setEmitenteNome(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="Razão Social do emitente"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Inscrição Estadual</label>
+            <input
+              type="text"
+              value={emitenteIE}
+              onChange={(e) => setEmitenteIE(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="ISENTO ou número"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Município</label>
+            <input
+              type="text"
+              value={emitenteMun}
+              onChange={(e) => setEmitenteMun(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="São Paulo"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">UF</label>
+            <input
+              type="text"
+              value={emitenteUf}
+              onChange={(e) => setEmitenteUf(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="SP"
+            />
+          </div>
+        </div>
+      </SecaoEmissor>
+
+      <SecaoEmissor id="identificacao" numero={2} titulo="Identificação" icone={FileText} descricao="Modal, UF de início e fim, data da viagem">
+
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Modal <span className="text-danger">*</span></label>
             <select
-              value={selectedEmitenteId}
-              onChange={(e) => handleSelectEmitente(e.target.value)}
-              className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[280px]`}
+              value={modal}
+              onChange={(e) => setModal(e.target.value as ModalMDFe)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
             >
-              <option value="">-- Escolher Cliente --</option>
-              {clientes.map(c => (
-                <option key={c.id} value={c.id}>{c.razaoSocial} ({c.documento})</option>
-              ))}
+              <option value="RODOVIARIO">Rodoviário</option>
+              <option value="AEREO">Aéreo</option>
+              <option value="AQUAVIARIO">Aquaviário</option>
+              <option value="FERROVIARIO">Ferroviário</option>
             </select>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
-              <CampoCpfCnpj
-                value={emitenteDoc}
-                onChange={setEmitenteDoc}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                placeholder="00.000.000/0000-00"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block font-medium text-slate-600 mb-1">Razão Social / Nome *</label>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Tipo Emitente <span className="text-danger">*</span></label>
+            <select
+              value={tpEmit}
+              onChange={(e) => setTpEmit(e.target.value as TipoEmitenteMDFe)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+            >
+              <option value="PRESTADOR_SERVICO">Prestador de serviço</option>
+              <option value="TRANSPORTADOR_CARGA_PROPRIA">Transportador carga própria</option>
+              <option value="CTE_GLOBALIZADO">CT-e Globalizado</option>
+            </select>
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">UF Início <span className="text-danger">*</span></label>
+            <input
+              type="text"
+              maxLength={2}
+              value={UFIni}
+              onChange={(e) => setUFIni(e.target.value.toUpperCase())}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+              placeholder="SP"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">UF Fim <span className="text-danger">*</span></label>
+            <input
+              type="text"
+              maxLength={2}
+              value={UFFim}
+              onChange={(e) => setUFFim(e.target.value.toUpperCase())}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+              placeholder="RJ"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Início Viagem</label>
+            <input
+              type="datetime-local"
+              value={dhIniViagem}
+              onChange={(e) => setDhIniViagem(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+            />
+          </div>
+          <div className="flex items-center gap-4 pt-2">
+            <label className="flex items-center gap-2 text-xs font-medium text-ink-700 cursor-pointer">
               <input
-                type="text"
-                value={emitenteNome}
-                onChange={(e) => setEmitenteNome(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                placeholder="Razão Social do emitente"
+                type="checkbox"
+                checked={indCanalVerde}
+                onChange={(e) => setIndCanalVerde(e.target.checked)}
+                className={`rounded ${corFocus} cursor-pointer`}
               />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Inscrição Estadual</label>
+              <span>Canal Verde</span>
+            </label>
+            <label className="flex items-center gap-2 text-xs font-medium text-ink-700 cursor-pointer">
               <input
-                type="text"
-                value={emitenteIE}
-                onChange={(e) => setEmitenteIE(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                placeholder="ISENTO ou número"
+                type="checkbox"
+                checked={indCarregaPosterior}
+                onChange={(e) => setIndCarregaPosterior(e.target.checked)}
+                className={`rounded ${corFocus} cursor-pointer`}
               />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Município</label>
-              <input
-                type="text"
-                value={emitenteMun}
-                onChange={(e) => setEmitenteMun(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                placeholder="São Paulo"
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">UF</label>
-              <input
-                type="text"
-                value={emitenteUf}
-                onChange={(e) => setEmitenteUf(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                placeholder="SP"
-              />
-            </div>
+              <span>Carga Posterior</span>
+            </label>
           </div>
         </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-            <FileText className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">2. Identificação do MDF-e</h3>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Modal *</label>
-              <select
-                value={modal}
-                onChange={(e) => setModal(e.target.value as ModalMDFe)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
-              >
-                <option value="RODOVIARIO">🚛 Rodoviário</option>
-                <option value="AEREO">✈️ Aéreo</option>
-                <option value="AQUAVIARIO">🚢 Aquaviário</option>
-                <option value="FERROVIARIO">🚂 Ferroviário</option>
-              </select>
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Tipo Emitente *</label>
-              <select
-                value={tpEmit}
-                onChange={(e) => setTpEmit(e.target.value as TipoEmitenteMDFe)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
-              >
-                <option value="PRESTADOR_SERVICO">Prestador de serviço</option>
-                <option value="TRANSPORTADOR_CARGA_PROPRIA">Transportador carga própria</option>
-                <option value="CTE_GLOBALIZADO">CT-e Globalizado</option>
-              </select>
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">UF Início *</label>
-              <input
-                type="text"
-                maxLength={2}
-                value={UFIni}
-                onChange={(e) => setUFIni(e.target.value.toUpperCase())}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
-                placeholder="SP"
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">UF Fim *</label>
-              <input
-                type="text"
-                maxLength={2}
-                value={UFFim}
-                onChange={(e) => setUFFim(e.target.value.toUpperCase())}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
-                placeholder="RJ"
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Início Viagem</label>
-              <input
-                type="datetime-local"
-                value={dhIniViagem}
-                onChange={(e) => setDhIniViagem(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-              />
-            </div>
-            <div className="flex items-center gap-4 pt-2">
-              <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={indCanalVerde}
-                  onChange={(e) => setIndCanalVerde(e.target.checked)}
-                  className={`rounded ${corFocus} cursor-pointer`}
-                />
-                <span>Canal Verde</span>
-              </label>
-              <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={indCarregaPosterior}
-                  onChange={(e) => setIndCarregaPosterior(e.target.checked)}
-                  className={`rounded ${corFocus} cursor-pointer`}
-                />
-                <span>Carga Posterior</span>
-              </label>
-            </div>
-          </div>
-        </div>
+      </SecaoEmissor>
 
         {modal === 'RODOVIARIO' && (
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-              <Truck className={`w-4 h-4 ${corText}`} />
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">3. Veículo e Condutores</h3>
-            </div>
+      <SecaoEmissor id="veiculo" numero={3} titulo="Veículo e condutores" icone={Truck} descricao="Tração, reboques e motoristas">
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-4">
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">RNTRC</label>
-                <input
-                  type="text"
-                  value={rntrc}
-                  onChange={(e) => setRntrc(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                  placeholder="12345678"
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Placa *</label>
-                <input
-                  type="text"
-                  value={veiculoPlaca}
-                  onChange={(e) => setVeiculoPlaca(e.target.value.toUpperCase())}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
-                  placeholder="ABC1D23"
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Renavam</label>
-                <input
-                  type="text"
-                  value={veiculoRenavam}
-                  onChange={(e) => setVeiculoRenavam(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                  placeholder="00000000000"
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Tara (kg) *</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={veiculoTara || ''}
-                  onChange={(e) => setVeiculoTara(parseFloat(e.target.value) || 0)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                  placeholder="8000"
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Tipo de Rodado *</label>
-                <select
-                  value={veiculoTpRod}
-                  onChange={(e) => setVeiculoTpRod(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                >
-                  <option value="01">01 - Truck</option>
-                  <option value="02">02 - Toco</option>
-                  <option value="03">03 - Cavalo Mecânico</option>
-                  <option value="04">04 - VAN</option>
-                  <option value="05">05 - Utilitário</option>
-                  <option value="06">06 - Outros</option>
-                </select>
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Tipo de Carroceria *</label>
-                <select
-                  value={veiculoTpCar}
-                  onChange={(e) => setVeiculoTpCar(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                >
-                  <option value="00">00 - Não Aplicável</option>
-                  <option value="01">01 - Aberta</option>
-                  <option value="02">02 - Fechada/Baú</option>
-                  <option value="03">03 - Graneleira</option>
-                  <option value="04">04 - Porta Container</option>
-                  <option value="05">05 - Sider</option>
-                </select>
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">UF do Veículo</label>
-                <input
-                  type="text"
-                  maxLength={2}
-                  value={veiculoUf}
-                  onChange={(e) => setVeiculoUf(e.target.value.toUpperCase())}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
-                  placeholder="SP"
-                />
-              </div>
-            </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-4">
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">RNTRC</label>
+            <input
+              type="text"
+              value={rntrc}
+              onChange={(e) => setRntrc(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="12345678"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Placa <span className="text-danger">*</span></label>
+            <input
+              type="text"
+              value={veiculoPlaca}
+              onChange={(e) => setVeiculoPlaca(e.target.value.toUpperCase())}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+              placeholder="ABC1D23"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Renavam</label>
+            <input
+              type="text"
+              value={veiculoRenavam}
+              onChange={(e) => setVeiculoRenavam(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="00000000000"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Tara (kg) <span className="text-danger">*</span></label>
+            <input
+              type="number"
+              min="0"
+              value={veiculoTara || ''}
+              onChange={(e) => setVeiculoTara(parseFloat(e.target.value) || 0)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="8000"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Tipo de Rodado <span className="text-danger">*</span></label>
+            <select
+              value={veiculoTpRod}
+              onChange={(e) => setVeiculoTpRod(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+            >
+              <option value="01">01 - Truck</option>
+              <option value="02">02 - Toco</option>
+              <option value="03">03 - Cavalo Mecânico</option>
+              <option value="04">04 - VAN</option>
+              <option value="05">05 - Utilitário</option>
+              <option value="06">06 - Outros</option>
+            </select>
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Tipo de Carroceria <span className="text-danger">*</span></label>
+            <select
+              value={veiculoTpCar}
+              onChange={(e) => setVeiculoTpCar(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+            >
+              <option value="00">00 - Não Aplicável</option>
+              <option value="01">01 - Aberta</option>
+              <option value="02">02 - Fechada/Baú</option>
+              <option value="03">03 - Graneleira</option>
+              <option value="04">04 - Porta Container</option>
+              <option value="05">05 - Sider</option>
+            </select>
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">UF do Veículo</label>
+            <input
+              type="text"
+              maxLength={2}
+              value={veiculoUf}
+              onChange={(e) => setVeiculoUf(e.target.value.toUpperCase())}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+              placeholder="SP"
+            />
+          </div>
+        </div>
 
-            <div className="border-t border-slate-200 pt-3">
-              <label className="block font-medium text-slate-600 mb-2">Condutores ({condutores.length})</label>
-              <div className="flex flex-wrap gap-2 mb-3">
-                <input
-                  type="text"
-                  value={novoCondutorNome}
-                  onChange={(e) => setNovoCondutorNome(e.target.value)}
-                  placeholder="Nome do condutor"
-                  className={`flex-1 min-w-[160px] border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
-                />
-                <CampoCpfCnpj tipo="CPF"
-                  value={novoCondutorCpf}
-                  onChange={setNovoCondutorCpf}
-                  placeholder="CPF (só números)"
-                  className={`w-40 border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
-                />
+        <div className="border-t border-ink-200 pt-3">
+          <label className="block font-medium text-ink-600 mb-2">Condutores ({condutores.length})</label>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <input
+              type="text"
+              value={novoCondutorNome}
+              onChange={(e) => setNovoCondutorNome(e.target.value)}
+              placeholder="Nome do condutor"
+              className={`flex-1 min-w-[160px] border border-ink-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
+            />
+            <CampoCpfCnpj tipo="CPF"
+              value={novoCondutorCpf}
+              onChange={setNovoCondutorCpf}
+              placeholder="CPF (só números)"
+              className={`w-40 border border-ink-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
+            />
+            <button
+              type="button"
+              onClick={handleAddCondutor}
+              className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Adicionar</span>
+            </button>
+          </div>
+
+          {condutores.length === 0 ? (
+            <div className="text-xs text-ink-500 p-2 text-center bg-ink-50 rounded-lg border border-ink-200">
+              Nenhum condutor adicionado
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {condutores.map((c, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-ink-50 border border-ink-200 rounded-lg text-xs font-medium text-ink-700"
+                >
+                  <span>{c.nome} — {formatarCpfCnpj(c.cpf)}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCondutor(idx)}
+                    className="text-ink-400 hover:text-rose-600 transition-colors cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </SecaoEmissor>
+        )}
+
+      <SecaoEmissor id="carregamento" numero={4} titulo={`Carregamento (${municipiosCarrega.length}/50)`} icone={MapPin} descricao="Onde a carga é embarcada">
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          <input
+            type="text"
+            value={novoMunCarregaCodigo}
+            onChange={(e) => setNovoMunCarregaCodigo(e.target.value)}
+            placeholder="Código IBGE"
+            className={`w-32 border border-ink-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
+          />
+          <input
+            type="text"
+            value={novoMunCarregaNome}
+            onChange={(e) => setNovoMunCarregaNome(e.target.value)}
+            placeholder="Nome do município"
+            className={`flex-1 border border-ink-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
+          />
+          <button
+            type="button"
+            onClick={handleAddMunCarrega}
+            className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Adicionar</span>
+          </button>
+        </div>
+
+        {municipiosCarrega.length === 0 ? (
+          <div className="p-4 border-2 border-dashed border-ink-200 rounded-lg text-center bg-ink-50/70">
+            <MapPin className="w-8 h-8 text-ink-300 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-ink-700">Nenhum município de carregamento</p>
+            <p className="text-[11px] text-ink-500">Adicione pelo menos 1 município</p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {municipiosCarrega.map((m, idx) => (
+              <div
+                key={idx}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 ${corBg} border ${corBorder} rounded-lg text-xs`}
+              >
+                <span className="font-mono text-[10px] text-ink-500">{m.codigo}</span>
+                <span className="font-medium text-ink-700">{m.nome}</span>
                 <button
                   type="button"
-                  onClick={handleAddCondutor}
-                  className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+                  onClick={() => handleRemoveMunCarrega(idx)}
+                  className="text-ink-400 hover:text-rose-600 transition-colors cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Adicionar</span>
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
+            ))}
+          </div>
+        )}
+      </SecaoEmissor>
 
-              {condutores.length === 0 ? (
-                <div className="text-xs text-slate-500 p-2 text-center bg-slate-50 rounded-lg border border-slate-200">
-                  Nenhum condutor adicionado
+      <SecaoEmissor id="percurso" numero={5} titulo={`Percurso (${percursos.length}/25)`} icone={Route} descricao="UFs atravessadas na viagem">
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          <input
+            type="text"
+            maxLength={2}
+            value={novoPercurso}
+            onChange={(e) => setNovoPercurso(e.target.value.toUpperCase())}
+            placeholder="UF"
+            className={`w-16 border border-ink-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+          />
+          <button
+            type="button"
+            onClick={handleAddPercurso}
+            className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Adicionar UF</span>
+          </button>
+        </div>
+
+        {percursos.length === 0 ? (
+          <div className="text-xs text-ink-500 p-2 text-center bg-ink-50 rounded-lg border border-ink-200">
+            Nenhuma UF de percurso adicionada (opcional)
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {percursos.map((uf, idx) => (
+              <div
+                key={idx}
+                className={`flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 border border-brand-200 rounded-lg text-xs font-bold text-brand-700`}
+              >
+                <span>{uf}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemovePercurso(idx)}
+                  className="text-ink-400 hover:text-rose-600 transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </SecaoEmissor>
+
+      <SecaoEmissor id="descarga" numero={6} titulo={`Descarga (${municipiosDescarga.length}/1000)`} icone={FolderOpen} descricao="Destinos e documentos fiscais vinculados">
+
+        <div className="flex flex-wrap gap-2 mb-4">
+          <input
+            type="text"
+            value={novoMunDescargaCodigo}
+            onChange={(e) => setNovoMunDescargaCodigo(e.target.value)}
+            placeholder="Código IBGE"
+            className={`w-32 border border-ink-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
+          />
+          <input
+            type="text"
+            value={novoMunDescargaNome}
+            onChange={(e) => setNovoMunDescargaNome(e.target.value)}
+            placeholder="Nome do município"
+            className={`flex-1 border border-ink-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
+          />
+          <button
+            type="button"
+            onClick={handleAddMunDescarga}
+            className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Adicionar</span>
+          </button>
+        </div>
+
+        {municipiosDescarga.length === 0 ? (
+          <div className="p-4 border-2 border-dashed border-ink-200 rounded-lg text-center bg-ink-50/70">
+            <FolderOpen className="w-8 h-8 text-ink-300 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-ink-700">Nenhum município de descarga</p>
+            <p className="text-[11px] text-ink-500">Adicione pelo menos 1 município</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {municipiosDescarga.map((mun, idx) => (
+              <div key={idx} className="border border-ink-200 rounded-lg p-3 bg-ink-50/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] text-ink-500">{mun.codigo}</span>
+                    <span className="font-bold text-ink-900 text-sm">{mun.nome}</span>
+                    <span className="text-[10px] text-ink-400">
+                      CT-e: {mun.ctes?.length || 0} • NF-e: {mun.nfes?.length || 0} • MDF-e: {mun.mdfesTransp?.length || 0}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMunDescargaSelecionado(idx === munDescargaSelecionado ? null : idx)}
+                    className={`text-xs font-medium px-2 py-1 rounded-lg transition-colors ${munDescargaSelecionado === idx ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'} cursor-pointer`}
+                  >
+                    {munDescargaSelecionado === idx ? 'Ocultar' : 'Gerenciar'}
+                  </button>
                 </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {condutores.map((c, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
-                    >
-                      <span>{c.nome} — {formatarCpfCnpj(c.cpf)}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCondutor(idx)}
-                        className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+
+                {munDescargaSelecionado === idx && (
+                  <div className="mt-3 pt-3 border-t border-ink-200 space-y-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-bold text-ink-700">CT-e</span>
+                        <span className="text-[10px] text-ink-400">({mun.ctes?.length || 0})</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={novaChaveCTe}
+                          onChange={(e) => setNovaChaveCTe(limparChaveAcesso(e.target.value))}
+                          placeholder="Chave CT-e (44 dígitos)"
+                          maxLength={44}
+                          className={`flex-1 border border-ink-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddCTe(idx)}
+                          className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Adicionar</span>
+                        </button>
+                      </div>
+                      {mun.ctes && mun.ctes.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {mun.ctes.map((cte, cIdx) => (
+                            <div key={cIdx} className="flex items-center gap-1 px-2 py-1 bg-brand-50 border border-brand-200 rounded-lg text-[10px] font-mono">
+                              <span className="text-ink-600">{cte.chave.slice(0, 8)}...{cte.chave.slice(-6)}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCTe(idx, cIdx)}
+                                className="text-ink-400 hover:text-rose-600 transition-colors cursor-pointer"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-bold text-ink-700">NF-e</span>
+                        <span className="text-[10px] text-ink-400">({mun.nfes?.length || 0})</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={novaChaveNFe}
+                          onChange={(e) => setNovaChaveNFe(limparChaveAcesso(e.target.value))}
+                          placeholder="Chave NF-e (44 dígitos)"
+                          maxLength={44}
+                          className={`flex-1 border border-ink-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddNFe(idx)}
+                          className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Adicionar</span>
+                        </button>
+                      </div>
+                      {mun.nfes && mun.nfes.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {mun.nfes.map((nfe, nIdx) => (
+                            <div key={nIdx} className="flex items-center gap-1 px-2 py-1 bg-brand-50 border border-brand-200 rounded-lg text-[10px] font-mono">
+                              <span className="text-ink-600">{nfe.chave.slice(0, 8)}...{nfe.chave.slice(-6)}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveNFe(idx, nIdx)}
+                                className="text-ink-400 hover:text-rose-600 transition-colors cursor-pointer"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-bold text-ink-700">MDF-e (Aquaviário)</span>
+                        <span className="text-[10px] text-ink-400">({mun.mdfesTransp?.length || 0})</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={novaChaveMDFe}
+                          onChange={(e) => setNovaChaveMDFe(limparChaveAcesso(e.target.value))}
+                          placeholder="Chave MDF-e (44 dígitos)"
+                          maxLength={44}
+                          className={`flex-1 border border-ink-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddMDFeTransp(idx)}
+                          className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Adicionar</span>
+                        </button>
+                      </div>
+                      {mun.mdfesTransp && mun.mdfesTransp.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {mun.mdfesTransp.map((md, mIdx) => (
+                            <div key={mIdx} className="flex items-center gap-1 px-2 py-1 bg-brand-50 border border-brand-200 rounded-lg text-[10px] font-mono">
+                              <span className="text-ink-600">{md.chave.slice(0, 8)}...{md.chave.slice(-6)}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMDFeTransp(idx, mIdx)}
+                                className="text-ink-400 hover:text-rose-600 transition-colors cursor-pointer"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMunDescarga(idx)}
+                      className="text-xs text-rose-600 hover:text-rose-800 font-medium transition-colors cursor-pointer"
+                    >
+                      Remover município de descarga
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </SecaoEmissor>
+
+      <SecaoEmissor id="produto" numero={7} titulo="Produto predominante" icone={Package} descricao="Tipo e descrição da carga principal">
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Tipo de Carga <span className="text-danger">*</span></label>
+            <select
+              value={tpCarga}
+              onChange={(e) => setTpCarga(e.target.value as TipoCargaMDFe)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+            >
+              <option value="GRANEL_SOLIDO">Granel Sólido</option>
+              <option value="GRANEL_LIQUIDO">Granel Líquido</option>
+              <option value="FRIGORIFICADA">Frigorificada</option>
+              <option value="CONTEINERIZADA">Conteinerizada</option>
+              <option value="CARGA_GERAL">Carga Geral</option>
+              <option value="NEOGRANEL">Neogranel</option>
+              <option value="PERIGOSA_GRANEL_SOLIDO">Perigosa (Granel Sólido)</option>
+              <option value="PERIGOSA_GRANEL_LIQUIDO">Perigosa (Granel Líquido)</option>
+              <option value="PERIGOSA_FRIGORIFICADA">Perigosa (Frigorificada)</option>
+              <option value="PERIGOSA_CONTEINERIZADA">Perigosa (Conteinerizada)</option>
+              <option value="PERIGOSA_CARGA_GERAL">Perigosa (Carga Geral)</option>
+              <option value="GRANEL_PRESSURIZADA">Granel Pressurizada</option>
+            </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block font-medium text-ink-600 mb-1">Descrição do Produto <span className="text-danger">*</span></label>
+            <input
+              type="text"
+              value={xProd}
+              onChange={(e) => setXProd(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="Ex: Equipamentos eletrônicos, Peças automotivas..."
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">EAN / GTIN</label>
+            <input
+              type="text"
+              value={cEAN}
+              onChange={(e) => setCEAN(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="Código de barras"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">NCM</label>
+            <input
+              type="text"
+              value={NCM}
+              onChange={(e) => setNCM(e.target.value.replace(/\D/g, ''))}
+              maxLength={8}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+              placeholder="8 dígitos"
+            />
+          </div>
+        </div>
+      </SecaoEmissor>
+
+      <SecaoEmissor id="totalizadores" numero={8} titulo="Totalizadores" icone={Calculator} descricao="Valor total e peso bruto da carga">
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Valor da Carga (R$) <span className="text-danger">*</span></label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={vCarga || ''}
+              onChange={(e) => setVCarga(parseFloat(e.target.value) || 0)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Unidade de Peso</label>
+            <select
+              value={cUnid}
+              onChange={(e) => setCUnid(e.target.value as '01' | '02')}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+            >
+              <option value="01">KG</option>
+              <option value="02">TON</option>
+            </select>
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Peso da Carga <span className="text-danger">*</span></label>
+            <input
+              type="number"
+              step="0.001"
+              min="0.001"
+              value={qCarga || ''}
+              onChange={(e) => setQCarga(parseFloat(e.target.value) || 0)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
+            />
+          </div>
+        </div>
+
+        <div className="mt-3 p-3 bg-ink-50 rounded-lg border border-ink-200 text-xs">
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <span className="text-ink-500">CT-e:</span>
+              <span className="font-bold ml-1">{municipiosDescarga.reduce((acc, m) => acc + (m.ctes?.length || 0), 0)}</span>
+            </div>
+            <div>
+              <span className="text-ink-500">NF-e:</span>
+              <span className="font-bold ml-1">{municipiosDescarga.reduce((acc, m) => acc + (m.nfes?.length || 0), 0)}</span>
+            </div>
+            <div>
+              <span className="text-ink-500">MDF-e:</span>
+              <span className="font-bold ml-1">{municipiosDescarga.reduce((acc, m) => acc + (m.mdfesTransp?.length || 0), 0)}</span>
+            </div>
+          </div>
+        </div>
+      </SecaoEmissor>
+
+      <SecaoEmissor id="seguro" numero={9} titulo={`Seguro (${seguros.length})`} icone={Shield} descricao="Seguradora, apólice e averbações"
+        acao={
+          <>
+          <button
+            type="button"
+            onClick={() => setMostrarSeguro(!mostrarSeguro)}
+            className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors ${mostrarSeguro ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'} cursor-pointer`}
+          >
+            {mostrarSeguro ? 'Ocultar' : '+ Adicionar Seguro'}
+          </button>
+          </>
+        }
+      >
+
+        {mostrarSeguro && (
+          <div className="space-y-3 p-3 border border-ink-200 rounded-lg bg-ink-50/50">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="block font-medium text-ink-600 mb-1">Responsável <span className="text-danger">*</span></label>
+                <select
+                  value={novoSeguro.responsavel}
+                  onChange={(e) => setNovoSeguro({ ...novoSeguro, responsavel: e.target.value as '1' | '2' })}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+                >
+                  <option value="1">Emitente do MDF-e</option>
+                  <option value="2">Contratante do frete</option>
+                </select>
+              </div>
+              {novoSeguro.responsavel === '2' && (
+                <>
+                  <div>
+                    <label className="block font-medium text-ink-600 mb-1">CNPJ (contratante)</label>
+                    <input
+                      type="text"
+                      value={novoSeguro.responsavelCNPJ || ''}
+                      onChange={(e) => setNovoSeguro({ ...novoSeguro, responsavelCNPJ: e.target.value })}
+                      className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                      placeholder="00.000.000/0000-00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-ink-600 mb-1">CPF (contratante)</label>
+                    <input
+                      type="text"
+                      value={novoSeguro.responsavelCPF || ''}
+                      onChange={(e) => setNovoSeguro({ ...novoSeguro, responsavelCPF: e.target.value })}
+                      className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                      placeholder="000.000.000-00"
+                    />
+                  </div>
+                </>
               )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="block font-medium text-ink-600 mb-1">Seguradora</label>
+                <input
+                  type="text"
+                  value={novoSeguro.seguradoraNome || ''}
+                  onChange={(e) => setNovoSeguro({ ...novoSeguro, seguradoraNome: e.target.value })}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  placeholder="Nome da seguradora"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-ink-600 mb-1">CNPJ Seguradora</label>
+                <input
+                  type="text"
+                  value={novoSeguro.seguradoraCNPJ || ''}
+                  onChange={(e) => setNovoSeguro({ ...novoSeguro, seguradoraCNPJ: e.target.value })}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  placeholder="00.000.000/0000-00"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-ink-600 mb-1">Apólice</label>
+                <input
+                  type="text"
+                  value={novoSeguro.apolice || ''}
+                  onChange={(e) => setNovoSeguro({ ...novoSeguro, apolice: e.target.value })}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  placeholder="Número da apólice"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setMostrarSeguro(false)}
+                className="px-3 py-1.5 text-xs text-ink-600 hover:bg-ink-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleAddSeguro}
+                className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Adicionar Seguro</span>
+              </button>
             </div>
           </div>
         )}
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-            <div className="flex items-center gap-2">
-              <MapPin className={`w-4 h-4 ${corText}`} />
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                4. Municípios de Carregamento ({municipiosCarrega.length}/50)
-              </h3>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2 mb-3">
-            <input
-              type="text"
-              value={novoMunCarregaCodigo}
-              onChange={(e) => setNovoMunCarregaCodigo(e.target.value)}
-              placeholder="Código IBGE"
-              className={`w-32 border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
-            />
-            <input
-              type="text"
-              value={novoMunCarregaNome}
-              onChange={(e) => setNovoMunCarregaNome(e.target.value)}
-              placeholder="Nome do município"
-              className={`flex-1 border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
-            />
-            <button
-              type="button"
-              onClick={handleAddMunCarrega}
-              className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Adicionar</span>
-            </button>
-          </div>
-
-          {municipiosCarrega.length === 0 ? (
-            <div className="p-4 border-2 border-dashed border-slate-200 rounded-lg text-center bg-slate-50/70">
-              <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-slate-700">Nenhum município de carregamento</p>
-              <p className="text-[11px] text-slate-500">Adicione pelo menos 1 município</p>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {municipiosCarrega.map((m, idx) => (
-                <div
-                  key={idx}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 ${corBg} border ${corBorder} rounded-lg text-xs`}
-                >
-                  <span className="font-mono text-[10px] text-slate-500">{m.codigo}</span>
-                  <span className="font-medium text-slate-700">{m.nome}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveMunCarrega(idx)}
-                    className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-            <div className="flex items-center gap-2">
-              <Route className={`w-4 h-4 ${corText}`} />
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                5. Percurso ({percursos.length}/25)
-              </h3>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2 mb-3">
-            <input
-              type="text"
-              maxLength={2}
-              value={novoPercurso}
-              onChange={(e) => setNovoPercurso(e.target.value.toUpperCase())}
-              placeholder="UF"
-              className={`w-16 border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus} uppercase`}
-            />
-            <button
-              type="button"
-              onClick={handleAddPercurso}
-              className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Adicionar UF</span>
-            </button>
-          </div>
-
-          {percursos.length === 0 ? (
-            <div className="text-xs text-slate-500 p-2 text-center bg-slate-50 rounded-lg border border-slate-200">
-              Nenhuma UF de percurso adicionada (opcional)
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {percursos.map((uf, idx) => (
-                <div
-                  key={idx}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-bold text-blue-700`}
-                >
-                  <span>{uf}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemovePercurso(idx)}
-                    className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-            <div className="flex items-center gap-2">
-              <FolderOpen className={`w-4 h-4 ${corText}`} />
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                6. Municípios de Descarga ({municipiosDescarga.length}/1000)
-              </h3>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2 mb-4">
-            <input
-              type="text"
-              value={novoMunDescargaCodigo}
-              onChange={(e) => setNovoMunDescargaCodigo(e.target.value)}
-              placeholder="Código IBGE"
-              className={`w-32 border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
-            />
-            <input
-              type="text"
-              value={novoMunDescargaNome}
-              onChange={(e) => setNovoMunDescargaNome(e.target.value)}
-              placeholder="Nome do município"
-              className={`flex-1 border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
-            />
-            <button
-              type="button"
-              onClick={handleAddMunDescarga}
-              className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Adicionar</span>
-            </button>
-          </div>
-
-          {municipiosDescarga.length === 0 ? (
-            <div className="p-4 border-2 border-dashed border-slate-200 rounded-lg text-center bg-slate-50/70">
-              <FolderOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-slate-700">Nenhum município de descarga</p>
-              <p className="text-[11px] text-slate-500">Adicione pelo menos 1 município</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {municipiosDescarga.map((mun, idx) => (
-                <div key={idx} className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[10px] text-slate-500">{mun.codigo}</span>
-                      <span className="font-bold text-slate-900 text-sm">{mun.nome}</span>
-                      <span className="text-[10px] text-slate-400">
-                        CT-e: {mun.ctes?.length || 0} • NF-e: {mun.nfes?.length || 0} • MDF-e: {mun.mdfesTransp?.length || 0}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setMunDescargaSelecionado(idx === munDescargaSelecionado ? null : idx)}
-                      className={`text-xs font-medium px-2 py-1 rounded-lg transition-colors ${munDescargaSelecionado === idx ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} cursor-pointer`}
-                    >
-                      {munDescargaSelecionado === idx ? 'Ocultar' : 'Gerenciar'}
-                    </button>
-                  </div>
-
-                  {munDescargaSelecionado === idx && (
-                    <div className="mt-3 pt-3 border-t border-slate-200 space-y-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-bold text-slate-700">CT-e</span>
-                          <span className="text-[10px] text-slate-400">({mun.ctes?.length || 0})</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          <input
-                            type="text"
-                            value={novaChaveCTe}
-                            onChange={(e) => setNovaChaveCTe(limparChaveAcesso(e.target.value))}
-                            placeholder="Chave CT-e (44 dígitos)"
-                            maxLength={44}
-                            className={`flex-1 border border-slate-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleAddCTe(idx)}
-                            className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Adicionar</span>
-                          </button>
-                        </div>
-                        {mun.ctes && mun.ctes.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {mun.ctes.map((cte, cIdx) => (
-                              <div key={cIdx} className="flex items-center gap-1 px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg text-[10px] font-mono">
-                                <span className="text-slate-600">{cte.chave.slice(0, 8)}...{cte.chave.slice(-6)}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveCTe(idx, cIdx)}
-                                  className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-bold text-slate-700">NF-e</span>
-                          <span className="text-[10px] text-slate-400">({mun.nfes?.length || 0})</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          <input
-                            type="text"
-                            value={novaChaveNFe}
-                            onChange={(e) => setNovaChaveNFe(limparChaveAcesso(e.target.value))}
-                            placeholder="Chave NF-e (44 dígitos)"
-                            maxLength={44}
-                            className={`flex-1 border border-slate-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleAddNFe(idx)}
-                            className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Adicionar</span>
-                          </button>
-                        </div>
-                        {mun.nfes && mun.nfes.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {mun.nfes.map((nfe, nIdx) => (
-                              <div key={nIdx} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 border border-emerald-200 rounded-lg text-[10px] font-mono">
-                                <span className="text-slate-600">{nfe.chave.slice(0, 8)}...{nfe.chave.slice(-6)}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveNFe(idx, nIdx)}
-                                  className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-bold text-slate-700">MDF-e (Aquaviário)</span>
-                          <span className="text-[10px] text-slate-400">({mun.mdfesTransp?.length || 0})</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          <input
-                            type="text"
-                            value={novaChaveMDFe}
-                            onChange={(e) => setNovaChaveMDFe(limparChaveAcesso(e.target.value))}
-                            placeholder="Chave MDF-e (44 dígitos)"
-                            maxLength={44}
-                            className={`flex-1 border border-slate-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleAddMDFeTransp(idx)}
-                            className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Adicionar</span>
-                          </button>
-                        </div>
-                        {mun.mdfesTransp && mun.mdfesTransp.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {mun.mdfesTransp.map((md, mIdx) => (
-                              <div key={mIdx} className="flex items-center gap-1 px-2 py-1 bg-purple-50 border border-purple-200 rounded-lg text-[10px] font-mono">
-                                <span className="text-slate-600">{md.chave.slice(0, 8)}...{md.chave.slice(-6)}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveMDFeTransp(idx, mIdx)}
-                                  className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveMunDescarga(idx)}
-                        className="text-xs text-rose-600 hover:text-rose-800 font-medium transition-colors cursor-pointer"
-                      >
-                        Remover município de descarga
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-            <Package className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">7. Produto Predominante</h3>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Tipo de Carga *</label>
-              <select
-                value={tpCarga}
-                onChange={(e) => setTpCarga(e.target.value as TipoCargaMDFe)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
-              >
-                <option value="GRANEL_SOLIDO">Granel Sólido</option>
-                <option value="GRANEL_LIQUIDO">Granel Líquido</option>
-                <option value="FRIGORIFICADA">Frigorificada</option>
-                <option value="CONTEINERIZADA">Conteinerizada</option>
-                <option value="CARGA_GERAL">Carga Geral</option>
-                <option value="NEOGRANEL">Neogranel</option>
-                <option value="PERIGOSA_GRANEL_SOLIDO">Perigosa (Granel Sólido)</option>
-                <option value="PERIGOSA_GRANEL_LIQUIDO">Perigosa (Granel Líquido)</option>
-                <option value="PERIGOSA_FRIGORIFICADA">Perigosa (Frigorificada)</option>
-                <option value="PERIGOSA_CONTEINERIZADA">Perigosa (Conteinerizada)</option>
-                <option value="PERIGOSA_CARGA_GERAL">Perigosa (Carga Geral)</option>
-                <option value="GRANEL_PRESSURIZADA">Granel Pressurizada</option>
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block font-medium text-slate-600 mb-1">Descrição do Produto *</label>
-              <input
-                type="text"
-                value={xProd}
-                onChange={(e) => setXProd(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                placeholder="Ex: Equipamentos eletrônicos, Peças automotivas..."
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">EAN / GTIN</label>
-              <input
-                type="text"
-                value={cEAN}
-                onChange={(e) => setCEAN(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                placeholder="Código de barras"
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">NCM</label>
-              <input
-                type="text"
-                value={NCM}
-                onChange={(e) => setNCM(e.target.value.replace(/\D/g, ''))}
-                maxLength={8}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
-                placeholder="8 dígitos"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-            <Calculator className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">8. Totalizadores</h3>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Valor da Carga (R$) *</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={vCarga || ''}
-                onChange={(e) => setVCarga(parseFloat(e.target.value) || 0)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Unidade de Peso</label>
-              <select
-                value={cUnid}
-                onChange={(e) => setCUnid(e.target.value as '01' | '02')}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
-              >
-                <option value="01">KG</option>
-                <option value="02">TON</option>
-              </select>
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Peso da Carga *</label>
-              <input
-                type="number"
-                step="0.001"
-                min="0.001"
-                value={qCarga || ''}
-                onChange={(e) => setQCarga(parseFloat(e.target.value) || 0)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
-              />
-            </div>
-          </div>
-
-          <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <span className="text-slate-500">CT-e:</span>
-                <span className="font-bold ml-1">{municipiosDescarga.reduce((acc, m) => acc + (m.ctes?.length || 0), 0)}</span>
-              </div>
-              <div>
-                <span className="text-slate-500">NF-e:</span>
-                <span className="font-bold ml-1">{municipiosDescarga.reduce((acc, m) => acc + (m.nfes?.length || 0), 0)}</span>
-              </div>
-              <div>
-                <span className="text-slate-500">MDF-e:</span>
-                <span className="font-bold ml-1">{municipiosDescarga.reduce((acc, m) => acc + (m.mdfesTransp?.length || 0), 0)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-            <div className="flex items-center gap-2">
-              <Shield className={`w-4 h-4 ${corText}`} />
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">9. Seguro ({seguros.length})</h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => setMostrarSeguro(!mostrarSeguro)}
-              className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors ${mostrarSeguro ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} cursor-pointer`}
-            >
-              {mostrarSeguro ? 'Ocultar' : '+ Adicionar Seguro'}
-            </button>
-          </div>
-
-          {mostrarSeguro && (
-            <div className="space-y-3 p-3 border border-slate-200 rounded-lg bg-slate-50/50">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        {seguros.length > 0 && (
+          <div className="space-y-2 mt-2">
+            {seguros.map((s, idx) => (
+              <div key={idx} className="flex items-center justify-between p-2 bg-ink-50 rounded-lg border border-ink-200 text-xs">
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">Responsável *</label>
-                  <select
-                    value={novoSeguro.responsavel}
-                    onChange={(e) => setNovoSeguro({ ...novoSeguro, responsavel: e.target.value as '1' | '2' })}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
-                  >
-                    <option value="1">Emitente do MDF-e</option>
-                    <option value="2">Contratante do frete</option>
-                  </select>
+                  <span className="font-medium">Responsável: {s.responsavel === '1' ? 'Emitente' : 'Contratante'}</span>
+                  {s.seguradoraNome && <span className="ml-2 text-ink-500">Seguradora: {s.seguradoraNome}</span>}
+                  {s.apolice && <span className="ml-2 text-ink-500">Apólice: {s.apolice}</span>}
                 </div>
-                {novoSeguro.responsavel === '2' && (
-                  <>
-                    <div>
-                      <label className="block font-medium text-slate-600 mb-1">CNPJ (contratante)</label>
-                      <input
-                        type="text"
-                        value={novoSeguro.responsavelCNPJ || ''}
-                        onChange={(e) => setNovoSeguro({ ...novoSeguro, responsavelCNPJ: e.target.value })}
-                        className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                        placeholder="00.000.000/0000-00"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-medium text-slate-600 mb-1">CPF (contratante)</label>
-                      <input
-                        type="text"
-                        value={novoSeguro.responsavelCPF || ''}
-                        onChange={(e) => setNovoSeguro({ ...novoSeguro, responsavelCPF: e.target.value })}
-                        className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                        placeholder="000.000.000-00"
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div>
-                  <label className="block font-medium text-slate-600 mb-1">Seguradora</label>
-                  <input
-                    type="text"
-                    value={novoSeguro.seguradoraNome || ''}
-                    onChange={(e) => setNovoSeguro({ ...novoSeguro, seguradoraNome: e.target.value })}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                    placeholder="Nome da seguradora"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-600 mb-1">CNPJ Seguradora</label>
-                  <input
-                    type="text"
-                    value={novoSeguro.seguradoraCNPJ || ''}
-                    onChange={(e) => setNovoSeguro({ ...novoSeguro, seguradoraCNPJ: e.target.value })}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                    placeholder="00.000.000/0000-00"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-600 mb-1">Apólice</label>
-                  <input
-                    type="text"
-                    value={novoSeguro.apolice || ''}
-                    onChange={(e) => setNovoSeguro({ ...novoSeguro, apolice: e.target.value })}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
-                    placeholder="Número da apólice"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setMostrarSeguro(false)}
-                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                  onClick={() => handleRemoveSeguro(idx)}
+                  className="text-ink-400 hover:text-rose-600 transition-colors cursor-pointer"
                 >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddSeguro}
-                  className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Adicionar Seguro</span>
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
+        )}
+      </SecaoEmissor>
 
-          {seguros.length > 0 && (
-            <div className="space-y-2 mt-2">
-              {seguros.map((s, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-                  <div>
-                    <span className="font-medium">Responsável: {s.responsavel === '1' ? 'Emitente' : 'Contratante'}</span>
-                    {s.seguradoraNome && <span className="ml-2 text-slate-500">Seguradora: {s.seguradoraNome}</span>}
-                    {s.apolice && <span className="ml-2 text-slate-500">Apólice: {s.apolice}</span>}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveSeguro(idx)}
-                    className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+      <SecaoEmissor id="lacres" numero={10} titulo="Lacres" icone={Barcode} descricao="Números dos lacres da carga">
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          <input
+            type="text"
+            value={novoLacre}
+            onChange={(e) => setNovoLacre(e.target.value)}
+            placeholder="Número do lacre"
+            className={`flex-1 border border-ink-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
+          />
+          <button
+            type="button"
+            onClick={handleAddLacre}
+            className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Adicionar</span>
+          </button>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-            <Barcode className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">10. Lacres</h3>
+        {lacres.length === 0 ? (
+          <div className="text-xs text-ink-500 p-2 text-center bg-ink-50 rounded-lg border border-ink-200">
+            Nenhum lacre adicionado (opcional)
           </div>
-
-          <div className="flex flex-wrap gap-2 mb-3">
-            <input
-              type="text"
-              value={novoLacre}
-              onChange={(e) => setNovoLacre(e.target.value)}
-              placeholder="Número do lacre"
-              className={`flex-1 border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 ${corFocus}`}
-            />
-            <button
-              type="button"
-              onClick={handleAddLacre}
-              className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Adicionar</span>
-            </button>
-          </div>
-
-          {lacres.length === 0 ? (
-            <div className="text-xs text-slate-500 p-2 text-center bg-slate-50 rounded-lg border border-slate-200">
-              Nenhum lacre adicionado (opcional)
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {lacres.map((l, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-xs font-mono"
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {lacres.map((l, idx) => (
+              <div
+                key={idx}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-ink-100 border border-ink-200 rounded-lg text-xs font-mono"
+              >
+                <span>{l}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveLacre(idx)}
+                  className="text-ink-400 hover:text-rose-600 transition-colors cursor-pointer"
                 >
-                  <span>{l}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveLacre(idx)}
-                    className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </SecaoEmissor>
+
+      <SecaoEmissor id="autorizados" numero={11} titulo={`Autorizados para download (${autorizadosDownload.length}/10)`} icone={UserCheck} descricao="CPF/CNPJ com acesso ao XML">
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          <CampoCpfCnpj tipo="CNPJ"
+            value={novoAutCNPJ}
+            onChange={setNovoAutCNPJ}
+            placeholder="CNPJ (14 caracteres)"
+            maxLength={18}
+            className={`w-36 border border-ink-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
+          />
+          <span className="text-xs text-ink-400 self-center">ou</span>
+          <CampoCpfCnpj tipo="CPF"
+            value={novoAutCPF}
+            onChange={setNovoAutCPF}
+            placeholder="CPF (11 dígitos)"
+            maxLength={14}
+            className={`w-32 border border-ink-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
+          />
+          <button
+            type="button"
+            onClick={handleAddAutXML}
+            className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Adicionar</span>
+          </button>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-            <UserCheck className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">11. Autorizados para Download ({autorizadosDownload.length}/10)</h3>
+        {autorizadosDownload.length === 0 ? (
+          <div className="text-xs text-ink-500 p-2 text-center bg-ink-50 rounded-lg border border-ink-200">
+            Nenhum autorizado para download (opcional)
           </div>
-
-          <div className="flex flex-wrap gap-2 mb-3">
-            <CampoCpfCnpj tipo="CNPJ"
-              value={novoAutCNPJ}
-              onChange={setNovoAutCNPJ}
-              placeholder="CNPJ (14 caracteres)"
-              maxLength={18}
-              className={`w-36 border border-slate-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
-            />
-            <span className="text-xs text-slate-400 self-center">ou</span>
-            <CampoCpfCnpj tipo="CPF"
-              value={novoAutCPF}
-              onChange={setNovoAutCPF}
-              placeholder="CPF (11 dígitos)"
-              maxLength={14}
-              className={`w-32 border border-slate-300 rounded-lg p-1.5 text-xs font-mono focus:outline-none focus:ring-2 ${corFocus}`}
-            />
-            <button
-              type="button"
-              onClick={handleAddAutXML}
-              className={`${corBgButton} text-white text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Adicionar</span>
-            </button>
-          </div>
-
-          {autorizadosDownload.length === 0 ? (
-            <div className="text-xs text-slate-500 p-2 text-center bg-slate-50 rounded-lg border border-slate-200">
-              Nenhum autorizado para download (opcional)
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {autorizadosDownload.map((a, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-mono"
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {autorizadosDownload.map((a, idx) => (
+              <div
+                key={idx}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 border border-brand-200 rounded-lg text-xs font-mono"
+              >
+                <span>{a.cnpj ? formatarCpfCnpj(a.cnpj) : a.cpf ? formatarCpfCnpj(a.cpf) : ''}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveAutXML(idx)}
+                  className="text-ink-400 hover:text-rose-600 transition-colors cursor-pointer"
                 >
-                  <span>{a.cnpj ? formatarCpfCnpj(a.cnpj) : a.cpf ? formatarCpfCnpj(a.cpf) : ''}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAutXML(idx)}
-                    className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-            <Info className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">12. Informações Adicionais</h3>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
+        )}
+      </SecaoEmissor>
 
-          <div className="space-y-3 text-xs">
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Informações de interesse do Fisco</label>
-              <textarea
-                rows={2}
-                value={infAdFisco}
-                onChange={(e) => setInfAdFisco(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
-                placeholder="Norma referenciada, informações complementares..."
-                maxLength={2000}
-              />
-              <span className="text-[10px] text-slate-400">{infAdFisco.length}/2000</span>
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Informações complementares de interesse do contribuinte</label>
-              <textarea
-                rows={2}
-                value={infCpl}
-                onChange={(e) => setInfCpl(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
-                placeholder="Observações gerais..."
-                maxLength={5000}
-              />
-              <span className="text-[10px] text-slate-400">{infCpl.length}/5000</span>
-            </div>
+      <SecaoEmissor id="adicionais" numero={12} titulo="Informações adicionais" icone={Info} descricao="Observações para o fisco e o contribuinte">
+
+        <div className="space-y-3 text-xs">
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Informações de interesse do Fisco</label>
+            <textarea
+              rows={2}
+              value={infAdFisco}
+              onChange={(e) => setInfAdFisco(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
+              placeholder="Norma referenciada, informações complementares..."
+              maxLength={2000}
+            />
+            <span className="text-[10px] text-ink-400">{infAdFisco.length}/2000</span>
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Informações complementares de interesse do contribuinte</label>
+            <textarea
+              rows={2}
+              value={infCpl}
+              onChange={(e) => setInfCpl(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
+              placeholder="Observações gerais..."
+              maxLength={5000}
+            />
+            <span className="text-[10px] text-ink-400">{infCpl.length}/5000</span>
           </div>
         </div>
+      </SecaoEmissor>
 
-        <button
-          type="button"
-          onClick={handleTransmitirMdfe}
-          disabled={isTransmitting}
-          className={`w-full ${corBgButton} disabled:bg-slate-300 text-white font-bold text-xs py-3 px-4 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
-        >
-          {isTransmitting ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>Transmitindo MDF-e...</span>
-            </>
-          ) : (
-            <>
-              <Send className="w-4 h-4" />
-              <span>EMITIR & AUTORIZAR MDF-e (MODELO 58)</span>
-            </>
-          )}
-        </button>
 
       </div>
 
@@ -1875,6 +1808,13 @@ export const MdfeEmissor: React.FC<MdfeEmissorProps> = ({
         loading={confirmModal.loading}
       />
 
-    </div>
+    </EmissorLayout>
   );
+};
+
+// "Limpar tudo": remonta o formulário (key nova) — todos os campos voltam
+// exatamente aos valores iniciais definidos nos useState acima.
+export const MdfeEmissor: React.FC<MdfeEmissorProps> = (props) => {
+  const [versao, setVersao] = React.useState(0);
+  return <MdfeEmissorConteudo key={versao} {...props} onLimparTudo={() => setVersao((v) => v + 1)} />;
 };

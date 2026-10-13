@@ -17,6 +17,7 @@ import { nfaeService } from '../../services/nfae.service';
 import { useToast } from '../../hooks/useToast';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { ResumoEmissaoModal } from './ResumoEmissaoModal';
+import { BotaoCabecalho, EmissorLayout, ResumoEmissor, SecaoEmissor } from './emissor/EmissorKit';
 import { CampoCpfCnpj } from '../ui/CampoCpfCnpj';
 
 interface NfaeEmissorProps {
@@ -30,7 +31,8 @@ interface NfaeEmissorProps {
 type MotivoEmissaoNFAe = 'PRODUTOR_RURAL' | 'MEI_SEM_IE' | 'PF_ATIVO_PESSOAL' | 'FEIRAS_EVENTOS' | 'DEVOLUCAO_AVULSA' | 'OUTROS';
 type TipoPessoa = 'PF' | 'PJ';
 
-export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
+const NfaeEmissorConteudo: React.FC<NfaeEmissorProps & { onLimparTudo: () => void }> = ({
+  onLimparTudo,
   empresa,
   clientes,
   produtos,
@@ -448,10 +450,10 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
       }
 
     } catch (error: unknown) {
-      console.error('❌ Erro ao emitir NFA-e:', error);
+      console.error('Erro ao emitir NFA-e:', error);
       const mensagemErro = getApiErrorMessage(error, 'Falha ao emitir NFA-e.');
       setErros([mensagemErro]);
-      toast.showError(`❌ ${mensagemErro}`);
+      toast.showError(`${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
     }
@@ -461,52 +463,71 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
   // CORES
   // ============================================================
   const cor = 'amber';
-  const corBg = 'bg-amber-50';
-  const corBorder = 'border-amber-200';
-  const corText = 'text-amber-700';
-  const corTextDark = 'text-amber-800';
-  const corBgButton = 'bg-amber-600 hover:bg-amber-700';
-  const corBgBadge = 'bg-amber-100';
-  const corFocus = 'focus:ring-amber-500';
-  const corIconBg = 'bg-amber-600';
+  const corBg = 'bg-brand-50';
+  const corBorder = 'border-brand-200';
+  const corText = 'text-brand-700';
+  const corTextDark = 'text-brand-800';
+  const corBgButton = 'bg-brand-600 hover:bg-brand-700';
+  const corBgBadge = 'bg-brand-100';
+  const corFocus = 'focus:ring-brand-500';
+  const corIconBg = 'bg-brand-600';
 
   // ============================================================
   // RENDER - MESMO LAYOUT DO NFE (VERTICAL, SEM CÍRCULOS)
   // ============================================================
   return (
-    <div className="space-y-4 max-w-6xl mx-auto">
-      
-      <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
-              <FileBadge2 className="w-4 h-4" />
-            </span>
-            <h1 className="text-base font-bold text-slate-900">Emissão de NFA-e (Modelo 63)</h1>
-            <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
-              Energia Elétrica
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Nota Fiscal Avulsa Eletrônica para fornecimento de energia elétrica.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleCarregarUltima}
-            disabled={isCarregandoUltima}
-            title="Preenche o formulário com os dados da última NFA-e autorizada"
-            className={`bg-white hover:${corBgBadge} disabled:opacity-60 ${corText} font-medium text-xs px-3 py-2 rounded-lg border ${corBorder} transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm`}
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
-            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
-          </button>
-          <div className="text-right">
-            <div className="text-xs font-semibold text-slate-700">Série {serie || 900}</div>
-            <div className={`text-[10px] font-medium ${corText}`}>Próxima NFA-e: Nº previsto {empresa.proximoNumeroNfae || 1}</div>
-          </div>
-        </div>
-      </div>
+    <EmissorLayout
+      icone={FileBadge2}
+      titulo="Nova NFA-e"
+      descricao="Nota fiscal avulsa para quem não tem inscrição ativa, com ICMS recolhido via DAE."
+      modelo="Avulsa"
+      serie={serie || 900}
+      proximoNumero={empresa.proximoNumeroNfae || 1}
+      ambiente={empresa.ambienteEmissao}
+      acoes={
+        <BotaoCabecalho
+          onClick={handleCarregarUltima}
+          icone={RefreshCw}
+          carregando={isCarregandoUltima}
+          title="Preenche o formulário com os dados da última NFA-e autorizada"
+        >
+          {isCarregandoUltima ? 'Carregando…' : 'Carregar última nota'}
+        </BotaoCabecalho>
+      }
+      secoes={[
+        { id: 'requerente', titulo: 'Requerente' },
+        { id: 'destinatario', titulo: 'Destinatário' },
+        { id: 'identificacao', titulo: 'Identificação' },
+        { id: 'produtos', titulo: 'Produtos / insumos' },
+        { id: 'icms', titulo: 'Tributação ICMS' },
+        { id: 'dae', titulo: 'Guia DAE' },
+        { id: 'orgao', titulo: 'Órgão emissor' },
+        { id: 'observacoes', titulo: 'Observações' },
+      ]}
+      resumo={
+        <ResumoEmissor
+          total={{ rotulo: 'Total da NFA-e', valor: valorTotalNota }}
+          linhas={[
+            { rotulo: 'Produtos', valor: totalProdutos },
+            { rotulo: 'ICMS', valor: itens.reduce((acc, item) => acc + item.valorICMS, 0) },
+            { rotulo: 'Valor do DAE', valor: valorDAE || 0, tom: 'sutil' },
+          ]}
+          info={[
+            { rotulo: 'Itens', valor: `${itens.length} produto(s)` },
+            { rotulo: 'Requerente', valor: requerenteNome || '—' },
+          ]}
+          pronto={itens.length > 0 && erros.length === 0}
+          pendencias={itens.length === 0 ? ['Adicione ao menos um produto.', ...erros] : erros}
+          emitir={{
+            rotulo: 'Emitir e autorizar NFA-e',
+            onClick: handleTransmitirNfae,
+            transmitindo: isTransmitting,
+            desabilitado: itens.length === 0,
+          }}
+          onLimpar={onLimparTudo}
+        />
+      }
+    >
 
       {sucessoNfae && (
         <ResumoEmissaoModal
@@ -527,340 +548,321 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
         />
       )}
 
-      {erros.length > 0 && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 space-y-1">
-          <div className="font-bold flex items-center gap-1.5 text-rose-900">
-            <AlertTriangle className="w-4 h-4 text-rose-600" />
-            <span>Erros na NFA-e:</span>
-          </div>
-          <ul className="list-disc list-inside space-y-0.5 pl-2">
-            {erros.map((err, idx) => (
-              <li key={idx}>{err}</li>
-            ))}
-          </ul>
-        </div>
-      )}
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-          <div className="flex items-center gap-2">
-            <User className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">1. Requerente (Emitente Avulso)</h3>
-          </div>
+      <SecaoEmissor id="requerente" numero={1} titulo="Requerente" icone={User} descricao="Emitente avulso — pessoa física, produtor rural ou MEI"
+        acao={
+          <>
           <select
             value={selectedRequerenteId}
             onChange={(e) => handleSelectRequerente(e.target.value)}
-            className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[200px]`}
+            className={`text-xs bg-ink-50 border border-ink-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-ink-700 max-w-[200px]`}
           >
             <option value="">-- Escolher Cliente --</option>
             {clientes.map(c => (
               <option key={c.id} value={c.id}>{c.razaoSocial}</option>
             ))}
           </select>
-        </div>
+          </>
+        }
+      >
 
-        <div className="space-y-2.5 text-xs">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-2.5 text-xs md:grid-cols-2">
           <div>
-            <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
+            <label className="block font-medium text-ink-600 mb-1">CPF / CNPJ <span className="text-danger">*</span></label>
             <CampoCpfCnpj
               value={requerenteDoc}
               onChange={setRequerenteDoc}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="00.000.000/0000-00"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Razão Social / Nome *</label>
+            <label className="block font-medium text-ink-600 mb-1">Razão Social / Nome <span className="text-danger">*</span></label>
             <input
               type="text"
               value={requerenteNome}
               onChange={(e) => setRequerenteNome(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="Nome ou Razão Social"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Inscrição Produtor Rural</label>
+            <label className="block font-medium text-ink-600 mb-1">Inscrição Produtor Rural</label>
             <input
               type="text"
               value={requerenteInscricaoProdutor}
               onChange={(e) => setRequerenteInscricaoProdutor(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="Inscrição do produtor"
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Município</label>
+              <label className="block font-medium text-ink-600 mb-1">Município</label>
               <input
                 type="text"
                 value={requerenteMun}
                 onChange={(e) => setRequerenteMun(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="Cidade"
               />
             </div>
             <div>
-              <label className="block font-medium text-slate-600 mb-1">UF</label>
+              <label className="block font-medium text-ink-600 mb-1">UF</label>
               <input
                 type="text"
                 value={requerenteUf}
                 onChange={(e) => setRequerenteUf(e.target.value.toUpperCase())}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
                 maxLength={2}
                 placeholder="SP"
               />
             </div>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Logradouro</label>
+            <label className="block font-medium text-ink-600 mb-1">Logradouro</label>
             <input
               type="text"
               value={requerenteLogradouro}
               onChange={(e) => setRequerenteLogradouro(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="Rua, Avenida..."
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Número</label>
+              <label className="block font-medium text-ink-600 mb-1">Número</label>
               <input
                 type="text"
                 value={requerenteNumero}
                 onChange={(e) => setRequerenteNumero(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="123"
               />
             </div>
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Complemento</label>
+              <label className="block font-medium text-ink-600 mb-1">Complemento</label>
               <input
                 type="text"
                 value={requerenteComplemento}
                 onChange={(e) => setRequerenteComplemento(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="Complemento"
               />
             </div>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Bairro</label>
+            <label className="block font-medium text-ink-600 mb-1">Bairro</label>
             <input
               type="text"
               value={requerenteBairro}
               onChange={(e) => setRequerenteBairro(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="Bairro"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">CEP</label>
+            <label className="block font-medium text-ink-600 mb-1">CEP</label>
             <input
               type="text"
               value={requerenteCep}
               onChange={(e) => setRequerenteCep(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="00000-000"
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Telefone</label>
+              <label className="block font-medium text-ink-600 mb-1">Telefone</label>
               <input
                 type="text"
                 value={requerenteTelefone}
                 onChange={(e) => setRequerenteTelefone(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="(00) 0000-0000"
               />
             </div>
             <div>
-              <label className="block font-medium text-slate-600 mb-1">E-mail</label>
+              <label className="block font-medium text-ink-600 mb-1">E-mail</label>
               <input
                 type="email"
                 value={requerenteEmail}
                 onChange={(e) => setRequerenteEmail(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="email@empresa.com"
               />
             </div>
           </div>
         </div>
-      </div>
+      </SecaoEmissor>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-          <div className="flex items-center gap-2">
-            <Building className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">2. Destinatário</h3>
-          </div>
+      <SecaoEmissor id="destinatario" numero={2} titulo="Destinatário" icone={Building} descricao="Quem recebe a mercadoria"
+        acao={
+          <>
           <select
             value={selectedDestinatarioId}
             onChange={(e) => handleSelectDestinatario(e.target.value)}
-            className={`text-xs bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-slate-700 max-w-[200px]`}
+            className={`text-xs bg-ink-50 border border-ink-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 ${corFocus} font-medium text-ink-700 max-w-[200px]`}
           >
             <option value="">-- Escolher Cliente --</option>
             {clientes.map(c => (
               <option key={c.id} value={c.id}>{c.razaoSocial}</option>
             ))}
           </select>
-        </div>
+          </>
+        }
+      >
 
-        <div className="space-y-2.5 text-xs">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-2.5 text-xs md:grid-cols-2">
           <div>
-            <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
+            <label className="block font-medium text-ink-600 mb-1">CPF / CNPJ <span className="text-danger">*</span></label>
             <CampoCpfCnpj
               value={destinatarioDoc}
               onChange={setDestinatarioDoc}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="00.000.000/0000-00"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Razão Social / Nome *</label>
+            <label className="block font-medium text-ink-600 mb-1">Razão Social / Nome <span className="text-danger">*</span></label>
             <input
               type="text"
               value={destinatarioNome}
               onChange={(e) => setDestinatarioNome(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="Nome ou Razão Social"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Inscrição Estadual</label>
+            <label className="block font-medium text-ink-600 mb-1">Inscrição Estadual</label>
             <input
               type="text"
               value={destinatarioIE}
               onChange={(e) => setDestinatarioIE(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="ISENTO ou número"
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Município</label>
+              <label className="block font-medium text-ink-600 mb-1">Município</label>
               <input
                 type="text"
                 value={destinatarioMun}
                 onChange={(e) => setDestinatarioMun(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="Cidade"
               />
             </div>
             <div>
-              <label className="block font-medium text-slate-600 mb-1">UF</label>
+              <label className="block font-medium text-ink-600 mb-1">UF</label>
               <input
                 type="text"
                 value={destinatarioUf}
                 onChange={(e) => setDestinatarioUf(e.target.value.toUpperCase())}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
                 maxLength={2}
                 placeholder="SP"
               />
             </div>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Logradouro</label>
+            <label className="block font-medium text-ink-600 mb-1">Logradouro</label>
             <input
               type="text"
               value={destinatarioLogradouro}
               onChange={(e) => setDestinatarioLogradouro(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="Rua, Avenida..."
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Número</label>
+              <label className="block font-medium text-ink-600 mb-1">Número</label>
               <input
                 type="text"
                 value={destinatarioNumero}
                 onChange={(e) => setDestinatarioNumero(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="123"
               />
             </div>
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Complemento</label>
+              <label className="block font-medium text-ink-600 mb-1">Complemento</label>
               <input
                 type="text"
                 value={destinatarioComplemento}
                 onChange={(e) => setDestinatarioComplemento(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="Complemento"
               />
             </div>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Bairro</label>
+            <label className="block font-medium text-ink-600 mb-1">Bairro</label>
             <input
               type="text"
               value={destinatarioBairro}
               onChange={(e) => setDestinatarioBairro(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="Bairro"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">CEP</label>
+            <label className="block font-medium text-ink-600 mb-1">CEP</label>
             <input
               type="text"
               value={destinatarioCep}
               onChange={(e) => setDestinatarioCep(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               placeholder="00000-000"
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Telefone</label>
+              <label className="block font-medium text-ink-600 mb-1">Telefone</label>
               <input
                 type="text"
                 value={destinatarioTelefone}
                 onChange={(e) => setDestinatarioTelefone(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="(00) 0000-0000"
               />
             </div>
             <div>
-              <label className="block font-medium text-slate-600 mb-1">E-mail</label>
+              <label className="block font-medium text-ink-600 mb-1">E-mail</label>
               <input
                 type="email"
                 value={destinatarioEmail}
                 onChange={(e) => setDestinatarioEmail(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="email@empresa.com"
               />
             </div>
           </div>
         </div>
-      </div>
+      </SecaoEmissor>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-          <Hash className={`w-4 h-4 ${corText}`} />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">3. Identificação</h3>
-        </div>
-        <div className="space-y-2.5 text-xs">
+      <SecaoEmissor id="identificacao" numero={3} titulo="Identificação" icone={Hash} descricao="Natureza da operação e série">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-2.5 text-xs md:grid-cols-2">
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Série</label>
+              <label className="block font-medium text-ink-600 mb-1">Série</label>
               <input
                 type="number"
                 value={serie}
                 onChange={(e) => setSerie(parseInt(e.target.value) || 900)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 min={900}
                 max={999}
               />
             </div>
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Motivo de Emissão</label>
+              <label className="block font-medium text-ink-600 mb-1">Motivo de Emissão</label>
               <select
                 value={motivoEmissao}
                 onChange={(e) => setMotivoEmissao(e.target.value as MotivoEmissaoNFAe)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
               >
                 <option value="PRODUTOR_RURAL">Produtor Rural</option>
                 <option value="MEI_SEM_IE">MEI sem IE</option>
@@ -871,42 +873,39 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
               </select>
             </div>
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Natureza da Operação</label>
+              <label className="block font-medium text-ink-600 mb-1">Natureza da Operação</label>
               <input
                 type="text"
                 value={naturezaOperacao}
                 onChange={(e) => setNaturezaOperacao(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
                 placeholder="Fornecimento de Energia"
               />
             </div>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Descrição do Motivo</label>
+            <label className="block font-medium text-ink-600 mb-1">Descrição do Motivo</label>
             <textarea
               rows={2}
               value={descricaoMotivo}
               onChange={(e) => setDescricaoMotivo(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
               placeholder="Detalhamento do motivo da emissão avulsa..."
             />
           </div>
         </div>
-      </div>
+      </SecaoEmissor>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-          <div className="flex items-center gap-2">
-            <Package className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">4. Produtos / Insumos ({itens.length})</h3>
-          </div>
+      <SecaoEmissor id="produtos" numero={4} titulo={`Produtos / insumos (${itens.length})`} icone={Package} descricao="Itens da nota com valores e NCM"
+        acao={
+          <>
           <div className="flex items-center gap-2">
             <input
               type="number"
               step="0.001"
               value={quantidadeItem || ''}
               onChange={(e) => setQuantidadeItem(parseFloat(e.target.value) || 1)}
-              className={`w-20 border border-slate-300 rounded-lg p-1 focus:outline-none focus:ring-2 ${corFocus} text-xs`}
+              className={`w-20 border border-ink-300 rounded-lg p-1 focus:outline-none focus:ring-2 ${corFocus} text-xs`}
               placeholder="Qtd"
             />
             <input
@@ -914,13 +913,13 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
               step="0.01"
               value={valorUnitarioItem || ''}
               onChange={(e) => setValorUnitarioItem(parseFloat(e.target.value) || 0)}
-              className={`w-24 border border-slate-300 rounded-lg p-1 focus:outline-none focus:ring-2 ${corFocus} text-xs`}
+              className={`w-24 border border-ink-300 rounded-lg p-1 focus:outline-none focus:ring-2 ${corFocus} text-xs`}
               placeholder="V. Unit"
             />
             <select
               value={selectedProdutoId}
               onChange={(e) => setSelectedProdutoId(e.target.value)}
-              className={`text-xs bg-white border border-slate-300 rounded-lg p-1 focus:outline-none focus:ring-2 ${corFocus} min-w-[150px]`}
+              className={`text-xs bg-white border border-ink-300 rounded-lg p-1 focus:outline-none focus:ring-2 ${corFocus} min-w-[150px]`}
             >
               <option value="">Selecione...</option>
               {produtos.map(p => (
@@ -937,249 +936,196 @@ export const NfaeEmissor: React.FC<NfaeEmissorProps> = ({
               <span>Adicionar</span>
             </button>
           </div>
-        </div>
+          </>
+        }
+      >
 
         {itens.length === 0 ? (
-          <div className="p-6 border-2 border-dashed border-slate-200 rounded-lg text-center bg-slate-50/70">
-            <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-xs font-semibold text-slate-700">Nenhum produto adicionado</p>
-            <p className="text-[11px] text-slate-500">Selecione um produto no botão acima</p>
+          <div className="p-6 border-2 border-dashed border-ink-200 rounded-lg text-center bg-ink-50/70">
+            <Package className="w-8 h-8 text-ink-300 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-ink-700">Nenhum produto adicionado</p>
+            <p className="text-[11px] text-ink-500">Selecione um produto no botão acima</p>
           </div>
         ) : (
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {itens.map((item, idx) => (
-              <div key={item.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <div key={item.id} className="p-3 bg-ink-50 rounded-lg border border-ink-200">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
-                    <div className="font-semibold text-slate-900 text-sm">{item.descricao}</div>
-                    <div className="text-[10px] text-slate-500 font-mono">
+                    <div className="font-semibold text-ink-900 text-sm">{item.descricao}</div>
+                    <div className="text-[10px] text-ink-500 font-mono">
                       Cód: {item.codigo} | NCM: {item.ncm} | UN: {item.unidade}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => removerItem(idx)}
-                    className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded transition-colors cursor-pointer"
+                    className="text-ink-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-4 gap-3 pt-2 border-t border-slate-200 text-xs">
+                <div className="grid grid-cols-4 gap-3 pt-2 border-t border-ink-200 text-xs">
                   <div>
-                    <span className="text-[10px] text-slate-500 block">Qtd:</span>
+                    <span className="text-[10px] text-ink-500 block">Qtd:</span>
                     <input
                       type="number"
                       step="0.001"
                       value={item.quantidade}
                       onChange={(e) => atualizarItem(idx, 'quantidade', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-white border border-slate-300 rounded p-1 font-bold text-slate-900 text-xs"
+                      className="w-full bg-white border border-ink-300 rounded p-1 font-bold text-ink-900 text-xs"
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-500 block">V. Unitário:</span>
+                    <span className="text-[10px] text-ink-500 block">V. Unitário:</span>
                     <input
                       type="number"
                       step="0.01"
                       value={item.valorUnitario}
                       onChange={(e) => atualizarItem(idx, 'valorUnitario', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-white border border-slate-300 rounded p-1 font-bold text-slate-900 text-xs"
+                      className="w-full bg-white border border-ink-300 rounded p-1 font-bold text-ink-900 text-xs"
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-500 block">ICMS:</span>
-                    <span className="font-medium text-amber-700 block mt-1.5">{formatarMoeda(item.valorICMS)}</span>
+                    <span className="text-[10px] text-ink-500 block">ICMS:</span>
+                    <span className="font-medium text-brand-700 block mt-1.5">{formatarMoeda(item.valorICMS)}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-500 block">Total:</span>
-                    <span className="font-bold text-slate-900 block mt-1.5">{formatarMoeda(item.valorTotal)}</span>
+                    <span className="text-[10px] text-ink-500 block">Total:</span>
+                    <span className="font-bold text-ink-900 block mt-1.5">{formatarMoeda(item.valorTotal)}</span>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </SecaoEmissor>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-            <Shield className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">5. Tributação ICMS</h3>
-          </div>
-          <div className="space-y-2.5 text-xs">
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Alíquota ICMS (%)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={aliquotaICMS || ''}
-                onChange={(e) => setAliquotaICMS(parseFloat(e.target.value) || 0)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
-                placeholder="12.00"
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Base de Cálculo (R$)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={baseCalculoICMS || ''}
-                onChange={(e) => setBaseCalculoICMS(parseFloat(e.target.value) || 0)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
-                placeholder="0,00"
-              />
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Valor ICMS (R$)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={valorICMS || ''}
-                onChange={(e) => setValorICMS(parseFloat(e.target.value) || 0)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
-                placeholder="0,00"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-            <Barcode className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">6. Guia DAE</h3>
-          </div>
-          <div className="space-y-2.5 text-xs">
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Número da Guia DAE</label>
-              <input
-                type="text"
-                value={numeroDAE}
-                onChange={(e) => setNumeroDAE(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
-                placeholder="DAE-000000"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Vencimento</label>
-                <input
-                  type="date"
-                  value={dataVencimentoDAE}
-                  onChange={(e) => setDataVencimentoDAE(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-slate-600 mb-1">Valor (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={valorDAE || ''}
-                  onChange={(e) => setValorDAE(parseFloat(e.target.value) || 0)}
-                  className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
-                  placeholder="0,00"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block font-medium text-slate-600 mb-1">Status</label>
-              <select
-                value={statusPagamentoDAE}
-                onChange={(e) => setStatusPagamentoDAE(e.target.value as 'PAGO' | 'AGUARDANDO_PAGAMENTO' | 'ISENTO')}
-                className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
-              >
-                <option value="AGUARDANDO_PAGAMENTO">Aguardando Pagamento</option>
-                <option value="PAGO">Pago</option>
-                <option value="ISENTO">Isento</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-            <Building className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">7. Órgão Emissor</h3>
+      
+      <SecaoEmissor id="icms" numero={5} titulo="Tributação ICMS" icone={Shield} descricao="Base, alíquota e valor do imposto">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-2.5 text-xs md:grid-cols-2">
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Alíquota ICMS (%)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={aliquotaICMS || ''}
+              onChange={(e) => setAliquotaICMS(parseFloat(e.target.value) || 0)}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              placeholder="12.00"
+            />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">SEFAZ Emissora</label>
+            <label className="block font-medium text-ink-600 mb-1">Base de Cálculo (R$)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={baseCalculoICMS || ''}
+              onChange={(e) => setBaseCalculoICMS(parseFloat(e.target.value) || 0)}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
+              placeholder="0,00"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Valor ICMS (R$)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={valorICMS || ''}
+              onChange={(e) => setValorICMS(parseFloat(e.target.value) || 0)}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
+              placeholder="0,00"
+            />
+          </div>
+        </div>
+      </SecaoEmissor>
+
+      <SecaoEmissor id="dae" numero={6} titulo="Guia DAE" icone={Barcode} descricao="Documento de arrecadação vinculado">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-2.5 text-xs md:grid-cols-2">
+          <div>
+            <label className="block font-medium text-ink-600 mb-1">Número da Guia DAE</label>
             <input
               type="text"
-              value={orgaoEmissor}
-              onChange={(e) => setOrgaoEmissor(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
-              placeholder="SEFAZ/SP"
+              value={numeroDAE}
+              onChange={(e) => setNumeroDAE(e.target.value)}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+              placeholder="DAE-000000"
             />
           </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-            <FileText className={`w-4 h-4 ${corText}`} />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">8. Observações</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block font-medium text-ink-600 mb-1">Vencimento</label>
+              <input
+                type="date"
+                value={dataVencimentoDAE}
+                onChange={(e) => setDataVencimentoDAE(e.target.value)}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+              />
+            </div>
+            <div>
+              <label className="block font-medium text-ink-600 mb-1">Valor (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={valorDAE || ''}
+                onChange={(e) => setValorDAE(parseFloat(e.target.value) || 0)}
+                className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} font-bold`}
+                placeholder="0,00"
+              />
+            </div>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Informações Complementares</label>
-            <textarea
-              rows={3}
-              value={observacoes}
-              onChange={(e) => setObservacoes(e.target.value)}
-              className={`w-full border border-slate-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
-              placeholder="Observações complementares..."
-            />
+            <label className="block font-medium text-ink-600 mb-1">Status</label>
+            <select
+              value={statusPagamentoDAE}
+              onChange={(e) => setStatusPagamentoDAE(e.target.value as 'PAGO' | 'AGUARDANDO_PAGAMENTO' | 'ISENTO')}
+              className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+            >
+              <option value="AGUARDANDO_PAGAMENTO">Aguardando Pagamento</option>
+              <option value="PAGO">Pago</option>
+              <option value="ISENTO">Isento</option>
+            </select>
           </div>
         </div>
+      </SecaoEmissor>
 
-      </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-          <DollarSign className={`w-4 h-4 ${corText}`} />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">9. Totais e Ações</h3>
+      
+      <SecaoEmissor id="orgao" numero={7} titulo="Órgão emissor" icone={Building} descricao="Secretaria da Fazenda responsável">
+        <div>
+          <label className="block font-medium text-ink-600 mb-1">SEFAZ Emissora</label>
+          <input
+            type="text"
+            value={orgaoEmissor}
+            onChange={(e) => setOrgaoEmissor(e.target.value)}
+            className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus}`}
+            placeholder="SEFAZ/SP"
+          />
         </div>
+      </SecaoEmissor>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs mb-4">
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-            <span className="text-slate-500 block">Total Produtos</span>
-            <span className="text-lg font-bold text-slate-900">{formatarMoeda(totalProdutos)}</span>
-          </div>
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-            <span className="text-slate-500 block">Total ICMS</span>
-            <span className="text-lg font-bold text-amber-700">{formatarMoeda(itens.reduce((acc, item) => acc + item.valorICMS, 0))}</span>
-          </div>
-          <div className="bg-gradient-to-r from-amber-600 to-amber-700 p-3 rounded-lg text-white">
-            <span className="text-amber-100 block">Total da NFA-e</span>
-            <span className="text-lg font-bold text-white">{formatarMoeda(valorTotalNota)}</span>
-          </div>
+      <SecaoEmissor id="observacoes" numero={8} titulo="Observações" icone={FileText} descricao="Informações complementares da nota">
+        <div>
+          <label className="block font-medium text-ink-600 mb-1">Informações Complementares</label>
+          <textarea
+            rows={3}
+            value={observacoes}
+            onChange={(e) => setObservacoes(e.target.value)}
+            className={`w-full border border-ink-300 rounded-lg p-1.5 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
+            placeholder="Observações complementares..."
+          />
         </div>
+      </SecaoEmissor>
 
-        <button
-          type="button"
-          onClick={handleTransmitirNfae}
-          disabled={isTransmitting || itens.length === 0}
-          id="btn-emitir-nfae"
-          className={`w-full ${corBgButton} disabled:bg-slate-300 text-white text-sm font-bold py-3 px-4 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50`}
-        >
-          {isTransmitting ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span>Transmitindo NFA-e...</span>
-            </>
-          ) : (
-            <>
-              <Send className="w-4 h-4" />
-              <span>EMITIR & AUTORIZAR NFA-e (MODELO 63)</span>
-            </>
-          )}
-        </button>
-      </div>
 
-    </div>
+    </EmissorLayout>
   );
+};
+
+// "Limpar tudo": remonta o formulário (key nova) — todos os campos voltam
+// exatamente aos valores iniciais definidos nos useState acima.
+export const NfaeEmissor: React.FC<NfaeEmissorProps> = (props) => {
+  const [versao, setVersao] = React.useState(0);
+  return <NfaeEmissorConteudo key={versao} {...props} onLimparTudo={() => setVersao((v) => v + 1)} />;
 };

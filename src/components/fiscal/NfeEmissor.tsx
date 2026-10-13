@@ -526,7 +526,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
     } catch (error: unknown) {
       const mensagemErro = getApiErrorMessage(error, 'Erro ao transmitir NF-e');
       setErros([mensagemErro]);
-      toast.showError(`❌ ${mensagemErro}`);
+      toast.showError(`${mensagemErro}`);
     } finally {
       setIsTransmitting(false);
       setShowPreview(false);
@@ -688,11 +688,11 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
       >
         <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 text-xs">
           <div>
-            <label className="block font-medium text-ink-600 mb-1">CPF / CNPJ *</label>
+            <label className="block font-medium text-ink-600 mb-1">CPF / CNPJ <span className="text-danger">*</span></label>
             <CampoCpfCnpj value={destinatarioDoc} onChange={setDestinatarioDoc} className={classeCampo(destinatarioDoc)} placeholder="00.000.000/0000-00" />
           </div>
           <div className="sm:col-span-2 md:col-span-3">
-            <label className="block font-medium text-ink-600 mb-1">Razão Social / Nome *</label>
+            <label className="block font-medium text-ink-600 mb-1">Razão Social / Nome <span className="text-danger">*</span></label>
             <input type="text" value={destinatarioNome} onChange={(e) => setDestinatarioNome(e.target.value)} className={classeCampo(destinatarioNome)} placeholder="Razão Social do destinatário" />
           </div>
 
@@ -714,11 +714,11 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block font-medium text-ink-600 mb-1">Logradouro *</label>
+            <label className="block font-medium text-ink-600 mb-1">Logradouro <span className="text-danger">*</span></label>
             <input type="text" value={destinatarioLogradouro} onChange={(e) => setDestinatarioLogradouro(e.target.value)} className={classeCampo(destinatarioLogradouro)} placeholder="Rua, Avenida..." />
           </div>
           <div>
-            <label className="block font-medium text-ink-600 mb-1">Número *</label>
+            <label className="block font-medium text-ink-600 mb-1">Número <span className="text-danger">*</span></label>
             <input type="text" value={destinatarioNumero} onChange={(e) => setDestinatarioNumero(e.target.value)} className={classeCampo(destinatarioNumero)} placeholder="123" />
           </div>
           <div>
@@ -726,12 +726,12 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             <input type="text" value={destinatarioComplemento} onChange={(e) => setDestinatarioComplemento(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Sala, Bloco..." />
           </div>
           <div>
-            <label className="block font-medium text-ink-600 mb-1">Bairro *</label>
+            <label className="block font-medium text-ink-600 mb-1">Bairro <span className="text-danger">*</span></label>
             <input type="text" value={destinatarioBairro} onChange={(e) => setDestinatarioBairro(e.target.value)} className={classeCampo(destinatarioBairro)} placeholder="Bairro" />
           </div>
 
           <div>
-            <label className="block font-medium text-ink-600 mb-1">Município *</label>
+            <label className="block font-medium text-ink-600 mb-1">Município <span className="text-danger">*</span></label>
             <input type="text" value={destinatarioMun} onChange={(e) => setDestinatarioMun(e.target.value)} className={classeCampo(destinatarioMun)} placeholder="São Paulo" />
           </div>
           <div>
@@ -739,7 +739,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             <input type="text" value={destinatarioMunIbge} onChange={(e) => setDestinatarioMunIbge(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="3550308" />
           </div>
           <div>
-            <label className="block font-medium text-ink-600 mb-1">UF *</label>
+            <label className="block font-medium text-ink-600 mb-1">UF <span className="text-danger">*</span></label>
             <select value={destinatarioUf} onChange={(e) => setDestinatarioUf(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
               {['SP','RJ','MG','ES','PR','SC','RS','BA','PE','CE','GO','DF','MT','MS','PA','AM','RO','AC','RR','AP','TO','MA','PI','PB','RN','AL','SE'].map(u => (
                 <option key={u} value={u}>{u}</option>
@@ -747,7 +747,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             </select>
           </div>
           <div>
-            <label className="block font-medium text-ink-600 mb-1">CEP *</label>
+            <label className="block font-medium text-ink-600 mb-1">CEP <span className="text-danger">*</span></label>
             <input type="text" value={destinatarioCep} onChange={(e) => setDestinatarioCep(e.target.value)} className={classeCampo(destinatarioCep)} placeholder="01000-000" />
           </div>
         </div>

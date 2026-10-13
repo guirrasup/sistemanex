@@ -34,6 +34,7 @@ import { transportadoraService } from '../../services/transportadora.service';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { CabecalhoPagina } from '../ui/CabecalhoPagina';
 
 interface TransportadorasViewProps {
   transportadoras: Transportadora[];
@@ -74,14 +75,14 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState<OrdenacaoDirecao>('asc');
 
   const cor = 'cyan';
-  const corBg = 'bg-cyan-50';
-  const corBorder = 'border-cyan-200';
-  const corText = 'text-cyan-700';
-  const corTextDark = 'text-cyan-800';
-  const corBgButton = 'bg-cyan-600 hover:bg-cyan-700';
-  const corBgBadge = 'bg-cyan-100';
-  const corFocus = 'focus:ring-cyan-500';
-  const corIconBg = 'bg-cyan-600';
+  const corBg = 'bg-brand-50';
+  const corBorder = 'border-brand-200';
+  const corText = 'text-brand-700';
+  const corTextDark = 'text-brand-800';
+  const corBgButton = 'bg-brand-600 hover:bg-brand-700';
+  const corBgBadge = 'bg-brand-100';
+  const corFocus = 'focus:ring-brand-500';
+  const corIconBg = 'bg-brand-600';
 
   // 🔥 CORREÇÃO: Extrair dados corretamente
   const transportadorasList = useMemo(() => {
@@ -216,17 +217,17 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
 
     const val = validarCpfOuCnpj(cnpj);
     if (!val.valido || val.tipo !== 'CNPJ') {
-      toast.showWarning('⚠️ CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.');
+      toast.showWarning('CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.');
       return;
     }
 
     if (!razaoSocial.trim()) {
-      toast.showWarning('⚠️ Razão Social é obrigatória.');
+      toast.showWarning('Razão Social é obrigatória.');
       return;
     }
 
     if (!logradouro.trim() || !bairro.trim() || !nomeMunicipio.trim()) {
-      toast.showWarning('⚠️ Endereço completo é obrigatório.');
+      toast.showWarning('Endereço completo é obrigatório.');
       return;
     }
 
@@ -274,10 +275,10 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
 
       if (editando) {
         await transportadoraService.atualizar(editando.id, dadosTransportadora);
-        toast.showSuccess(`✅ Transportadora "${razaoSocial}" atualizada com sucesso!`);
+        toast.showSuccess(`Transportadora "${razaoSocial}" atualizada com sucesso!`);
       } else {
         await transportadoraService.criar(dadosTransportadora);
-        toast.showSuccess(`✅ Transportadora "${razaoSocial}" criada com sucesso!`);
+        toast.showSuccess(`Transportadora "${razaoSocial}" criada com sucesso!`);
       }
 
       setModalOpen(false);
@@ -287,7 +288,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
       console.error('Erro ao salvar transportadora:', error);
       const mensagem = getApiErrorMessage(error, 'Erro ao salvar transportadora');
       setErro(mensagem);
-      toast.showError(`❌ ${mensagem}`);
+      toast.showError(`${mensagem}`);
     } finally {
       setCarregando(false);
     }
@@ -309,7 +310,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
   const handleConfirmExclusao = async () => {
     const { id, razaoSocial } = confirmModal;
     if (!id) {
-      toast.showError('❌ ID da transportadora não informado');
+      toast.showError('ID da transportadora não informado');
       closeConfirmModal();
       return;
     }
@@ -325,22 +326,22 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
         closeConfirmModal();
         await onTransportadorasChange();
         setModalOpen(false);
-        toast.showSuccess(`✅ Transportadora "${razaoSocial}" excluída com sucesso!`);
+        toast.showSuccess(`Transportadora "${razaoSocial}" excluída com sucesso!`);
       } else {
         const mensagemErro = resultado.erro || 'Erro desconhecido ao excluir';
-        console.error('❌ Erro na exclusão:', mensagemErro);
+        console.error('Erro na exclusão:', mensagemErro);
         closeConfirmModal();
-        toast.showError(`❌ ${mensagemErro}`);
+        toast.showError(`${mensagemErro}`);
         setErro(mensagemErro);
       }
       
     } catch (error: unknown) {
-      console.error('❌ Erro ao excluir transportadora:', error);
+      console.error('Erro ao excluir transportadora:', error);
 
       const mensagemErro = getApiErrorMessage(error, 'Erro ao excluir transportadora');
       
       closeConfirmModal();
-      toast.showError(`❌ ${mensagemErro}`);
+      toast.showError(`${mensagemErro}`);
       setErro(mensagemErro);
       
     } finally {
@@ -393,14 +394,14 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
 
   const IconeOrdenacao = ({ campo }: { campo: OrdenacaoCampo }) => {
     if (ordenacaoCampo !== campo) {
-      return <ArrowUpDown className="w-3 h-3 text-slate-400 ml-1" />;
+      return <ArrowUpDown className="w-3 h-3 text-ink-400 ml-1" />;
     }
     return ordenacaoDirecao === 'asc'
-      ? <ArrowUp className="w-3 h-3 text-cyan-600 ml-1" />
-      : <ArrowDown className="w-3 h-3 text-cyan-600 ml-1" />;
+      ? <ArrowUp className="w-3 h-3 text-brand-600 ml-1" />
+      : <ArrowDown className="w-3 h-3 text-brand-600 ml-1" />;
   };
 
-  const thClass = "py-3 px-4 text-left text-xs font-bold text-slate-700 cursor-pointer hover:text-cyan-600 transition-colors select-none";
+  const thClass = "py-3 px-4 text-left text-xs font-bold text-ink-700 cursor-pointer hover:text-brand-600 transition-colors select-none";
 
   const renderAbaContent = () => {
     switch (abaAtiva) {
@@ -409,11 +410,11 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
               <div className="sm:col-span-3">
-                <label className="block font-semibold text-slate-700 mb-1">Tipo</label>
+                <label className="block font-semibold text-ink-700 mb-1">Tipo</label>
                 <select
                   value={tipoPessoa}
                   onChange={(e) => setTipoPessoa(e.target.value as 'PJ' | 'PF' | 'EXTERIOR')}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
                 >
                   <option value="PJ">Pessoa Jurídica</option>
                   <option value="PF">Pessoa Física</option>
@@ -421,13 +422,13 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                 </select>
               </div>
               <div className="sm:col-span-9">
-                <label className="block font-semibold text-slate-700 mb-1">CNPJ *</label>
+                <label className="block font-semibold text-ink-700 mb-1">CNPJ <span className="text-danger">*</span></label>
                 <input
                   type="text"
                   value={cnpj}
                   onChange={(e) => setCnpj(e.target.value.toUpperCase())}
                   placeholder="00.000.000/0000-00"
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} font-mono`}
                   required
                 />
               </div>
@@ -435,63 +436,63 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Razão Social *</label>
+                <label className="block font-semibold text-ink-700 mb-1">Razão Social <span className="text-danger">*</span></label>
                 <input
                   type="text"
                   value={razaoSocial}
                   onChange={(e) => setRazaoSocial(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   required
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Nome Fantasia</label>
+                <label className="block font-semibold text-ink-700 mb-1">Nome Fantasia</label>
                 <input
                   type="text"
                   value={nomeFantasia}
                   onChange={(e) => setNomeFantasia(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Inscrição Estadual</label>
+                <label className="block font-semibold text-ink-700 mb-1">Inscrição Estadual</label>
                 <input
                   type="text"
                   value={inscricaoEstadual}
                   onChange={(e) => setInscricaoEstadual(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Inscrição Municipal</label>
+                <label className="block font-semibold text-ink-700 mb-1">Inscrição Municipal</label>
                 <input
                   type="text"
                   value={inscricaoMunicipal}
                   onChange={(e) => setInscricaoMunicipal(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">CNAE</label>
+                <label className="block font-semibold text-ink-700 mb-1">CNAE</label>
                 <input
                   type="text"
                   value={cnae}
                   onChange={(e) => setCnae(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Observações</label>
+              <label className="block font-semibold text-ink-700 mb-1">Observações</label>
               <textarea
                 rows={2}
                 value={observacoes}
                 onChange={(e) => setObservacoes(e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} resize-none`}
                 placeholder="Observações adicionais sobre a transportadora..."
               />
             </div>
@@ -503,42 +504,42 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">RNTRC</label>
+                <label className="block font-semibold text-ink-700 mb-1">RNTRC</label>
                 <input
                   type="text"
                   value={rntrc}
                   onChange={(e) => setRntrc(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   placeholder="Registro ANTT"
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">ANTT</label>
+                <label className="block font-semibold text-ink-700 mb-1">ANTT</label>
                 <input
                   type="text"
                   value={antt}
                   onChange={(e) => setAntt(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Inscrição SUFRAMA</label>
+                <label className="block font-semibold text-ink-700 mb-1">Inscrição SUFRAMA</label>
                 <input
                   type="text"
                   value={inscricaoSuframa}
                   onChange={(e) => setInscricaoSuframa(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Regime Tributário</label>
+                <label className="block font-semibold text-ink-700 mb-1">Regime Tributário</label>
                 <select
                   value={regimeTributario}
                   onChange={(e) => setRegimeTributario(e.target.value as 'SIMPLES_NACIONAL' | 'SIMPLES_EXCESSO' | 'NORMAL')}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
                 >
                   <option value="SIMPLES_NACIONAL">Simples Nacional</option>
                   <option value="SIMPLES_EXCESSO">Simples Nacional (Excesso)</option>
@@ -546,11 +547,11 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                 </select>
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Tipo de Transportador</label>
+                <label className="block font-semibold text-ink-700 mb-1">Tipo de Transportador</label>
                 <select
                   value={tipoTransportador}
                   onChange={(e) => setTipoTransportador(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} bg-white`}
                 >
                   <option value="">Selecione...</option>
                   <option value="RODOVIARIO">Rodoviário</option>
@@ -569,52 +570,52 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">E-mail</label>
+                <label className="block font-semibold text-ink-700 mb-1">E-mail</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Telefone</label>
+                <label className="block font-semibold text-ink-700 mb-1">Telefone</label>
                 <input
                   type="text"
                   value={telefone}
                   onChange={(e) => setTelefone(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Celular / WhatsApp</label>
+                <label className="block font-semibold text-ink-700 mb-1">Celular / WhatsApp</label>
                 <input
                   type="text"
                   value={celularWhatsApp}
                   onChange={(e) => setCelularWhatsApp(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Contato</label>
+                <label className="block font-semibold text-ink-700 mb-1">Contato</label>
                 <input
                   type="text"
                   value={contato}
                   onChange={(e) => setContato(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   placeholder="Nome do contato"
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Site</label>
+                <label className="block font-semibold text-ink-700 mb-1">Site</label>
                 <input
                   type="text"
                   value={site}
                   onChange={(e) => setSite(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
             </div>
@@ -626,48 +627,48 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Banco</label>
+                <label className="block font-semibold text-ink-700 mb-1">Banco</label>
                 <input
                   type="text"
                   value={banco}
                   onChange={(e) => setBanco(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Agência</label>
+                <label className="block font-semibold text-ink-700 mb-1">Agência</label>
                 <input
                   type="text"
                   value={agencia}
                   onChange={(e) => setAgencia(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Conta</label>
+                <label className="block font-semibold text-ink-700 mb-1">Conta</label>
                 <input
                   type="text"
                   value={conta}
                   onChange={(e) => setConta(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Operação</label>
+                <label className="block font-semibold text-ink-700 mb-1">Operação</label>
                 <input
                   type="text"
                   value={operacao}
                   onChange={(e) => setOperacao(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Chave Pix</label>
+                <label className="block font-semibold text-ink-700 mb-1">Chave Pix</label>
                 <input
                   type="text"
                   value={chavePix}
                   onChange={(e) => setChavePix(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   placeholder="CPF/CNPJ/E-mail/Telefone"
                 />
               </div>
@@ -680,32 +681,32 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
               <div className="sm:col-span-2">
-                <label className="block font-semibold text-slate-700 mb-1">CEP</label>
+                <label className="block font-semibold text-ink-700 mb-1">CEP</label>
                 <input
                   type="text"
                   value={cep}
                   onChange={(e) => setCep(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   placeholder="00000-000"
                 />
               </div>
               <div className="sm:col-span-7">
-                <label className="block font-semibold text-slate-700 mb-1">Logradouro *</label>
+                <label className="block font-semibold text-ink-700 mb-1">Logradouro <span className="text-danger">*</span></label>
                 <input
                   type="text"
                   value={logradouro}
                   onChange={(e) => setLogradouro(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   required
                 />
               </div>
               <div className="sm:col-span-3">
-                <label className="block font-semibold text-slate-700 mb-1">Número *</label>
+                <label className="block font-semibold text-ink-700 mb-1">Número <span className="text-danger">*</span></label>
                 <input
                   type="text"
                   value={numero}
                   onChange={(e) => setNumero(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   required
                 />
               </div>
@@ -713,53 +714,53 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Bairro *</label>
+                <label className="block font-semibold text-ink-700 mb-1">Bairro <span className="text-danger">*</span></label>
                 <input
                   type="text"
                   value={bairro}
                   onChange={(e) => setBairro(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   required
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Complemento</label>
+                <label className="block font-semibold text-ink-700 mb-1">Complemento</label>
                 <input
                   type="text"
                   value={complemento}
                   onChange={(e) => setComplemento(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Município *</label>
+                <label className="block font-semibold text-ink-700 mb-1">Município <span className="text-danger">*</span></label>
                 <input
                   type="text"
                   value={nomeMunicipio}
                   onChange={(e) => setNomeMunicipio(e.target.value)}
-                  className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   required
                 />
               </div>
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <label className="block font-semibold text-slate-700 mb-1">UF *</label>
+                  <label className="block font-semibold text-ink-700 mb-1">UF <span className="text-danger">*</span></label>
                   <input
                     type="text"
                     maxLength={2}
                     value={uf}
                     onChange={(e) => setUf(e.target.value.toUpperCase())}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus} uppercase`}
                     required
                   />
                 </div>
                 <div className="flex-[2]">
-                  <label className="block font-semibold text-slate-700 mb-1">Cód. IBGE</label>
+                  <label className="block font-semibold text-ink-700 mb-1">Cód. IBGE</label>
                   <input
                     type="text"
                     value={codigoMunicipio}
                     onChange={(e) => setCodigoMunicipio(e.target.value)}
-                    className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
+                    className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 ${corFocus}`}
                   />
                 </div>
               </div>
@@ -773,35 +774,18 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
+    <div className="space-y-4 max-w-[1400px] mx-auto">
       
-      <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
-              <Truck className="w-4 h-4" />
-            </span>
-            <h1 className="text-base font-bold text-slate-900">Transportadoras</h1>
-            <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
-              {transportadorasList.length} cadastros
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Cadastro de transportadoras com dados fiscais e de RNTRC/ANTT.
-          </p>
-        </div>
-
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Cadastro de Transportadoras</div>
-          <div className={`text-[10px] font-medium ${corText}`}>
-            {transportadorasList.filter(t => t.ativo).length} ativas
-          </div>
-        </div>
-      </div>
+      <CabecalhoPagina
+        icone={Truck}
+        titulo="Transportadoras"
+        descricao="Cadastro de transportadoras com dados fiscais e de RNTRC/ANTT."
+        contagem={`${transportadorasList.length} cadastros`}
+      />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex-1 flex items-center bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm">
-          <Search className="w-4 h-4 text-slate-400 ml-1.5" />
+        <div className="flex-1 flex items-center bg-white border border-ink-200 rounded-lg p-1.5 shadow-sm">
+          <Search className="w-4 h-4 text-ink-400 ml-1.5" />
           <input
             type="text"
             placeholder="Buscar por Razão Social, CNPJ ou RNTRC..."
@@ -810,7 +794,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
             className="w-full text-xs px-2 py-1 focus:outline-none"
           />
           {busca && (
-            <button onClick={() => setBusca('')} className="text-xs text-slate-400 hover:text-slate-600 px-2">✕</button>
+            <button onClick={() => setBusca('')} className="text-xs text-ink-400 hover:text-ink-600 px-2"></button>
           )}
         </div>
 
@@ -826,10 +810,10 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+          <table className="w-full text-left text-xs text-ink-600">
+            <thead className="bg-ink-50 text-ink-700 font-bold border-b border-ink-200">
               <tr>
                 <th className={thClass} onClick={() => handleOrdenar('razaoSocial')}>
                   <div className="flex items-center">Razão Social <IconeOrdenacao campo="razaoSocial" /></div>
@@ -850,46 +834,46 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-ink-100">
               {transportadorasOrdenadas.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
-                    <Truck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="font-semibold text-slate-700">Nenhuma transportadora encontrada</p>
-                    <p className="text-xs text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-ink-500">
+                    <Truck className="w-8 h-8 text-ink-300 mx-auto mb-2" />
+                    <p className="font-semibold text-ink-700">Nenhuma transportadora encontrada</p>
+                    <p className="text-xs text-ink-400">
                       {busca ? 'Tente ajustar os termos da busca' : 'Clique em "Nova Transportadora" para começar'}
                     </p>
                   </td>
                 </tr>
               ) : (
                 transportadorasOrdenadas.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900">
+                  <tr key={t.id} className="hover:bg-ink-50/80 transition-colors">
+                    <td className="py-3 px-4 font-bold text-ink-900">
                       <div>{t.razaoSocial}</div>
-                      {t.nomeFantasia && <div className="text-[10px] text-slate-400 font-normal">{t.nomeFantasia}</div>}
-                      {t.rntrc && <div className="text-[10px] text-slate-500 font-mono">RNTRC: {t.rntrc}</div>}
+                      {t.nomeFantasia && <div className="text-[10px] text-ink-400 font-normal">{t.nomeFantasia}</div>}
+                      {t.rntrc && <div className="text-[10px] text-ink-500 font-mono">RNTRC: {t.rntrc}</div>}
                     </td>
                     <td className="py-3 px-4 font-mono">{formatarCpfCnpj(t.cnpj)}</td>
                     <td className="py-3 px-4">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                        t.tipoTransportador === 'RODOVIARIO' ? 'bg-blue-100 text-blue-800' :
-                        t.tipoTransportador === 'FERROVIARIO' ? 'bg-amber-100 text-amber-800' :
-                        t.tipoTransportador === 'AQUAVIARIO' ? 'bg-cyan-100 text-cyan-800' :
-                        t.tipoTransportador === 'AEREO' ? 'bg-purple-100 text-purple-800' :
-                        'bg-slate-100 text-slate-600'
+                        t.tipoTransportador === 'RODOVIARIO' ? 'bg-brand-100 text-brand-800' :
+                        t.tipoTransportador === 'FERROVIARIO' ? 'bg-brand-100 text-brand-800' :
+                        t.tipoTransportador === 'AQUAVIARIO' ? 'bg-brand-100 text-brand-800' :
+                        t.tipoTransportador === 'AEREO' ? 'bg-brand-100 text-brand-800' :
+                        'bg-ink-100 text-ink-600'
                       }`}>
                         {t.tipoTransportador || 'Não informado'}
                       </span>
                     </td>
                     <td className="py-3 px-4">
                       <div>{t.email || '-'}</div>
-                      <div className="text-[10px] text-slate-400">{t.telefone || '-'}</div>
-                      {t.contato && <div className="text-[10px] text-slate-500">Contato: {t.contato}</div>}
+                      <div className="text-[10px] text-ink-400">{t.telefone || '-'}</div>
+                      {t.contato && <div className="text-[10px] text-ink-500">Contato: {t.contato}</div>}
                     </td>
                     <td className="py-3 px-4">{t.endereco.nomeMunicipio} - {t.endereco.uf}</td>
                     <td className="py-3 px-4 text-center">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                        t.ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                        t.ativo ? 'bg-brand-100 text-brand-700' : 'bg-rose-100 text-rose-700'
                       }`}>
                         {t.ativo ? 'Ativo' : 'Inativo'}
                       </span>
@@ -899,7 +883,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                         {pode('transportadoras.editar') && (
                         <button
                           onClick={() => handleOpenEdit(t)}
-                          className="p-1.5 text-slate-500 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-ink-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors cursor-pointer"
                           title="Editar"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -908,7 +892,7 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                         {pode('transportadoras.excluir') && (
                         <button
                           onClick={() => openConfirmModal(t.id, t.razaoSocial)}
-                          className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-ink-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           title="Excluir"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -937,19 +921,19 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
       />
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-ink-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-xl max-w-3xl w-full shadow-xl flex flex-col max-h-[95vh]">
             
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 sticky top-0 bg-white z-10 rounded-t-xl">
+            <div className="flex items-center justify-between p-4 border-b border-ink-200 sticky top-0 bg-white z-10 rounded-t-xl">
               <div className="flex items-center gap-2">
                 <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
                   <Truck className="w-4 h-4" />
                 </span>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-ink-900">
                   {editando ? 'Editar Transportadora' : 'Nova Transportadora'}
                 </h2>
                 {editando && (
-                  <span className="text-xs text-slate-400 font-mono">
+                  <span className="text-xs text-ink-400 font-mono">
                     #{editando.cnpj}
                   </span>
                 )}
@@ -957,20 +941,20 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
               
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                className="p-2 text-ink-400 hover:text-ink-600 hover:bg-ink-100 rounded-lg transition-colors cursor-pointer"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex border-b border-slate-200 px-4 pt-2 gap-1 overflow-x-auto">
+            <div className="flex border-b border-ink-200 px-4 pt-2 gap-1 overflow-x-auto">
               <button
                 onClick={() => setAbaAtiva('dados')}
                 className={`px-4 py-2 text-xs font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${
                   abaAtiva === 'dados'
-                    ? `bg-cyan-50 text-cyan-700 border-b-2 border-cyan-500`
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    ? `bg-brand-50 text-brand-700 border-b-2 border-brand-500`
+                    : 'text-ink-500 hover:text-ink-700 hover:bg-ink-50'
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5" />
@@ -980,8 +964,8 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                 onClick={() => setAbaAtiva('transporte')}
                 className={`px-4 py-2 text-xs font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${
                   abaAtiva === 'transporte'
-                    ? `bg-cyan-50 text-cyan-700 border-b-2 border-cyan-500`
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    ? `bg-brand-50 text-brand-700 border-b-2 border-brand-500`
+                    : 'text-ink-500 hover:text-ink-700 hover:bg-ink-50'
                 }`}
               >
                 <Truck className="w-3.5 h-3.5" />
@@ -991,8 +975,8 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                 onClick={() => setAbaAtiva('contato')}
                 className={`px-4 py-2 text-xs font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${
                   abaAtiva === 'contato'
-                    ? `bg-cyan-50 text-cyan-700 border-b-2 border-cyan-500`
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    ? `bg-brand-50 text-brand-700 border-b-2 border-brand-500`
+                    : 'text-ink-500 hover:text-ink-700 hover:bg-ink-50'
                 }`}
               >
                 <Phone className="w-3.5 h-3.5" />
@@ -1002,8 +986,8 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                 onClick={() => setAbaAtiva('bancario')}
                 className={`px-4 py-2 text-xs font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${
                   abaAtiva === 'bancario'
-                    ? `bg-cyan-50 text-cyan-700 border-b-2 border-cyan-500`
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    ? `bg-brand-50 text-brand-700 border-b-2 border-brand-500`
+                    : 'text-ink-500 hover:text-ink-700 hover:bg-ink-50'
                 }`}
               >
                 <CreditCard className="w-3.5 h-3.5" />
@@ -1013,8 +997,8 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
                 onClick={() => setAbaAtiva('endereco')}
                 className={`px-4 py-2 text-xs font-medium rounded-t-lg transition-colors flex items-center gap-1.5 ${
                   abaAtiva === 'endereco'
-                    ? `bg-cyan-50 text-cyan-700 border-b-2 border-cyan-500`
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    ? `bg-brand-50 text-brand-700 border-b-2 border-brand-500`
+                    : 'text-ink-500 hover:text-ink-700 hover:bg-ink-50'
                 }`}
               >
                 <MapPin className="w-3.5 h-3.5" />
@@ -1033,11 +1017,11 @@ export const TransportadorasView: React.FC<TransportadorasViewProps> = ({
               <form onSubmit={handleSave} className="space-y-4">
                 {renderAbaContent()}
 
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 sticky bottom-0 bg-white py-3">
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-ink-200 sticky bottom-0 bg-white py-3">
                   <button
                     type="button"
                     onClick={() => setModalOpen(false)}
-                    className="px-5 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium text-sm cursor-pointer transition-colors"
+                    className="px-5 py-2 rounded-lg text-ink-600 hover:bg-ink-100 font-medium text-sm cursor-pointer transition-colors"
                     disabled={carregando}
                   >
                     Cancelar

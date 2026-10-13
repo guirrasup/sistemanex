@@ -181,10 +181,11 @@ const DOCUMENTOS_REAIS = [
 
 // Telas reais do app, capturadas com a API simulada e dados fictícios.
 const TELAS_SISTEMA = [
+  { id: 'dashboard', rotulo: 'Painel', img: '/landing/app-dashboard.png' },
+  { id: 'emissor', rotulo: 'Emissão de NF-e', img: '/landing/app-emissor.png' },
+  { id: 'documentos', rotulo: 'Documentos emitidos', img: '/landing/app-documentos.png' },
   { id: 'financeiro', rotulo: 'Financeiro', img: '/landing/app-financeiro.png' },
   { id: 'pix', rotulo: 'Cobrança Pix', img: '/landing/app-pix.png' },
-  { id: 'documentos', rotulo: 'Documentos fiscais', img: '/landing/app-documentos.png' },
-  { id: 'dashboard', rotulo: 'Painel', img: '/landing/app-dashboard.png' },
 ] as const;
 
 const MODULOS_GESTAO = [

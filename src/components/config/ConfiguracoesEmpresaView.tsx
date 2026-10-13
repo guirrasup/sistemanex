@@ -29,7 +29,8 @@ import {
   ShoppingCart,
   Truck,
   Map as MapIcon,
-  FileBadge2
+  FileBadge2,
+  RotateCcw,
 } from 'lucide-react';
 import { usePermissoes } from '../../hooks/usePermissoes';
 import { ConfiguracaoEmpresa } from '../../types/erp';
@@ -42,6 +43,7 @@ import { certificadoService } from '../../services/certificado.service';
 import { empresaService } from '../../services/empresa.service';
 import { useToast } from '../../hooks/useToast';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { CabecalhoPagina } from '../ui/CabecalhoPagina';
 
 interface ConfiguracoesEmpresaViewProps {
   empresa: ConfiguracaoEmpresa;
@@ -220,11 +222,11 @@ const DOCUMENTOS_NUMERACAO: Array<{
   Icone: React.ComponentType<{ className?: string }>;
   corIcone: string;
 }> = [
-  { titulo: 'NFS-e (Padrão Nacional)', rotuloSerie: 'Série DPS', campoNumero: 'proximoNumeroNfse', campoSerie: 'serieNfse', serieMinima: 1, Icone: FileText, corIcone: 'text-blue-600' },
-  { titulo: 'NF-e (Modelo 55)', rotuloSerie: 'Série NF-e', campoNumero: 'proximoNumeroNfe', campoSerie: 'serieNfe', serieMinima: 1, Icone: Receipt, corIcone: 'text-emerald-600' },
-  { titulo: 'NFC-e (Modelo 65)', rotuloSerie: 'Série NFC-e', campoNumero: 'proximoNumeroNfce', campoSerie: 'serieNfce', serieMinima: 1, Icone: ShoppingCart, corIcone: 'text-amber-600' },
-  { titulo: 'CT-e (Modelo 57)', rotuloSerie: 'Série CT-e', campoNumero: 'proximoNumeroCte', campoSerie: 'serieCte', serieMinima: 1, Icone: Truck, corIcone: 'text-cyan-600' },
-  { titulo: 'MDF-e (Modelo 58)', rotuloSerie: 'Série MDF-e', campoNumero: 'proximoNumeroMdfe', campoSerie: 'serieMdfe', serieMinima: 1, Icone: MapIcon, corIcone: 'text-indigo-600' },
+  { titulo: 'NFS-e (Padrão Nacional)', rotuloSerie: 'Série DPS', campoNumero: 'proximoNumeroNfse', campoSerie: 'serieNfse', serieMinima: 1, Icone: FileText, corIcone: 'text-brand-600' },
+  { titulo: 'NF-e (Modelo 55)', rotuloSerie: 'Série NF-e', campoNumero: 'proximoNumeroNfe', campoSerie: 'serieNfe', serieMinima: 1, Icone: Receipt, corIcone: 'text-brand-600' },
+  { titulo: 'NFC-e (Modelo 65)', rotuloSerie: 'Série NFC-e', campoNumero: 'proximoNumeroNfce', campoSerie: 'serieNfce', serieMinima: 1, Icone: ShoppingCart, corIcone: 'text-brand-600' },
+  { titulo: 'CT-e (Modelo 57)', rotuloSerie: 'Série CT-e', campoNumero: 'proximoNumeroCte', campoSerie: 'serieCte', serieMinima: 1, Icone: Truck, corIcone: 'text-brand-600' },
+  { titulo: 'MDF-e (Modelo 58)', rotuloSerie: 'Série MDF-e', campoNumero: 'proximoNumeroMdfe', campoSerie: 'serieMdfe', serieMinima: 1, Icone: MapIcon, corIcone: 'text-brand-600' },
   { titulo: 'NFA-e (Modelo 63)', rotuloSerie: 'Série NFA-e', campoNumero: 'proximoNumeroNfae', campoSerie: 'serieNfae', serieMinima: 1, Icone: FileBadge2, corIcone: 'text-rose-600' },
 ];
 
@@ -238,14 +240,14 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
   const [verificandoCertificado, setVerificandoCertificado] = useState(false);
   // 🔥 COR DO MÓDULO (ARDÓSIA) - MESMA DO HEADER E SIDEBAR
   const cor = 'slate';
-  const corBg = 'bg-slate-50';
-  const corBorder = 'border-slate-200';
-  const corText = 'text-slate-700';
-  const corTextDark = 'text-slate-800';
-  const corBgButton = 'bg-slate-600 hover:bg-slate-700';
-  const corBgBadge = 'bg-slate-100';
-  const corFocus = 'focus:ring-slate-500';
-  const corIconBg = 'bg-slate-600';
+  const corBg = 'bg-ink-50';
+  const corBorder = 'border-ink-200';
+  const corText = 'text-ink-700';
+  const corTextDark = 'text-ink-800';
+  const corBgButton = 'bg-ink-600 hover:bg-ink-700';
+  const corBgBadge = 'bg-ink-100';
+  const corFocus = 'focus:ring-ink-500';
+  const corIconBg = 'bg-ink-600';
 
   // 🔥 GARANTE QUE formData SEMPRE tenha um certificado válido
   const [formData, setFormData] = useState<ConfiguracaoEmpresa>(() => {
@@ -353,7 +355,7 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
     const cnpjLimpo = limparCpfCnpj(formData.cnpj);
     
     if (!validarCNPJ(cnpjLimpo)) {
-      toast.showWarning('⚠️ CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.');
+      toast.showWarning('CNPJ inválido. Confira os 14 caracteres e os dígitos verificadores.');
       return;
     }
 
@@ -391,12 +393,12 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
           },
         }));
 
-        toast.showSuccess('✅ Dados do CNPJ preenchidos! Clique em "Salvar Configurações" para persistir.');
+        toast.showSuccess('Dados do CNPJ preenchidos! Clique em "Salvar Configurações" para persistir.');
       } else {
-        toast.showError(`❌ ${response.erro || 'CNPJ não encontrado'}`);
+        toast.showError(`${response.erro || 'CNPJ não encontrado'}`);
       }
     } catch (err) {
-      toast.showError(`❌ ${getApiErrorMessage(err, 'Erro ao consultar CNPJ. Tente novamente.')}`);
+      toast.showError(`${getApiErrorMessage(err, 'Erro ao consultar CNPJ. Tente novamente.')}`);
     } finally {
       setConsultandoCnpj(false);
     }
@@ -410,7 +412,7 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
     setFeedbackCert(null);
     setSalvo(false);
 
-    toast.showSuccess('✅ Formulário limpo!');
+    toast.showSuccess('Formulário limpo!');
   };
 
   // Consulta o certificado armazenado no servidor (validade/status reais),
@@ -420,14 +422,14 @@ export const ConfiguracoesEmpresaView: React.FC<ConfiguracoesEmpresaViewProps> =
     try {
       const info = await certificadoService.status();
       if (!info) {
-        toast.showWarning('⚠️ Nenhum certificado salvo no servidor. Envie o arquivo .pfx e salve as configurações.');
+        toast.showWarning('Nenhum certificado salvo no servidor. Envie o arquivo .pfx e salve as configurações.');
       } else if (info.status === 'VALIDO') {
-        toast.showSuccess(`✅ Certificado de ${info.nomeTitular} válido no servidor — ${info.diasRestantes} dias restantes.`);
+        toast.showSuccess(`Certificado de ${info.nomeTitular} válido no servidor — ${info.diasRestantes} dias restantes.`);
       } else {
-        toast.showError(`❌ Certificado de ${info.nomeTitular} com status ${info.status}. Renove o certificado.`);
+        toast.showError(`Certificado de ${info.nomeTitular} com status ${info.status}. Renove o certificado.`);
       }
     } catch (err) {
-      toast.showError(`❌ ${getApiErrorMessage(err, 'Erro ao verificar o certificado.')}`);
+      toast.showError(`${getApiErrorMessage(err, 'Erro ao verificar o certificado.')}`);
     } finally {
       setVerificandoCertificado(false);
     }
@@ -538,7 +540,7 @@ const handleCarregarCertificadoEPreencher = async () => {
 
     setFeedbackCert({
       tipo: 'sucesso',
-      mensagem: `✅ Certificado ${arquivoCertificado.name} validado e enviado ao servidor com sucesso! Dados cadastrais preenchidos automaticamente a partir do CNPJ — revise e clique em "Salvar Configurações" para persistir.`,
+      mensagem: `Certificado ${arquivoCertificado.name} validado e enviado ao servidor com sucesso! Dados cadastrais preenchidos automaticamente a partir do CNPJ — revise e clique em "Salvar Configurações" para persistir.`,
     });
   } catch (err: unknown) {
     setFeedbackCert({
@@ -554,7 +556,7 @@ const handleCarregarCertificadoEPreencher = async () => {
   const handleSalvar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validarCNPJ(formData.cnpj)) {
-      toast.showWarning('⚠️ CNPJ da empresa inválido. Confira os 14 caracteres e os dígitos verificadores.');
+      toast.showWarning('CNPJ da empresa inválido. Confira os 14 caracteres e os dígitos verificadores.');
       return;
     }
     setSalvando(true);
@@ -604,57 +606,38 @@ const handleCarregarCertificadoEPreencher = async () => {
     cnpjBaseCertificado.length === 8 &&
     cnpjBaseEmpresa !== cnpjBaseCertificado;
 
+  // Dias até o vencimento calculados pela data (o diasRestantes gravado no banco
+  // é do momento do upload e fica desatualizado) — mesmo cálculo do selo do Header.
+  const diasCertificado = (() => {
+    const fim = formData.certificado?.dataValidadeFim;
+    const t = fim ? new Date(fim as unknown as string).getTime() : NaN;
+    return Number.isNaN(t) ? formData.certificado?.diasRestantes ?? 0 : Math.ceil((t - Date.now()) / 86_400_000);
+  })();
+
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-12">
       
-      <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
-              <Building2 className="w-4 h-4" />
-            </span>
-            <h1 className="text-base font-bold text-slate-900">
-              Dados da Empresa & Certificado A1
-            </h1>
-            <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
-              Configurações
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Cadastre os dados cadastrais, endereço do emitente e gerencie o Certificado Digital ICP-Brasil.
-          </p>
-        </div>
+      <CabecalhoPagina
+        icone={Building2}
+        titulo="Dados da Empresa & Certificado A1"
+        descricao="Cadastre os dados cadastrais, endereço do emitente e gerencie o Certificado Digital ICP-Brasil."
+      />
 
-        <div className="text-right">
-          {carregandoDoServidor ? (
-            <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5 justify-end">
-              <RefreshCw className="w-3 h-3 animate-spin" />
-              <span>Carregando dados do servidor...</span>
-            </div>
-          ) : (
-            <>
-              <div className="text-xs font-semibold text-slate-700">Configurações</div>
-              <div className={`text-[10px] font-medium ${corText}`}>Certificado A1 • ICP-Brasil</div>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-5 sm:p-6 text-white shadow-md border border-slate-700/80 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-ink-800 to-ink-900 rounded-2xl p-5 sm:p-6 text-white shadow-md border border-ink-700/80 relative overflow-hidden">
         
-        <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-slate-500/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-ink-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
         <div className="relative z-10 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-700/60 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ink-700/60 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-slate-600/30 border border-slate-500/30 flex items-center justify-center text-slate-300">
+              <div className="w-9 h-9 rounded-xl bg-ink-600/30 border border-ink-500/30 flex items-center justify-center text-ink-300">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
                 <h2 className="text-sm sm:text-base font-bold text-white tracking-wide">
                   Certificado Digital A1 (.pfx / .p12)
                 </h2>
-                <p className="text-xs text-slate-300">
+                <p className="text-xs text-ink-300">
                   Carregue seu certificado ICP-Brasil para assinatura digital automática
                 </p>
               </div>
@@ -683,36 +666,36 @@ const handleCarregarCertificadoEPreencher = async () => {
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
                   isDragOver 
-                    ? 'border-slate-400 bg-slate-700/40 scale-[0.99]' 
+                    ? 'border-ink-400 bg-ink-700/40 scale-[0.99]' 
                     : arquivoCertificado 
-                      ? 'border-emerald-400/80 bg-slate-700/30' 
-                      : 'border-slate-600/60 hover:border-slate-500 bg-slate-800/40 hover:bg-slate-700/30'
+                      ? 'border-brand-400/80 bg-ink-700/30' 
+                      : 'border-ink-600/60 hover:border-ink-500 bg-ink-800/40 hover:bg-ink-700/30'
                 }`}
               >
                 {arquivoCertificado ? (
                   <div className="flex items-center gap-3 text-left w-full">
-                    <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-brand-500/20 text-brand-300 flex items-center justify-center shrink-0">
                       <FileCheck className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-bold text-white truncate">
                         {arquivoCertificado.name}
                       </div>
-                      <div className="text-[11px] text-emerald-300">
+                      <div className="text-[11px] text-brand-300">
                         {(arquivoCertificado.size / 1024).toFixed(1)} KB • Pronto para leitura
                       </div>
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-300 hover:text-white underline shrink-0">
+                    <span className="text-[11px] font-semibold text-ink-300 hover:text-white underline shrink-0">
                       Trocar
                     </span>
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <UploadCloud className="w-7 h-7 text-slate-300 mx-auto" />
+                    <UploadCloud className="w-7 h-7 text-ink-300 mx-auto" />
                     <div className="text-xs font-semibold text-white">
-                      Arraste o arquivo ou <span className="text-slate-300 underline">clique para selecionar</span>
+                      Arraste o arquivo ou <span className="text-ink-300 underline">clique para selecionar</span>
                     </div>
-                    <div className="text-[10px] text-slate-400/70">
+                    <div className="text-[10px] text-ink-400/70">
                       .pfx .p12 .cer .crt • ICP-Brasil (e-CNPJ / e-CPF A1)
                     </div>
                   </div>
@@ -722,11 +705,11 @@ const handleCarregarCertificadoEPreencher = async () => {
 
             <div className="lg:col-span-6 space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-ink-300 mb-1">
                   Senha do Certificado *
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-ink-400">
                     <KeyRound className="w-4 h-4" />
                   </div>
                   <input
@@ -734,12 +717,12 @@ const handleCarregarCertificadoEPreencher = async () => {
                     placeholder="Digite a senha do certificado..."
                     value={senhaCertificado}
                     onChange={(e) => setSenhaCertificado(e.target.value)}
-                    className="w-full bg-slate-800/60 border border-slate-700/80 rounded-lg pl-9 pr-10 py-2 text-xs text-white placeholder-slate-400/50 focus:outline-none focus:border-slate-500"
+                    className="w-full bg-ink-800/60 border border-ink-700/80 rounded-lg pl-9 pr-10 py-2 text-xs text-white placeholder-ink-400/50 focus:outline-none focus:border-ink-500"
                   />
                   <button
                     type="button"
                     onClick={() => setMostrarSenha(!mostrarSenha)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white cursor-pointer"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-ink-400 hover:text-white cursor-pointer"
                   >
                     {mostrarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -751,7 +734,7 @@ const handleCarregarCertificadoEPreencher = async () => {
                 type="button"
                 onClick={handleCarregarCertificadoEPreencher}
                 disabled={isProcessandoCert || isEnviandoCertServidor || !arquivoCertificado}
-                className="w-full bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700/50 disabled:cursor-not-allowed text-white font-bold text-xs py-2.5 px-4 rounded-lg shadow-sm transition-all flex items-center justify-center gap-2"
+                className="w-full bg-ink-600 hover:bg-ink-500 disabled:bg-ink-700/50 disabled:cursor-not-allowed text-white font-bold text-xs py-2.5 px-4 rounded-lg shadow-sm transition-all flex items-center justify-center gap-2"
               >
                 {isProcessandoCert ? (
                   <>
@@ -771,7 +754,7 @@ const handleCarregarCertificadoEPreencher = async () => {
                 )}
               </button>
               )}
-              <p className="text-[10px] text-slate-400/80 leading-relaxed">
+              <p className="text-[10px] text-ink-400/80 leading-relaxed">
                 O certificado é criptografado (AES-256-GCM) e armazenado no servidor —
                 é ele que assina e transmite os documentos fiscais à SEFAZ.
               </p>
@@ -782,15 +765,15 @@ const handleCarregarCertificadoEPreencher = async () => {
           {feedbackCert && (
             <div className={`p-3 rounded-lg text-xs flex items-start gap-2.5 ${
               feedbackCert.tipo === 'sucesso' 
-                ? 'bg-emerald-900/60 border border-emerald-500 text-emerald-100' 
+                ? 'bg-brand-900/60 border border-brand-500 text-brand-100' 
                 : feedbackCert.tipo === 'info'
-                ? 'bg-slate-700/60 border border-slate-500 text-slate-100'
+                ? 'bg-ink-700/60 border border-ink-500 text-ink-100'
                 : 'bg-rose-900/60 border border-rose-500 text-rose-100'
             }`}>
               {feedbackCert.tipo === 'sucesso' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
               ) : feedbackCert.tipo === 'info' ? (
-                <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                <Info className="w-4 h-4 text-ink-400 shrink-0 mt-0.5" />
               ) : (
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               )}
@@ -801,10 +784,10 @@ const handleCarregarCertificadoEPreencher = async () => {
           )}
 
           {cnpjDivergeDoCertificado && (
-            <div className="p-3 rounded-lg text-xs flex items-start gap-2.5 bg-amber-900/60 border border-amber-500 text-amber-100">
-              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="p-3 rounded-lg text-xs flex items-start gap-2.5 bg-brand-900/60 border border-brand-500 text-brand-100">
+              <AlertCircle className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
               <div className="flex-1 font-medium leading-relaxed">
-                ⚠️ O CNPJ cadastrado ({formatarCpfCnpj(formData.cnpj)}) é diferente do CNPJ do
+                O CNPJ cadastrado ({formatarCpfCnpj(formData.cnpj)}) é diferente do CNPJ do
                 certificado digital carregado ({formatarCpfCnpj(formData.certificado?.cnpjCpf || '')}).
                 A SEFAZ rejeita qualquer emissão nesse estado ("CNPJ-Base do Emitente difere do
                 CNPJ-Base do Certificado Digital"). Carregue o certificado correto para esta empresa,
@@ -818,15 +801,15 @@ const handleCarregarCertificadoEPreencher = async () => {
 
       <form onSubmit={handleSalvar} className="space-y-6">
         
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="bg-white rounded-xl border border-ink-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-ink-100 pb-3">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-slate-600" />
+              <ShieldCheck className="w-5 h-5 text-ink-600" />
               <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase">
+                <h3 className="text-xs sm:text-sm font-bold text-ink-900 uppercase">
                   1. Status do Certificado Digital
                 </h3>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-ink-500">
                   Certificado utilizado para assinatura digital de XMLs (NF-e e NFS-e)
                 </p>
               </div>
@@ -834,14 +817,14 @@ const handleCarregarCertificadoEPreencher = async () => {
 
             <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${
               formData.certificado?.status === 'VALIDO'
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                ? 'bg-brand-50 text-brand-800 border-brand-200'
                 : formData.certificado?.status === 'NAO_CONFIGURADO'
-                ? 'bg-slate-50 text-slate-600 border-slate-200'
+                ? 'bg-ink-50 text-ink-600 border-ink-200'
                 : 'bg-rose-50 text-rose-800 border-rose-200'
             }`}>
               <span className={`w-2 h-2 rounded-full ${
-                formData.certificado?.status === 'VALIDO' ? 'bg-emerald-600 animate-pulse' : 
-                formData.certificado?.status === 'NAO_CONFIGURADO' ? 'bg-slate-400' : 'bg-rose-600'
+                formData.certificado?.status === 'VALIDO' ? 'bg-brand-600 animate-pulse' : 
+                formData.certificado?.status === 'NAO_CONFIGURADO' ? 'bg-ink-400' : 'bg-rose-600'
               }`}></span>
               <span>
                 {formData.certificado?.status === 'VALIDO' ? 'Válido' : 
@@ -851,53 +834,53 @@ const handleCarregarCertificadoEPreencher = async () => {
           </div>
 
           {formData.certificado && formData.certificado.status !== 'NAO_CONFIGURADO' && (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-ink-50 p-4 rounded-xl border border-ink-200/80">
               
               <div className="md:col-span-8 space-y-2">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-ink-400 uppercase tracking-wider block">
                     TITULAR DO CERTIFICADO
                   </span>
-                  <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate">
+                  <span className="text-xs sm:text-sm font-bold text-ink-900 block truncate">
                     {formData.certificado.nomeTitular || 'Não informado'}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
                   <div>
-                    <span className="text-slate-500 text-[11px] block">Autoridade Emissora:</span>
-                    <span className="font-semibold text-slate-800">{formData.certificado.emissora || 'Não informada'}</span>
+                    <span className="text-ink-500 text-[11px] block">Autoridade Emissora:</span>
+                    <span className="font-semibold text-ink-800">{formData.certificado.emissora || 'Não informada'}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[11px] block">Validade:</span>
-                    <span className="font-semibold text-slate-800">
+                    <span className="text-ink-500 text-[11px] block">Validade:</span>
+                    <span className="font-semibold text-ink-800">
                       {formatarData(formData.certificado.dataValidadeInicio)} até {formatarData(formData.certificado.dataValidadeFim)}
                     </span>
                   </div>
                 </div>
 
                 {formData.certificado.arquivoCarregadoNome && (
-                  <div className="text-[11px] text-slate-500 pt-1 flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-slate-400" />
+                  <div className="text-[11px] text-ink-500 pt-1 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-ink-400" />
                     <span>Arquivo: <strong>{formData.certificado.arquivoCarregadoNome}</strong></span>
                   </div>
                 )}
               </div>
 
-              <div className="md:col-span-4 flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-200 md:pl-4 pt-3 md:pt-0">
+              <div className="md:col-span-4 flex flex-col justify-between border-t md:border-t-0 md:border-l border-ink-200 md:pl-4 pt-3 md:pt-0">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-ink-400 uppercase tracking-wider block">
                     DIAS RESTANTES
                   </span>
                   <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className={`text-2xl font-black ${
-                      formData.certificado.diasRestantes > 60 ? 'text-emerald-600' :
-                      formData.certificado.diasRestantes > 30 ? 'text-amber-600' :
-                      'text-rose-600'
+                    <span className={`font-display text-2xl font-bold tabular-nums ${
+                      diasCertificado > 30 ? 'text-brand-700' :
+                      diasCertificado > 0 ? 'text-warning' :
+                      'text-danger'
                     }`}>
-                      {formData.certificado.diasRestantes}
+                      {diasCertificado}
                     </span>
-                    <span className="text-xs text-slate-600 font-medium">dias</span>
+                    <span className="text-xs text-ink-600 font-medium">dias</span>
                   </div>
                 </div>
 
@@ -906,11 +889,11 @@ const handleCarregarCertificadoEPreencher = async () => {
                     type="button"
                     onClick={handleVerificarCertificado}
                     disabled={verificandoCertificado}
-                    className="w-full bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-medium px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full bg-white hover:bg-ink-50 border border-ink-300 text-ink-700 font-medium px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {verificandoCertificado
-                      ? <RefreshCw className="w-3.5 h-3.5 text-slate-600 animate-spin" />
-                      : <Lock className="w-3.5 h-3.5 text-slate-600" />}
+                      ? <RefreshCw className="w-3.5 h-3.5 text-ink-600 animate-spin" />
+                      : <Lock className="w-3.5 h-3.5 text-ink-600" />}
                     <span>{verificandoCertificado ? 'Verificando...' : 'Verificar no Servidor'}</span>
                   </button>
                 </div>
@@ -920,14 +903,14 @@ const handleCarregarCertificadoEPreencher = async () => {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-            <Building2 className="w-5 h-5 text-slate-600" />
+        <div className="bg-white rounded-xl border border-ink-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-ink-100 pb-3">
+            <Building2 className="w-5 h-5 text-ink-600" />
             <div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase">
+              <h3 className="text-xs sm:text-sm font-bold text-ink-900 uppercase">
                 2. Dados Cadastrais
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-ink-500">
                 Informações utilizadas no cabeçalho dos documentos fiscais
               </p>
             </div>
@@ -937,12 +920,12 @@ const handleCarregarCertificadoEPreencher = async () => {
             
             <div className="sm:col-span-4 flex items-end gap-2">
               <div className="flex-1">
-                <label className="block font-semibold text-slate-700 mb-1">CNPJ *</label>
+                <label className="block font-semibold text-ink-700 mb-1">CNPJ <span className="text-danger">*</span></label>
                 <input
                   type="text"
                   value={formData.cnpj}
                   onChange={(e) => handleChange('cnpj', e.target.value.toUpperCase())}
-                  className={`w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 bg-slate-50/50 focus:outline-none ${corFocus}`}
+                  className={`w-full border border-ink-300 rounded-lg p-2 font-mono font-bold text-ink-900 bg-ink-50/50 focus:outline-none ${corFocus}`}
                   placeholder="00.000.000/0000-00"
                   required
                 />
@@ -951,7 +934,7 @@ const handleCarregarCertificadoEPreencher = async () => {
                 type="button"
                 onClick={handleConsultarCnpj}
                 disabled={consultandoCnpj || limparCpfCnpj(formData.cnpj).length < 14}
-                className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer h-[42px]"
+                className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-ink-300 bg-white p-2 px-3 text-xs font-medium text-ink-700 transition-colors hover:border-ink-400 hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
                 title="Consultar dados oficiais na Receita Federal"
               >
                 {consultandoCnpj ? (
@@ -964,68 +947,68 @@ const handleCarregarCertificadoEPreencher = async () => {
             </div>
 
             <div className="sm:col-span-8">
-              <label className="block font-semibold text-slate-700 mb-1">Razão Social *</label>
+              <label className="block font-semibold text-ink-700 mb-1">Razão Social <span className="text-danger">*</span></label>
               <input
                 type="text"
                 value={formData.razaoSocial}
                 onChange={(e) => handleChange('razaoSocial', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 font-bold text-ink-900 focus:outline-none ${corFocus}`}
                 placeholder="Razão Social da Empresa"
                 required
               />
             </div>
 
             <div className="sm:col-span-6">
-              <label className="block font-medium text-slate-600 mb-1">Nome Fantasia</label>
+              <label className="block font-medium text-ink-600 mb-1">Nome Fantasia</label>
               <input
                 type="text"
                 value={formData.nomeFantasia}
                 onChange={(e) => handleChange('nomeFantasia', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
                 placeholder="Nome Fantasia (opcional)"
               />
             </div>
 
             <div className="sm:col-span-3">
-              <label className="block font-medium text-slate-600 mb-1">Inscrição Municipal *</label>
+              <label className="block font-medium text-ink-600 mb-1">Inscrição Municipal <span className="text-danger">*</span></label>
               <input
                 type="text"
                 value={formData.inscricaoMunicipal}
                 onChange={(e) => handleChange('inscricaoMunicipal', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
                 placeholder="Inscrição Municipal"
                 required
               />
             </div>
 
             <div className="sm:col-span-3">
-              <label className="block font-medium text-slate-600 mb-1">Inscrição Estadual</label>
+              <label className="block font-medium text-ink-600 mb-1">Inscrição Estadual</label>
               <input
                 type="text"
                 value={formData.inscricaoEstadual}
                 onChange={(e) => handleChange('inscricaoEstadual', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
                 placeholder="Inscrição Estadual"
               />
             </div>
 
             <div className="sm:col-span-6">
-              <label className="block font-medium text-slate-600 mb-1">CNAE Principal</label>
+              <label className="block font-medium text-ink-600 mb-1">CNAE Principal</label>
               <input
                 type="text"
                 value={formData.cnae || ''}
                 onChange={(e) => handleChange('cnae', e.target.value)}
                 placeholder="Ex: 6202-3/00 - Desenvolvimento de Software"
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
               />
             </div>
 
             <div className="sm:col-span-4">
-              <label className="block font-medium text-slate-600 mb-1">Regime Tributário</label>
+              <label className="block font-medium text-ink-600 mb-1">Regime Tributário</label>
               <select
                 value={formData.regimeTributario}
                 onChange={(e) => handleChange('regimeTributario', parseInt(e.target.value) as 1 | 2 | 3)}
-                className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-medium text-slate-800 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 bg-white font-medium text-ink-800 focus:outline-none ${corFocus}`}
               >
                 <option value={1}>1 - Simples Nacional</option>
                 <option value={2}>2 - Simples Nacional - Excesso</option>
@@ -1034,19 +1017,19 @@ const handleCarregarCertificadoEPreencher = async () => {
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block font-medium text-slate-600 mb-1">Alíq. Simples (%)</label>
+              <label className="block font-medium text-ink-600 mb-1">Alíq. Simples (%)</label>
               <input
                 type="number"
                 step="0.01"
                 value={formData.aliquotaSimplesNacional || 6.0}
                 onChange={(e) => handleChange('aliquotaSimplesNacional', parseFloat(e.target.value) || 0)}
-                className={`w-full border border-slate-300 rounded-lg p-2 text-right font-semibold focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 text-right font-semibold focus:outline-none ${corFocus}`}
               />
             </div>
 
             <div className="sm:col-span-6">
-              <label className="block font-medium text-slate-600 mb-1 flex items-center gap-1.5">
-                <QrCode className="w-3.5 h-3.5 text-slate-600" />
+              <label className="block font-medium text-ink-600 mb-1 flex items-center gap-1.5">
+                <QrCode className="w-3.5 h-3.5 text-ink-600" />
                 <span>Chave Pix Padrão</span>
               </label>
               <input
@@ -1054,12 +1037,12 @@ const handleCarregarCertificadoEPreencher = async () => {
                 value={formData.chavePixPadrao || ''}
                 onChange={(e) => handleChange('chavePixPadrao', e.target.value)}
                 placeholder="CNPJ, E-mail, Celular ou Chave Aleatória"
-                className={`w-full border border-slate-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
               />
             </div>
 
             <div className="sm:col-span-6">
-              <label className="block font-medium text-slate-600 mb-1">Ambiente de Emissão SEFAZ</label>
+              <label className="block font-medium text-ink-600 mb-1">Ambiente de Emissão SEFAZ</label>
               <div className="flex items-center gap-4 pt-1.5">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -1067,9 +1050,9 @@ const handleCarregarCertificadoEPreencher = async () => {
                     name="ambienteEmissao"
                     checked={formData.ambienteEmissao === 1}
                     onChange={() => handleChange('ambienteEmissao', 1)}
-                    className="text-slate-600 focus:ring-slate-500"
+                    className="text-ink-600 focus:ring-ink-500"
                   />
-                  <span className="font-semibold text-emerald-700">Produção</span>
+                  <span className="font-semibold text-brand-700">Produção</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -1077,9 +1060,9 @@ const handleCarregarCertificadoEPreencher = async () => {
                     name="ambienteEmissao"
                     checked={formData.ambienteEmissao === 2}
                     onChange={() => handleChange('ambienteEmissao', 2)}
-                    className="text-slate-600 focus:ring-slate-500"
+                    className="text-ink-600 focus:ring-ink-500"
                   />
-                  <span className="text-amber-700">Homologação</span>
+                  <span className="text-brand-700">Homologação</span>
                 </label>
               </div>
             </div>
@@ -1087,14 +1070,14 @@ const handleCarregarCertificadoEPreencher = async () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-            <MapPin className="w-5 h-5 text-slate-600" />
+        <div className="bg-white rounded-xl border border-ink-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-ink-100 pb-3">
+            <MapPin className="w-5 h-5 text-ink-600" />
             <div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase">
+              <h3 className="text-xs sm:text-sm font-bold text-ink-900 uppercase">
                 3. Endereço do Estabelecimento
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-ink-500">
                 Endereço que constará no DANFE e documentos fiscais
               </p>
             </div>
@@ -1103,119 +1086,119 @@ const handleCarregarCertificadoEPreencher = async () => {
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
             
             <div className="sm:col-span-3">
-              <label className="block font-medium text-slate-600 mb-1">CEP *</label>
+              <label className="block font-medium text-ink-600 mb-1">CEP <span className="text-danger">*</span></label>
               <input
                 type="text"
                 value={formData.endereco.cep}
                 onChange={(e) => handleEnderecoChange('cep', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
                 placeholder="00000-000"
                 required
               />
             </div>
 
             <div className="sm:col-span-7">
-              <label className="block font-medium text-slate-600 mb-1">Logradouro *</label>
+              <label className="block font-medium text-ink-600 mb-1">Logradouro <span className="text-danger">*</span></label>
               <input
                 type="text"
                 value={formData.endereco.logradouro}
                 onChange={(e) => handleEnderecoChange('logradouro', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
                 placeholder="Rua, Avenida..."
                 required
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block font-medium text-slate-600 mb-1">Número *</label>
+              <label className="block font-medium text-ink-600 mb-1">Número <span className="text-danger">*</span></label>
               <input
                 type="text"
                 value={formData.endereco.numero}
                 onChange={(e) => handleEnderecoChange('numero', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
                 placeholder="Nº"
                 required
               />
             </div>
 
             <div className="sm:col-span-4">
-              <label className="block font-medium text-slate-600 mb-1">Complemento</label>
+              <label className="block font-medium text-ink-600 mb-1">Complemento</label>
               <input
                 type="text"
                 value={formData.endereco.complemento || ''}
                 onChange={(e) => handleEnderecoChange('complemento', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
                 placeholder="Complemento"
               />
             </div>
 
             <div className="sm:col-span-4">
-              <label className="block font-medium text-slate-600 mb-1">Bairro *</label>
+              <label className="block font-medium text-ink-600 mb-1">Bairro <span className="text-danger">*</span></label>
               <input
                 type="text"
                 value={formData.endereco.bairro}
                 onChange={(e) => handleEnderecoChange('bairro', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
                 placeholder="Bairro"
                 required
               />
             </div>
 
             <div className="sm:col-span-3">
-              <label className="block font-medium text-slate-600 mb-1">Município *</label>
+              <label className="block font-medium text-ink-600 mb-1">Município <span className="text-danger">*</span></label>
               <input
                 type="text"
                 value={formData.endereco.nomeMunicipio}
                 onChange={(e) => handleEnderecoChange('nomeMunicipio', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
                 placeholder="Município"
                 required
               />
             </div>
 
             <div className="sm:col-span-1">
-              <label className="block font-medium text-slate-600 mb-1">UF *</label>
+              <label className="block font-medium text-ink-600 mb-1">UF <span className="text-danger">*</span></label>
               <input
                 type="text"
                 maxLength={2}
                 value={formData.endereco.uf}
                 onChange={(e) => handleEnderecoChange('uf', e.target.value.toUpperCase())}
-                className={`w-full border border-slate-300 rounded-lg p-2 text-center uppercase font-bold focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 text-center uppercase font-bold focus:outline-none ${corFocus}`}
                 placeholder="SP"
                 required
               />
             </div>
 
             <div className="sm:col-span-4">
-              <label className="block font-medium text-slate-600 mb-1">Cód. Município IBGE *</label>
+              <label className="block font-medium text-ink-600 mb-1">Cód. Município IBGE <span className="text-danger">*</span></label>
               <input
                 type="text"
                 value={formData.endereco.codigoMunicipio}
                 onChange={(e) => handleEnderecoChange('codigoMunicipio', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
                 placeholder="3550308"
                 required
               />
             </div>
 
             <div className="sm:col-span-4">
-              <label className="block font-medium text-slate-600 mb-1">Telefone</label>
+              <label className="block font-medium text-ink-600 mb-1">Telefone</label>
               <input
                 type="text"
                 value={formData.endereco.telefone || ''}
                 onChange={(e) => handleEnderecoChange('telefone', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
                 placeholder="(00) 0000-0000"
               />
             </div>
 
             <div className="sm:col-span-4">
-              <label className="block font-medium text-slate-600 mb-1">E-mail Fiscal</label>
+              <label className="block font-medium text-ink-600 mb-1">E-mail Fiscal</label>
               <input
                 type="email"
                 value={formData.endereco.email || ''}
                 onChange={(e) => handleEnderecoChange('email', e.target.value)}
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
                 placeholder="fiscal@empresa.com.br"
               />
             </div>
@@ -1223,14 +1206,14 @@ const handleCarregarCertificadoEPreencher = async () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-            <Settings className="w-5 h-5 text-slate-600" />
+        <div className="bg-white rounded-xl border border-ink-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-ink-100 pb-3">
+            <Settings className="w-5 h-5 text-ink-600" />
             <div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase">
+              <h3 className="text-xs sm:text-sm font-bold text-ink-900 uppercase">
                 4. Séries e Numeração Fiscal
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-ink-500">
                 Controle sequencial contínuo por modelo de documento
               </p>
             </div>
@@ -1238,50 +1221,50 @@ const handleCarregarCertificadoEPreencher = async () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {DOCUMENTOS_NUMERACAO.map(({ titulo, rotuloSerie, campoNumero, campoSerie, serieMinima, Icone, corIcone }) => (
-              <div key={campoNumero} className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
+              <div key={campoNumero} className="p-4 bg-ink-50 rounded-xl border border-ink-200/80 space-y-3">
                 <div className="flex items-center gap-2">
                   <Icone className={`w-4 h-4 ${corIcone}`} />
-                  <span className="font-bold text-slate-900 text-xs uppercase">{titulo}</span>
+                  <span className="font-bold text-ink-900 text-xs uppercase">{titulo}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <label className="block text-slate-600 mb-1">Próximo Número:</label>
+                    <label className="block text-ink-600 mb-1">Próximo Número:</label>
                     <input
                       type="number"
                       min={1}
                       value={formData[campoNumero] ?? 1}
                       onChange={(e) => handleChange(campoNumero, parseInt(e.target.value) || 1)}
-                      className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
+                      className={`w-full border border-ink-300 rounded-lg p-2 bg-white font-bold text-right text-ink-900 focus:outline-none ${corFocus}`}
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 mb-1">{rotuloSerie}:</label>
+                    <label className="block text-ink-600 mb-1">{rotuloSerie}:</label>
                     <input
                       type="number"
                       min={serieMinima}
                       value={formData[campoSerie] ?? serieMinima}
                       onChange={(e) => handleChange(campoSerie, parseInt(e.target.value) || serieMinima)}
-                      className={`w-full border border-slate-300 rounded-lg p-2 bg-white font-bold text-right text-slate-900 focus:outline-none ${corFocus}`}
+                      className={`w-full border border-ink-300 rounded-lg p-2 bg-white font-bold text-right text-ink-900 focus:outline-none ${corFocus}`}
                     />
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-ink-500">
             O próximo número avança sozinho a cada emissão e nunca pode voltar para um número já usado —
             o servidor ignora valores menores que o atual.
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-            <UserCheck className="w-5 h-5 text-slate-600" />
+        <div className="bg-white rounded-xl border border-ink-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-ink-100 pb-3">
+            <UserCheck className="w-5 h-5 text-ink-600" />
             <div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase">
+              <h3 className="text-xs sm:text-sm font-bold text-ink-900 uppercase">
                 5. Dados do Contador
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-ink-500">
                 Usado para sugerir automaticamente o destinatário ao enviar XML de documentos fiscais por e-mail
               </p>
             </div>
@@ -1289,18 +1272,18 @@ const handleCarregarCertificadoEPreencher = async () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
             <div className="sm:col-span-6">
-              <label className="block font-medium text-slate-600 mb-1">Nome do Contador / Escritório</label>
+              <label className="block font-medium text-ink-600 mb-1">Nome do Contador / Escritório</label>
               <input
                 type="text"
                 value={formData.contadorNome || ''}
                 onChange={(e) => handleChange('contadorNome', e.target.value)}
                 placeholder="Nome do contador ou escritório contábil"
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
               />
             </div>
             <div className="sm:col-span-3">
-              <label className="block font-medium text-slate-600 mb-1 flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-slate-600" />
+              <label className="block font-medium text-ink-600 mb-1 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-ink-600" />
                 <span>E-mail</span>
               </label>
               <input
@@ -1308,12 +1291,12 @@ const handleCarregarCertificadoEPreencher = async () => {
                 value={formData.contadorEmail || ''}
                 onChange={(e) => handleChange('contadorEmail', e.target.value)}
                 placeholder="contador@escritorio.com.br"
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
               />
             </div>
             <div className="sm:col-span-3">
-              <label className="block font-medium text-slate-600 mb-1 flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-slate-600" />
+              <label className="block font-medium text-ink-600 mb-1 flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-ink-600" />
                 <span>Telefone</span>
               </label>
               <input
@@ -1321,17 +1304,17 @@ const handleCarregarCertificadoEPreencher = async () => {
                 value={formData.contadorTelefone || ''}
                 onChange={(e) => handleChange('contadorTelefone', e.target.value)}
                 placeholder="(11) 99999-9999"
-                className={`w-full border border-slate-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 focus:outline-none ${corFocus}`}
               />
             </div>
             <div className="sm:col-span-4">
-              <label className="block font-medium text-slate-600 mb-1">CRC</label>
+              <label className="block font-medium text-ink-600 mb-1">CRC</label>
               <input
                 type="text"
                 value={formData.contadorCRC || ''}
                 onChange={(e) => handleChange('contadorCRC', e.target.value)}
                 placeholder="Registro no Conselho Regional de Contabilidade"
-                className={`w-full border border-slate-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
+                className={`w-full border border-ink-300 rounded-lg p-2 font-mono focus:outline-none ${corFocus}`}
               />
             </div>
           </div>
@@ -1349,11 +1332,11 @@ const handleCarregarCertificadoEPreencher = async () => {
           <button
             type="button"
             onClick={() => setConfirmarLimpeza(true)}
-            className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+            className="flex cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-[13px] font-medium text-ink-700 transition-colors hover:border-ink-300 hover:bg-ink-50"
             title="Limpar todos os dados do formulário"
           >
-            <Trash2 className="w-4 h-4" />
-            <span>Limpar Formulário</span>
+            <RotateCcw className="w-4 h-4" />
+            <span>Limpar formulário</span>
           </button>
           )}
 
@@ -1362,10 +1345,10 @@ const handleCarregarCertificadoEPreencher = async () => {
             type="submit"
             id="btn-salvar-config-empresa"
             disabled={salvando}
-            className={`${corBgButton} disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer`}
+            className="flex cursor-pointer items-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-[13px] font-semibold text-white shadow-card transition-colors hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {salvando ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            <span>{salvando ? 'Salvando no servidor...' : 'Salvar Configurações'}</span>
+            <span>{salvando ? 'Salvando no servidor…' : 'Salvar configurações'}</span>
           </button>
           )}
         </div>

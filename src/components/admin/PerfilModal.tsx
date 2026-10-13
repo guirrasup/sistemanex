@@ -16,7 +16,7 @@ interface Props {
   onSalvo: () => void;
 }
 
-const input = 'w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500';
+const input = 'w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500';
 
 export const PerfilModal: React.FC<Props> = ({ perfil, modelo, catalogo, perfis, onClose, onSalvo }) => {
   const base = perfil ?? modelo ?? null;
@@ -56,22 +56,22 @@ export const PerfilModal: React.FC<Props> = ({ perfil, modelo, catalogo, perfis,
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-ink-900/50 backdrop-blur-xs flex items-center justify-center p-4">
       <form onSubmit={salvar} className="bg-white rounded-xl max-w-4xl w-full max-h-[92vh] shadow-xl flex flex-col text-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+        <div className="flex items-center justify-between border-b border-ink-100 px-5 py-3">
           <div className="flex items-center gap-2">
-            <span className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm">
+            <span className="w-7 h-7 bg-brand-600 rounded-lg flex items-center justify-center text-white shadow-sm">
               <ShieldCheck className="w-3.5 h-3.5" />
             </span>
             <div>
-              <h2 className="text-sm font-bold text-slate-900">{perfil ? `Editar perfil — ${perfil.nome}` : 'Novo perfil de acesso'}</h2>
-              <p className="text-[10px] text-slate-500">
+              <h2 className="text-sm font-bold text-ink-900">{perfil ? `Editar perfil — ${perfil.nome}` : 'Novo perfil de acesso'}</h2>
+              <p className="text-[10px] text-ink-500">
                 {selecionadas.size} de {total} permissões
                 {perfil && perfil._count.usuarios > 0 && ` · alterações valem na hora para ${perfil._count.usuarios} usuário(s)`}
               </p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
+          <button type="button" onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-600 hover:bg-ink-100 rounded-lg transition-colors cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -86,15 +86,15 @@ export const PerfilModal: React.FC<Props> = ({ perfil, modelo, catalogo, perfis,
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Nome *</label>
+              <label className="block font-medium text-ink-600 mb-1">Nome <span className="text-danger">*</span></label>
               <input className={input} value={nome} onChange={(e) => setNome(e.target.value)} required maxLength={60} placeholder="Ex.: Caixa, Faturista" />
             </div>
             <div className="sm:col-span-2">
-              <label className="block font-medium text-slate-600 mb-1">Descrição</label>
+              <label className="block font-medium text-ink-600 mb-1">Descrição</label>
               <input className={input} value={descricao} onChange={(e) => setDescricao(e.target.value)} maxLength={255} placeholder="Para que serve este perfil" />
             </div>
             <div>
-              <label className="block font-medium text-slate-600 mb-1">Cor</label>
+              <label className="block font-medium text-ink-600 mb-1">Cor</label>
               <div className="flex gap-1.5 flex-wrap">
                 {CORES_PERFIL.map((c) => (
                   <button
@@ -103,13 +103,13 @@ export const PerfilModal: React.FC<Props> = ({ perfil, modelo, catalogo, perfis,
                     onClick={() => setCor(c)}
                     title={c}
                     aria-label={`Cor ${c}`}
-                    className={`w-6 h-6 rounded-full ${classePontoCor(c)} cursor-pointer transition-transform ${cor === c ? 'ring-2 ring-offset-2 ring-slate-800 scale-110' : 'hover:scale-110'}`}
+                    className={`w-6 h-6 rounded-full ${classePontoCor(c)} cursor-pointer transition-transform ${cor === c ? 'ring-2 ring-offset-2 ring-ink-800 scale-110' : 'hover:scale-110'}`}
                   />
                 ))}
               </div>
             </div>
             <div className="sm:col-span-2">
-              <label className="block font-medium text-slate-600 mb-1">Preencher a partir de</label>
+              <label className="block font-medium text-ink-600 mb-1">Preencher a partir de</label>
               <select className={input} value="" onChange={(e) => e.target.value && partirDe(e.target.value)}>
                 <option value="">Escolha um modelo para substituir as permissões atuais...</option>
                 <option value="vazio">Nenhuma permissão</option>
@@ -126,11 +126,11 @@ export const PerfilModal: React.FC<Props> = ({ perfil, modelo, catalogo, perfis,
           <MatrizPermissoes modo="perfil" modulos={catalogo.modulos} selecionadas={selecionadas} onChange={setSelecionadas} />
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 cursor-pointer">
+        <div className="flex justify-end gap-2 border-t border-ink-100 px-5 py-3">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-ink-300 text-ink-700 font-medium hover:bg-ink-50 cursor-pointer">
             Cancelar
           </button>
-          <button type="submit" disabled={salvando} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium flex items-center gap-1.5 disabled:opacity-50 cursor-pointer">
+          <button type="submit" disabled={salvando} className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium flex items-center gap-1.5 disabled:opacity-50 cursor-pointer">
             {salvando && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             {perfil ? 'Salvar perfil' : 'Criar perfil'}
           </button>

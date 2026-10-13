@@ -186,7 +186,7 @@ export const ResumoEmissor: React.FC<{
   pendencias?: string[];
   emitir: { rotulo: string; onClick: () => void; transmitindo?: boolean; desabilitado?: boolean };
   onPreview?: () => void;
-  onLimpar?: () => void;
+  onLimpar: () => void;
   extra?: React.ReactNode;
 }> = ({ total, linhas = [], info = [], pronto, pendencias = [], emitir, onPreview, onLimpar, extra }) => (
   <>
@@ -203,8 +203,8 @@ export const ResumoEmissor: React.FC<{
           {linhas.map((l) => (
             <div key={l.rotulo} className="flex items-center justify-between gap-3">
               <dt className={l.tom === 'sutil' ? 'text-ink-400' : 'text-ink-600'}>{l.rotulo}</dt>
-              <dd className={`font-medium ${l.tom === 'negativo' ? 'text-nf-rejeitada' : l.tom === 'sutil' ? 'text-ink-500' : 'text-ink-900'}`}>
-                {typeof l.valor === 'number' ? <Dinheiro valor={l.tom === 'negativo' ? -Math.abs(l.valor) : l.valor} /> : l.valor}
+              <dd className={`font-medium ${l.tom === 'negativo' && Number(l.valor) !== 0 ? 'text-nf-rejeitada' : l.tom === 'sutil' ? 'text-ink-500' : 'text-ink-900'}`}>
+                {typeof l.valor === 'number' ? <Dinheiro valor={l.tom === 'negativo' && l.valor !== 0 ? -Math.abs(l.valor) : l.valor} /> : l.valor}
               </dd>
             </div>
           ))}
@@ -255,7 +255,7 @@ export const ResumoEmissor: React.FC<{
       </button>
 
       {(onPreview || onLimpar) && (
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className={`mt-2 grid gap-2 ${onPreview ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {onPreview && (
             <button
               type="button"

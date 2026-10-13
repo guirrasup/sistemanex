@@ -1,7 +1,7 @@
 import * as M from './app-mockdata.mjs';
 
 const OUT = process.env.SHOT_OUT || 'C:/sistemanex/public/landing';
-const ONLY = (process.env.SHOT_ONLY || 'dashboard,financeiro,pix,documentos').split(',');
+const ONLY = (process.env.SHOT_ONLY || 'dashboard,financeiro,pix,documentos,emissor').split(',');
 const H = Number(process.env.SHOT_H || 900);
 
 const ok = (dados) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ sucesso: true, dados }) });
@@ -73,6 +73,7 @@ export default async (page) => {
   pg.on('pageerror', (e) => errs.push(String(e).slice(0, 200)));
   pg.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 200)); });
 
+  await ctx.addInitScript(() => { try { localStorage.removeItem('@sup:aparencia'); } catch {} });
   await pg.goto('http://localhost:3000/', { waitUntil: 'networkidle' });
   await pg.waitForSelector('text=Carregando dados do sistema', { state: 'detached', timeout: 20000 }).catch(() => {});
   await pg.waitForTimeout(1500);
@@ -80,9 +81,9 @@ export default async (page) => {
   await pg.addStyleTag({ content: '*{scrollbar-width:none!important} *::-webkit-scrollbar{display:none!important} *,*::before,*::after{transition:none!important;animation-duration:0s!important;caret-color:transparent!important}' });
   await pg.mouse.move(0, H - 1);
 
-  const nav = async (label) => {
-    const el = pg.locator('aside').getByText(label, { exact: true }).first();
-    await el.click();
+  // Navega pelo id estável do item da sidebar (ex.: 'financeiro', 'documentos-fiscais').
+  const nav = async (view) => {
+    await pg.locator(`#menu-item-${view}`).click();
     await pg.waitForTimeout(1200);
     await pg.mouse.move(0, H - 1);
   };
@@ -94,7 +95,7 @@ export default async (page) => {
     shots.dashboard = true;
   }
   if (ONLY.includes('financeiro') || ONLY.includes('pix')) {
-    await nav('Financeiro');
+    await nav('financeiro');
     await pg.getByRole('button', { name: /^A Receber \(/ }).click();
     await pg.waitForTimeout(500);
     await pg.mouse.move(0, H - 1);
@@ -107,11 +108,18 @@ export default async (page) => {
       shots.brcode = await pg.locator('input[readonly], textarea[readonly]').first().inputValue().catch(() => null);
       await pg.keyboard.press('Escape');
       await pg.getByRole('button', { name: /fechar/i }).first().click().catch(() => {});
+      // O modal do Pix pode continuar aberto: recarrega para seguir com a tela limpa.
+      await pg.reload({ waitUntil: 'networkidle' });
+      await pg.waitForTimeout(1500);
     }
   }
   if (ONLY.includes('documentos')) {
-    await nav('Documentos Emitidos');
+    await nav('documentos-fiscais');
     await pg.screenshot({ path: `${OUT}/app-documentos.png` });
+  }
+  if (ONLY.includes('emissor')) {
+    await nav('nfe-emissor');
+    await pg.screenshot({ path: `${OUT}/app-emissor.png` });
   }
 
   const sidebarText = await pg.locator('aside').innerText().catch(() => '');

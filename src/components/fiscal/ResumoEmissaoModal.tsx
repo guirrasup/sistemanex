@@ -27,9 +27,9 @@ interface ResumoEmissaoModalProps {
 
 const estiloPorStatus: Record<StatusEmissaoModal, { icon: React.ReactNode; iconBg: string; corTexto: string; titulo: string }> = {
   AUTORIZADA: {
-    icon: <CheckCircle2 className="w-8 h-8 text-emerald-600" />,
-    iconBg: 'bg-emerald-100 border-emerald-200',
-    corTexto: 'text-emerald-800',
+    icon: <CheckCircle2 className="w-8 h-8 text-brand-600" />,
+    iconBg: 'bg-brand-100 border-brand-200',
+    corTexto: 'text-brand-800',
     titulo: 'autorizada pela SEFAZ',
   },
   REJEITADA: {
@@ -39,9 +39,9 @@ const estiloPorStatus: Record<StatusEmissaoModal, { icon: React.ReactNode; iconB
     titulo: 'rejeitada pela SEFAZ',
   },
   PROCESSANDO: {
-    icon: <Clock className="w-8 h-8 text-amber-600" />,
-    iconBg: 'bg-amber-100 border-amber-200',
-    corTexto: 'text-amber-800',
+    icon: <Clock className="w-8 h-8 text-brand-600" />,
+    iconBg: 'bg-brand-100 border-brand-200',
+    corTexto: 'text-brand-800',
     titulo: 'em processamento na SEFAZ',
   },
 };
@@ -97,12 +97,12 @@ export const ResumoEmissaoModal: React.FC<ResumoEmissaoModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-ink-900/60 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 animate-in fade-in zoom-in duration-200">
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+          className="absolute top-3 right-3 p-1.5 text-ink-400 hover:text-ink-600 hover:bg-ink-100 rounded-lg transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
@@ -115,29 +115,29 @@ export const ResumoEmissaoModal: React.FC<ResumoEmissaoModalProps> = ({
             <h3 className={`text-base font-bold ${estilo.corTexto}`}>
               {tipoDocumentoLabel} {estilo.titulo}
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-500">
               Nº {numero} · Série {serie}{destinatarioNome ? ` · ${destinatarioNome}` : ''}
             </p>
           </div>
         </div>
 
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2 text-xs">
+        <div className="bg-ink-50 border border-ink-200 rounded-xl p-3.5 space-y-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-medium">Valor total</span>
-            <span className="font-bold text-slate-900">{formatarMoeda(valorTotal)}</span>
+            <span className="text-ink-500 font-medium">Valor total</span>
+            <span className="font-bold text-ink-900">{formatarMoeda(valorTotal)}</span>
           </div>
           {protocolo && (
             <div className="flex items-center justify-between">
-              <span className="text-slate-500 font-medium">Protocolo</span>
-              <span className="font-mono text-slate-700">{protocolo}</span>
+              <span className="text-ink-500 font-medium">Protocolo</span>
+              <span className="font-mono text-ink-700">{protocolo}</span>
             </div>
           )}
           <div className="flex items-center justify-between gap-2">
-            <span className="text-slate-500 font-medium shrink-0">Chave de acesso</span>
+            <span className="text-ink-500 font-medium shrink-0">Chave de acesso</span>
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="font-mono text-slate-700 truncate">{chaveAcesso}</span>
-              <button onClick={handleCopiarChave} className="shrink-0 text-slate-400 hover:text-slate-700 cursor-pointer" title="Copiar chave de acesso">
-                {chaveCopiada ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              <span className="font-mono text-ink-700 truncate">{chaveAcesso}</span>
+              <button onClick={handleCopiarChave} className="shrink-0 text-ink-400 hover:text-ink-700 cursor-pointer" title="Copiar chave de acesso">
+                {chaveCopiada ? <Check className="w-3.5 h-3.5 text-brand-600" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
@@ -152,20 +152,20 @@ export const ResumoEmissaoModal: React.FC<ResumoEmissaoModalProps> = ({
         <div className="mt-4">
           <button
             onClick={onVisualizar}
-            className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm py-2.5 rounded-xl transition-colors cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 bg-ink-900 hover:bg-ink-800 text-white font-semibold text-sm py-2.5 rounded-xl transition-colors cursor-pointer"
           >
             <Eye className="w-4 h-4" />
             <span>Visualizar Documento</span>
           </button>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-slate-100">
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 mb-1.5">
+        <div className="mt-4 pt-4 border-t border-ink-100">
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-ink-700 mb-1.5">
             <Mail className="w-3.5 h-3.5" />
             <span>Enviar XML por e-mail</span>
           </label>
           {enviado ? (
-            <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5">
+            <div className="flex items-center gap-2 text-xs text-brand-700 bg-brand-50 border border-brand-200 rounded-lg px-3 py-2.5">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>XML enviado para {emailDestino}</span>
             </div>
@@ -177,12 +177,12 @@ export const ResumoEmissaoModal: React.FC<ResumoEmissaoModalProps> = ({
                   value={emailDestino}
                   onChange={(e) => { setEmailDestino(e.target.value); setErroEnvio(null); }}
                   placeholder="email@escritoriocontabil.com.br"
-                  className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="flex-1 border border-ink-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
                 <button
                   onClick={handleEnviarEmail}
                   disabled={enviando}
-                  className="shrink-0 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                  className="shrink-0 flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
                 >
                   {enviando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                   <span>Enviar</span>
@@ -190,7 +190,7 @@ export const ResumoEmissaoModal: React.FC<ResumoEmissaoModalProps> = ({
               </div>
               {erroEnvio && <p className="text-[11px] text-rose-600 mt-1.5">{erroEnvio}</p>}
               {emailSugerido && (
-                <p className="text-[10px] text-slate-400 mt-1.5">Sugerido a partir dos dados do contador cadastrados na empresa.</p>
+                <p className="text-[10px] text-ink-400 mt-1.5">Sugerido a partir dos dados do contador cadastrados na empresa.</p>
               )}
             </>
           )}
