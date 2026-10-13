@@ -94,13 +94,20 @@ const NOTAS_NOVAS: LinhaNota[] = [
   { numero: '004.814', tipo: 'NF-e', cliente: 'Ferragens Horizonte', valor: '4.205,75', status: 'autorizada' },
 ];
 
-interface Aviso {
-  id: number;
-  tipo: 'nota' | 'pix';
+// Passos que o sistema executa sozinho depois que a nota é autorizada.
+const PASSOS_AUTOMACAO: Array<{
+  id: string;
   titulo: string;
-  corpo: string;
-  valor: string;
-}
+  icon: typeof Receipt;
+  detalhe: (c: { nota: LinhaNota; itens: number }) => string;
+}> = [
+  { id: 'sefaz', titulo: 'Autorizada pela SEFAZ', icon: CheckCircle2, detalhe: () => 'Protocolo recebido em 312 ms' },
+  { id: 'danfe', titulo: 'DANFE e XML armazenados', icon: FileText, detalhe: () => 'PDF e XML assinado guardados no sistema' },
+  { id: 'estoque', titulo: 'Estoque atualizado', icon: Package, detalhe: (c) => `${c.itens} itens baixados automaticamente` },
+  { id: 'receber', titulo: 'Lançado em contas a receber', icon: Landmark, detalhe: (c) => `R$ ${c.nota.valor} · vence em 28 dias` },
+  { id: 'pix', titulo: 'Cobrança Pix pronta', icon: QrCode, detalhe: () => 'QR Code disponível no título' },
+  { id: 'contador', titulo: 'XML enviado ao contador', icon: Send, detalhe: () => 'Para o e-mail do escritório contábil' },
+];
 
 const paraNumero = (valor: string) => Number(valor.replace(/\./g, '').replace(',', '.'));
 const formatarReais = (valor: number) => valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -329,34 +336,40 @@ const PainelMockup: React.FC = () => {
   const [notas, setNotas] = useState<LinhaNota[]>(NOTAS_BASE);
   const [faturado, setFaturado] = useState(184320.55);
   const [aReceber, setAReceber] = useState(42910);
-  const [avisos, setAvisos] = useState<Aviso[]>([]);
+  // Uma nota por vez: ela é autorizada e o resto acontece em sequência (passo 1→6).
+  const [ciclo, setCiclo] = useState<{ nota: LinhaNota; itens: number; passo: number } | null>(null);
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    let tick = 0;
-    let ultimaNota: LinhaNota | null = null;
-    const timer = setInterval(() => {
-      tick += 1;
-      let aviso: Aviso;
-      if (tick % 2 === 1 || !ultimaNota) {
-        // Nova nota autorizada: entra na tabela, soma no faturado e vira título a receber
-        const base = NOTAS_NOVAS[Math.floor(tick / 2) % NOTAS_NOVAS.length];
-        const nota = { ...base, numero: `${base.numero}·${tick}` };
-        const valor = paraNumero(nota.valor);
-        ultimaNota = nota;
-        setNotas((prev) => [nota, ...prev].slice(0, 5));
-        setFaturado((v) => v + valor);
-        setAReceber((v) => v + valor);
-        aviso = { id: tick, tipo: 'nota', titulo: `${nota.tipo} ${nota.numero.split('·')[0]} autorizada`, corpo: nota.cliente, valor: nota.valor };
-      } else {
-        // Pix da nota anterior compensado: baixa o título a receber
-        const nota: LinhaNota = ultimaNota;
-        setAReceber((v) => Math.max(0, v - paraNumero(nota.valor)));
-        aviso = { id: tick, tipo: 'pix', titulo: 'Pix recebido', corpo: `${nota.cliente} · ${nota.tipo} ${nota.numero.split('·')[0]}`, valor: nota.valor };
+    let n = 0;
+    let vivo = true;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const depois = (ms: number, fn: () => void) => timers.push(setTimeout(() => vivo && fn(), ms));
+
+    const rodar = () => {
+      const base = NOTAS_NOVAS[n % NOTAS_NOVAS.length];
+      n += 1;
+      const nota = { ...base, numero: `${base.numero}·${n}` };
+      const valor = paraNumero(nota.valor);
+      const itens = 2 + (n % 5);
+      // 1. autorizada: entra na tabela e soma no faturamento
+      setCiclo({ nota, itens, passo: 1 });
+      setNotas((prev) => [nota, ...prev].slice(0, 5));
+      setFaturado((v) => v + valor);
+      // 2..6: o que o sistema faz sozinho em seguida
+      for (let passo = 2; passo <= PASSOS_AUTOMACAO.length; passo++) {
+        depois((passo - 1) * 1100, () => {
+          setCiclo((c) => (c ? { ...c, passo } : c));
+          if (PASSOS_AUTOMACAO[passo - 1].id === 'receber') setAReceber((v) => v + valor);
+        });
       }
-      setAvisos((prev) => [aviso, ...prev].slice(0, 3));
-    }, 3500);
-    return () => clearInterval(timer);
+      depois(PASSOS_AUTOMACAO.length * 1100 + 2600, rodar);
+    };
+    depois(900, rodar);
+    return () => {
+      vivo = false;
+      timers.forEach(clearTimeout);
+    };
   }, []);
 
   const { linha, area, ultimo } = caminhoSerie(FATURAMENTO_SERIE, 320, 72);
@@ -474,43 +487,64 @@ const PainelMockup: React.FC = () => {
         </div>
       </div>
 
-      {/* Pilha de avisos estilo notificação de celular — absoluta, fora do fluxo,
-          então nada na página se move quando um aviso chega. */}
-      <div className="pointer-events-none absolute -left-8 top-[33%] hidden h-[96px] w-[300px] lg:block xl:-left-12" aria-live="polite">
-        <AnimatePresence initial={false}>
-          {avisos.map((aviso, idx) => (
+      {/* Cartão "o resto acontece sozinho": a nota recém-autorizada e cada etapa
+          automática marcando em sequência. Absoluto, fora do fluxo — nada na
+          página se move quando ele atualiza. */}
+      <div className="pointer-events-none absolute -left-6 top-[24%] hidden w-[290px] lg:block xl:-left-10" aria-live="polite">
+        <AnimatePresence mode="wait">
+          {ciclo && (
             <motion.div
-              key={aviso.id}
-              initial={{ opacity: 0, y: -24, scale: 1.02 }}
-              animate={{ opacity: idx === 0 ? 1 : idx === 1 ? 0.9 : 0.7, y: idx * 9, scale: 1 - idx * 0.05 }}
-              exit={{ opacity: 0, y: 18, scale: 0.85, transition: { duration: 0.3 } }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              style={{ zIndex: 10 - idx, transformOrigin: 'bottom center' }}
-              className="absolute inset-x-0 top-0 flex h-[76px] items-start gap-3 rounded-2xl border border-ink-200 bg-white p-3 shadow-float"
+              key={ciclo.nota.numero}
+              initial={{ opacity: 0, y: -14, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98, transition: { duration: 0.25 } }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-float"
             >
-              {/* Nos avisos de trás só a borda aparece, como na pilha do iOS */}
-              <motion.div animate={{ opacity: idx === 0 ? 1 : 0 }} transition={{ duration: 0.2 }} className="flex min-w-0 flex-1 items-start gap-3">
-              <div
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                  aviso.tipo === 'pix' ? 'bg-accent-200 text-brand-800' : 'bg-brand-700 text-white'
-                }`}
-              >
-                {aviso.tipo === 'pix' ? <QrCode className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-[13px] font-semibold text-ink-950">{aviso.titulo}</p>
-                  <span className="shrink-0 text-[10px] text-ink-400">agora</span>
+              <div className="flex items-center gap-3 border-b border-ink-100 px-3.5 py-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-700 text-white">
+                  <Receipt className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold text-ink-950">
+                    {ciclo.nota.tipo} {ciclo.nota.numero.split('·')[0]} emitida
+                  </p>
+                  <p className="truncate text-[11px] text-ink-500">{ciclo.nota.cliente}</p>
                 </div>
-                <p className="truncate text-xs text-ink-500">{aviso.corpo}</p>
-                <p className="mt-0.5 text-xs font-semibold tabular-nums text-ink-900">
+                <p className="shrink-0 text-xs font-semibold tabular-nums text-ink-900">
                   <span className="text-ink-400">R$ </span>
-                  {aviso.valor}
+                  {ciclo.nota.valor}
                 </p>
               </div>
-              </motion.div>
+              <ol className="space-y-0.5 px-3.5 py-2.5">
+                {PASSOS_AUTOMACAO.map((p, i) => {
+                  const feito = ciclo.passo > i;
+                  const atual = ciclo.passo === i + 1;
+                  return (
+                    <li key={p.id} className={`flex items-center gap-2.5 py-1 transition-opacity duration-300 ${feito ? 'opacity-100' : 'opacity-35'}`}>
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors duration-300 ${
+                          feito ? 'bg-brand-700 text-white' : 'border border-ink-300 text-ink-400'
+                        }`}
+                      >
+                        {feito ? <CheckCircle2 className="h-3.5 w-3.5" /> : <p.icon className="h-3 w-3" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className={`block truncate text-[12px] ${atual ? 'font-semibold text-ink-950' : 'text-ink-700'}`}>{p.titulo}</span>
+                        <span className="block truncate text-[10.5px] text-ink-400">{p.detalhe(ciclo)}</span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+              <div className="flex items-center justify-between border-t border-ink-100 bg-ink-50 px-3.5 py-1.5 text-[10.5px] text-ink-500">
+                <span>Automático, sem digitar nada</span>
+                <span className="font-mono tabular-nums">
+                  {Math.min(ciclo.passo, PASSOS_AUTOMACAO.length)}/{PASSOS_AUTOMACAO.length}
+                </span>
+              </div>
             </motion.div>
-          ))}
+          )}
         </AnimatePresence>
       </div>
     </div>
