@@ -44,7 +44,7 @@ export const DamdfeViewer: React.FC<DamdfeViewerProps> = ({ mdfe, onClose }) => 
     (mdfe.totalizadores.qMDFe || 0);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white">
+    <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white">
       
       <div className="bg-slate-900 text-white rounded-t-xl px-6 py-3 flex items-center justify-between max-w-4xl w-full mx-auto print:hidden shadow-lg border-b border-slate-800">
         <div className="flex items-center gap-2.5">

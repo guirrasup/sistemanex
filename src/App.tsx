@@ -2,11 +2,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
+import { CommandPalette } from './components/layout/CommandPalette';
 import { LandingPageView } from './components/landing/LandingPageView';
 import { LoginView } from './components/auth/LoginView';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { DashboardReal } from './components/dashboard/DashboardReal';
-import { AlertasSistema } from './components/ui/AlertasSistema';
 import { NfseEmissor } from './components/fiscal/NfseEmissor';
 import { NfeEmissor } from './components/fiscal/NfeEmissor';
 import { NfceEmissor } from './components/fiscal/NfceEmissor';
@@ -27,7 +27,7 @@ import { FornecedoresView } from './components/cadastros/FornecedoresView';
 import { ServicosView } from './components/cadastros/ServicosView';
 import { TransportadorasView } from './components/cadastros/TransportadorasView';
 import { FinanceiroView } from './components/financeiro/FinanceiroView';
-import { ConfiguracoesEmpresaView } from './components/config/ConfiguracoesEmpresaView';
+import { ConfiguracoesView } from './components/config/ConfiguracoesView';
 import { ConsultaCnpjView } from './components/tools/ConsultaCnpjView';
 import { AdminUsuariosView } from './components/admin/AdminUsuariosView';
 import { PermissoesProvider, criarPermissoes } from './hooks/usePermissoes';
@@ -107,7 +107,44 @@ export default function App() {
   );
   const [avisoLogin, setAvisoLogin] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<string>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  // Shell: sidebar recolhida (lembrada entre sessões), gaveta mobile e paleta Ctrl/⌘ K.
+  const [sidebarRecolhida, setSidebarRecolhida] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('@sup:sidebar-recolhida') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [menuMobileAberto, setMenuMobileAberto] = useState(false);
+  const [paletaAberta, setPaletaAberta] = useState(false);
+
+  const alternarSidebar = useCallback(() => {
+    setSidebarRecolhida((v) => {
+      try {
+        localStorage.setItem('@sup:sidebar-recolhida', v ? '0' : '1');
+      } catch {
+        /* sem armazenamento: só não lembra */
+      }
+      return !v;
+    });
+  }, []);
+  const fecharMenuMobile = useCallback(() => setMenuMobileAberto(false), []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const tecla = e.key.toLowerCase();
+      if (tecla === 'k') {
+        e.preventDefault();
+        setPaletaAberta((v) => !v);
+      } else if (tecla === 'b' && !(e.target as HTMLElement)?.isContentEditable) {
+        e.preventDefault();
+        alternarSidebar();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [alternarSidebar]);
   const [carregando, setCarregando] = useState<boolean>(true);
   // 🔥 Com qual tipo a tela de Documentos Emitidos deve abrir — null (ou
   // navegação genérica pelo menu) mostra todos os tipos; um atalho por tipo
@@ -609,31 +646,25 @@ export default function App() {
   return (
     <PermissoesProvider valor={permissoes}>
     <ToastProvider>
-      <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
-        
-        <Header
-          empresa={empresa}
-          usuario={usuarioLogado}
-          currentView={currentView}
-          onNavigate={handleNavigate}
-          onExportarBackup={handleExportBackup}
-          onLogout={handleLogout}
-        />
+      {/* Shell "Livro Aberto": sidebar sobre o fundo tingido e o conteúdo numa folha inset. */}
+      <div className="flex h-screen overflow-hidden bg-ink-100 font-sans text-ink-950">
 
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          
           <Sidebar
             currentView={currentView}
             onNavigate={handleNavigate}
-            isOpen={sidebarOpen}
-            onToggle={() => setSidebarOpen(!sidebarOpen)}
+            usuario={usuarioLogado}
+            recolhida={sidebarRecolhida}
+            onAlternarRecolhida={alternarSidebar}
+            mobileAberta={menuMobileAberto}
+            onFecharMobile={fecharMenuMobile}
+            onExportarBackup={handleExportBackup}
+            onLogout={handleLogout}
             contadores={{
               nfseCount: nfses.length,
               nfeCount: nfes.length,
               nfceCount: nfces.length,
               cteCount: ctes.length,
               nfaeCount: nfaes.length,
-              // 🔥 NOVO - MDF-e
               mdfeCount: mdfes.length,
               produtosCount: produtos.length,
               clientesCount: apenasClientes.length,
@@ -644,7 +675,18 @@ export default function App() {
             }}
           />
 
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50">
+        <div className="flex min-w-0 flex-1 flex-col lg:py-2 lg:pr-2">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-ink-50 lg:rounded-xl lg:border lg:border-ink-200/80 lg:shadow-card">
+
+          <Header
+            empresa={empresa}
+            currentView={currentView}
+            onNavigate={handleNavigate}
+            onMenuClick={() => setMenuMobileAberto(true)}
+            onAbrirBusca={() => setPaletaAberta(true)}
+          />
+
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto">
               {/* key: trocar de tela remonta o boundary e limpa o erro anterior */}
               <ErrorBoundary key={currentView} onVoltar={() => handleNavigate(permissoes.primeiraView() ?? 'dashboard')}>
@@ -833,7 +875,7 @@ export default function App() {
               )}
 
               {currentView === 'configuracoes' && (
-                <ConfiguracoesEmpresaView
+                <ConfiguracoesView
                   empresa={empresa}
                   onEmpresaChange={() => {
                     cacheRef.current = null;
@@ -855,9 +897,16 @@ export default function App() {
               </ErrorBoundary>
             </div>
           </main>
+          </div>
         </div>
 
-        <AlertasSistema />
+        <CommandPalette
+          aberto={paletaAberta}
+          onFechar={() => setPaletaAberta(false)}
+          onNavigate={handleNavigate}
+          onExportarBackup={handleExportBackup}
+          onLogout={handleLogout}
+        />
 
         {viewingDanfse && (
           <DanfseViewer

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { NFeDocumento, ItemNfe } from '../../types/fiscal';
 import { Produto, ClienteFornecedor, ConfiguracaoEmpresa, TransportadoraERP } from '../../types/erp';
+import { BotaoCabecalho, EmissorLayout, ResumoEmissor, SecaoEmissor } from './emissor/EmissorKit';
 import { DanfeLayout } from './DanfeLayout';
 import { formatarMoeda, formatarCpfCnpj, limparCpfCnpj, validarCpfOuCnpj } from '../../utils/cpfCnpjValidator';
 import { calcularTotaisNfe } from '../../utils/tributosEngine';
@@ -381,7 +382,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   const classeCampo = (valor: string, base = 'w-full border rounded-lg p-2 focus:outline-none focus:ring-2') =>
     tentouEnviar && !valor.trim()
       ? `${base} border-rose-400 bg-rose-50 focus:ring-rose-500`
-      : `${base} border-slate-300 focus:ring-emerald-500`;
+      : `${base} border-ink-300 focus:ring-brand-500`;
 
   const handleClickEmitir = () => {
     setTentouEnviar(true);
@@ -571,40 +572,63 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
   })();
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto">
-      
-      <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white shadow-sm">
-              <Receipt className="w-4 h-4" />
-            </span>
-            <h1 className="text-base font-bold text-slate-900">Emissão de NF-e (Modelo 55)</h1>
-            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
-              Produtos
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Emissão de nota de mercadorias com baixa automática em estoque e contas a receber.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleCarregarUltima}
-            disabled={isCarregandoUltima}
-            title="Preenche o formulário com os dados da última NF-e autorizada (cliente, itens, forma de pagamento)"
-            className="bg-white hover:bg-emerald-100 disabled:opacity-60 text-emerald-700 font-medium text-xs px-3 py-2 rounded-lg border border-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isCarregandoUltima ? 'animate-spin' : ''}`} />
-            <span>{isCarregandoUltima ? 'Carregando...' : 'Carregar última nota'}</span>
-          </button>
-          <div className="text-right">
-            <div className="text-xs font-semibold text-slate-700">Série {empresa.serieNfe}</div>
-            <div className="text-[10px] font-medium text-emerald-700">Próxima NF-e: Nº previsto {empresa.proximoNumeroNfe}</div>
-          </div>
-        </div>
-      </div>
-
+    <EmissorLayout
+      icone={Receipt}
+      titulo="Nova NF-e"
+      descricao="Nota de produtos com baixa automática no estoque e título em contas a receber."
+      modelo="Mod. 55"
+      serie={empresa.serieNfe}
+      proximoNumero={empresa.proximoNumeroNfe}
+      ambiente={empresa.ambienteEmissao}
+      acoes={
+        <BotaoCabecalho
+          onClick={handleCarregarUltima}
+          icone={RefreshCw}
+          carregando={isCarregandoUltima}
+          title="Preenche o formulário com os dados da última NF-e autorizada (cliente, itens, forma de pagamento)"
+        >
+          {isCarregandoUltima ? 'Carregando…' : 'Carregar última nota'}
+        </BotaoCabecalho>
+      }
+      secoes={[
+        { id: 'destinatario', titulo: 'Destinatário' },
+        { id: 'dados-gerais', titulo: 'Dados gerais' },
+        { id: 'produtos', titulo: 'Produtos' },
+        { id: 'transporte', titulo: 'Transporte' },
+        { id: 'pagamento', titulo: 'Pagamento' },
+      ]}
+      resumo={
+        <ResumoEmissor
+          total={{ rotulo: 'Total da nota', valor: totais.valorTotalNota }}
+          linhas={[
+            { rotulo: 'Produtos', valor: totais.valorTotalProdutos },
+            { rotulo: 'Frete', valor: totais.valorTotalFrete },
+            { rotulo: 'Seguro', valor: totais.valorTotalSeguro },
+            { rotulo: 'Desconto', valor: totais.valorTotalDesconto, tom: 'negativo' },
+            { rotulo: 'ICMS', valor: totais.valorTotalICMS },
+            { rotulo: 'IPI', valor: totais.valorTotalIPI },
+            { rotulo: 'PIS', valor: totais.valorTotalPIS },
+            { rotulo: 'COFINS', valor: totais.valorTotalCOFINS },
+            { rotulo: 'IBS (UF + Mun.)', valor: totais.valorTotalIBS, tom: 'sutil' },
+            { rotulo: 'CBS (Federal)', valor: totais.valorTotalCBS, tom: 'sutil' },
+            { rotulo: 'Tributos aprox. (Lei 12.741)', valor: totais.valorTotalTributosAproximados, tom: 'sutil' },
+          ]}
+          info={[
+            { rotulo: 'Itens', valor: `${itens.length} produto(s)` },
+            { rotulo: 'Destinatário', valor: destinatarioNome || '—' },
+          ]}
+          pronto={isFormReady}
+          pendencias={erros}
+          emitir={{
+            rotulo: isFormReady ? 'Revisar e emitir NF-e' : 'Ver pendências e continuar',
+            onClick: handleClickEmitir,
+            transmitindo: isTransmitting,
+          }}
+          onPreview={handleClickEmitir}
+          onLimpar={handleLimparTudo}
+        />
+      }
+    >
       {nfeEmitidaSucesso && (
         <ResumoEmissaoModal
           aberto={!!nfeEmitidaSucesso}
@@ -624,25 +648,14 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         />
       )}
 
-      {erros.length > 0 && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 space-y-1">
-          <div className="font-bold flex items-center gap-1.5 text-rose-900">
-            <XCircle className="w-4 h-4 text-rose-600" />
-            <span>Pendências ({erros.length}):</span>
-          </div>
-          <ul className="list-disc list-inside space-y-0.5 pl-2">
-            {erros.map((err, idx) => <li key={idx}>{err}</li>)}
-          </ul>
-        </div>
-      )}
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-emerald-600" />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">1. Destinatário</h3>
-          </div>
-          <div className="w-64">
+      <SecaoEmissor
+        id="destinatario"
+        numero={1}
+        titulo="Destinatário"
+        icone={User}
+        descricao="Quem recebe a mercadoria — busque um cliente cadastrado ou preencha"
+        acao={
             <Combobox
               value={buscaCliente}
               onInputChange={(texto) => {
@@ -657,98 +670,93 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
               getKey={(c) => c.id}
               placeholder="Buscar por nome ou CPF/CNPJ..."
               emptyMessage="Nenhum cliente encontrado."
-              inputClassName={`text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 font-medium text-slate-700 w-full border ${
+              inputClassName={`text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 font-medium text-ink-700 w-full border ${
                 tentouEnviar && !selectedClienteId
                   ? 'border-rose-400 bg-rose-50 focus:ring-rose-500'
-                  : 'border-slate-300 focus:ring-emerald-500'
+                  : 'border-ink-300 focus:ring-brand-500'
               }`}
               renderOption={(c: ClienteFornecedor, destacado) => (
                 <div className={`p-2 rounded-lg border cursor-pointer transition-colors text-xs ${
-                  destacado ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                  destacado ? 'bg-brand-50 border-brand-300' : 'bg-white border-ink-200'
                 }`}>
-                  <div className="font-semibold text-slate-900">{c.razaoSocial}</div>
-                  <div className="text-[10px] text-slate-500">{formatarCpfCnpj(c.documento)}</div>
+                  <div className="font-semibold text-ink-900">{c.razaoSocial}</div>
+                  <div className="text-[10px] text-ink-500">{formatarCpfCnpj(c.documento)}</div>
                 </div>
               )}
             />
-          </div>
-        </div>
-
+        }
+      >
         <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 text-xs">
           <div>
-            <label className="block font-medium text-slate-600 mb-1">CPF / CNPJ *</label>
+            <label className="block font-medium text-ink-600 mb-1">CPF / CNPJ *</label>
             <CampoCpfCnpj value={destinatarioDoc} onChange={setDestinatarioDoc} className={classeCampo(destinatarioDoc)} placeholder="00.000.000/0000-00" />
           </div>
           <div className="sm:col-span-2 md:col-span-3">
-            <label className="block font-medium text-slate-600 mb-1">Razão Social / Nome *</label>
+            <label className="block font-medium text-ink-600 mb-1">Razão Social / Nome *</label>
             <input type="text" value={destinatarioNome} onChange={(e) => setDestinatarioNome(e.target.value)} className={classeCampo(destinatarioNome)} placeholder="Razão Social do destinatário" />
           </div>
 
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Inscrição Estadual</label>
-            <input type="text" value={destinatarioIE} onChange={(e) => setDestinatarioIE(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="ISENTO ou número" />
+            <label className="block font-medium text-ink-600 mb-1">Inscrição Estadual</label>
+            <input type="text" value={destinatarioIE} onChange={(e) => setDestinatarioIE(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="ISENTO ou número" />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">IE ST <span className="text-[10px] text-slate-400">(TIeST)</span></label>
-            <input type="text" value={destinatarioIEST} onChange={(e) => setDestinatarioIEST(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="2-14 dígitos" />
+            <label className="block font-medium text-ink-600 mb-1">IE ST <span className="text-[10px] text-ink-400">(TIeST)</span></label>
+            <input type="text" value={destinatarioIEST} onChange={(e) => setDestinatarioIEST(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="2-14 dígitos" />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Email</label>
-            <input type="email" value={destinatarioEmail} onChange={(e) => setDestinatarioEmail(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="email@cliente.com" />
+            <label className="block font-medium text-ink-600 mb-1">Email</label>
+            <input type="email" value={destinatarioEmail} onChange={(e) => setDestinatarioEmail(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="email@cliente.com" />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Telefone</label>
-            <input type="text" value={destinatarioTelefone} onChange={(e) => setDestinatarioTelefone(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="(11) 99999-9999" />
+            <label className="block font-medium text-ink-600 mb-1">Telefone</label>
+            <input type="text" value={destinatarioTelefone} onChange={(e) => setDestinatarioTelefone(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="(11) 99999-9999" />
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block font-medium text-slate-600 mb-1">Logradouro *</label>
+            <label className="block font-medium text-ink-600 mb-1">Logradouro *</label>
             <input type="text" value={destinatarioLogradouro} onChange={(e) => setDestinatarioLogradouro(e.target.value)} className={classeCampo(destinatarioLogradouro)} placeholder="Rua, Avenida..." />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Número *</label>
+            <label className="block font-medium text-ink-600 mb-1">Número *</label>
             <input type="text" value={destinatarioNumero} onChange={(e) => setDestinatarioNumero(e.target.value)} className={classeCampo(destinatarioNumero)} placeholder="123" />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Complemento</label>
-            <input type="text" value={destinatarioComplemento} onChange={(e) => setDestinatarioComplemento(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Sala, Bloco..." />
+            <label className="block font-medium text-ink-600 mb-1">Complemento</label>
+            <input type="text" value={destinatarioComplemento} onChange={(e) => setDestinatarioComplemento(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Sala, Bloco..." />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Bairro *</label>
+            <label className="block font-medium text-ink-600 mb-1">Bairro *</label>
             <input type="text" value={destinatarioBairro} onChange={(e) => setDestinatarioBairro(e.target.value)} className={classeCampo(destinatarioBairro)} placeholder="Bairro" />
           </div>
 
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Município *</label>
+            <label className="block font-medium text-ink-600 mb-1">Município *</label>
             <input type="text" value={destinatarioMun} onChange={(e) => setDestinatarioMun(e.target.value)} className={classeCampo(destinatarioMun)} placeholder="São Paulo" />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Cód. Mun. IBGE <span className="text-[10px] text-slate-400">(TCodMunIBGE)</span></label>
-            <input type="text" value={destinatarioMunIbge} onChange={(e) => setDestinatarioMunIbge(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="3550308" />
+            <label className="block font-medium text-ink-600 mb-1">Cód. Mun. IBGE <span className="text-[10px] text-ink-400">(TCodMunIBGE)</span></label>
+            <input type="text" value={destinatarioMunIbge} onChange={(e) => setDestinatarioMunIbge(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="3550308" />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">UF *</label>
-            <select value={destinatarioUf} onChange={(e) => setDestinatarioUf(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label className="block font-medium text-ink-600 mb-1">UF *</label>
+            <select value={destinatarioUf} onChange={(e) => setDestinatarioUf(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
               {['SP','RJ','MG','ES','PR','SC','RS','BA','PE','CE','GO','DF','MT','MS','PA','AM','RO','AC','RR','AP','TO','MA','PI','PB','RN','AL','SE'].map(u => (
                 <option key={u} value={u}>{u}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">CEP *</label>
+            <label className="block font-medium text-ink-600 mb-1">CEP *</label>
             <input type="text" value={destinatarioCep} onChange={(e) => setDestinatarioCep(e.target.value)} className={classeCampo(destinatarioCep)} placeholder="01000-000" />
           </div>
         </div>
-      </div>
+      </SecaoEmissor>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-          <FileText className="w-4 h-4 text-emerald-600" />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">2. Dados Gerais</h3>
-        </div>
+      <SecaoEmissor id="dados-gerais" numero={2} titulo="Dados gerais" icone={FileText} descricao="Natureza da operação, tipo e finalidade da nota">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div className="sm:col-span-2">
-            <label className="block font-medium text-slate-600 mb-1">Natureza da Operação</label>
+            <label className="block font-medium text-ink-600 mb-1">Natureza da Operação</label>
             <Combobox
               value={naturezaOperacao}
               onInputChange={(texto) => {
@@ -762,27 +770,27 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
               options={cfopsFiltrados}
               getKey={(c) => c.id}
               placeholder="Ex.: Venda de Mercadoria Adquirida de Terceiros"
-              inputClassName="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              inputClassName="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
               renderOption={(c: Cfop, destacado) => (
                 <div className={`p-2 rounded-lg border cursor-pointer transition-colors text-xs ${
-                  destacado ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                  destacado ? 'bg-brand-50 border-brand-300' : 'bg-white border-ink-200'
                 }`}>
-                  <span className="font-mono font-bold text-emerald-700">{c.codigo}</span>
-                  <span className="text-slate-700"> — {c.descricao}</span>
+                  <span className="font-mono font-bold text-brand-700">{c.codigo}</span>
+                  <span className="text-ink-700"> — {c.descricao}</span>
                 </div>
               )}
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Tipo Documento <span className="text-[10px] text-slate-400">(TpNF)</span></label>
-            <select value={tipoDocumento} onChange={(e) => setTipoDocumento(Number(e.target.value) as 0 | 1)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label className="block font-medium text-ink-600 mb-1">Tipo Documento <span className="text-[10px] text-ink-400">(TpNF)</span></label>
+            <select value={tipoDocumento} onChange={(e) => setTipoDocumento(Number(e.target.value) as 0 | 1)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
               <option value={0}>0 - Entrada</option>
               <option value={1}>1 - Saída</option>
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Finalidade</label>
-            <select value={finalidade} onChange={(e) => setFinalidade(Number(e.target.value) as 1 | 2 | 3 | 4)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label className="block font-medium text-ink-600 mb-1">Finalidade</label>
+            <select value={finalidade} onChange={(e) => setFinalidade(Number(e.target.value) as 1 | 2 | 3 | 4)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
               <option value={1}>1 - Normal</option>
               <option value={2}>2 - Complementar</option>
               <option value={3}>3 - Ajuste</option>
@@ -790,22 +798,22 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Consumidor Final</label>
-            <select value={consumidorFinal ? '1' : '0'} onChange={(e) => setConsumidorFinal(e.target.value === '1')} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label className="block font-medium text-ink-600 mb-1">Consumidor Final</label>
+            <select value={consumidorFinal ? '1' : '0'} onChange={(e) => setConsumidorFinal(e.target.value === '1')} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
               <option value="1">Sim</option>
               <option value="0">Não</option>
             </select>
           </div>
         </div>
-      </div>
+      </SecaoEmissor>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-          <div className="flex items-center gap-2">
-            <Package className="w-4 h-4 text-emerald-600" />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">3. Produtos ({itens.length})</h3>
-          </div>
-          <div className="w-72">
+      <SecaoEmissor
+        id="produtos"
+        numero={3}
+        titulo={`Produtos (${itens.length})`}
+        icone={Package}
+        descricao="Impostos calculados automaticamente por item"
+        acao={
             <Combobox
               value={buscaProduto}
               onInputChange={setBuscaProduto}
@@ -817,95 +825,90 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
               getKey={(p) => p.id}
               placeholder="Buscar produto por código, nome ou EAN..."
               emptyMessage="Nenhum produto encontrado."
-              inputClassName="text-xs pl-3 pr-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full"
+              inputClassName="text-xs pl-3 pr-3 py-1.5 border border-ink-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 w-full"
               renderOption={(p: Produto, destacado) => (
                 <div className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors text-xs ${
-                  destacado ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                  destacado ? 'bg-brand-50 border-brand-300' : 'bg-white border-ink-200'
                 }`}>
                   <div>
-                    <div className="font-semibold text-slate-900">{p.descricao}</div>
-                    <div className="text-[10px] text-slate-500">Cód: {p.codigo}</div>
+                    <div className="font-semibold text-ink-900">{p.descricao}</div>
+                    <div className="text-[10px] text-ink-500">Cód: {p.codigo}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-emerald-700">{formatarMoeda(p.precoVenda)}</div>
-                    <span className="text-[10px] text-emerald-600">+ Incluir</span>
+                    <div className="font-bold text-brand-700">{formatarMoeda(p.precoVenda)}</div>
+                    <span className="text-[10px] text-brand-600">+ Incluir</span>
                   </div>
                 </div>
               )}
             />
-          </div>
-        </div>
-
+        }
+      >
         {itens.length === 0 ? (
           <div className={`p-8 border-2 border-dashed rounded-lg text-center ${
-            tentouEnviar ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50/70'
+            tentouEnviar ? 'border-rose-300 bg-rose-50' : 'border-ink-200 bg-ink-50/70'
           }`}>
-            <Package className={`w-10 h-10 mx-auto mb-2 ${tentouEnviar ? 'text-rose-300' : 'text-slate-300'}`} />
-            <p className={`text-sm font-semibold ${tentouEnviar ? 'text-rose-700' : 'text-slate-700'}`}>Nenhum produto adicionado</p>
-            <p className={`text-xs ${tentouEnviar ? 'text-rose-500' : 'text-slate-500'}`}>Selecione um produto no botão acima</p>
+            <Package className={`w-10 h-10 mx-auto mb-2 ${tentouEnviar ? 'text-rose-300' : 'text-ink-300'}`} />
+            <p className={`text-sm font-semibold ${tentouEnviar ? 'text-rose-700' : 'text-ink-700'}`}>Nenhum produto adicionado</p>
+            <p className={`text-xs ${tentouEnviar ? 'text-rose-500' : 'text-ink-500'}`}>Selecione um produto no botão acima</p>
           </div>
         ) : (
           <div className="space-y-2 max-h-[500px] overflow-y-auto">
             {itens.map((item, idx) => (
-              <div key={item.id} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <div key={item.id} className="p-4 bg-ink-50 rounded-lg border border-ink-200">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
-                    <div className="font-semibold text-slate-900 text-sm">{item.descricao}</div>
-                    <div className="text-[10px] text-slate-500 font-mono">
+                    <div className="font-semibold text-ink-900 text-sm">{item.descricao}</div>
+                    <div className="text-[10px] text-ink-500 font-mono">
                       Cód: {item.codigoProduto} | NCM: {item.ncm} | CFOP: {item.cfop} | CST: {item.cstICMS}
                     </div>
                   </div>
-                  <button onClick={() => handleRemoveItem(idx)} className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded transition-colors cursor-pointer">
+                  <button onClick={() => handleRemoveItem(idx)} className="text-ink-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded transition-colors cursor-pointer">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2 border-t border-slate-200 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2 border-t border-ink-200 text-xs">
                   <div>
-                    <span className="text-[10px] text-slate-500 block">Qtd:</span>
+                    <span className="text-[10px] text-ink-500 block">Qtd:</span>
                     {/* 🔥 step="1": a maioria dos produtos é vendida por unidade inteira —
                         step="0.001" fazia as setinhas do input incrementar de milésimo em
                         milésimo (imperceptível). min="0.001" continua permitindo digitar
                         valor fracionário direto (produtos por peso/volume, ex. KG/L). */}
-                    <input type="number" min="0.001" step="1" value={item.quantidade} onChange={(e) => handleUpdateItemQtd(idx, parseFloat(e.target.value) || 0.001)} className="w-full bg-white border border-slate-300 rounded p-1.5 font-bold text-slate-900 text-xs" />
+                    <input type="number" min="0.001" step="1" value={item.quantidade} onChange={(e) => handleUpdateItemQtd(idx, parseFloat(e.target.value) || 0.001)} className="w-full bg-white border border-ink-300 rounded p-1.5 font-bold text-ink-900 text-xs" />
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-500 block">V. Unitário:</span>
-                    <input type="number" min="0.01" step="0.01" value={item.valorUnitario} onChange={(e) => handleUpdateItemValor(idx, parseFloat(e.target.value) || 0.01)} className="w-full bg-white border border-slate-300 rounded p-1.5 font-bold text-slate-900 text-xs" />
+                    <span className="text-[10px] text-ink-500 block">V. Unitário:</span>
+                    <input type="number" min="0.01" step="0.01" value={item.valorUnitario} onChange={(e) => handleUpdateItemValor(idx, parseFloat(e.target.value) || 0.01)} className="w-full bg-white border border-ink-300 rounded p-1.5 font-bold text-ink-900 text-xs" />
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-500 block">ICMS:</span>
-                    <span className="font-medium text-emerald-700 block mt-1.5">{formatarMoeda(item.valorICMS)}</span>
+                    <span className="text-[10px] text-ink-500 block">ICMS:</span>
+                    <span className="font-medium text-brand-700 block mt-1.5">{formatarMoeda(item.valorICMS)}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-500 block">Total:</span>
-                    <span className="font-bold text-slate-900 block mt-1.5">{formatarMoeda(item.valorTotalBruto)}</span>
+                    <span className="text-[10px] text-ink-500 block">Total:</span>
+                    <span className="font-bold text-ink-900 block mt-1.5">{formatarMoeda(item.valorTotalBruto)}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-500 block">IBS/CBS:</span>
-                    <span className="font-medium text-blue-700 block mt-1.5">{formatarMoeda((item.valorIBSUF || 0) + (item.valorIBSMun || 0) + (item.valorCBS || 0))}</span>
+                    <span className="text-[10px] text-ink-500 block">IBS/CBS:</span>
+                    <span className="font-medium text-brand-700 block mt-1.5">{formatarMoeda((item.valorIBSUF || 0) + (item.valorIBSMun || 0) + (item.valorCBS || 0))}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-500 block">Tributos Aprox:</span>
-                    <span className="font-medium text-slate-700 block mt-1.5">{formatarMoeda(item.valorTributosAproximados)}</span>
+                    <span className="text-[10px] text-ink-500 block">Tributos Aprox:</span>
+                    <span className="font-medium text-ink-700 block mt-1.5">{formatarMoeda(item.valorTributosAproximados)}</span>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </SecaoEmissor>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-          <Truck className="w-4 h-4 text-slate-500" />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">4. Transporte</h3>
-        </div>
+      <SecaoEmissor id="transporte" numero={4} titulo="Transporte" icone={Truck} descricao="Modalidade do frete, transportadora, veículo e volumes">
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Modalidade Frete</label>
-            <select value={modalidadeFrete} onChange={(e) => setModalidadeFrete(parseInt(e.target.value) as 0 | 1 | 2 | 3 | 4 | 9)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label className="block font-medium text-ink-600 mb-1">Modalidade Frete</label>
+            <select value={modalidadeFrete} onChange={(e) => setModalidadeFrete(parseInt(e.target.value) as 0 | 1 | 2 | 3 | 4 | 9)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
               <option value={0}>0 - CIF (Emitente)</option>
               <option value={1}>1 - FOB (Destinatário)</option>
               <option value={2}>2 - Terceiros</option>
@@ -914,11 +917,11 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           </div>
 
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Transportadora</label>
+            <label className="block font-medium text-ink-600 mb-1">Transportadora</label>
             <select
               value={selectedTransportadoraId}
               onChange={(e) => handleSelectTransportadora(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="">-- Selecionar --</option>
               {(transportadoras || []).map(t => (
@@ -930,15 +933,15 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           </div>
 
           {selectedTransportadoraId && (
-            <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 space-y-1 text-[10px]">
+            <div className="bg-ink-50 p-2 rounded-lg border border-ink-200 space-y-1 text-[10px]">
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">CNPJ:</span>
-                <span className="font-medium text-slate-700">{transportadoraCnpj}</span>
+                <span className="text-ink-500">CNPJ:</span>
+                <span className="font-medium text-ink-700">{transportadoraCnpj}</span>
               </div>
               {(transportadoras || []).find(t => t.id === selectedTransportadoraId)?.rntrc && (
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">RNTRC:</span>
-                  <span className="font-medium text-slate-700">
+                  <span className="text-ink-500">RNTRC:</span>
+                  <span className="font-medium text-ink-700">
                     {(transportadoras || []).find(t => t.id === selectedTransportadoraId)?.rntrc}
                   </span>
                 </div>
@@ -947,64 +950,60 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           )}
 
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Placa</label>
-            <input type="text" value={veiculoPlaca} onChange={(e) => setVeiculoPlaca(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="BRA1234" />
+            <label className="block font-medium text-ink-600 mb-1">Placa</label>
+            <input type="text" value={veiculoPlaca} onChange={(e) => setVeiculoPlaca(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="BRA1234" />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">UF</label>
-            <select value={veiculoUf} onChange={(e) => setVeiculoUf(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label className="block font-medium text-ink-600 mb-1">UF</label>
+            <select value={veiculoUf} onChange={(e) => setVeiculoUf(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
               {['SP','RJ','MG','ES','PR','SC','RS','BA','PE','CE','GO','DF','MT','MS','PA','AM','RO','AC','RR','AP','TO','MA','PI','PB','RN','AL','SE'].map(u => (
                 <option key={u} value={u}>{u}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">RNTC</label>
-            <input type="text" value={veiculoRNTC} onChange={(e) => setVeiculoRNTC(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="1234567" />
+            <label className="block font-medium text-ink-600 mb-1">RNTC</label>
+            <input type="text" value={veiculoRNTC} onChange={(e) => setVeiculoRNTC(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="1234567" />
           </div>
 
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Frete (R$)</label>
-            <input type="number" min="0" step="0.01" value={valorFrete} onChange={(e) => setValorFrete(parseFloat(e.target.value) || 0)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <label className="block font-medium text-ink-600 mb-1">Frete (R$)</label>
+            <input type="number" min="0" step="0.01" value={valorFrete} onChange={(e) => setValorFrete(parseFloat(e.target.value) || 0)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Seguro (R$)</label>
-            <input type="number" min="0" step="0.01" value={valorSeguro} onChange={(e) => setValorSeguro(parseFloat(e.target.value) || 0)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <label className="block font-medium text-ink-600 mb-1">Seguro (R$)</label>
+            <input type="number" min="0" step="0.01" value={valorSeguro} onChange={(e) => setValorSeguro(parseFloat(e.target.value) || 0)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" />
           </div>
         </div>
 
-        <div className="mt-4 border-t border-slate-200 pt-4">
-          <label className="block font-medium text-slate-600 mb-2 text-xs">Volumes</label>
+        <div className="mt-4 border-t border-ink-200 pt-4">
+          <label className="block font-medium text-ink-600 mb-2 text-xs">Volumes</label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div>
-              <span className="text-[10px] text-slate-500 block">Qtd:</span>
-              <input type="number" min="0" value={volumesQuantidade} onChange={(e) => setVolumesQuantidade(parseFloat(e.target.value) || 0)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <span className="text-[10px] text-ink-500 block">Qtd:</span>
+              <input type="number" min="0" value={volumesQuantidade} onChange={(e) => setVolumesQuantidade(parseFloat(e.target.value) || 0)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" />
             </div>
             <div>
-              <span className="text-[10px] text-slate-500 block">Espécie:</span>
-              <input type="text" value={volumesEspecie} onChange={(e) => setVolumesEspecie(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Caixas, Fardos..." />
+              <span className="text-[10px] text-ink-500 block">Espécie:</span>
+              <input type="text" value={volumesEspecie} onChange={(e) => setVolumesEspecie(e.target.value)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Caixas, Fardos..." />
             </div>
             <div>
-              <span className="text-[10px] text-slate-500 block">Peso Líquido:</span>
-              <input type="number" min="0" step="0.001" value={volumesPesoLiquido} onChange={(e) => setVolumesPesoLiquido(parseFloat(e.target.value) || 0)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <span className="text-[10px] text-ink-500 block">Peso Líquido:</span>
+              <input type="number" min="0" step="0.001" value={volumesPesoLiquido} onChange={(e) => setVolumesPesoLiquido(parseFloat(e.target.value) || 0)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" />
             </div>
             <div>
-              <span className="text-[10px] text-slate-500 block">Peso Bruto:</span>
-              <input type="number" min="0" step="0.001" value={volumesPesoBruto} onChange={(e) => setVolumesPesoBruto(parseFloat(e.target.value) || 0)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <span className="text-[10px] text-ink-500 block">Peso Bruto:</span>
+              <input type="number" min="0" step="0.001" value={volumesPesoBruto} onChange={(e) => setVolumesPesoBruto(parseFloat(e.target.value) || 0)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" />
             </div>
           </div>
         </div>
-      </div>
+      </SecaoEmissor>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-          <CreditCard className="w-4 h-4 text-slate-500" />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">5. Pagamento</h3>
-        </div>
+      <SecaoEmissor id="pagamento" numero={5} titulo="Pagamento" icone={CreditCard} descricao="Forma de pagamento, desconto e presença do comprador">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Forma de Pagamento</label>
-            <select value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value as '01' | '02' | '03' | '04' | '15' | '17' | '90' | '99')} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label className="block font-medium text-ink-600 mb-1">Forma de Pagamento</label>
+            <select value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value as '01' | '02' | '03' | '04' | '15' | '17' | '90' | '99')} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
               <option value="01">01 - Dinheiro</option>
               <option value="02">02 - Cheque</option>
               <option value="03">03 - Cartão Crédito</option>
@@ -1016,16 +1015,16 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             </select>
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Desconto Geral (R$)</label>
-            <input type="number" min="0" step="0.01" value={valorDescontoGeral} onChange={(e) => setValorDescontoGeral(parseFloat(e.target.value) || 0)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <label className="block font-medium text-ink-600 mb-1">Desconto Geral (R$)</label>
+            <input type="number" min="0" step="0.01" value={valorDescontoGeral} onChange={(e) => setValorDescontoGeral(parseFloat(e.target.value) || 0)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500" />
           </div>
           <div>
-            <label className="block font-medium text-slate-600 mb-1">Presença Comprador <span className="text-[10px] text-slate-400">(indPres)</span></label>
+            <label className="block font-medium text-ink-600 mb-1">Presença Comprador <span className="text-[10px] text-ink-400">(indPres)</span></label>
             {/* 🔥 Rótulos de 3/4/5/9 estavam deslocados em relação à tabela oficial
                 do indPres (Manual da NF-e) — o código enviado já estava certo, mas
                 o texto mostrado ao usuário descrevia o código errado, podendo levar
                 a escolher a opção pensando que significava outra coisa. */}
-            <select value={presencaComprador} onChange={(e) => setPresencaComprador(parseInt(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5 | 9)} className="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select value={presencaComprador} onChange={(e) => setPresencaComprador(parseInt(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5 | 9)} className="w-full border border-ink-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
               <option value={0}>0 - Não se aplica</option>
               <option value={1}>1 - Presencial</option>
               <option value={2}>2 - Não presencial (Internet)</option>
@@ -1038,133 +1037,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           {/* 🔥 "Finalidade" removido daqui — campo duplicado, já existe na seção
               2 (Dados Gerais) ligado ao mesmo estado `finalidade`. */}
         </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3 mb-4">6. Totais da NF-e</h3>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-            <span className="text-slate-600">Produtos:</span>
-            <span className="font-semibold text-slate-900">{formatarMoeda(totais.valorTotalProdutos)}</span>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-            <span className="text-slate-600">ICMS:</span>
-            <span className="font-semibold text-emerald-700">{formatarMoeda(totais.valorTotalICMS)}</span>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-            <span className="text-slate-600">PIS:</span>
-            <span className="font-semibold">{formatarMoeda(totais.valorTotalPIS)}</span>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-            <span className="text-slate-600">COFINS:</span>
-            <span className="font-semibold">{formatarMoeda(totais.valorTotalCOFINS)}</span>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-            <span className="text-slate-600">IPI:</span>
-            <span className="font-semibold">{formatarMoeda(totais.valorTotalIPI)}</span>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-            <span className="text-slate-600">Frete:</span>
-            <span className="font-semibold">{formatarMoeda(totais.valorTotalFrete)}</span>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-            <span className="text-slate-600">Seguro:</span>
-            <span className="font-semibold">{formatarMoeda(totais.valorTotalSeguro)}</span>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-            <span className="text-slate-600">Desconto:</span>
-            <span className="font-semibold text-rose-600">{formatarMoeda(totais.valorTotalDesconto)}</span>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-            <span className="text-slate-600">IBS (UF+Mun):</span>
-            <span className="font-semibold text-blue-700">{formatarMoeda(totais.valorTotalIBS)}</span>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-            <span className="text-slate-600">CBS (Federal):</span>
-            <span className="font-semibold text-purple-700">{formatarMoeda(totais.valorTotalCBS)}</span>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 col-span-2">
-            <span className="text-slate-600">Tributos Aproximados (Lei 12.741):</span>
-            <span className="font-semibold text-slate-700">{formatarMoeda(totais.valorTotalTributosAproximados)}</span>
-          </div>
-        </div>
-
-        <div className="mt-4 p-4 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-lg">
-          <span className="text-[10px] text-emerald-100 uppercase block font-medium">Total da Nota</span>
-          <span className="text-2xl font-bold text-white">{formatarMoeda(totais.valorTotalNota)}</span>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-          <Send className="w-4 h-4 text-emerald-600" />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">7. Ações</h3>
-        </div>
-        
-        <div className="space-y-3">
-          {/* 🔥 Clicável mesmo com dados incompletos — é o que dispara a validação
-              que pinta os campos obrigatórios vazios de vermelho (handleClickEmitir).
-              Só fica de fato desabilitado durante a transmissão em si. */}
-          <button
-            onClick={handleClickEmitir}
-            disabled={isTransmitting}
-            className={`w-full font-semibold text-sm py-3 px-4 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer ${
-              isTransmitting
-                ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                : isFormReady
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'bg-slate-700 hover:bg-slate-800 text-white'
-            }`}
-          >
-            {isTransmitting ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Transmitindo para SEFAZ...</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                <span>{!isFormReady ? 'VER PENDÊNCIAS E CONTINUAR' : 'REVISAR & EMITIR NF-e'}</span>
-              </>
-            )}
-          </button>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button 
-              onClick={handleLimparTudo} 
-              className="bg-white hover:bg-slate-50 text-slate-600 font-medium text-xs py-2 px-3 rounded-lg border border-slate-300 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Limpar Tudo
-            </button>
-            <button
-              onClick={handleClickEmitir}
-              className="bg-white hover:bg-slate-50 text-slate-600 font-medium text-xs py-2 px-3 rounded-lg border border-slate-300 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              Pré-visualizar
-            </button>
-          </div>
-
-          <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-xs text-slate-600 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span>Status:</span>
-              <span className={`font-semibold ${isFormReady ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {isFormReady ? '✅ Pronto para emitir' : '⏳ Dados incompletos'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Itens:</span>
-              <span className="font-semibold">{itens.length} produto(s)</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Total:</span>
-              <span className="font-semibold">{formatarMoeda(totais.valorTotalNota)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      </SecaoEmissor>
 
       {/* ============================================================
           PREVIEW ANTES DE TRANSMITIR — nada é enviado pra SEFAZ até o
@@ -1172,7 +1045,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
           deixa claro que isso não é a nota autorizada ainda.
           ============================================================ */}
       {showPreview && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-ink-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           {/* 🔥 flex-col + overflow-hidden no card (não mais overflow-y-auto direto
               nele) — a chancela agora é um overlay absolute que cobre o CARD
               inteiro (cabeçalho+conteúdo+rodapé) e fica presa ali por cima,
@@ -1193,10 +1066,10 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
               </span>
             </div>
 
-            <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-center justify-between z-20">
+            <div className="shrink-0 bg-brand-50 border-b border-brand-200 px-5 py-3 flex items-center justify-between z-20">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">
+                <AlertTriangle className="w-4 h-4 text-brand-600" />
+                <span className="text-xs font-bold text-brand-800 uppercase tracking-wide">
                   Espelho do DANFE — documento ainda NÃO emitido/transmitido
                 </span>
               </div>
@@ -1206,7 +1079,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                 (empresa.ambienteEmissao as unknown as string) === 'PRODUCAO'
                   ? 'bg-rose-100 text-rose-800 border-rose-300'
-                  : 'bg-blue-100 text-blue-800 border-blue-300'
+                  : 'bg-brand-100 text-brand-800 border-brand-300'
               }`}>
                 {(empresa.ambienteEmissao as unknown as string) === 'PRODUCAO' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'}
               </span>
@@ -1264,12 +1137,12 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
             />
             </div>
 
-            <div className="shrink-0 bg-white border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-2">
+            <div className="shrink-0 bg-white border-t border-ink-100 px-6 py-4 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowPreview(false)}
                 disabled={isTransmitting}
-                className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium cursor-pointer transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-lg text-ink-600 hover:bg-ink-100 font-medium cursor-pointer transition-colors disabled:opacity-50"
               >
                 Voltar e Revisar
               </button>
@@ -1277,7 +1150,7 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
                 type="button"
                 onClick={handleTransmitirNfe}
                 disabled={isTransmitting}
-                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm cursor-pointer disabled:opacity-60 flex items-center gap-2 transition-colors"
+                className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-sm cursor-pointer disabled:opacity-60 flex items-center gap-2 transition-colors"
               >
                 {isTransmitting ? (
                   <>
@@ -1296,6 +1169,6 @@ export const NfeEmissor: React.FC<NfeEmissorProps> = ({
         </div>
       )}
 
-    </div>
+    </EmissorLayout>
   );
 };

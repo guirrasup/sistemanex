@@ -10,7 +10,7 @@ import {
   CheckCircle2 
 } from 'lucide-react';
 import { NFAeDocumento } from '../../types/fiscal';
-import { formatarCpfCnpj } from '../../utils/cpfCnpjValidator';
+import { formatarCpfCnpj, formatarMoeda } from '../../utils/cpfCnpjValidator';
 
 interface DanfaeViewerProps {
   nfae: NFAeDocumento;

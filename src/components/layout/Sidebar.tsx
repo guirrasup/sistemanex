@@ -1,264 +1,294 @@
 // src/components/layout/Sidebar.tsx
-import React, { useState, useEffect } from 'react';
-import {
-  LayoutDashboard,
-  FileText,
-  Receipt,
-  Files,
-  Package,
-  DollarSign,
-  Users,
-  Briefcase,
-  Building,
-  ShoppingBag,
-  Truck,
-  FileBadge2,
-  FileArchive, // 🔥 NOVO - MDF-e
-  Search,
-  UserPlus,
-  UserCheck,
-  X,
-  Lock,
-} from 'lucide-react';
+// Sidebar "Livro Aberto": fica sobre o fundo tingido do app, mais apagada que a
+// folha de conteúdo. Navegação monocromática, pílula ativa deslizante, seções que
+// recolhem (com memória) e modo trilho (Ctrl/⌘ B). Só itens do sistema: a
+// identificação da empresa e o certificado A1 ficam no Header.
+import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ChevronDown, Download, LogOut, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { usePermissoes } from '../../hooks/usePermissoes';
-import { VIEW_ADMIN } from '../../utils/permissoes';
+import { UsuarioAuth } from '../../types/erp';
+import { ContadoresNav, TECLA_MOD, gruposNavegacao, valorContador, viewAtiva } from './navegacao';
 
 interface SidebarProps {
   currentView: string;
-  onSelectView?: (view: string) => void;
-  onNavigate?: (view: string) => void;
-  isOpen?: boolean;
-  onToggle?: () => void;
-  contadores?: {
-    nfseCount?: number;
-    nfeCount?: number;
-    nfceCount?: number;
-    cteCount?: number;
-    nfaeCount?: number;
-    mdfeCount?: number; // 🔥 NOVO
-    produtosCount?: number;
-    clientesCount?: number;
-    fornecedoresCount?: number;
-    servicosCount?: number;
-    titulosPendentesCount?: number;
-    transportadorasCount?: number;
-  };
-  onMenuToggle?: () => void;
+  onNavigate: (view: string) => void;
+  usuario?: UsuarioAuth | null;
+  contadores?: ContadoresNav;
+  recolhida: boolean;
+  onAlternarRecolhida: () => void;
+  mobileAberta: boolean;
+  onFecharMobile: () => void;
+  onExportarBackup?: () => void;
+  onLogout?: () => void;
 }
 
-// 🔥 CORES POR ÍTEM DO MENU
-const coresMenu: Record<string, { ativo: string; icone: string; badge: string; hover: string }> = {
-  dashboard: { ativo: 'bg-blue-50 text-blue-700', icone: 'text-blue-500', badge: 'bg-blue-100 text-blue-700', hover: 'hover:bg-blue-50' },
-  'documentos-fiscais': { ativo: 'bg-indigo-50 text-indigo-700', icone: 'text-indigo-500', badge: 'bg-indigo-100 text-indigo-700', hover: 'hover:bg-indigo-50' },
-  'nfe-emissor': { ativo: 'bg-emerald-50 text-emerald-700', icone: 'text-emerald-500', badge: 'bg-emerald-100 text-emerald-700', hover: 'hover:bg-emerald-50' },
-  'nfse-emissor': { ativo: 'bg-blue-50 text-blue-700', icone: 'text-blue-500', badge: 'bg-blue-100 text-blue-700', hover: 'hover:bg-blue-50' },
-  'nfce-emissor': { ativo: 'bg-purple-50 text-purple-700', icone: 'text-purple-500', badge: 'bg-purple-100 text-purple-700', hover: 'hover:bg-purple-50' },
-  'cte-emissor': { ativo: 'bg-cyan-50 text-cyan-700', icone: 'text-cyan-500', badge: 'bg-cyan-100 text-cyan-700', hover: 'hover:bg-cyan-50' },
-  'nfae-emissor': { ativo: 'bg-amber-50 text-amber-700', icone: 'text-amber-500', badge: 'bg-amber-100 text-amber-700', hover: 'hover:bg-amber-50' },
-  // 🔥 NOVO - MDF-e (COR LARANJA)
-  'mdfe-emissor': { ativo: 'bg-orange-50 text-orange-700', icone: 'text-orange-500', badge: 'bg-orange-100 text-orange-700', hover: 'hover:bg-orange-50' },
-  produtos: { ativo: 'bg-green-50 text-green-700', icone: 'text-green-500', badge: 'bg-green-100 text-green-700', hover: 'hover:bg-green-50' },
-  servicos: { ativo: 'bg-pink-50 text-pink-700', icone: 'text-pink-500', badge: 'bg-pink-100 text-pink-700', hover: 'hover:bg-pink-50' },
-  clientes: { ativo: 'bg-sky-50 text-sky-700', icone: 'text-sky-500', badge: 'bg-sky-100 text-sky-700', hover: 'hover:bg-sky-50' },
-  fornecedores: { ativo: 'bg-violet-50 text-violet-700', icone: 'text-violet-500', badge: 'bg-violet-100 text-violet-700', hover: 'hover:bg-violet-50' },
-  transportadoras: { ativo: 'bg-cyan-50 text-cyan-700', icone: 'text-cyan-500', badge: 'bg-cyan-100 text-cyan-700', hover: 'hover:bg-cyan-50' },
-  financeiro: { ativo: 'bg-yellow-50 text-yellow-700', icone: 'text-yellow-500', badge: 'bg-yellow-100 text-yellow-700', hover: 'hover:bg-yellow-50' },
-  configuracoes: { ativo: 'bg-slate-50 text-slate-700', icone: 'text-slate-500', badge: 'bg-slate-100 text-slate-700', hover: 'hover:bg-slate-50' },
-  'consulta-cnpj': { ativo: 'bg-rose-50 text-rose-700', icone: 'text-rose-500', badge: 'bg-rose-100 text-rose-700', hover: 'hover:bg-rose-50' },
-  [VIEW_ADMIN]: { ativo: 'bg-indigo-50 text-indigo-700', icone: 'text-indigo-500', badge: 'bg-indigo-100 text-indigo-700', hover: 'hover:bg-indigo-50' },
+const CHAVE_GRUPOS_FECHADOS = '@sup:nav-grupos-fechados';
+
+function lerGruposFechados(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(CHAVE_GRUPOS_FECHADOS) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Menu do usuário (rodapé)
+// ---------------------------------------------------------------------------
+const MenuUsuario: React.FC<{
+  usuario: UsuarioAuth;
+  recolhida: boolean;
+  onExportarBackup?: () => void;
+  onLogout?: () => void;
+}> = ({ usuario, recolhida, onExportarBackup, onLogout }) => {
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const { pode } = usePermissoes();
+  const perfil = usuario.perfil === 'ADMIN' ? 'Administrador' : usuario.perfilAcesso?.nome || usuario.perfil;
+
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setAberto(false);
+    document.addEventListener('mousedown', fora);
+    return () => document.removeEventListener('mousedown', fora);
+  }, [aberto]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        title={usuario.nome}
+        className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors hover:bg-white/70 ${recolhida ? 'justify-center' : ''}`}
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-800 text-xs font-semibold text-white">
+          {(usuario.nome || 'U').charAt(0).toUpperCase()}
+        </div>
+        {!recolhida && (
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-medium text-ink-900">{usuario.nome}</p>
+            <p className="truncate text-[11px] text-ink-500">{perfil}</p>
+          </div>
+        )}
+      </button>
+
+      <AnimatePresence>
+        {aberto && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className={`absolute bottom-full z-50 mb-2 w-60 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-float ${recolhida ? 'left-0' : 'inset-x-0 w-auto'}`}
+          >
+            <div className="border-b border-ink-100 px-3.5 py-3">
+              <p className="truncate text-sm font-semibold text-ink-950">{usuario.nome}</p>
+              <p className="truncate text-xs text-ink-500">{usuario.email}</p>
+            </div>
+            <div className="p-1.5">
+              {onExportarBackup && pode('relatorios.exportar') && (
+                <button
+                  onClick={() => {
+                    setAberto(false);
+                    onExportarBackup();
+                  }}
+                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-ink-700 hover:bg-ink-50"
+                >
+                  <Download className="h-4 w-4 text-ink-400" />
+                  Exportar backup
+                </button>
+              )}
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-ink-700 hover:bg-nf-rejeitada-bg hover:text-nf-rejeitada"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentView,
-  onSelectView,
   onNavigate,
-  isOpen = true,
-  onToggle,
+  usuario,
   contadores = {},
-  onMenuToggle,
+  recolhida: recolhidaDesktop,
+  onAlternarRecolhida,
+  mobileAberta,
+  onFecharMobile,
+  onExportarBackup,
+  onLogout,
 }) => {
-  const handleSelect = onSelectView || onNavigate || (() => {});
   const { podeVerView, isAdmin } = usePermissoes();
-  
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [fechados, setFechados] = useState<string[]>(lerGruposFechados);
+  // No mobile (gaveta) a sidebar está sempre expandida.
+  const recolhida = recolhidaDesktop && !mobileAberta;
+  const ativo = viewAtiva(currentView);
 
   useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth < 1024;
-      setIsMobile(mobile);
-      if (!mobile) {
-        setMobileOpen(false);
-      }
-    };
+    try {
+      localStorage.setItem(CHAVE_GRUPOS_FECHADOS, JSON.stringify(fechados));
+    } catch {
+      /* armazenamento indisponível: só não lembra */
+    }
+  }, [fechados]);
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
+  // Fecha a gaveta com Esc.
   useEffect(() => {
-    if (onMenuToggle) {
-      onMenuToggle();
-    }
-  }, [mobileOpen, onMenuToggle]);
+    if (!mobileAberta) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onFecharMobile();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileAberta, onFecharMobile]);
 
-  const handleItemClick = (view: string) => {
-    handleSelect(view);
-    if (isMobile) {
-      setMobileOpen(false);
-    }
+  const grupos = gruposNavegacao(isAdmin)
+    .map((g) => ({ ...g, itens: g.itens.filter((i) => podeVerView(i.id)) }))
+    .filter((g) => g.itens.length > 0);
+
+  const navegar = (view: string) => {
+    onNavigate(view);
+    onFecharMobile();
   };
 
-  const totalNotas = 
-    (contadores.nfseCount || 0) + 
-    (contadores.nfeCount || 0) + 
-    (contadores.nfceCount || 0) + 
-    (contadores.cteCount || 0) + 
-    (contadores.nfaeCount || 0) + 
-    (contadores.mdfeCount || 0); // 🔥 ADICIONAR MDF-e
-
-  const todosGrupos = [
-    {
-      titulo: 'GERAL',
-      itens: [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      ],
-    },
-    {
-      titulo: 'MÓDULO FISCAL',
-      itens: [
-        { id: 'nfe-emissor', label: 'NF-e (Produtos)', icon: Receipt, badgeCount: contadores.nfeCount || 0 },
-        { id: 'nfse-emissor', label: 'NFS-e (Serviços)', icon: FileText, badgeCount: contadores.nfseCount || 0 },
-        { id: 'nfce-emissor', label: 'NFC-e (Consumidor)', icon: ShoppingBag, badgeCount: contadores.nfceCount || 0 },
-        { id: 'cte-emissor', label: 'CT-e (Transporte)', icon: Truck, badgeCount: contadores.cteCount || 0 },
-        { id: 'nfae-emissor', label: 'NFA-e (Avulsa)', icon: FileBadge2, badgeCount: contadores.nfaeCount || 0 },
-        // 🔥 NOVO - MDF-e (Após NFA-e, antes de Documentos)
-        { id: 'mdfe-emissor', label: 'MDF-e (Manifesto)', icon: FileArchive, badgeCount: contadores.mdfeCount || 0 },
-        { id: 'documentos-fiscais', label: 'Documentos Emitidos', icon: Files, badgeCount: totalNotas },
-      ],
-    },
-    {
-      titulo: 'CADASTROS',
-      itens: [
-        { id: 'produtos', label: 'Produtos / Estoque', icon: Package, badgeCount: contadores.produtosCount },
-        { id: 'servicos', label: 'Serviços', icon: Briefcase, badgeCount: contadores.servicosCount },
-        { id: 'clientes', label: 'Clientes', icon: UserPlus, badgeCount: contadores.clientesCount },
-        { id: 'fornecedores', label: 'Fornecedores', icon: UserCheck, badgeCount: contadores.fornecedoresCount },
-        { id: 'transportadoras', label: 'Transportadoras', icon: Truck, badgeCount: contadores.transportadorasCount },
-      ],
-    },
-    {
-      titulo: 'FINANCEIRO & CONFIG',
-      itens: [
-        { id: 'financeiro', label: 'Financeiro', icon: DollarSign, badgeCount: contadores.titulosPendentesCount },
-        { id: 'configuracoes', label: 'Dados da Empresa / A1', icon: Building },
-      ],
-    },
-    {
-      titulo: 'FERRAMENTAS',
-      itens: [
-        { id: 'consulta-cnpj', label: 'Consulta CNPJ', icon: Search },
-      ],
-    },
-    ...(isAdmin
-      ? [{ titulo: 'ADMINISTRAÇÃO', itens: [{ id: VIEW_ADMIN, label: 'Usuários e Permissões', icon: Lock }] }]
-      : []),
-  ];
-
-  // 🔐 Só mostra o que o usuário pode abrir; grupo sem itens some.
-  const menuGrupos = todosGrupos
-    .map((grupo) => ({ ...grupo, itens: grupo.itens.filter((item) => podeVerView(item.id)) }))
-    .filter((grupo) => grupo.itens.length > 0);
-
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full">
-      <div className="p-2 space-y-4 flex-1 overflow-y-auto">
-        {menuGrupos.map((grupo, gIdx) => (
-          <div key={gIdx} className="space-y-0.5">
-            <div className="px-2.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              {grupo.titulo}
-            </div>
-            <div className="space-y-0.5">
-              {grupo.itens.map((item) => {
-                const Icon = item.icon;
-                const isActive = currentView === item.id;
-                const cores = coresMenu[item.id] || coresMenu.dashboard;
-                
-                return (
-                  <button
-                    key={item.id}
-                    id={`menu-item-${item.id}`}
-                    onClick={() => handleItemClick(item.id)}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left text-xs transition-colors cursor-pointer ${
-                      isActive ? cores.ativo : `text-slate-700 ${cores.hover}`
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <Icon
-                        className={`w-4 h-4 shrink-0 ${
-                          isActive ? cores.icone : 'text-slate-400'
-                        }`}
-                      />
-                      <span className="truncate">{item.label}</span>
-                    </div>
-
-                    {item.badgeCount !== undefined && item.badgeCount > 0 && (
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${
-                        isActive ? cores.badge : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {item.badgeCount}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="p-2.5 border-t border-slate-200 text-[11px] text-slate-400 flex items-center justify-between">
-        <span>ERP Emissor Fiscal</span>
-        <span className="text-emerald-600 font-medium">● SEFAZ OK</span>
-      </div>
-    </div>
-  );
 
   return (
     <>
-      {isMobile && mobileOpen && (
-        <div
-          className="fixed inset-0 bg-slate-900/50 z-40"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {mobileAberta && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onFecharMobile}
+            className="fixed inset-0 z-40 bg-ink-950/40 backdrop-blur-[2px] lg:hidden"
+          />
+        )}
+      </AnimatePresence>
 
       <aside
-        className={`
-          bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 select-none h-full overflow-y-auto
-          transition-all duration-300 ease-in-out
-          ${isMobile ? 'fixed top-0 left-0 z-40 w-72 h-full shadow-xl' : 'relative w-56'}
-          ${isMobile && !mobileOpen ? '-translate-x-full' : 'translate-x-0'}
-        `}
+        className={`fixed inset-y-0 left-0 z-50 flex shrink-0 select-none flex-col bg-ink-100 transition-[width,transform] duration-300 ease-out lg:static lg:z-auto lg:translate-x-0 ${
+          mobileAberta ? 'w-72 translate-x-0 shadow-float' : '-translate-x-full lg:shadow-none'
+        } ${recolhida ? 'lg:w-[68px]' : 'lg:w-[252px]'}`}
+        aria-label="Navegação principal"
       >
-        {isMobile && (
-          <div className="flex items-center justify-between p-3 border-b border-slate-200 bg-white">
+        {/* Marca + recolher */}
+        <div className={`flex h-14 shrink-0 items-center ${recolhida ? 'justify-center px-2' : 'justify-between px-4'}`}>
+          {!recolhida && (
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-gradient-to-br from-slate-700 to-slate-900 rounded flex items-center justify-center text-white font-bold text-sm">
-                S
-              </div>
-              <span className="font-bold text-sm text-slate-900">SUP Fiscal</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-700 font-display text-sm font-bold text-white">S</div>
+              <span className="font-display text-[15px] font-bold tracking-tight text-ink-950">SUP Tecnologia</span>
             </div>
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded hover:bg-slate-100 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        )}
+          )}
+          <button
+            onClick={mobileAberta ? onFecharMobile : onAlternarRecolhida}
+            title={mobileAberta ? 'Fechar menu' : `${recolhida ? 'Expandir' : 'Recolher'} menu (${TECLA_MOD} B)`}
+            className="cursor-pointer rounded-md p-1.5 text-ink-400 transition-colors hover:bg-white/70 hover:text-ink-700"
+          >
+            {mobileAberta ? <X className="h-4 w-4" /> : recolhida ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
+        </div>
 
-        <SidebarContent />
+        {/* Navegação */}
+        <nav className="mt-2 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3">
+          {grupos.map((grupo, gi) => {
+            const fechado = !recolhida && grupo.titulo !== null && fechados.includes(grupo.id);
+            return (
+              <div key={grupo.id} className={gi > 0 ? 'mt-4' : ''}>
+                {grupo.titulo &&
+                  (recolhida ? (
+                    <div className="mx-auto mb-2 h-px w-6 bg-ink-200" />
+                  ) : (
+                    <button
+                      onClick={() =>
+                        setFechados((f) => (f.includes(grupo.id) ? f.filter((x) => x !== grupo.id) : [...f, grupo.id]))
+                      }
+                      aria-expanded={!fechado}
+                      className="group mb-1 flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400 hover:text-ink-600"
+                    >
+                      {grupo.titulo}
+                      <ChevronDown className={`h-3.5 w-3.5 opacity-0 transition-all group-hover:opacity-100 ${fechado ? '-rotate-90 opacity-100' : ''}`} />
+                    </button>
+                  ))}
+
+                <AnimatePresence initial={false}>
+                  {!fechado && (
+                    <motion.ul
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                      className="space-y-px overflow-hidden"
+                    >
+                      {grupo.itens.map((item) => {
+                        const sel = ativo === item.id;
+                        const qtd = valorContador(item.contador, contadores);
+                        const forte = item.contador === 'titulosPendentesCount';
+                        const Icon = item.icon;
+                        return (
+                          <li key={item.id}>
+                            <button
+                              id={`menu-item-${item.id}`}
+                              onClick={() => navegar(item.id)}
+                              title={recolhida ? `${item.label}${item.detalhe ? ` · ${item.detalhe}` : ''}` : undefined}
+                              aria-current={sel ? 'page' : undefined}
+                              className={`relative flex w-full cursor-pointer items-center gap-2.5 rounded-lg text-left text-[13px] transition-colors ${
+                                recolhida ? 'justify-center p-2' : 'px-2.5 py-[7px]'
+                              } ${sel ? 'font-medium text-ink-950' : 'text-ink-600 hover:bg-white/50 hover:text-ink-900'}`}
+                            >
+                              {sel && (
+                                <motion.span
+                                  layoutId="sidebar-ativo"
+                                  transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                                  className="absolute inset-0 rounded-lg border border-ink-200/80 bg-white shadow-card"
+                                />
+                              )}
+                              {sel && !recolhida && <span className="absolute inset-y-2 left-0 z-10 w-[3px] rounded-r-full bg-brand-700" />}
+                              <Icon className={`relative z-10 h-4 w-4 shrink-0 ${sel ? 'text-brand-700' : 'text-ink-400'}`} />
+                              {!recolhida && (
+                                <>
+                                  <span className="relative z-10 flex min-w-0 flex-1 items-baseline gap-1.5 truncate">
+                                    {item.label}
+                                    {item.detalhe && <span className="truncate text-[11px] font-normal text-ink-400">{item.detalhe}</span>}
+                                  </span>
+                                  {qtd !== undefined && qtd > 0 && (
+                                    <span
+                                      className={`relative z-10 font-mono text-[11px] tabular-nums ${
+                                        forte ? 'rounded-full bg-brand-700 px-1.5 py-px text-white' : 'text-ink-400'
+                                      }`}
+                                    >
+                                      {qtd > 999 ? '999+' : qtd}
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                              {recolhida && forte && qtd !== undefined && qtd > 0 && (
+                                <span className="absolute right-1.5 top-1.5 z-10 h-1.5 w-1.5 rounded-full bg-brand-600" />
+                              )}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Rodapé: selo A1 + usuário */}
+        <div className="shrink-0 border-t border-ink-200/70 p-3">
+          {usuario && <MenuUsuario usuario={usuario} recolhida={recolhida} onExportarBackup={onExportarBackup} onLogout={onLogout} />}
+        </div>
       </aside>
     </>
   );

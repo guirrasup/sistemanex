@@ -1,1058 +1,1191 @@
 // src/components/landing/LandingPageView.tsx
-import React, { useEffect, useRef, useState } from 'react';
+// Landing pública — direção visual "Livro-razão": fundo claro quente, verde-petróleo
+// como cor de marca, cor reservada a estado (status de nota) e o produto real como
+// protagonista do hero. Tokens em src/index.css (@theme).
+import React, { useEffect, useState } from 'react';
+import { AnimatePresence, motion, MotionConfig, type Variants } from 'framer-motion';
 import {
-  AnimatePresence,
-  motion,
-  MotionConfig,
-  useMotionTemplate,
-  useScroll,
-  useTransform,
-  type Variants,
-} from 'framer-motion';
-import {
-  LogIn,
-  Receipt,
+  ArrowRight,
+  Ban,
+  Briefcase,
+  Building2,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  CloudOff,
+  FileArchive,
+  FileBadge2,
   FileText,
+  Landmark,
+  Lock,
+  LogIn,
+  Mail,
+  Package,
+  QrCode,
+  Receipt,
+  Search,
+  Send,
+  ShieldCheck,
   ShoppingBag,
   Truck,
-  FileBadge2,
-  FileArchive,
-  Package,
-  Briefcase,
-  UserPlus,
   UserCheck,
-  DollarSign,
-  ShieldCheck,
-  Search,
-  QrCode,
-  CheckCircle2,
-  Building2,
-  Mail,
-  MapPin,
-  ArrowRight,
-  Sparkles,
-  Lock,
-  Clock,
-  ChevronRight,
-  Layers,
-  Zap,
+  UserPlus,
+  XCircle,
 } from 'lucide-react';
 import { ConfiguracaoEmpresa } from '../../types/erp';
 
 interface LandingPageViewProps {
-  empresa: ConfiguracaoEmpresa;
+  // Mantido por compatibilidade com o App; a landing mostra só dados da SUP Tecnologia,
+  // nunca os da empresa (cliente) configurada no sistema.
+  empresa?: ConfiguracaoEmpresa;
   onGoToLogin: () => void;
-}
-
-// 🔥 Respeita a preferência de "reduzir movimento" do sistema operacional.
-// O MotionConfig (reducedMotion="user") já cobre animações declarativas
-// (whileInView/variants) dos elementos `motion.*`, mas valores manuais
-// derivados de useScroll/useTransform e aplicados via `style` (backgroundColor,
-// backdropFilter, e os transforms do hero) não passam pelo mecanismo interno
-// do MotionConfig — por isso precisamos colapsá-los manualmente aqui.
-function usePrefersReducedMotion(): boolean {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(mediaQuery.matches);
-
-    const handleChange = (event: MediaQueryListEvent) => {
-      setPrefersReducedMotion(event.matches);
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
-
-  return prefersReducedMotion;
-}
-
-// Colapsa um range de useTransform para um valor único (o primeiro) quando o
-// usuário prefere movimento reduzido, mantendo a mesma quantidade de "stops".
-function reducedRange<T>(prefersReducedMotion: boolean, output: T[]): T[] {
-  return prefersReducedMotion ? output.map(() => output[0]) : output;
 }
 
 const NAV_ITEMS = [
   { id: 'fiscal', label: 'Fiscal' },
-  { id: 'gestao', label: 'Gestão' },
-  { id: 'financeiro', label: 'Financeiro' },
+  { id: 'fluxo', label: 'Como funciona' },
+  { id: 'gestao', label: 'Gestão & Financeiro' },
+  { id: 'contadores', label: 'Contadores' },
+  { id: 'duvidas', label: 'Dúvidas' },
 ] as const;
 
-// === CATÁLOGO REAL DOS MÓDULOS (mesmo conjunto do menu lateral do sistema) ===
+// === Status de documento fiscal (mesmos tokens nf-* usados no app) ===
+type StatusNota = 'autorizada' | 'rejeitada' | 'cancelada' | 'pendente' | 'contingencia';
 
-const MODULOS_FISCAIS = [
+const STATUS_NOTA: Record<StatusNota, { label: string; icon: typeof CheckCircle2; className: string }> = {
+  autorizada: { label: 'Autorizada', icon: CheckCircle2, className: 'bg-nf-autorizada-bg text-nf-autorizada' },
+  rejeitada: { label: 'Rejeitada', icon: XCircle, className: 'bg-nf-rejeitada-bg text-nf-rejeitada' },
+  cancelada: { label: 'Cancelada', icon: Ban, className: 'bg-nf-cancelada-bg text-nf-cancelada' },
+  pendente: { label: 'Processando', icon: Clock, className: 'bg-nf-pendente-bg text-nf-pendente' },
+  contingencia: { label: 'Contingência', icon: CloudOff, className: 'bg-nf-contingencia-bg text-nf-contingencia' },
+};
+
+const StatusBadge: React.FC<{ status: StatusNota }> = ({ status }) => {
+  const s = STATUS_NOTA[status];
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${s.className}`}>
+      <s.icon className="h-3 w-3" aria-hidden />
+      {s.label}
+    </span>
+  );
+};
+
+// === Dados ilustrativos do mockup do hero ===
+interface LinhaNota {
+  numero: string;
+  tipo: string;
+  cliente: string;
+  valor: string;
+  status: StatusNota;
+}
+
+const NOTAS_BASE: LinhaNota[] = [
+  { numero: '004.812', tipo: 'NF-e', cliente: 'Distribuidora Paraná Ltda', valor: '12.480,00', status: 'autorizada' },
+  { numero: '000.391', tipo: 'NFS-e', cliente: 'Clínica Bem Viver', valor: '3.250,00', status: 'autorizada' },
+  { numero: '018.204', tipo: 'NFC-e', cliente: 'Consumidor final', valor: '186,90', status: 'contingencia' },
+  { numero: '004.811', tipo: 'NF-e', cliente: 'Mercado Bom Preço', valor: '7.912,40', status: 'rejeitada' },
+  { numero: '000.127', tipo: 'CT-e', cliente: 'Transportes Rota Sul', valor: '2.140,00', status: 'cancelada' },
+];
+
+const NOTAS_NOVAS: LinhaNota[] = [
+  { numero: '004.813', tipo: 'NF-e', cliente: 'Atacadão Serra Verde', valor: '9.364,20', status: 'autorizada' },
+  { numero: '000.392', tipo: 'NFS-e', cliente: 'Escritório Lima & Costa', valor: '1.800,00', status: 'autorizada' },
+  { numero: '018.205', tipo: 'NFC-e', cliente: 'Consumidor final', valor: '74,50', status: 'autorizada' },
+  { numero: '004.814', tipo: 'NF-e', cliente: 'Ferragens Horizonte', valor: '4.205,75', status: 'autorizada' },
+];
+
+interface Aviso {
+  id: number;
+  tipo: 'nota' | 'pix';
+  titulo: string;
+  corpo: string;
+  valor: string;
+}
+
+const paraNumero = (valor: string) => Number(valor.replace(/\./g, '').replace(',', '.'));
+const formatarReais = (valor: number) => valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const FATURAMENTO_SERIE = [38, 44, 41, 52, 49, 58, 63, 60, 71, 69, 78, 86];
+
+const FLUXO = [
+  { icon: Receipt, titulo: 'Emitiu', desc: 'Nota assinada com seu certificado A1 e autorizada pela SEFAZ em segundos.' },
+  { icon: Package, titulo: 'Estoque', desc: 'Cada item da nota dá baixa automática no saldo do produto.' },
+  { icon: Landmark, titulo: 'Financeiro', desc: 'O título a receber nasce junto com a nota, pronto para cobrança Pix.' },
+  { icon: Send, titulo: 'Contador', desc: 'XML enviado automaticamente para o escritório contábil.' },
+] as const;
+
+// Imagens reais: geradas pelos próprios componentes de layout do sistema (DanfeLayout,
+// DanfseLayout, DanfceLayout, DacteLayout) com dados fictícios — ver scripts/landing-shots.
+const DOCUMENTOS_REAIS = [
   {
-    icon: Receipt,
-    modelo: 'Modelo 55',
+    id: 'nfe',
     nome: 'NF-e',
-    desc: 'Nota fiscal de produtos com cálculo automático de ICMS, IPI, PIS e COFINS, e DANFE em PDF/XML.',
-    accent: 'from-emerald-500/15 text-emerald-600 border-emerald-500/20',
-    big: true,
+    documento: 'DANFE',
+    modelo: 'Mod. 55',
+    img: '/landing/danfe.png',
+    largura: 'max-w-[720px]',
+    desc: 'Venda de mercadorias com ICMS, PIS e COFINS calculados item a item, duplicatas e chave de acesso com código de barras.',
+    destaques: ['5 itens · CFOP 5102', 'ICMS R$ 1.019,70', '3 duplicatas'],
   },
   {
-    icon: FileText,
-    modelo: 'Padrão Nacional',
+    id: 'nfse',
     nome: 'NFS-e',
-    desc: 'DPS no layout oficial da Receita Federal, com retenções automáticas de ISS, IRRF, CSLL e PIS/COFINS.',
-    accent: 'from-blue-500/15 text-blue-600 border-blue-500/20',
-    big: true,
+    documento: 'DANFSE',
+    modelo: 'Nacional',
+    img: '/landing/danfse.png',
+    largura: 'max-w-[720px]',
+    desc: 'Padrão Nacional da Receita Federal, com ISS, retenções federais, QR Code de consulta e os campos de IBS/CBS.',
+    destaques: ['ISS 2%', 'Retenções R$ 519,68', 'IBS/CBS informativo'],
   },
   {
-    icon: ShoppingBag,
-    modelo: 'Modelo 65',
+    id: 'nfce',
     nome: 'NFC-e',
-    desc: 'Cupom fiscal eletrônico para consumidor final, com QR Code de consulta e contingência offline.',
-    accent: 'from-purple-500/15 text-purple-600 border-purple-500/20',
+    documento: 'DANFCE',
+    modelo: 'Mod. 65',
+    img: '/landing/danfce.png',
+    largura: 'max-w-[340px]',
+    desc: 'Cupom para consumidor final em formato de bobina, com QR Code da SEFAZ, forma de pagamento e troco.',
+    destaques: ['7 itens', 'QR Code SEFAZ', 'Troco calculado'],
   },
   {
-    icon: Truck,
-    modelo: 'Modelo 57',
+    id: 'cte',
     nome: 'CT-e',
-    desc: 'Conhecimento de transporte eletrônico com DACTE, integração de transportadora e modal rodoviário.',
-    accent: 'from-cyan-500/15 text-cyan-600 border-cyan-500/20',
+    documento: 'DACTE',
+    modelo: 'Mod. 57',
+    img: '/landing/dacte.png',
+    largura: 'max-w-[820px]',
+    desc: 'Conhecimento de transporte com componentes do frete, ICMS da prestação e as NF-e transportadas.',
+    destaques: ['São Paulo → Porto Alegre', 'Frete R$ 2.350,00', '2 NF-e vinculadas'],
   },
   {
-    icon: FileBadge2,
-    modelo: 'Avulsa',
+    id: 'nfae',
     nome: 'NFA-e',
-    desc: 'Nota fiscal avulsa eletrônica para operações sem inscrição estadual ou municipal ativa.',
-    accent: 'from-amber-500/15 text-amber-600 border-amber-500/20',
+    documento: 'DANFA-e',
+    modelo: 'Avulsa',
+    img: '/landing/danfae.png',
+    largura: 'max-w-[720px]',
+    desc: 'Nota avulsa para quem não tem inscrição ativa — como o produtor rural — com ICMS recolhido via DAE vinculado.',
+    destaques: ['Produtor rural', 'ICMS via DAE', 'Série 890'],
   },
   {
-    icon: FileArchive,
-    modelo: 'Manifesto',
+    id: 'mdfe',
     nome: 'MDF-e',
-    desc: 'Manifesto eletrônico que vincula múltiplos documentos fiscais a uma viagem e veículo.',
-    accent: 'from-orange-500/15 text-orange-600 border-orange-500/20',
+    documento: 'DAMDFE',
+    modelo: 'Mod. 58',
+    img: '/landing/damdfe.png',
+    largura: 'max-w-[720px]',
+    desc: 'Manifesto que reúne os documentos da viagem, com percurso entre UFs, seguro da carga e lacres.',
+    destaques: ['Percurso SP → PR → SC → RS', '1.840,5 kg de carga', 'Seguro e lacres'],
   },
+] as const;
+
+// Telas reais do app, capturadas com a API simulada e dados fictícios.
+const TELAS_SISTEMA = [
+  { id: 'financeiro', rotulo: 'Financeiro', img: '/landing/app-financeiro.png' },
+  { id: 'pix', rotulo: 'Cobrança Pix', img: '/landing/app-pix.png' },
+  { id: 'documentos', rotulo: 'Documentos fiscais', img: '/landing/app-documentos.png' },
+  { id: 'dashboard', rotulo: 'Painel', img: '/landing/app-dashboard.png' },
 ] as const;
 
 const MODULOS_GESTAO = [
-  { icon: Package, nome: 'Produtos / Estoque', desc: 'Catálogo com NCM, GTIN e baixa automática por faturamento.' },
-  { icon: Briefcase, nome: 'Serviços', desc: 'Catálogo com código de tributação nacional/municipal e alíquotas.' },
-  { icon: UserPlus, nome: 'Clientes', desc: 'Cadastro completo com endereço, IE e indicador de contribuinte.' },
-  { icon: UserCheck, nome: 'Fornecedores', desc: 'Mesma base de cadastro, papel de fornecedor da operação.' },
-  { icon: Truck, nome: 'Transportadoras', desc: 'RNTRC e dados usados na emissão de CT-e e MDF-e.' },
+  { icon: Package, nome: 'Produtos e estoque', desc: 'NCM, GTIN e baixa automática por faturamento.' },
+  { icon: Briefcase, nome: 'Serviços', desc: 'Código de tributação nacional/municipal e alíquotas.' },
+  { icon: UserPlus, nome: 'Clientes', desc: 'Endereço, IE e indicador de contribuinte.' },
+  { icon: UserCheck, nome: 'Fornecedores', desc: 'A mesma base, no papel de fornecedor.' },
+  { icon: Truck, nome: 'Transportadoras', desc: 'RNTRC e dados usados no CT-e e no MDF-e.' },
+  { icon: Search, nome: 'Consulta CNPJ', desc: 'Preenche cadastros a partir da base pública.' },
+  { icon: Landmark, nome: 'Contas a pagar e receber', desc: 'Títulos lançados a partir das notas emitidas.' },
+  { icon: QrCode, nome: 'Cobrança Pix', desc: 'Cobrança no padrão BACEN gerada direto do título.' },
 ] as const;
 
-const MODULOS_FINANCEIRO = [
+// Itens da faixa em marquee logo abaixo do hero.
+const FAIXA_CONFORMIDADE = [
+  { icon: Building2, label: 'SEFAZ de todos os estados' },
+  { icon: FileText, label: 'NFS-e no Padrão Nacional' },
+  { icon: ShieldCheck, label: 'Assinatura ICP-Brasil A1' },
+  { icon: Lock, label: 'Certificado com AES-256-GCM' },
+  { icon: Landmark, label: 'Reforma Tributária: IBS e CBS' },
+  { icon: Receipt, label: 'NF-e · NFS-e · NFC-e · CT-e · NFA-e · MDF-e' },
+  { icon: QrCode, label: 'Cobrança Pix padrão BACEN' },
+  { icon: Send, label: 'XML automático para o contador' },
+  { icon: CloudOff, label: 'NFC-e em contingência offline' },
+] as const;
+
+// Dados institucionais da SUP (rodapé). Nunca usar os dados da empresa configurada no
+// sistema aqui — essa é a empresa do cliente.
+const SUP_EMPRESA = {
+  razaoSocial: 'SUP SOLUCOES TECNOLOGICAS LTDA',
+  nomeFantasia: 'SUP Tecnologia',
+  cnpj: '29.535.022/0001-38',
+} as const;
+
+const RODAPE_COLUNAS = [
   {
-    icon: QrCode,
-    nome: 'Financeiro & Pix',
-    desc: 'Contas a pagar e a receber lançadas automaticamente a partir das notas emitidas, com cobrança Pix instantânea (BACEN).',
+    titulo: 'Fiscal',
+    links: [
+      { label: 'NF-e', alvo: 'fiscal' },
+      { label: 'NFS-e', alvo: 'fiscal' },
+      { label: 'NFC-e', alvo: 'fiscal' },
+      { label: 'CT-e e MDF-e', alvo: 'fiscal' },
+      { label: 'NFA-e', alvo: 'fiscal' },
+    ],
   },
   {
-    icon: ShieldCheck,
-    nome: 'Certificado Digital A1',
-    desc: 'Upload criptografado (AES-256-GCM), assinatura ICP-Brasil em tempo real e alerta de validade.',
+    titulo: 'Gestão',
+    links: [
+      { label: 'Produtos e estoque', alvo: 'gestao' },
+      { label: 'Clientes e fornecedores', alvo: 'gestao' },
+      { label: 'Contas a pagar e receber', alvo: 'gestao' },
+      { label: 'Cobrança Pix', alvo: 'gestao' },
+    ],
   },
   {
-    icon: Search,
-    nome: 'Consulta CNPJ',
-    desc: 'Busca pública de dados cadastrais para preencher clientes e fornecedores automaticamente.',
+    titulo: 'Conheça',
+    links: [
+      { label: 'Como funciona', alvo: 'fluxo' },
+      { label: 'Para contadores', alvo: 'contadores' },
+      { label: 'Dúvidas frequentes', alvo: 'duvidas' },
+    ],
   },
 ] as const;
 
-// Variants reutilizadas (staggerChildren + fade/translate curto, sem spring/bounce)
-const sectionHeaderVariants: Variants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
-};
+const FAQ = [
+  {
+    p: 'Preciso de certificado digital?',
+    r: 'Sim, um certificado A1 (ICP-Brasil). Você faz o upload uma vez; ele fica armazenado com criptografia AES-256-GCM e o sistema avisa antes do vencimento.',
+  },
+  {
+    p: 'Quais documentos fiscais posso emitir?',
+    r: 'NF-e (modelo 55), NFS-e no padrão nacional, NFC-e (modelo 65), CT-e (modelo 57), NFA-e e MDF-e — todos no mesmo painel.',
+  },
+  {
+    p: 'O sistema já está preparado para a Reforma Tributária?',
+    r: 'Sim. Os emissores já trazem os campos de IBS e CBS previstos para a transição que começa em 2026.',
+  },
+  {
+    p: 'Meu contador recebe os arquivos?',
+    r: 'Recebe. Os XMLs das notas emitidas são enviados automaticamente para o e-mail do escritório contábil cadastrado.',
+  },
+  {
+    p: 'E se a SEFAZ estiver fora do ar na hora da venda?',
+    r: 'A NFC-e pode ser emitida em contingência offline e é transmitida assim que a SEFAZ volta a responder.',
+  },
+] as const;
 
-const sectionHeaderItemVariants: Variants = {
+// Variants curtas (sem spring/bounce), executadas uma única vez por elemento.
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
 };
 
-const gridVariants: Variants = {
+const stagger: Variants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
+  visible: { transition: { staggerChildren: 0.07 } },
 };
 
-const cardVariants: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
-};
+const inView = { initial: 'hidden', whileInView: 'visible', viewport: { once: true, amount: 0.25 } } as const;
 
-const checklistContainerVariants: Variants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.12 } },
-};
+const SectionHeader: React.FC<{ numero: string; rotulo: string; titulo: string; descricao: string; escuro?: boolean }> = ({
+  numero,
+  rotulo,
+  titulo,
+  descricao,
+  escuro,
+}) => (
+  <motion.div variants={stagger} {...inView} className="max-w-2xl">
+    <motion.p variants={fadeUp} className={`flex items-center gap-3 text-sm font-medium ${escuro ? 'text-accent-300' : 'text-brand-700'}`}>
+      <span className="font-mono text-xs">{numero}</span>
+      <span className={`h-px w-8 ${escuro ? 'bg-accent-300/40' : 'bg-brand-700/30'}`} />
+      {rotulo}
+    </motion.p>
+    <motion.h2
+      variants={fadeUp}
+      className={`mt-4 font-display text-3xl font-bold tracking-[-0.02em] sm:text-4xl ${escuro ? 'text-white' : 'text-ink-950'}`}
+    >
+      {titulo}
+    </motion.h2>
+    <motion.p variants={fadeUp} className={`mt-4 text-base leading-relaxed sm:text-lg ${escuro ? 'text-brand-100/80' : 'text-ink-500'}`}>
+      {descricao}
+    </motion.p>
+  </motion.div>
+);
 
-const checklistItemVariants: Variants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
-};
-
-// === HERO — slides do carrossel fullscreen ===
-interface HeroSlide {
-  id: string;
-  eyebrow: string;
-  titulo: string;
-  tituloGradiente: string;
-  descricao: string;
-  variante: 'painel' | 'icones';
-  icones: (typeof Receipt)[];
+// Gera o path de área/linha do mini gráfico de faturamento (SVG puro, sem lib).
+function caminhoSerie(valores: number[], largura: number, altura: number) {
+  const max = Math.max(...valores);
+  const min = Math.min(...valores) * 0.8;
+  const passo = largura / (valores.length - 1);
+  const pontos = valores.map((v, i) => [i * passo, altura - ((v - min) / (max - min)) * (altura - 6) - 3] as const);
+  const linha = pontos.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  return { linha, area: `${linha} L${largura},${altura} L0,${altura} Z`, ultimo: pontos[pontos.length - 1] };
 }
 
-const HERO_SLIDES: HeroSlide[] = [
-  {
-    id: 'plataforma',
-    eyebrow: 'Sistema completo de gestão fiscal',
-    titulo: 'Todo o seu fiscal,',
-    tituloGradiente: 'numa só plataforma',
-    descricao:
-      'NF-e, NFS-e, NFC-e, CT-e, NFA-e e MDF-e emitidos em segundos, com estoque, clientes, fornecedores e financeiro conectados — e certificado digital assinando tudo automaticamente.',
-    variante: 'painel',
-    icones: [],
-  },
-  {
-    id: 'fiscal',
-    eyebrow: 'Módulo Fiscal Completo',
-    titulo: 'Emita qualquer nota',
-    tituloGradiente: 'em poucos cliques',
-    descricao:
-      'Cálculo automático de impostos, DANFE, DACTE e DAMDFE prontos, e XML assinado enviado direto para o seu contador.',
-    variante: 'icones',
-    icones: [Receipt, FileText, ShoppingBag, Truck, FileBadge2, FileArchive],
-  },
-  {
-    id: 'gestao',
-    eyebrow: 'Cadastros & Estoque',
-    titulo: 'Uma base única',
-    tituloGradiente: 'pra sua operação inteira',
-    descricao:
-      'Produtos, serviços, clientes, fornecedores e transportadoras conectados automaticamente a cada nota emitida.',
-    variante: 'icones',
-    icones: [Package, Briefcase, UserPlus, UserCheck, Truck],
-  },
-  {
-    id: 'financeiro',
-    eyebrow: 'Financeiro & Ferramentas',
-    titulo: 'Da emissão',
-    tituloGradiente: 'ao recebimento, sem planilha',
-    descricao:
-      'Cobrança Pix instantânea, certificado digital criptografado e consulta pública de CNPJ, tudo dentro do mesmo painel.',
-    variante: 'icones',
-    icones: [QrCode, ShieldCheck, Search],
-  },
-];
-
-const HERO_AUTOPLAY_MS = 7000;
-
-const heroSlideVariants: Variants = {
-  enter: { opacity: 0, y: 16 },
-  center: { opacity: 1, y: 0, transition: { duration: 0.55, ease: 'easeOut' } },
-  exit: { opacity: 0, y: -16, transition: { duration: 0.35, ease: 'easeOut' } },
-};
-
-export const LandingPageView: React.FC<LandingPageViewProps> = ({ empresa, onGoToLogin }) => {
-  const scrollToSection = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const prefersReducedMotion = usePrefersReducedMotion();
-
-  // ---------------------------------------------------------------------
-  // Header: encolhe (80px -> 60px), aumenta o blur e o shadow conforme o
-  // scroll da página inteira avança pelos primeiros 120px.
-  // ---------------------------------------------------------------------
-  const { scrollY } = useScroll();
-  const headerHeight = useTransform(scrollY, [0, 120], reducedRange(prefersReducedMotion, [80, 60]));
-  const headerBlurValue = useTransform(scrollY, [0, 120], reducedRange(prefersReducedMotion, [8, 16]));
-  const headerShadowOpacity = useTransform(scrollY, [0, 120], [0, 1]);
-  const headerBackdropFilter = useMotionTemplate`blur(${headerBlurValue}px)`;
-  const headerBoxShadow = useMotionTemplate`0 10px 30px -12px rgba(15, 23, 42, ${headerShadowOpacity})`;
-
-  // ---------------------------------------------------------------------
-  // Indicador de navegação ativa (scrollspy via IntersectionObserver)
-  // ---------------------------------------------------------------------
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+// ---------------------------------------------------------------------------
+// Mockup do painel — dados plausíveis em vez de barras "skeleton". Uma nova nota
+// "Autorizada" entra no topo da tabela a cada 4s (pausado com movimento reduzido).
+// ---------------------------------------------------------------------------
+const PainelMockup: React.FC = () => {
+  const [notas, setNotas] = useState<LinhaNota[]>(NOTAS_BASE);
+  const [faturado, setFaturado] = useState(184320.55);
+  const [aReceber, setAReceber] = useState(42910);
+  const [avisos, setAvisos] = useState<Aviso[]>([]);
 
   useEffect(() => {
-    const elements = NAV_ITEMS.map((item) => document.getElementById(item.id)).filter(
-      (el): el is HTMLElement => el !== null
-    );
-
-    if (elements.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-
-        if (visible.length > 0) {
-          setActiveSection(visible[0].target.id);
-        }
-      },
-      { rootMargin: '-40% 0px -50% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] }
-    );
-
-    elements.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let tick = 0;
+    let ultimaNota: LinhaNota | null = null;
+    const timer = setInterval(() => {
+      tick += 1;
+      let aviso: Aviso;
+      if (tick % 2 === 1 || !ultimaNota) {
+        // Nova nota autorizada: entra na tabela, soma no faturado e vira título a receber
+        const base = NOTAS_NOVAS[Math.floor(tick / 2) % NOTAS_NOVAS.length];
+        const nota = { ...base, numero: `${base.numero}·${tick}` };
+        const valor = paraNumero(nota.valor);
+        ultimaNota = nota;
+        setNotas((prev) => [nota, ...prev].slice(0, 5));
+        setFaturado((v) => v + valor);
+        setAReceber((v) => v + valor);
+        aviso = { id: tick, tipo: 'nota', titulo: `${nota.tipo} ${nota.numero.split('·')[0]} autorizada`, corpo: nota.cliente, valor: nota.valor };
+      } else {
+        // Pix da nota anterior compensado: baixa o título a receber
+        const nota: LinhaNota = ultimaNota;
+        setAReceber((v) => Math.max(0, v - paraNumero(nota.valor)));
+        aviso = { id: tick, tipo: 'pix', titulo: 'Pix recebido', corpo: `${nota.cliente} · ${nota.tipo} ${nota.numero.split('·')[0]}`, valor: nota.valor };
+      }
+      setAvisos((prev) => [aviso, ...prev].slice(0, 3));
+    }, 3500);
+    return () => clearInterval(timer);
   }, []);
 
-  // ---------------------------------------------------------------------
-  // Hero: "camera dolly" — texto sobe suave e mantém opacidade quase total,
-  // card do mockup sobe mais rápido com leve scale/rotate (parallax oposto).
-  // ---------------------------------------------------------------------
-  const heroRef = useRef<HTMLElement>(null);
-  const { scrollYProgress: heroProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
+  const { linha, area, ultimo } = caminhoSerie(FATURAMENTO_SERIE, 320, 72);
+  const faturadoFmt = formatarReais(faturado);
+  const aReceberFmt = formatarReais(aReceber);
 
-  const textY = useTransform(heroProgress, [0, 1], reducedRange(prefersReducedMotion, [0, -40]));
-  const textOpacity = useTransform(heroProgress, [0, 0.4, 1], [1, 1, 0.85]);
-  const cardY = useTransform(heroProgress, [0, 1], reducedRange(prefersReducedMotion, [0, -90]));
-  const cardScale = useTransform(heroProgress, [0, 1], reducedRange(prefersReducedMotion, [1, 1.03]));
-  const cardRotate = useTransform(heroProgress, [0, 1], reducedRange(prefersReducedMotion, [0, -1.5]));
+  return (
+    <div className="relative">
+      <div className="overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-float">
+        {/* Barra superior do app */}
+        <div className="flex items-center justify-between border-b border-ink-200 px-5 py-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-700 font-display text-xs font-bold text-white">S</div>
+            <span className="text-sm font-semibold text-ink-900">Painel</span>
+            <span className="hidden text-sm text-ink-400 sm:inline">/ Outubro 2026</span>
+          </div>
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-ink-200 px-2.5 py-1 text-[11px] font-medium text-ink-600">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            </span>
+            SEFAZ-SP<span className="hidden sm:inline"> operando</span> · <span className="font-mono">312 ms</span>
+          </span>
+        </div>
 
-  // ---------------------------------------------------------------------
-  // Hero: slider fullscreen com autoplay + dots (pausa com movimento reduzido)
-  // ---------------------------------------------------------------------
-  const [activeSlide, setActiveSlide] = useState(0);
-  const slide = HERO_SLIDES[activeSlide];
+        {/* KPIs */}
+        <div className="grid grid-cols-3 divide-x divide-ink-200 border-b border-ink-200">
+          <div className="p-4 sm:p-5">
+            <p className="text-[11px] font-medium text-ink-500">Faturado no mês</p>
+            <p className="mt-1 text-base font-semibold tabular-nums text-ink-950 sm:text-lg">
+              <span className="text-ink-400">R$ </span>
+              {faturadoFmt}
+            </p>
+            <p className="mt-0.5 text-[11px] font-medium text-emerald-700">▲ 12,4% vs. set.</p>
+          </div>
+          <div className="p-4 sm:p-5">
+            <p className="text-[11px] font-medium text-ink-500">A receber</p>
+            <p className="mt-1 text-base font-semibold tabular-nums text-ink-950 sm:text-lg">
+              <span className="text-ink-400">R$ </span>
+              {aReceberFmt}
+            </p>
+            <p className="mt-0.5 text-[11px] font-medium text-ink-500">Títulos em aberto</p>
+          </div>
+          <div className="p-4 sm:p-5">
+            <p className="text-[11px] font-medium text-ink-500">Requer atenção</p>
+            <p className="mt-1 text-base font-semibold tabular-nums text-ink-950 sm:text-lg">2</p>
+            <p className="mt-0.5 text-[11px] font-medium text-nf-rejeitada">1 rejeitada · 1 contingência</p>
+          </div>
+        </div>
+
+        {/* Gráfico */}
+        <div className="border-b border-ink-200 px-5 pb-3 pt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-ink-600">Faturamento diário</p>
+            <p className="font-mono text-[10px] text-ink-400">01–12/10</p>
+          </div>
+          <svg viewBox="0 0 320 80" className="mt-2 h-16 w-full" preserveAspectRatio="none" aria-hidden>
+            <defs>
+              <linearGradient id="mock-area" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="var(--color-brand-500)" stopOpacity="0.22" />
+                <stop offset="1" stopColor="var(--color-brand-500)" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <g transform="translate(0,4)">
+              <path d={area} fill="url(#mock-area)" />
+              <path d={linha} fill="none" stroke="var(--color-brand-600)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+              <circle cx={ultimo[0]} cy={ultimo[1]} r="3" fill="var(--color-brand-700)" />
+            </g>
+          </svg>
+        </div>
+
+        {/* Tabela de notas */}
+        <div className="h-[244px] overflow-hidden px-2 pb-2 pt-1 sm:px-3">
+          <table className="w-full table-fixed text-left text-xs">
+            <thead>
+              <tr className="text-[11px] text-ink-400">
+                <th className="w-[24%] px-2 py-2 font-medium">Nº</th>
+                <th className="px-2 py-2 font-medium">Cliente</th>
+                <th className="w-[20%] px-2 py-2 text-right font-medium">Valor</th>
+                <th className="w-[28%] px-2 py-2 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <AnimatePresence initial={false} mode="popLayout">
+                {notas.map((n) => (
+                  <motion.tr
+                    key={n.numero}
+                    layout
+                    initial={{ opacity: 0, backgroundColor: 'rgba(94,217,164,0.18)' }}
+                    animate={{ opacity: 1, backgroundColor: 'rgba(94,217,164,0)' }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="border-t border-ink-100"
+                  >
+                    <td className="whitespace-nowrap px-2 py-2.5">
+                      <span className="font-mono text-ink-700">{n.numero.split('·')[0]}</span>
+                      <span className="ml-1.5 hidden text-[10px] text-ink-400 sm:inline">{n.tipo}</span>
+                    </td>
+                    <td className="truncate px-2 py-2.5 text-ink-700">{n.cliente}</td>
+                    <td
+                      className={`whitespace-nowrap px-2 py-2.5 text-right tabular-nums text-ink-900 ${
+                        n.status === 'cancelada' ? 'text-ink-400 line-through' : ''
+                      }`}
+                    >
+                      {n.valor}
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <StatusBadge status={n.status} />
+                    </td>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Pilha de avisos estilo notificação de celular — absoluta, fora do fluxo,
+          então nada na página se move quando um aviso chega. */}
+      <div className="pointer-events-none absolute -left-8 top-[33%] hidden h-[96px] w-[300px] lg:block xl:-left-12" aria-live="polite">
+        <AnimatePresence initial={false}>
+          {avisos.map((aviso, idx) => (
+            <motion.div
+              key={aviso.id}
+              initial={{ opacity: 0, y: -24, scale: 1.02 }}
+              animate={{ opacity: idx === 0 ? 1 : idx === 1 ? 0.9 : 0.7, y: idx * 9, scale: 1 - idx * 0.05 }}
+              exit={{ opacity: 0, y: 18, scale: 0.85, transition: { duration: 0.3 } }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              style={{ zIndex: 10 - idx, transformOrigin: 'bottom center' }}
+              className="absolute inset-x-0 top-0 flex h-[76px] items-start gap-3 rounded-2xl border border-ink-200 bg-white p-3 shadow-float"
+            >
+              {/* Nos avisos de trás só a borda aparece, como na pilha do iOS */}
+              <motion.div animate={{ opacity: idx === 0 ? 1 : 0 }} transition={{ duration: 0.2 }} className="flex min-w-0 flex-1 items-start gap-3">
+              <div
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                  aviso.tipo === 'pix' ? 'bg-accent-200 text-brand-800' : 'bg-brand-700 text-white'
+                }`}
+              >
+                {aviso.tipo === 'pix' ? <QrCode className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-[13px] font-semibold text-ink-950">{aviso.titulo}</p>
+                  <span className="shrink-0 text-[10px] text-ink-400">agora</span>
+                </div>
+                <p className="truncate text-xs text-ink-500">{aviso.corpo}</p>
+                <p className="mt-0.5 text-xs font-semibold tabular-nums text-ink-900">
+                  <span className="text-ink-400">R$ </span>
+                  {aviso.valor}
+                </p>
+              </div>
+              </motion.div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+};
+
+// Lightbox simples para ver uma imagem inteira (fecha no Esc ou clicando fora).
+const Lightbox: React.FC<{ src: string | null; alt: string; estreito?: boolean; onClose: () => void }> = ({ src, alt, estreito, onClose }) => {
+  useEffect(() => {
+    if (!src) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [src, onClose]);
+
+  return (
+    <AnimatePresence>
+      {src && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="fixed inset-0 z-[60] overflow-y-auto bg-ink-950/70 p-4 backdrop-blur-sm sm:p-10"
+          role="dialog"
+          aria-modal="true"
+          aria-label={alt}
+        >
+          <button onClick={onClose} className="fixed right-4 top-4 z-10 cursor-pointer rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-ink-800 shadow-card">
+            Fechar
+          </button>
+          <motion.img
+            initial={{ y: 16, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            src={src}
+            alt={alt}
+            onClick={(e) => e.stopPropagation()}
+            className={`mx-auto w-full ${estreito ? 'max-w-[420px]' : 'max-w-[1200px]'} rounded-md bg-white shadow-float`}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Vitrine de documentos reais — abas à esquerda, documento recortado à direita.
+// ---------------------------------------------------------------------------
+const VITRINE_INTERVALO_MS = 6000;
+
+const VitrineDocumentos: React.FC = () => {
+  const [ativo, setAtivo] = useState(0);
+  const [ampliado, setAmpliado] = useState(false);
+  const [emFoco, setEmFoco] = useState(false);
+  const [autoplay, setAutoplay] = useState(true);
+  const doc = DOCUMENTOS_REAIS[ativo];
+  const pausado = emFoco || ampliado;
+
+  // Sem autoplay para quem pediu movimento reduzido.
+  useEffect(() => {
+    setAutoplay(!window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }, []);
+
+  // O próprio fim da animação da barra de progresso avança o slide — assim a
+  // pausa (hover/foco/lightbox) congela barra e timer juntos.
+  const avancar = () => setAtivo((i) => (i + 1) % DOCUMENTOS_REAIS.length);
+
+  return (
+    <div
+      className="mt-14 grid grid-cols-1 gap-8 lg:grid-cols-12"
+      onMouseEnter={() => setEmFoco(true)}
+      onMouseLeave={() => setEmFoco(false)}
+      onFocusCapture={() => setEmFoco(true)}
+      onBlurCapture={() => setEmFoco(false)}
+    >
+      <div className="flex gap-2 overflow-x-auto pb-1 lg:col-span-4 lg:flex-col lg:overflow-visible lg:pb-0" role="tablist">
+        {DOCUMENTOS_REAIS.map((d, i) => {
+          const sel = i === ativo;
+          return (
+            <button
+              key={d.id}
+              role="tab"
+              aria-selected={sel}
+              onClick={() => setAtivo(i)}
+              className={`relative shrink-0 cursor-pointer overflow-hidden rounded-xl border p-4 text-left transition-colors lg:p-5 ${
+                sel ? 'border-brand-700 bg-white shadow-card' : 'border-transparent hover:border-ink-200 hover:bg-white/60'
+              }`}
+            >
+              {sel && autoplay && (
+                <span
+                  key={`progresso-${ativo}`}
+                  aria-hidden
+                  onAnimationEnd={avancar}
+                  className="absolute bottom-0 left-0 h-0.5 w-full origin-left bg-brand-600"
+                  style={{
+                    animation: `vitrine-progresso ${VITRINE_INTERVALO_MS}ms linear forwards`,
+                    animationPlayState: pausado ? 'paused' : 'running',
+                  }}
+                />
+              )}
+              <div className="flex items-center justify-between gap-4">
+                <span className={`font-display text-lg font-bold ${sel ? 'text-ink-950' : 'text-ink-600'}`}>{d.nome}</span>
+                <span className="rounded-md border border-ink-200 px-2 py-0.5 font-mono text-[11px] text-ink-500">{d.modelo}</span>
+              </div>
+              <div className={`hidden overflow-hidden transition-all duration-300 lg:block ${sel ? 'mt-2 max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}>
+                <p className="text-sm leading-relaxed text-ink-500">{d.desc}</p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {d.destaques.map((t) => (
+                    <span key={t} className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-medium text-brand-800">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="lg:col-span-8">
+        <div className="relative overflow-hidden rounded-2xl border border-ink-200 bg-ink-100">
+          <div className="flex items-center justify-between gap-3 border-b border-ink-200 bg-white px-5 py-3">
+            <div className="flex min-w-0 items-center gap-2 text-sm">
+              <FileText className="h-4 w-4 shrink-0 text-ink-400" />
+              <span className="font-semibold text-ink-900">{doc.documento}</span>
+              <span className="truncate text-ink-400">· gerado pelo sistema</span>
+            </div>
+            <StatusBadge status="autorizada" />
+          </div>
+
+          <div className="relative h-[460px] overflow-hidden px-4 pt-6 sm:h-[560px] sm:px-8 sm:pt-8">
+            <AnimatePresence mode="wait">
+              <motion.img
+                key={doc.id}
+                src={doc.img}
+                alt={`${doc.documento} de exemplo gerado pelo sistema (dados fictícios)`}
+                loading="lazy"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                className={`mx-auto w-full ${doc.largura} rounded-md bg-white shadow-float`}
+              />
+            </AnimatePresence>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-ink-100 via-ink-100/80 to-transparent" />
+            <button
+              onClick={() => setAmpliado(true)}
+              className="absolute bottom-5 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center gap-2 rounded-lg border border-ink-300 bg-white px-4 py-2 text-sm font-medium text-ink-800 shadow-card transition-colors hover:bg-ink-50"
+            >
+              <Search className="h-4 w-4" />
+              Ver documento inteiro
+            </button>
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-ink-400">Documento de exemplo com dados fictícios, renderizado pelo mesmo layout usado na emissão.</p>
+      </div>
+
+      <Lightbox
+        src={ampliado ? doc.img : null}
+        alt={`${doc.documento} completo`}
+        estreito={doc.id === 'nfce'}
+        onClose={() => setAmpliado(false)}
+      />
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Telas reais do app numa moldura de navegador, com abas.
+// ---------------------------------------------------------------------------
+const TelasDoSistema: React.FC = () => {
+  const [ativo, setAtivo] = useState(0);
+  const [ampliado, setAmpliado] = useState(false);
+  const tela = TELAS_SISTEMA[ativo];
+
+  return (
+    <div>
+      <div className="mb-4 flex gap-1 overflow-x-auto rounded-xl bg-ink-100 p-1" role="tablist">
+        {TELAS_SISTEMA.map((t, i) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={i === ativo}
+            onClick={() => setAtivo(i)}
+            className={`shrink-0 cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              i === ativo ? 'bg-white text-ink-950 shadow-card' : 'text-ink-500 hover:text-ink-800'
+            }`}
+          >
+            {t.rotulo}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={() => setAmpliado(true)}
+        className="group block w-full cursor-zoom-in overflow-hidden rounded-2xl border border-ink-200 bg-white text-left shadow-float"
+        aria-label={`Ampliar tela: ${tela.rotulo}`}
+      >
+        <div className="flex items-center gap-3 border-b border-ink-200 bg-ink-50 px-4 py-2.5">
+          <div className="flex gap-1.5" aria-hidden>
+            <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
+            <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
+            <span className="h-2.5 w-2.5 rounded-full bg-ink-200" />
+          </div>
+          <span className="truncate rounded-md bg-white px-3 py-0.5 font-mono text-[11px] text-ink-400">app.suptecnologia.com.br</span>
+        </div>
+        <AnimatePresence mode="wait">
+          <motion.img
+            key={tela.id}
+            src={tela.img}
+            alt={`Tela real do sistema: ${tela.rotulo} (dados fictícios)`}
+            loading="lazy"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="block w-full"
+          />
+        </AnimatePresence>
+      </button>
+      <p className="mt-3 text-xs text-ink-400">Telas reais do sistema, com dados fictícios. Clique para ampliar.</p>
+      <Lightbox src={ampliado ? tela.img : null} alt={tela.rotulo} onClose={() => setAmpliado(false)} />
+    </div>
+  );
+};
+
+export const LandingPageView: React.FC<LandingPageViewProps> = ({ onGoToLogin }) => {
+  const [rolou, setRolou] = useState(false);
+  const [faqAberto, setFaqAberto] = useState<number | null>(0);
 
   useEffect(() => {
-    if (prefersReducedMotion) return;
-    const timer = setInterval(() => {
-      setActiveSlide((prev) => (prev + 1) % HERO_SLIDES.length);
-    }, HERO_AUTOPLAY_MS);
-    return () => clearInterval(timer);
-  }, [prefersReducedMotion]);
+    const onScroll = () => setRolou(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
-  // ---------------------------------------------------------------------
-  // Seções de conteúdo (fiscal/gestão/financeiro): fundo compartilhado que
-  // "respira" entre slate-50 e white conforme o scroll atravessa o bloco.
-  // ---------------------------------------------------------------------
-  const featuresRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress: featuresProgress } = useScroll({ target: featuresRef, offset: ['start start', 'end end'] });
-  const bgColor = useTransform(
-    featuresProgress,
-    [0, 0.33, 0.5, 0.66, 1],
-    reducedRange(prefersReducedMotion, ['#f8fafc', '#f8fafc', '#ffffff', '#f8fafc', '#f8fafc'])
-  );
-
-  // 🔥 VALORES SEGUROS COM FALLBACK
-  const razaoSocial = empresa?.razaoSocial || 'SUP TECNOLOGIA';
-  const cnpj = empresa?.cnpj || '00.000.000/0000-00';
-  const logradouro = empresa?.endereco?.logradouro || 'Av. Paulista';
-  const numero = empresa?.endereco?.numero || '1374';
-  const municipio = empresa?.endereco?.nomeMunicipio || 'São Paulo';
-  const uf = empresa?.endereco?.uf || 'SP';
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen bg-white text-slate-900 flex flex-col justify-between font-sans selection:bg-blue-600 selection:text-white scroll-smooth">
-
-        <motion.header
-          style={{ backdropFilter: headerBackdropFilter, WebkitBackdropFilter: headerBackdropFilter, boxShadow: headerBoxShadow }}
-          className="w-full bg-white/95 border-b border-slate-100 sticky top-0 z-50"
+      <div className="min-h-screen bg-ink-50 font-sans text-ink-950 selection:bg-brand-700 selection:text-white">
+        {/* ============================== HEADER ============================== */}
+        <header
+          className={`sticky top-0 z-50 w-full transition-[background-color,border-color,box-shadow] duration-300 ${
+            rolou ? 'border-b border-ink-200 bg-ink-50/85 shadow-card backdrop-blur-md' : 'border-b border-transparent bg-ink-50'
+          }`}
         >
-          <motion.div
-            style={{ height: headerHeight }}
-            className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12 flex items-center justify-between"
-          >
+          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10">
+            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex cursor-pointer items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-700 font-display text-base font-bold text-white">S</div>
+              <span className="font-display text-lg font-bold tracking-tight text-ink-950">SUP Tecnologia</span>
+            </button>
 
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollToSection('hero')}>
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-extrabold text-xl shadow-xs">
-                S
-              </div>
-              <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-blue-950">
-                SUP TECNOLOGIA
-              </span>
-            </div>
+            <nav className="hidden items-center gap-7 text-sm text-ink-600 lg:flex">
+              {NAV_ITEMS.map((item) => (
+                <button key={item.id} onClick={() => scrollToSection(item.id)} className="cursor-pointer transition-colors hover:text-ink-950">
+                  {item.label}
+                </button>
+              ))}
+            </nav>
 
-            <div className="flex items-center gap-6 sm:gap-10">
-              <nav className="hidden md:flex items-center gap-8 text-xs font-bold tracking-wider text-slate-700 uppercase">
-                {NAV_ITEMS.map((item) => (
-                  <div key={item.id} className="relative pb-2">
-                    <button
-                      onClick={() => scrollToSection(item.id)}
-                      className={`hover:text-blue-600 transition-colors cursor-pointer ${
-                        activeSection === item.id ? 'text-blue-600' : ''
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                    {activeSection === item.id && (
-                      <motion.span
-                        layoutId="nav-underline"
-                        className="absolute left-0 right-0 -bottom-0.5 h-0.5 bg-blue-600 rounded-full"
-                        transition={{ duration: 0.3, ease: 'easeOut' }}
-                      />
-                    )}
-                  </div>
-                ))}
-              </nav>
-
+            <div className="flex items-center gap-2">
               <button
                 onClick={onGoToLogin}
                 id="btn-landing-entrar"
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-6 py-2.5 rounded-lg transition-all shadow-sm shadow-blue-500/20 flex items-center gap-2 cursor-pointer"
+                className="hidden cursor-pointer items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-ink-100 sm:flex"
               >
-                <LogIn className="w-4 h-4" />
-                <span>Entrar</span>
+                <LogIn className="h-4 w-4" />
+                Entrar
+              </button>
+              <button
+                onClick={onGoToLogin}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-800"
+              >
+                <span className="sm:hidden">Entrar</span>
+                <span className="hidden sm:inline">Começar agora</span>
               </button>
             </div>
+          </div>
+        </header>
 
-          </motion.div>
-        </motion.header>
-
-        {/* ============================================================
-            HERO — fundo escuro com gradiente/aurora, slider fullscreen com
-            dots, card de mockup em vidro (glass) flutuando sobre a malha
-            de gradiente.
-            ============================================================ */}
-        <section
-          id="hero"
-          ref={heroRef}
-          className="relative w-full min-h-screen flex flex-col bg-slate-950 overflow-hidden"
-        >
-          {/* Malha de gradientes (aurora) + grão sutil — puramente decorativo */}
+        {/* =============================== HERO =============================== */}
+        <section id="hero" className="relative overflow-hidden">
+          {/* Grade pontilhada sutil, que some nas bordas */}
           <div
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none absolute inset-0 opacity-70"
             style={{
-              backgroundImage:
-                'radial-gradient(60% 50% at 15% 10%, rgba(37,99,235,0.35), transparent 60%),' +
-                'radial-gradient(50% 45% at 85% 15%, rgba(139,92,246,0.28), transparent 60%),' +
-                'radial-gradient(55% 50% at 50% 100%, rgba(6,182,212,0.18), transparent 60%)',
-            }}
-          />
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.06]"
-            style={{
-              backgroundImage:
-                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+              backgroundImage: 'radial-gradient(var(--color-ink-300) 1px, transparent 1px)',
+              backgroundSize: '22px 22px',
+              maskImage: 'radial-gradient(ellipse 70% 60% at 70% 40%, black 30%, transparent 75%)',
+              WebkitMaskImage: 'radial-gradient(ellipse 70% 60% at 70% 40%, black 30%, transparent 75%)',
             }}
           />
 
-          <div className="relative flex-1 max-w-7xl mx-auto px-6 sm:px-10 lg:px-12 py-16 sm:py-24 w-full flex items-center">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center w-full">
-
-              <motion.div style={{ y: textY, opacity: textOpacity }} className="lg:col-span-7 space-y-6">
-
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={slide.id}
-                    variants={heroSlideVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    className="space-y-6 min-h-[260px] sm:min-h-[240px]"
-                  >
-                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-xl">
-                      <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                      <span className="text-[11px] sm:text-xs font-bold text-blue-200 tracking-wider uppercase">
-                        {slide.eyebrow}
-                      </span>
-                    </div>
-
-                    <h1 className="text-4xl sm:text-5xl lg:text-[58px] font-black tracking-tight text-white leading-[1.1]">
-                      {slide.titulo} <br />
-                      <span className="bg-gradient-to-r from-blue-400 via-cyan-300 to-violet-400 bg-clip-text text-transparent">
-                        {slide.tituloGradiente}
-                      </span>
-                    </h1>
-
-                    <p className="text-base sm:text-lg text-slate-300 max-w-xl font-normal leading-relaxed">
-                      {slide.descricao}
-                    </p>
-
-                    {slide.id === 'plataforma' && (
-                      <motion.div
-                        variants={checklistContainerVariants}
-                        initial="hidden"
-                        animate="visible"
-                        className="space-y-3 pt-1"
-                      >
-                        <motion.div variants={checklistItemVariants} className="flex items-center gap-3">
-                          <CheckCircle2 className="w-5 h-5 text-blue-400 shrink-0" />
-                          <span className="text-sm sm:text-base font-medium text-slate-200">
-                            6 tipos de documento fiscal, um único painel
-                          </span>
-                        </motion.div>
-
-                        <motion.div variants={checklistItemVariants} className="flex items-center gap-3">
-                          <CheckCircle2 className="w-5 h-5 text-blue-400 shrink-0" />
-                          <span className="text-sm sm:text-base font-medium text-slate-200">
-                            Envio automático de XML para o contador
-                          </span>
-                        </motion.div>
-
-                        <motion.div variants={checklistItemVariants} className="flex items-center gap-3">
-                          <CheckCircle2 className="w-5 h-5 text-blue-400 shrink-0" />
-                          <span className="text-sm sm:text-base font-medium text-slate-200">
-                            Estoque e financeiro atualizados a cada nota emitida
-                          </span>
-                        </motion.div>
-                      </motion.div>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-
-                <div className="flex flex-col sm:flex-row sm:items-center gap-5 pt-4">
-
-                  <button
-                    onClick={onGoToLogin}
-                    id="btn-hero-simplificar"
-                    className="bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm sm:text-base px-8 py-4 rounded-xl transition-all shadow-lg shadow-blue-950/40 hover:shadow-xl cursor-pointer text-center flex items-center justify-center gap-2"
-                  >
-                    <span>Quero Simplificar Minha Rotina</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-
-                  <div className="flex flex-col justify-center">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      A PARTIR DE
-                    </span>
-                    <span className="text-lg sm:text-xl font-extrabold text-blue-300 leading-tight">
-                      R$ 3,99/dia
-                    </span>
-                  </div>
-
-                </div>
-
+          <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-16 px-5 pb-24 pt-14 sm:px-8 sm:pt-20 lg:grid-cols-12 lg:gap-12 lg:px-10 lg:pb-36 lg:pt-24">
+            <motion.div variants={stagger} initial="hidden" animate="visible" className="lg:col-span-6">
+              <motion.div variants={fadeUp}>
+                <span className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-600" />
+                  Pronto para a Reforma Tributária · IBS e CBS
+                </span>
               </motion.div>
 
-              <motion.div
-                style={{ y: cardY, scale: cardScale, rotate: cardRotate }}
-                className="lg:col-span-5 flex justify-center lg:justify-end"
+              <motion.h1
+                variants={fadeUp}
+                className="mt-6 font-display text-[40px] font-bold leading-[1.05] tracking-[-0.03em] text-ink-950 sm:text-6xl lg:text-[64px]"
               >
-                <div className="w-full max-w-lg min-h-[320px] bg-white/[0.06] backdrop-blur-2xl rounded-3xl border border-white/10 shadow-2xl shadow-black/40 overflow-hidden">
+                Emita suas notas.
+                <br />
+                <span className="text-brand-700">O resto se organiza sozinho.</span>
+              </motion.h1>
 
-                  <div className="bg-white/5 border-b border-white/10 px-4 py-3 flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full bg-rose-400/80"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-amber-400/80"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/80"></div>
-                    </div>
-                    <div className="flex-1 mx-2">
-                      <div className="bg-white/10 border border-white/10 rounded-md px-3 py-1 text-[11px] text-slate-300 font-mono text-center truncate">
-                        painel.suptecnologia.com.br
-                      </div>
-                    </div>
-                  </div>
+              <motion.p variants={fadeUp} className="mt-6 max-w-xl text-lg leading-relaxed text-ink-500">
+                NF-e, NFS-e, NFC-e, CT-e, MDF-e e NFA-e num só painel — com estoque, contas a receber e o seu
+                contador atualizados a cada emissão.
+              </motion.p>
 
-                  <AnimatePresence mode="wait">
-                    {slide.variante === 'painel' ? (
-                      <motion.div
-                        key={slide.id}
-                        variants={heroSlideVariants}
-                        initial="enter"
-                        animate="center"
-                        exit="exit"
-                        className="p-6 space-y-4"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="h-5 w-32 bg-white/10 rounded-md"></div>
-                          <div className="w-8 h-8 rounded-full bg-blue-400/20 border border-blue-300/20"></div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="bg-white/[0.04] p-3 rounded-lg border border-white/10 space-y-2">
-                            <div className="h-2 w-10 bg-blue-300/30 rounded"></div>
-                            <div className="h-5 w-full bg-blue-400 rounded"></div>
-                          </div>
-                          <div className="bg-white/[0.04] p-3 rounded-lg border border-white/10 space-y-2">
-                            <div className="h-2 w-10 bg-white/15 rounded"></div>
-                            <div className="h-5 w-full bg-white/25 rounded"></div>
-                          </div>
-                          <div className="bg-white/[0.04] p-3 rounded-lg border border-white/10 space-y-2">
-                            <div className="h-2 w-10 bg-white/15 rounded"></div>
-                            <div className="h-5 w-full bg-white/15 rounded"></div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white/[0.04] p-4 rounded-xl border border-white/10 space-y-3">
-                          <div className="h-2.5 w-3/4 bg-white/15 rounded"></div>
-                          <div className="h-2 w-1/2 bg-white/10 rounded"></div>
-
-                          <div className="pt-2 flex gap-2">
-                            <div className="h-8 w-24 bg-blue-500 rounded-lg"></div>
-                            <div className="h-8 w-24 bg-white/10 rounded-lg"></div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key={slide.id}
-                        variants={heroSlideVariants}
-                        initial="enter"
-                        animate="center"
-                        exit="exit"
-                        className="p-8 grid grid-cols-3 gap-4 place-items-center"
-                      >
-                        {slide.icones.map((Icon, i) => (
-                          <div
-                            key={i}
-                            className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-blue-300"
-                          >
-                            <Icon className="w-7 h-7" />
-                          </div>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                </div>
+              <motion.div variants={fadeUp} className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <button
+                  onClick={onGoToLogin}
+                  id="btn-hero-simplificar"
+                  className="group flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand-700 px-6 py-3.5 text-base font-medium text-white shadow-card transition-colors hover:bg-brand-800"
+                >
+                  Começar agora
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </button>
+                <button
+                  onClick={() => scrollToSection('fluxo')}
+                  className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-ink-300 bg-white px-6 py-3.5 text-base font-medium text-ink-800 transition-colors hover:border-ink-400 hover:bg-ink-100"
+                >
+                  Ver como funciona
+                </button>
               </motion.div>
 
-            </div>
+              <motion.p variants={fadeUp} className="mt-5 text-sm text-ink-500">
+                A partir de <strong className="font-semibold tabular-nums text-ink-900">R$ 3,99/dia</strong> · certificado A1 ·
+                suporte em horário comercial
+              </motion.p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="lg:col-span-6"
+            >
+              <PainelMockup />
+            </motion.div>
           </div>
 
-          {/* Dots do slider + faixa de confiança, ainda dentro do hero escuro */}
-          <div className="relative border-t border-white/10">
-            <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12 py-6 flex flex-col sm:flex-row items-center justify-between gap-5">
-
-              <div className="flex items-center gap-2 order-2 sm:order-1">
-                {HERO_SLIDES.map((s, i) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setActiveSlide(i)}
-                    aria-label={`Ir para o slide ${i + 1}: ${s.eyebrow}`}
-                    aria-current={activeSlide === i}
-                    className={`h-2 rounded-full transition-all cursor-pointer ${
-                      activeSlide === i ? 'w-8 bg-blue-400' : 'w-2 bg-white/25 hover:bg-white/40'
-                    }`}
-                  />
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-slate-300 order-1 sm:order-2">
-                {[
-                  { icon: Layers, label: '6 documentos fiscais' },
-                  { icon: ShieldCheck, label: 'ICP-Brasil A1' },
-                  { icon: Zap, label: 'Emissão em segundos' },
-                  { icon: Sparkles, label: 'Reforma 2026 pronta' },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center gap-2 text-xs sm:text-sm font-semibold">
-                    <item.icon className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-
+          {/* Faixa de conformidade — marquee infinito (direita → esquerda), pausa no hover.
+              A lista é renderizada duas vezes e a animação desloca -50%, então o laço não tem emenda. */}
+          <div className="group relative overflow-hidden border-y border-ink-200 bg-white py-5 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+            <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused]">
+              {[0, 1].map((copia) => (
+                <ul key={copia} className="flex shrink-0 items-center" aria-hidden={copia === 1}>
+                  {FAIXA_CONFORMIDADE.map((item) => (
+                    <li key={item.label} className="flex shrink-0 items-center gap-2.5 px-7 text-sm text-ink-600">
+                      <item.icon className="h-4 w-4 shrink-0 text-brand-600" />
+                      <span className="whitespace-nowrap">{item.label}</span>
+                      <span className="ml-7 h-1 w-1 rounded-full bg-ink-300" aria-hidden />
+                    </li>
+                  ))}
+                </ul>
+              ))}
             </div>
           </div>
         </section>
 
-        <motion.div ref={featuresRef} style={{ backgroundColor: bgColor }}>
+        {/* ============================== 01 FISCAL ============================== */}
+        <section id="fiscal" className="scroll-mt-16 py-24 sm:py-28">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+            <SectionHeader
+              numero="01"
+              rotulo="Fiscal"
+              titulo="Todo documento fiscal que a sua empresa precisa."
+              descricao="Seis emissores no mesmo lugar. Veja documentos de verdade gerados pelo sistema — o mesmo layout que o seu cliente recebe."
+            />
 
-          {/* ============================================================
-              FISCAL — bento grid com os 6 módulos reais (NF-e, NFS-e, NFC-e,
-              CT-e, NFA-e, MDF-e). Os dois primeiros ganham destaque (big).
-              ============================================================ */}
-          <section id="fiscal" className="py-20 border-t border-slate-200">
-            <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12">
+            <VitrineDocumentos />
 
-              <motion.div
-                variants={sectionHeaderVariants}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.3 }}
-                className="max-w-2xl mb-10"
-              >
-                <motion.div
-                  variants={sectionHeaderItemVariants}
-                  className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-blue-100 text-blue-800 text-xs font-bold uppercase tracking-wider mb-2"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Módulo Fiscal Completo</span>
-                </motion.div>
-                <motion.h2 variants={sectionHeaderItemVariants} className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  Todos os documentos fiscais, sem complicação
-                </motion.h2>
-                <motion.p variants={sectionHeaderItemVariants} className="text-sm text-slate-600 mt-1">
-                  Conformidade total com a Receita Federal, SEFAZ estaduais e municípios. Pronto para o
-                  padrão nacional e a Reforma Tributária (IBS/CBS).
-                </motion.p>
-              </motion.div>
+            {/* Legenda de status — a mesma linguagem do painel */}
+            <motion.div variants={fadeUp} {...inView} className="mt-8 flex flex-wrap items-center gap-2 text-sm text-ink-500">
+              <span className="mr-1">Cada nota mostra exatamente onde está:</span>
+              {(Object.keys(STATUS_NOTA) as StatusNota[]).map((s) => (
+                <StatusBadge key={s} status={s} />
+              ))}
+            </motion.div>
+          </div>
+        </section>
 
-              <motion.div
-                variants={gridVariants}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.2 }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
-              >
-                {MODULOS_FISCAIS.map((mod) => (
-                  <motion.div
-                    key={mod.nome}
-                    variants={cardVariants}
-                    className={`group relative overflow-hidden bg-white p-6 rounded-2xl border border-slate-200 hover:border-slate-300 hover:shadow-lg transition-all ${
-                      'big' in mod && mod.big ? 'lg:col-span-2' : ''
-                    }`}
-                  >
-                    <div className={`absolute inset-0 bg-gradient-to-br ${mod.accent.split(' ')[0]} to-transparent opacity-40`} />
-                    <div className="relative space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className={`w-11 h-11 rounded-xl border flex items-center justify-center ${mod.accent}`}>
-                          <mod.icon className="w-5 h-5" />
-                        </div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100 px-2 py-1 rounded-full">
-                          {mod.modelo}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-900">{mod.nome}</h3>
-                        <p className="text-sm text-slate-600 mt-1 leading-relaxed">{mod.desc}</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
+        {/* ============================== 02 FLUXO ============================== */}
+        <section id="fluxo" className="scroll-mt-16 border-t border-ink-200 bg-white py-24 sm:py-28">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+            <SectionHeader
+              numero="02"
+              rotulo="Como funciona"
+              titulo="Uma nota, quatro áreas atualizadas."
+              descricao="Você emite. O sistema cuida do que vem depois — sem planilha, sem digitar a mesma informação duas vezes."
+            />
 
-              <div className="mt-8">
-                <button
-                  onClick={onGoToLogin}
-                  className="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
-                >
-                  <span>Acessar o Módulo Fiscal</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+            <motion.ol variants={stagger} {...inView} className="relative mt-16 grid grid-cols-1 gap-10 md:grid-cols-4 md:gap-6">
+              {/* Linha que liga os passos */}
+              <div className="absolute left-5 right-5 top-5 hidden h-px bg-gradient-to-r from-brand-300 via-brand-200 to-brand-300 md:block" aria-hidden />
+              {FLUXO.map((passo, i) => (
+                <motion.li key={passo.titulo} variants={fadeUp} className="relative flex gap-4 md:block">
+                  <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-brand-200 bg-white text-brand-700 shadow-card">
+                    <passo.icon className="h-4 w-4" />
+                  </div>
+                  <div className="md:mt-6">
+                    <p className="font-mono text-xs text-ink-400">Passo {i + 1}</p>
+                    <h3 className="mt-1 font-display text-lg font-bold text-ink-950">{passo.titulo}</h3>
+                    <p className="mt-1.5 max-w-xs text-sm leading-relaxed text-ink-500">{passo.desc}</p>
+                  </div>
+                </motion.li>
+              ))}
+            </motion.ol>
+          </div>
+        </section>
+
+        {/* ========================= 03 GESTÃO & FINANCEIRO ========================= */}
+        <section id="gestao" className="scroll-mt-16 border-t border-ink-200 py-24 sm:py-28">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+            <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
+              <div className="lg:col-span-5">
+                <SectionHeader
+                  numero="03"
+                  rotulo="Gestão & Financeiro"
+                  titulo="Da emissão ao recebimento."
+                  descricao="Cadastros únicos alimentam todos os emissores. As duplicatas das notas viram contas a receber, e a cobrança sai por Pix."
+                />
               </div>
-
-            </div>
-          </section>
-
-          {/* ============================================================
-              GESTÃO — cadastros reais (Produtos/Estoque, Serviços, Clientes,
-              Fornecedores, Transportadoras).
-              ============================================================ */}
-          <section id="gestao" className="py-20 border-t border-slate-200">
-            <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12">
-
-              <motion.div
-                variants={sectionHeaderVariants}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.3 }}
-                className="max-w-2xl mb-10"
-              >
-                <motion.div
-                  variants={sectionHeaderItemVariants}
-                  className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-amber-100 text-amber-800 text-xs font-bold uppercase tracking-wider mb-2"
-                >
-                  <Package className="w-3.5 h-3.5" />
-                  <span>Cadastros & Estoque</span>
-                </motion.div>
-                <motion.h2 variants={sectionHeaderItemVariants} className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  Uma base única para todo mundo da sua operação
-                </motion.h2>
-                <motion.p variants={sectionHeaderItemVariants} className="text-sm text-slate-600 mt-1">
-                  Produtos, serviços, clientes, fornecedores e transportadoras — cadastrados uma vez,
-                  usados em todos os módulos fiscais e financeiros automaticamente.
-                </motion.p>
-              </motion.div>
-
-              <motion.div
-                variants={gridVariants}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.2 }}
-                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4"
-              >
+              <motion.ul variants={stagger} {...inView} className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:col-span-7 lg:pt-10">
                 {MODULOS_GESTAO.map((mod) => (
-                  <motion.div
-                    key={mod.nome}
-                    variants={cardVariants}
-                    className="bg-slate-50 hover:bg-white p-5 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all space-y-3"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 text-slate-700 flex items-center justify-center">
-                      <mod.icon className="w-5 h-5" />
-                    </div>
+                  <motion.li key={mod.nome} variants={fadeUp} className="flex gap-3">
+                    <mod.icon className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900">{mod.nome}</h3>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">{mod.desc}</p>
+                      <p className="text-sm font-semibold text-ink-900">{mod.nome}</p>
+                      <p className="mt-0.5 text-sm text-ink-500">{mod.desc}</p>
                     </div>
-                  </motion.div>
+                  </motion.li>
                 ))}
-              </motion.div>
+              </motion.ul>
+            </div>
 
-              <div className="mt-8">
+            <motion.div variants={fadeUp} {...inView} className="mt-14">
+              <TelasDoSistema />
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ============================ 04 CONTADORES ============================ */}
+        <section id="contadores" className="scroll-mt-16 bg-brand-950 py-24 sm:py-28">
+          <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-5 sm:px-8 lg:grid-cols-2 lg:px-10">
+            <div>
+              <SectionHeader
+                numero="04"
+                rotulo="Para contadores"
+                escuro
+                titulo="Seus clientes emitem. Você recebe tudo organizado."
+                descricao="XML de cada nota emitida chega automaticamente ao escritório. Sem cobrar arquivo por WhatsApp no fim do mês."
+              />
+              <motion.div variants={fadeUp} {...inView} className="mt-9">
                 <button
                   onClick={onGoToLogin}
-                  className="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-accent-400 px-6 py-3.5 text-base font-medium text-brand-950 transition-colors hover:bg-accent-300"
                 >
-                  <span>Acessar Cadastros & Estoque</span>
-                  <ChevronRight className="w-4 h-4" />
+                  Acessar o painel
+                  <ArrowRight className="h-4 w-4" />
                 </button>
-              </div>
-
+              </motion.div>
             </div>
-          </section>
 
-          {/* ============================================================
-              FINANCEIRO & FERRAMENTAS — Financeiro/Pix, Certificado A1,
-              Consulta CNPJ.
-              ============================================================ */}
-          <section id="financeiro" className="py-20 border-t border-slate-200">
-            <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12">
-
-              <motion.div
-                variants={sectionHeaderVariants}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.3 }}
-                className="max-w-2xl mb-10"
-              >
-                <motion.div
-                  variants={sectionHeaderItemVariants}
-                  className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-emerald-100 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2"
-                >
-                  <DollarSign className="w-3.5 h-3.5" />
-                  <span>Financeiro & Ferramentas</span>
+            <motion.div variants={stagger} {...inView} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[
+                { icon: Mail, t: 'XML automático', d: 'Enviado ao e-mail do escritório a cada emissão.' },
+                { icon: Clock, t: 'Fechamento sem atraso', d: 'Os documentos do mês já estão com você no dia 1º.' },
+                { icon: ShieldCheck, t: 'Conformidade', d: 'Layouts SEFAZ e NFS-e Nacional sempre atualizados.' },
+                { icon: Receipt, t: 'Impostos calculados', d: 'ICMS, IPI, PIS, COFINS, ISS e retenções na própria nota.' },
+              ].map((c) => (
+                <motion.div key={c.t} variants={fadeUp} className="rounded-xl border border-white/10 bg-white/[0.04] p-6">
+                  <c.icon className="h-5 w-5 text-accent-300" />
+                  <p className="mt-4 font-display text-base font-bold text-white">{c.t}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-brand-100/70">{c.d}</p>
                 </motion.div>
-                <motion.h2 variants={sectionHeaderItemVariants} className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  Da emissão ao recebimento, sem planilha
-                </motion.h2>
-                <motion.p variants={sectionHeaderItemVariants} className="text-sm text-slate-600 mt-1">
-                  Cobrança, certificado digital e consulta pública de CNPJ — o essencial para manter a
-                  operação em dia, dentro do mesmo painel.
-                </motion.p>
-              </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
 
-              <motion.div
-                variants={gridVariants}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.3 }}
-                className="grid grid-cols-1 md:grid-cols-3 gap-6"
-              >
-                {MODULOS_FINANCEIRO.map((mod) => (
-                  <motion.div
-                    key={mod.nome}
-                    variants={cardVariants}
-                    className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4 hover:border-emerald-300 transition-colors"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                      <mod.icon className="w-5 h-5" />
-                    </div>
-                    <h3 className="text-base font-bold text-slate-900">{mod.nome}</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">{mod.desc}</p>
-                  </motion.div>
-                ))}
-              </motion.div>
-
-              <div className="mt-8">
-                <button
-                  onClick={onGoToLogin}
-                  className="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
-                >
-                  <span>Acessar Financeiro</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-
+        {/* ============================== 05 DÚVIDAS ============================== */}
+        <section id="duvidas" className="scroll-mt-16 py-24 sm:py-28">
+          <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-5 sm:px-8 lg:grid-cols-12 lg:px-10">
+            <div className="lg:col-span-4">
+              <SectionHeader
+                numero="05"
+                rotulo="Dúvidas"
+                titulo="Perguntas frequentes."
+                descricao="Não encontrou o que procurava? Fale com a gente pelo e-mail de suporte."
+              />
             </div>
-          </section>
+            <div className="divide-y divide-ink-200 border-y border-ink-200 lg:col-span-8">
+              {FAQ.map((item, i) => {
+                const aberto = faqAberto === i;
+                return (
+                  <div key={item.p}>
+                    <button
+                      onClick={() => setFaqAberto(aberto ? null : i)}
+                      aria-expanded={aberto}
+                      className="flex w-full cursor-pointer items-center justify-between gap-6 py-5 text-left"
+                    >
+                      <span className="font-display text-base font-semibold text-ink-950 sm:text-lg">{item.p}</span>
+                      <ChevronDown className={`h-5 w-5 shrink-0 text-ink-400 transition-transform duration-300 ${aberto ? 'rotate-180' : ''}`} />
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {aberto && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                          className="overflow-hidden"
+                        >
+                          <p className="max-w-2xl pb-6 text-base leading-relaxed text-ink-500">{item.r}</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
 
-        </motion.div>
-
-        {/* ============================================================
-            CTA final — antes do rodapé
-            ============================================================ */}
-        <section className="relative bg-slate-950 overflow-hidden">
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{
-              backgroundImage:
-                'radial-gradient(50% 60% at 50% 0%, rgba(37,99,235,0.30), transparent 65%)',
-            }}
-          />
+        {/* ============================== CTA FINAL ============================== */}
+        <section className="px-5 pb-24 sm:px-8 lg:px-10">
           <motion.div
-            variants={sectionHeaderVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: false, amount: 0.4 }}
-            className="relative max-w-4xl mx-auto px-6 sm:px-10 lg:px-12 py-20 text-center space-y-6"
+            variants={stagger}
+            {...inView}
+            className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl border border-ink-200 bg-white px-6 py-16 text-center sm:px-12 sm:py-20"
           >
-            <motion.h2 variants={sectionHeaderItemVariants} className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              Pronto para simplificar sua rotina fiscal?
+            <div
+              className="pointer-events-none absolute inset-0 opacity-60"
+              style={{
+                backgroundImage: 'radial-gradient(var(--color-ink-300) 1px, transparent 1px)',
+                backgroundSize: '22px 22px',
+                maskImage: 'radial-gradient(ellipse 60% 70% at 50% 100%, black, transparent 70%)',
+                WebkitMaskImage: 'radial-gradient(ellipse 60% 70% at 50% 100%, black, transparent 70%)',
+              }}
+            />
+            <motion.h2 variants={fadeUp} className="relative font-display text-3xl font-bold tracking-[-0.02em] text-ink-950 sm:text-5xl">
+              Sua próxima nota pode sair daqui.
             </motion.h2>
-            <motion.p variants={sectionHeaderItemVariants} className="text-slate-300 text-base sm:text-lg max-w-2xl mx-auto">
-              NF-e, NFS-e, NFC-e, CT-e, NFA-e, MDF-e, estoque, cadastros e financeiro — em uma única
-              plataforma, a partir de R$ 3,99/dia.
+            <motion.p variants={fadeUp} className="relative mx-auto mt-5 max-w-xl text-lg text-ink-500">
+              Fiscal, estoque, financeiro e contador numa única plataforma, a partir de{' '}
+              <strong className="font-semibold tabular-nums text-ink-900">R$ 3,99/dia</strong>.
             </motion.p>
-            <motion.div variants={sectionHeaderItemVariants}>
+            <motion.div variants={fadeUp} className="relative mt-9 flex justify-center">
               <button
                 onClick={onGoToLogin}
-                className="inline-flex items-center gap-2 bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm sm:text-base px-8 py-4 rounded-xl transition-all shadow-lg cursor-pointer"
+                className="group inline-flex cursor-pointer items-center gap-2 rounded-lg bg-brand-700 px-7 py-3.5 text-base font-medium text-white shadow-card transition-colors hover:bg-brand-800"
               >
-                <span>Começar Agora</span>
-                <ArrowRight className="w-4 h-4" />
+                Começar agora
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </button>
             </motion.div>
           </motion.div>
         </section>
 
-        <footer className="w-full bg-slate-900 text-slate-300 pt-12 pb-8 border-t border-slate-800">
-          <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-12">
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 pb-12 border-b border-slate-800">
-
-              <div className="lg:col-span-2 space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center text-white font-extrabold text-lg">
-                    S
-                  </div>
-                  <span className="font-extrabold text-xl text-white tracking-tight">
-                    SUP TECNOLOGIA
-                  </span>
+        {/* ================================ RODAPÉ ================================ */}
+        <footer className="relative overflow-hidden bg-brand-950 text-brand-100/70">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+            {/* Marca + navegação */}
+            <div className="grid grid-cols-1 gap-12 border-b border-white/10 py-16 lg:grid-cols-12">
+              <div className="lg:col-span-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-400 font-display text-lg font-bold text-brand-950">S</div>
+                  <span className="font-display text-xl font-bold tracking-tight text-white">SUP Tecnologia</span>
                 </div>
-
-                <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
-                  Plataforma corporativa especializada em emissão fiscal inteligente (NF-e, NFS-e, NFC-e,
-                  CT-e, NFA-e e MDF-e), gestão integrada de estoque, cadastros e fluxo financeiro automatizado.
+                <p className="mt-5 max-w-sm text-sm leading-relaxed">
+                  Emissão fiscal, cadastros, estoque e financeiro integrados para pequenas e médias empresas e
+                  escritórios de contabilidade.
                 </p>
-
-                <div className="space-y-1.5 text-xs text-slate-400 pt-2">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                    <span><strong>Razão Social:</strong> {razaoSocial}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 text-center text-blue-400 font-bold shrink-0">#</span>
-                    <span><strong>CNPJ:</strong> {cnpj}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                    <span>{logradouro}, {numero} - {municipio}/{uf}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Módulo Fiscal
-                </h4>
-                <ul className="space-y-2 text-xs text-slate-400">
-                  <li>
-                    <button onClick={() => scrollToSection('fiscal')} className="hover:text-white transition-colors cursor-pointer">
-                      NF-e — Modelo 55
-                    </button>
-                  </li>
-                  <li>
-                    <button onClick={() => scrollToSection('fiscal')} className="hover:text-white transition-colors cursor-pointer">
-                      NFS-e — Padrão Nacional
-                    </button>
-                  </li>
-                  <li>
-                    <button onClick={() => scrollToSection('fiscal')} className="hover:text-white transition-colors cursor-pointer">
-                      NFC-e — Modelo 65
-                    </button>
-                  </li>
-                  <li>
-                    <button onClick={() => scrollToSection('fiscal')} className="hover:text-white transition-colors cursor-pointer">
-                      CT-e — Modelo 57
-                    </button>
-                  </li>
-                  <li>
-                    <button onClick={() => scrollToSection('fiscal')} className="hover:text-white transition-colors cursor-pointer">
-                      NFA-e & MDF-e
-                    </button>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Gestão & Financeiro
-                </h4>
-                <ul className="space-y-2 text-xs text-slate-400">
-                  <li>
-                    <button onClick={() => scrollToSection('gestao')} className="hover:text-white transition-colors cursor-pointer">
-                      Produtos / Estoque
-                    </button>
-                  </li>
-                  <li>
-                    <button onClick={() => scrollToSection('gestao')} className="hover:text-white transition-colors cursor-pointer">
-                      Clientes & Fornecedores
-                    </button>
-                  </li>
-                  <li>
-                    <button onClick={() => scrollToSection('gestao')} className="hover:text-white transition-colors cursor-pointer">
-                      Transportadoras
-                    </button>
-                  </li>
-                  <li>
-                    <button onClick={() => scrollToSection('financeiro')} className="hover:text-white transition-colors cursor-pointer">
-                      Contas a Pagar & Receber
-                    </button>
-                  </li>
-                  <li>
-                    <button onClick={() => scrollToSection('financeiro')} className="hover:text-white transition-colors cursor-pointer">
-                      Cobrança Pix Instantâneo
-                    </button>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Conformidade & Suporte
-                </h4>
-                <ul className="space-y-2 text-xs text-slate-400">
-                  <li className="flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>ICP-Brasil A1</span>
-                  </li>
-                  <li className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                    <span>SEFAZ / NF-e v4.0</span>
-                  </li>
-                  <li className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Reforma 2026 (IBS / CBS)</span>
-                  </li>
-                  <li className="flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Segurança SSL / TLS</span>
-                  </li>
-                  <li className="flex items-center gap-2 pt-1">
-                    <Mail className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                    <span>contato@suptecnologia.com.br</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                    <span>Seg a Sex: 08h às 18h</span>
-                  </li>
-                </ul>
-
-                <div className="pt-2">
+                <div className="mt-7 flex flex-wrap gap-3">
                   <button
                     onClick={onGoToLogin}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-accent-400 px-4 py-2.5 text-sm font-medium text-brand-950 transition-colors hover:bg-accent-300"
                   >
-                    <LogIn className="w-3.5 h-3.5" />
-                    <span>Acessar o Painel</span>
+                    <LogIn className="h-4 w-4" />
+                    Acessar o painel
                   </button>
+                  <a
+                    href="mailto:contato@suptecnologia.com.br"
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/5"
+                  >
+                    <Mail className="h-4 w-4" />
+                    Fale com a gente
+                  </a>
                 </div>
               </div>
 
+              <nav className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-4 lg:col-span-8" aria-label="Rodapé">
+                {RODAPE_COLUNAS.map((col) => (
+                  <div key={col.titulo}>
+                    <h4 className="text-xs font-semibold uppercase tracking-[0.08em] text-white">{col.titulo}</h4>
+                    <ul className="mt-5 space-y-3 text-sm">
+                      {col.links.map((l) => (
+                        <li key={l.label}>
+                          <button onClick={() => scrollToSection(l.alvo)} className="cursor-pointer text-left transition-colors hover:text-white">
+                            {l.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-[0.08em] text-white">Suporte</h4>
+                  <ul className="mt-5 space-y-3 text-sm">
+                    <li>
+                      <a href="mailto:contato@suptecnologia.com.br" className="transition-colors hover:text-white">
+                        contato@<wbr />suptecnologia.com.br
+                      </a>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5 shrink-0 text-accent-300" />
+                      Seg a sex, 8h às 18h
+                    </li>
+                  </ul>
+                </div>
+              </nav>
             </div>
 
-            <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
-              <div>
-                © {new Date().getFullYear()} SUP TECNOLOGIA. Todos os direitos reservados.
-              </div>
-              <div className="flex items-center gap-4 text-[11px]">
-                <span>Termos de Uso</span>
-                <span>•</span>
-                <span>Privacidade & LGPD</span>
-                <span>•</span>
-                <span>Padrão Fiscal SEFAZ / Receita Federal</span>
-              </div>
+            {/* Conformidade */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/10 py-6">
+              {[
+                { icon: ShieldCheck, label: 'ICP-Brasil A1' },
+                { icon: Building2, label: 'SEFAZ · NF-e 4.00' },
+                { icon: FileText, label: 'NFS-e Padrão Nacional' },
+                { icon: Landmark, label: 'Reforma Tributária IBS/CBS' },
+                { icon: Lock, label: 'LGPD · dados criptografados' },
+              ].map((selo) => (
+                <span key={selo.label} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs">
+                  <selo.icon className="h-3.5 w-3.5 text-accent-300" />
+                  {selo.label}
+                </span>
+              ))}
             </div>
 
+            {/* Identificação legal */}
+            <div className="flex flex-col gap-4 py-8 text-xs sm:flex-row sm:items-end sm:justify-between">
+              <div className="space-y-1.5">
+                <p className="font-semibold uppercase tracking-wide text-white">{SUP_EMPRESA.razaoSocial}</p>
+                <p>
+                  CNPJ <span className="font-mono text-brand-100">{SUP_EMPRESA.cnpj}</span>
+                  <span className="mx-2 text-white/20">|</span>
+                  {SUP_EMPRESA.nomeFantasia} é marca de {SUP_EMPRESA.razaoSocial}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                <span>Termos de uso</span>
+                <span>Política de privacidade</span>
+                <span>© {new Date().getFullYear()} {SUP_EMPRESA.nomeFantasia}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Assinatura gráfica: wordmark gigante recortado na base */}
+          <div aria-hidden className="pointer-events-none -mb-[2.6vw] select-none overflow-hidden px-5 text-center sm:px-8 lg:px-10">
+            <span className="block whitespace-nowrap font-display text-[12.5vw] font-bold leading-none tracking-[-0.05em] xl:text-[11.5rem] text-white/[0.04]">
+              SUP Tecnologia
+            </span>
           </div>
         </footer>
-
       </div>
     </MotionConfig>
   );

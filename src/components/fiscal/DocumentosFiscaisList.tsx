@@ -1,5 +1,5 @@
 // src/components/fiscal/DocumentosFiscaisList.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   FileText, 
   Receipt, 
@@ -27,7 +27,11 @@ import {
   ArrowUp,
   ArrowDown,
   Calendar,
-  X
+  X,
+  Ban,
+  XCircle,
+  CloudOff,
+  Clock,
 } from 'lucide-react';
 import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento } from '../../types/fiscal';
 import { MDFeDocumento } from '../../types/mdfe';
@@ -177,7 +181,8 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
 }) => {
   const { pode } = usePermissoes();
   const [tipoFiltro, setTipoFiltro] = useState<TipoDocumentoFiltro>(initialTipo);
-  const [statusFiltro, setStatusFiltro] = useState<'TODOS' | 'AUTORIZADA' | 'CANCELADA'>('TODOS');
+  const [statusFiltro, setStatusFiltro] = useState<'TODOS' | 'AUTORIZADA' | 'PROCESSANDO' | 'REJEITADA' | 'CANCELADA'>('TODOS');
+  const [pagina, setPagina] = useState(1);
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>('TODOS');
   const [dataInicio, setDataInicio] = useState<string>('');
   const [dataFim, setDataFim] = useState<string>('');
@@ -189,28 +194,6 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
   // 🔥 ESTADO DE ORDENAÇÃO
   const [ordenacaoCampo, setOrdenacaoCampo] = useState<OrdenacaoCampo>('data');
   const [ordenacaoDirecao, setOrdenacaoDirecao] = useState<OrdenacaoDirecao>('desc');
-
-  // 🔥 COR DO MÓDULO (ÍNDIGO)
-  const cor = 'indigo';
-  const corBg = 'bg-indigo-50';
-  const corBorder = 'border-indigo-200';
-  const corText = 'text-indigo-700';
-  const corTextDark = 'text-indigo-800';
-  const corBgButton = 'bg-indigo-600 hover:bg-indigo-700';
-  const corBgBadge = 'bg-indigo-100';
-  const corFocus = 'focus:ring-indigo-500';
-  const corIconBg = 'bg-indigo-600';
-
-  // 🔥 CORES POR TIPO
-  const coresPorTipo = {
-    TODOS: { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-300', hover: 'hover:bg-indigo-100' },
-    NFE: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-300', hover: 'hover:bg-emerald-100' },
-    NFSE: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-300', hover: 'hover:bg-blue-100' },
-    NFCE: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-300', hover: 'hover:bg-purple-100' },
-    CTE: { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-300', hover: 'hover:bg-cyan-100' },
-    NFAE: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-300', hover: 'hover:bg-amber-100' },
-    MDFE: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-300', hover: 'hover:bg-orange-100' },
-  };
 
   // 🔥 LABELS DOS PERÍODOS
   const periodosLabels: Record<PeriodoFiltro, string> = {
@@ -433,7 +416,9 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
     const { inicio, fim } = getDatasPorPeriodo(periodoFiltro);
 
     return todosDocsRaw.filter(d => {
-      if (statusFiltro !== 'TODOS' && d.status !== statusFiltro) return false;
+      if (statusFiltro === 'PROCESSANDO' && !['PROCESSANDO', 'RASCUNHO', 'CONTINGENCIA'].includes(d.status)) return false;
+      if (statusFiltro === 'REJEITADA' && !['REJEITADA', 'DENEGADA'].includes(d.status)) return false;
+      if ((statusFiltro === 'AUTORIZADA' || statusFiltro === 'CANCELADA') && d.status !== statusFiltro) return false;
 
       if (inicio && fim) {
         const dataDoc = new Date(d.data);
@@ -522,6 +507,9 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
     });
   }, [docsFiltradosSemTipo, tipoFiltro, ordenacaoCampo, ordenacaoDirecao]);
 
+  // Qualquer mudança de filtro/ordenação volta para a primeira página.
+  useEffect(() => setPagina(1), [tipoFiltro, statusFiltro, periodoFiltro, dataInicio, dataFim, busca, ordenacaoCampo, ordenacaoDirecao]);
+
   // 🔥 FUNÇÃO PARA ORDENAR
   const handleOrdenar = (campo: OrdenacaoCampo) => {
     if (ordenacaoCampo === campo) {
@@ -535,27 +523,31 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
   // 🔥 COMPONENTE ÍCONE DE ORDENAÇÃO
   const IconeOrdenacao = ({ campo }: { campo: OrdenacaoCampo }) => {
     if (ordenacaoCampo !== campo) {
-      return <ArrowUpDown className="w-3 h-3 text-slate-400 ml-1" />;
+      return <ArrowUpDown className="ml-1 h-3 w-3 text-ink-300 opacity-0 transition-opacity group-hover:opacity-100" />;
     }
-    return ordenacaoDirecao === 'asc'
-      ? <ArrowUp className="w-3 h-3 text-indigo-600 ml-1" />
-      : <ArrowDown className="w-3 h-3 text-indigo-600 ml-1" />;
+    return ordenacaoDirecao === 'asc' ? <ArrowUp className="ml-1 h-3 w-3 text-brand-700" /> : <ArrowDown className="ml-1 h-3 w-3 text-brand-700" />;
   };
 
-  // 🔥 CLASSE DO CABEÇALHO
-  const thClass = "py-3 px-4 text-left text-xs font-bold text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors select-none";
+  const thClass =
+    'group sticky top-0 z-10 cursor-pointer select-none border-b border-ink-200 bg-ink-50 px-4 py-2.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.06em] text-ink-500 transition-colors hover:text-ink-900';
 
-  // Métricas Consolidadas
-  // 🔥 Totais/contagens por tipo usam `docsFiltradosSemTipo` (período/status/
-  // busca, mas SEM o filtro de tipo) — assim os cards e badges sempre mostram
-  // o panorama completo, independente de qual filtro de tipo está ativo.
-  const totalFaturado = docsFiltradosSemTipo.reduce((acc, d) => acc + (d.valor || 0), 0);
-  const totalNfe = docsFiltradosSemTipo.filter(d => d.tipo === 'NFE').reduce((acc, d) => acc + d.valor, 0);
-  const totalNfse = docsFiltradosSemTipo.filter(d => d.tipo === 'NFSE').reduce((acc, d) => acc + d.valor, 0);
-  const totalNfce = docsFiltradosSemTipo.filter(d => d.tipo === 'NFCE').reduce((acc, d) => acc + d.valor, 0);
-  const totalCte = docsFiltradosSemTipo.filter(d => d.tipo === 'CTE').reduce((acc, d) => acc + d.valor, 0);
-  const totalNfae = docsFiltradosSemTipo.filter(d => d.tipo === 'NFAE').reduce((acc, d) => acc + d.valor, 0);
-  const totalMdfe = docsFiltradosSemTipo.filter(d => d.tipo === 'MDFE').reduce((acc, d) => acc + d.valor, 0);
+  // Métricas consolidadas — contagens usam todos os status; valores, só
+  // documentos autorizados (cancelada/rejeitada não é faturamento).
+  // Usam `docsFiltradosSemTipo` (período/status/busca, sem o filtro de tipo)
+  // para os totais por tipo mostrarem sempre o panorama completo.
+  const valorAutorizado = (lista: DocumentoUnificado[]) => lista.filter((d) => d.status === 'AUTORIZADA').reduce((acc, d) => acc + (d.valor || 0), 0);
+  const totalFaturado = valorAutorizado(docsFiltradosSemTipo.filter((d) => d.tipo !== 'MDFE'));
+
+  const TIPOS: Array<{ id: TipoDocumentoFiltro; rotulo: string; detalhe: string }> = [
+    { id: 'TODOS', rotulo: 'Todos', detalhe: 'faturado' },
+    { id: 'NFE', rotulo: 'NF-e', detalhe: 'Mod. 55' },
+    { id: 'NFSE', rotulo: 'NFS-e', detalhe: 'Nacional' },
+    { id: 'NFCE', rotulo: 'NFC-e', detalhe: 'Mod. 65' },
+    { id: 'CTE', rotulo: 'CT-e', detalhe: 'Mod. 57' },
+    { id: 'NFAE', rotulo: 'NFA-e', detalhe: 'Avulsa' },
+    { id: 'MDFE', rotulo: 'MDF-e', detalhe: 'valor de carga' },
+  ];
+  const tiposVisiveis = TIPOS.filter((t) => t.id === 'TODOS' || pode(`${t.id.toLowerCase()}.ver`));
 
   const handleCopiarChave = (chave: string) => {
     navigator.clipboard.writeText(chave);
@@ -565,7 +557,7 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
 
   const handleExportarCsv = () => {
     const headers = ['Tipo', 'Modelo', 'Numero', 'Serie', 'Destinatario_Tomador', 'CPF_CNPJ', 'Data_Emissao', 'Valor_Total', 'Status', 'Chave_Acesso'];
-    const rows = todosDocs.map(d => [
+    const rows = todosDocs.map((d) => [
       d.tipoLabel,
       d.modelo,
       d.numero,
@@ -575,10 +567,10 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
       new Date(d.data).toLocaleString('pt-BR'),
       d.valor.toFixed(2),
       d.status,
-      d.chave
+      d.chave,
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -588,39 +580,17 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
     document.body.removeChild(link);
   };
 
-  // 🔥 Função para renderizar botão de filtro
-  const renderFiltroBotao = (tipo: TipoDocumentoFiltro, label: string, count: number) => {
-    // 🔐 Tipo que o usuário não pode consultar nem aparece como filtro.
-    if (tipo !== 'TODOS' && !pode(`${tipo.toLowerCase()}.ver`)) return null;
-    const isActive = tipoFiltro === tipo;
-    const cores = coresPorTipo[tipo];
-    
-    return (
-      <button
-        type="button"
-        onClick={() => setTipoFiltro(tipo)}
-        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer text-xs font-medium ${
-          isActive 
-            ? `${cores.bg} ${cores.text} border ${cores.border} shadow-sm font-semibold` 
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-        }`}
-      >
-        {label} ({count})
-      </button>
-    );
-  };
-
   // 🔥 Quando um tipo específico já está selecionado (veio de um atalho por
-  // tipo, ou o usuário clicou num filtro), "Emitir Nova Nota" vai direto pro
-  // emissor daquele tipo — só mostra o dropdown de seleção quando o filtro é
-  // "TODOS" (ou o tipo ativo não tiver uma ação de emissão configurada).
+  // tipo, ou o usuário clicou num filtro), "Emitir" vai direto pro emissor
+  // daquele tipo — só mostra o menu de seleção quando o filtro é "Todos"
+  // (ou o tipo ativo não tiver uma ação de emissão configurada).
   const emitirPorTipo: Partial<Record<TipoDocumentoFiltro, { label: string; onEmitir?: () => void }>> = {
-    NFE: { label: 'Nova NF-e', onEmitir: onEmitirNovaNfe },
-    NFSE: { label: 'Nova NFS-e', onEmitir: onEmitirNovaNfse },
-    NFCE: { label: 'Nova NFC-e', onEmitir: onEmitirNovaNfce },
-    CTE: { label: 'Novo CT-e', onEmitir: onEmitirNovoCte },
-    NFAE: { label: 'Nova NFA-e', onEmitir: onEmitirNovaNfae },
-    MDFE: { label: 'Novo MDF-e', onEmitir: onEmitirNovoMdfe },
+    NFE: { label: 'NF-e', onEmitir: onEmitirNovaNfe },
+    NFSE: { label: 'NFS-e', onEmitir: onEmitirNovaNfse },
+    NFCE: { label: 'NFC-e', onEmitir: onEmitirNovaNfce },
+    CTE: { label: 'CT-e', onEmitir: onEmitirNovoCte },
+    NFAE: { label: 'NFA-e', onEmitir: onEmitirNovaNfae },
+    MDFE: { label: 'MDF-e', onEmitir: onEmitirNovoMdfe },
   };
   const emitirAtivo = tipoFiltro !== 'TODOS' ? emitirPorTipo[tipoFiltro] : undefined;
 
@@ -632,497 +602,501 @@ export const DocumentosFiscaisList: React.FC<DocumentosFiscaisListProps> = ({
     setMenuNovaNotaAberto(!menuNovaNotaAberto);
   };
 
-  // 🔥 Renderizar o seletor de período - CORRIGIDO
-  const renderPeriodoSelector = () => {
-    return (
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setMenuPeriodoAberto(!menuPeriodoAberto)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-            periodoFiltro !== 'TODOS' 
-              ? 'bg-indigo-50 border-indigo-300 text-indigo-700' 
-              : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-          }`}
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>{periodosLabels[periodoFiltro]}</span>
-          <ChevronDown className={`w-3 h-3 transition-transform ${menuPeriodoAberto ? 'rotate-180' : ''}`} />
-        </button>
+  const opcoesEmissao: Array<{ onEmitir?: () => void; icon: typeof Receipt; titulo: string; detalhe: string }> = [
+    { onEmitir: onEmitirNovaNfe, icon: Receipt, titulo: 'NF-e', detalhe: 'Mod. 55 · venda de produtos e mercadorias' },
+    { onEmitir: onEmitirNovaNfse, icon: FileText, titulo: 'NFS-e', detalhe: 'Padrão Nacional · prestação de serviços' },
+    { onEmitir: onEmitirNovaNfce, icon: ShoppingBag, titulo: 'NFC-e', detalhe: 'Mod. 65 · cupom do varejo / PDV' },
+    { onEmitir: onEmitirNovoCte, icon: Truck, titulo: 'CT-e', detalhe: 'Mod. 57 · prestação de frete' },
+    { onEmitir: onEmitirNovaNfae, icon: FileBadge2, titulo: 'NFA-e', detalhe: 'Série 900 · produtor rural / avulsa' },
+    { onEmitir: onEmitirNovoMdfe, icon: FileArchive, titulo: 'MDF-e', detalhe: 'Mod. 58 · manifesto da viagem' },
+  ];
 
-        {menuPeriodoAberto && (
-          <>
-            <div className="fixed inset-0 z-20" onClick={() => setMenuPeriodoAberto(false)} />
-            <div className="absolute right-0 mt-1 w-64 rounded-xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 z-30 border border-slate-200 p-1.5 max-h-96 overflow-y-auto">
-              {(['TODOS', 'HOJE', 'SEMANA', 'MES', 'TRIMESTRE', 'SEMESTRE', 'ANO'] as PeriodoFiltro[]).map((periodo) => (
-                <button
-                  key={periodo}
-                  onClick={() => {
-                    setPeriodoFiltro(periodo);
-                    setDataInicio('');
-                    setDataFim('');
-                    setMenuPeriodoAberto(false);
-                  }}
-                  className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                    periodoFiltro === periodo
-                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {periodosLabels[periodo]}
-                </button>
-              ))}
-
-              <button
-                onClick={() => {
-                  setPeriodoFiltro('PERSONALIZADO');
-                  // 🔥 NÃO FECHA O MENU - mantém aberto para mostrar os inputs
-                }}
-                className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                  periodoFiltro === 'PERSONALIZADO'
-                    ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                    : 'text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {periodosLabels.PERSONALIZADO}
-              </button>
-
-              {periodoFiltro === 'PERSONALIZADO' && (
-                <div className="mt-2 pt-2 border-t border-slate-200 space-y-2 px-1">
-                  <div>
-                    <label className="text-[10px] font-medium text-slate-500">Data Início</label>
-                    <input
-                      type="date"
-                      value={dataInicio}
-                      onChange={(e) => setDataInicio(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-medium text-slate-500">Data Fim</label>
-                    <input
-                      type="date"
-                      value={dataFim}
-                      onChange={(e) => setDataFim(e.target.value)}
-                      className="w-full border border-slate-300 rounded-lg p-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setMenuPeriodoAberto(false);
-                      }}
-                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium py-1.5 rounded-lg transition-colors"
-                    >
-                      Aplicar
-                    </button>
-                    <button
-                      onClick={() => {
-                        setPeriodoFiltro('TODOS');
-                        setDataInicio('');
-                        setDataFim('');
-                        setMenuPeriodoAberto(false);
-                      }}
-                      className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium py-1.5 rounded-lg transition-colors"
-                    >
-                      Limpar
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    );
+  // Situação do documento — mesmos tokens nf-* do resto do app.
+  const situacao = (status: string) => {
+    switch (status) {
+      case 'AUTORIZADA':
+        return { rotulo: 'Autorizada', icon: CheckCircle2, classe: 'bg-nf-autorizada-bg text-nf-autorizada' };
+      case 'CANCELADA':
+        return { rotulo: 'Cancelada', icon: Ban, classe: 'bg-nf-cancelada-bg text-nf-cancelada' };
+      case 'REJEITADA':
+      case 'DENEGADA':
+        return { rotulo: status === 'DENEGADA' ? 'Denegada' : 'Rejeitada', icon: XCircle, classe: 'bg-nf-rejeitada-bg text-nf-rejeitada' };
+      case 'CONTINGENCIA':
+        return { rotulo: 'Contingência', icon: CloudOff, classe: 'bg-nf-contingencia-bg text-nf-contingencia' };
+      default:
+        return { rotulo: status ? status.charAt(0) + status.slice(1).toLowerCase() : 'Processando', icon: Clock, classe: 'bg-nf-pendente-bg text-nf-pendente' };
+    }
   };
 
+  const STATUS_OPCOES: Array<{ id: typeof statusFiltro; rotulo: string }> = [
+    { id: 'TODOS', rotulo: 'Todas' },
+    { id: 'AUTORIZADA', rotulo: 'Autorizadas' },
+    { id: 'PROCESSANDO', rotulo: 'Processando' },
+    { id: 'REJEITADA', rotulo: 'Rejeitadas' },
+    { id: 'CANCELADA', rotulo: 'Canceladas' },
+  ];
+
+  // Paginação
+  const POR_PAGINA = 50;
+  const totalPaginas = Math.max(1, Math.ceil(todosDocs.length / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const docsPagina = todosDocs.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
+
+  const Dinheiro = ({ valor, className = '' }: { valor: number; className?: string }) => (
+    <span className={`tabular-nums ${className}`}>
+      <span className="mr-[0.25em] text-[0.62em] font-medium text-ink-400">R$</span>
+      {formatarMoeda(valor).replace(/^R\$\s?/, '')}
+    </span>
+  );
+
+  const formatarDoc = (doc: string) => (/^\d{11}$|^\d{14}$/.test(doc) ? formatarCpfCnpj(doc) : doc);
+
+  const renderPeriodoSelector = () => (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setMenuPeriodoAberto(!menuPeriodoAberto)}
+        className={`flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[13px] transition-colors ${
+          periodoFiltro !== 'TODOS' ? 'border-brand-300 bg-brand-50 font-medium text-brand-800' : 'border-ink-200 bg-white text-ink-700 hover:border-ink-300'
+        }`}
+      >
+        <Calendar className="h-4 w-4 text-ink-400" />
+        <span>{periodosLabels[periodoFiltro]}</span>
+        <ChevronDown className={`h-3.5 w-3.5 text-ink-400 transition-transform ${menuPeriodoAberto ? 'rotate-180' : ''}`} />
+      </button>
+
+      {menuPeriodoAberto && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setMenuPeriodoAberto(false)} />
+          <div className="absolute right-0 z-30 mt-1.5 w-64 rounded-xl border border-ink-200 bg-white p-1.5 shadow-float">
+            {(['TODOS', 'HOJE', 'SEMANA', 'MES', 'TRIMESTRE', 'SEMESTRE', 'ANO'] as PeriodoFiltro[]).map((periodo) => (
+              <button
+                key={periodo}
+                onClick={() => {
+                  setPeriodoFiltro(periodo);
+                  setDataInicio('');
+                  setDataFim('');
+                  setMenuPeriodoAberto(false);
+                }}
+                className={`w-full cursor-pointer rounded-lg px-3 py-1.5 text-left text-[13px] transition-colors ${
+                  periodoFiltro === periodo ? 'bg-brand-50 font-medium text-brand-800' : 'text-ink-700 hover:bg-ink-50'
+                }`}
+              >
+                {periodosLabels[periodo]}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setPeriodoFiltro('PERSONALIZADO')}
+              className={`w-full cursor-pointer rounded-lg px-3 py-1.5 text-left text-[13px] transition-colors ${
+                periodoFiltro === 'PERSONALIZADO' ? 'bg-brand-50 font-medium text-brand-800' : 'text-ink-700 hover:bg-ink-50'
+              }`}
+            >
+              {periodosLabels.PERSONALIZADO}
+            </button>
+
+            {periodoFiltro === 'PERSONALIZADO' && (
+              <div className="mt-2 space-y-2 border-t border-ink-100 px-1 pt-2">
+                <label className="block text-[11px] font-medium text-ink-500">
+                  Data início
+                  <input
+                    type="date"
+                    value={dataInicio}
+                    onChange={(e) => setDataInicio(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-ink-200 p-1.5 text-xs text-ink-900 outline-none focus:ring-2 focus:ring-brand-200"
+                  />
+                </label>
+                <label className="block text-[11px] font-medium text-ink-500">
+                  Data fim
+                  <input
+                    type="date"
+                    value={dataFim}
+                    onChange={(e) => setDataFim(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-ink-200 p-1.5 text-xs text-ink-900 outline-none focus:ring-2 focus:ring-brand-200"
+                  />
+                </label>
+                <div className="flex gap-2">
+                  <button onClick={() => setMenuPeriodoAberto(false)} className="flex-1 cursor-pointer rounded-lg bg-brand-700 py-1.5 text-xs font-medium text-white hover:bg-brand-800">
+                    Aplicar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPeriodoFiltro('TODOS');
+                      setDataInicio('');
+                      setDataFim('');
+                      setMenuPeriodoAberto(false);
+                    }}
+                    className="flex-1 cursor-pointer rounded-lg border border-ink-200 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50"
+                  >
+                    Limpar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const filtrosAtivos = periodoFiltro !== 'TODOS' || statusFiltro !== 'TODOS' || tipoFiltro !== 'TODOS' || busca.trim() !== '';
+
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
-      
-      <div className={`${corBg} rounded-xl border ${corBorder} p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`}>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className={`w-8 h-8 ${corIconBg} rounded-lg flex items-center justify-center text-white shadow-sm`}>
-              <FolderOpen className="w-4 h-4" />
-            </span>
-            <h1 className="text-base font-bold text-slate-900">Central de Documentos Fiscais</h1>
-            <span className={`${corBgBadge} ${corTextDark} text-[10px] font-bold px-2 py-0.5 rounded-full border ${corBorder}`}>
-              {todosDocs.length} Documentos
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Gestão e emissão completa de todos os modelos fiscais: NF-e, NFS-e, NFC-e, CT-e, NFA-e e MDF-e.
-          </p>
-        </div>
+    <div className="mx-auto max-w-[1400px] space-y-4">
+      {/* ===== Totais por tipo (também filtram a tabela) ===== */}
+      <section
+        className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-ink-200/80 bg-ink-100 shadow-card sm:grid-cols-4 xl:grid-cols-7"
+        role="tablist"
+        aria-label="Filtrar por tipo de documento"
+      >
+        {tiposVisiveis.map((t) => {
+          const docs = t.id === 'TODOS' ? docsFiltradosSemTipo : docsFiltradosSemTipo.filter((d) => d.tipo === t.id);
+          const valor = t.id === 'TODOS' ? totalFaturado : valorAutorizado(docs);
+          const sel = tipoFiltro === t.id;
+          return (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={sel}
+              onClick={() => setTipoFiltro(t.id)}
+              className={`relative min-w-0 cursor-pointer p-4 text-left transition-colors ${sel ? 'bg-white' : 'bg-white/70 hover:bg-white'}`}
+            >
+              {sel && <span className="absolute inset-x-0 top-0 h-0.5 bg-brand-700" />}
+              <div className="flex items-baseline justify-between gap-2">
+                <span className={`text-[13px] font-semibold ${sel ? 'text-ink-950' : 'text-ink-700'}`}>{t.rotulo}</span>
+                <span className="font-mono text-[11px] tabular-nums text-ink-400">{docs.length}</span>
+              </div>
+              {t.id === 'MDFE' ? (
+                <p className="mt-1.5 truncate text-[11px] text-ink-400">{t.detalhe}</p>
+              ) : (
+                <p
+                  className={`mt-1 truncate font-display text-[17px] font-bold tracking-[-0.01em] ${sel ? 'text-brand-700' : 'text-ink-900'}`}
+                  title={formatarMoeda(valor)}
+                >
+                  {valor >= 1_000_000 ? (
+                    <span className="tabular-nums">
+                      <span className="mr-[0.25em] text-[0.62em] font-medium text-ink-400">R$</span>
+                      {(valor / 1_000_000).toFixed(2).replace('.', ',')} mi
+                    </span>
+                  ) : (
+                    <Dinheiro valor={valor} />
+                  )}
+                </p>
+              )}
+              {t.id !== 'MDFE' && <p className="truncate text-[10.5px] text-ink-400">{t.id === 'TODOS' ? 'autorizado no período' : t.detalhe}</p>}
+            </button>
+          );
+        })}
+      </section>
 
-        <div className="text-right">
-          <div className="text-xs font-semibold text-slate-700">Emissor Fiscal</div>
-          <div className={`text-[10px] font-medium ${corText}`}>{todosDocs.length} documentos emitidos</div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3">
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500">Faturamento Total</span>
-            <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <TrendingUp className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalFaturado)}</div>
-          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.length} documentos emitidos</div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500">NF-e (Produtos)</span>
-            <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-              <Receipt className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfe)}</div>
-          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFE').length} notas modelo 55</div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500">NFS-e (Serviços)</span>
-            <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-              <FileText className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfse)}</div>
-          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFSE').length} notas padrão DPS</div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500">NFC-e (Consumidor)</span>
-            <div className="w-6 h-6 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
-              <ShoppingBag className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfce)}</div>
-          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFCE').length} cupons PDV</div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500">CT-e (Transporte)</span>
-            <div className="w-6 h-6 rounded-lg bg-cyan-100 text-cyan-700 flex items-center justify-center">
-              <Truck className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalCte)}</div>
-          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'CTE').length} conhecimentos</div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500">NFA-e (Avulsa)</span>
-            <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
-              <FileBadge2 className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalNfae)}</div>
-          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'NFAE').length} notas série 900</div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500">MDF-e (Manifesto)</span>
-            <div className="w-6 h-6 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center">
-              <FileArchive className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="text-lg font-bold text-slate-900 mt-1">{formatarMoeda(totalMdfe)}</div>
-          <div className="text-[10px] text-slate-400">{docsFiltradosSemTipo.filter(d => d.tipo === 'MDFE').length} manifestos</div>
-        </div>
-      </div>
-
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      {/* ===== Barra de ferramentas ===== */}
+      <section className="rounded-xl border border-ink-200/80 bg-white p-3 shadow-card">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
             <input
               type="text"
-              placeholder="Buscar por número, destinatário, CNPJ/CPF, chave de acesso ou tipo..."
+              placeholder="Buscar por número, destinatário, CNPJ/CPF ou chave de acesso…"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              className={`w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 ${corFocus}`}
+              className="h-9 w-full rounded-lg border border-ink-200 bg-ink-50/60 pl-9 pr-3 text-[13px] text-ink-900 outline-none transition-colors placeholder:text-ink-400 focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100"
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {renderPeriodoSelector()}
-
-            <div className="flex flex-wrap items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 text-xs">
-              {renderFiltroBotao('TODOS', 'Todos', docsFiltradosSemTipo.length)}
-              {renderFiltroBotao('NFE', 'NF-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFE').length)}
-              {renderFiltroBotao('NFSE', 'NFS-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFSE').length)}
-              {renderFiltroBotao('NFCE', 'NFC-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFCE').length)}
-              {renderFiltroBotao('CTE', 'CT-e', docsFiltradosSemTipo.filter(d => d.tipo === 'CTE').length)}
-              {renderFiltroBotao('NFAE', 'NFA-e', docsFiltradosSemTipo.filter(d => d.tipo === 'NFAE').length)}
-              {renderFiltroBotao('MDFE', 'MDF-e', docsFiltradosSemTipo.filter(d => d.tipo === 'MDFE').length)}
+            <div className="flex h-9 items-center rounded-lg bg-ink-100 p-0.5 text-xs font-medium" role="radiogroup" aria-label="Situação">
+              {STATUS_OPCOES.map((s) => (
+                <button
+                  key={s.id}
+                  role="radio"
+                  aria-checked={statusFiltro === s.id}
+                  onClick={() => setStatusFiltro(s.id)}
+                  className={`h-8 cursor-pointer rounded-md px-2.5 transition-colors ${statusFiltro === s.id ? 'bg-white text-ink-950 shadow-card' : 'text-ink-500 hover:text-ink-800'}`}
+                >
+                  {s.rotulo}
+                </button>
+              ))}
             </div>
 
-            <div className="relative flex items-center gap-2">
-              {Object.values(emitirPorTipo).some((e) => e?.onEmitir) && (
-              <div className="relative inline-block text-left">
-                <div className="flex rounded-lg shadow-sm">
+            {renderPeriodoSelector()}
+
+            {pode('relatorios.exportar') && (
+              <button
+                onClick={handleExportarCsv}
+                className="flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 text-[13px] text-ink-700 transition-colors hover:border-ink-300 hover:text-ink-950"
+                title="Exportar a lista filtrada para CSV"
+              >
+                <FileSpreadsheet className="h-4 w-4 text-ink-400" />
+                CSV
+              </button>
+            )}
+
+            {Object.values(emitirPorTipo).some((e) => e?.onEmitir) && (
+              <div className="relative">
+                <div className="flex h-9 overflow-hidden rounded-lg shadow-card">
                   <button
                     type="button"
                     onClick={handleClickEmitirPrincipal}
                     id="btn-emitir-nova-nota"
-                    className={`${corBgButton} text-white text-xs font-bold px-4 py-2 rounded-l-lg transition-colors flex items-center gap-2 cursor-pointer`}
-                    title={emitirAtivo ? `Emitir ${emitirAtivo.label} diretamente` : 'Selecione o tipo de documento'}
+                    className="flex cursor-pointer items-center gap-1.5 bg-brand-700 px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-brand-800"
+                    title={emitirAtivo ? `Emitir ${emitirAtivo.label}` : 'Escolher o tipo de documento'}
                   >
-                    <Plus className="w-4 h-4" />
-                    <span>{emitirAtivo ? `Emitir ${emitirAtivo.label}` : 'Emitir Nova Nota'}</span>
+                    <Plus className="h-4 w-4" />
+                    {emitirAtivo ? `Emitir ${emitirAtivo.label}` : 'Emitir'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setMenuNovaNotaAberto(!menuNovaNotaAberto)}
-                    className="bg-indigo-700 hover:bg-indigo-800 text-white px-2.5 py-2 rounded-r-lg border-l border-indigo-500 transition-colors cursor-pointer flex items-center justify-center"
+                    className="flex cursor-pointer items-center border-l border-white/20 bg-brand-700 px-2 text-white transition-colors hover:bg-brand-800"
+                    aria-label="Escolher o tipo de documento"
                   >
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="h-4 w-4" />
                   </button>
                 </div>
 
                 {menuNovaNotaAberto && (
                   <>
                     <div className="fixed inset-0 z-20" onClick={() => setMenuNovaNotaAberto(false)} />
-                    <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-xl shadow-xl bg-white ring-1 ring-black ring-opacity-5 z-30 border border-slate-200 p-2 space-y-1">
-                      <div className="px-3 py-2 border-b border-slate-100">
-                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Selecione o Tipo de Documento Fiscal</span>
-                      </div>
-
-                      {onEmitirNovaNfe && (
-                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfe) onEmitirNovaNfe(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
-                        <div className="w-7 h-7 rounded bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors mt-0.5">
-                          <Receipt className="w-3.5 h-3.5" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-700">NF-e (Produto Eletrônica)</div>
-                          <div className="text-[10px] text-slate-500">Modelo 55 • Venda de Produtos e Mercadorias</div>
-                        </div>
-                      </button>
-                      )}
-
-                      {onEmitirNovaNfse && (
-                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfse) onEmitirNovaNfse(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
-                        <div className="w-7 h-7 rounded bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors mt-0.5">
-                          <FileText className="w-3.5 h-3.5" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-900 group-hover:text-blue-700">NFS-e (Serviço Eletrônica)</div>
-                          <div className="text-[10px] text-slate-500">Padrão Nacional • Prestação de Serviços DPS</div>
-                        </div>
-                      </button>
-                      )}
-
-                      {onEmitirNovaNfce && (
-                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfce) onEmitirNovaNfce(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
-                        <div className="w-7 h-7 rounded bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-colors mt-0.5">
-                          <ShoppingBag className="w-3.5 h-3.5" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-900 group-hover:text-purple-700">NFC-e (Consumidor Eletrônica)</div>
-                          <div className="text-[10px] text-slate-500">Modelo 65 • Cupom Fiscal Varejo / PDV</div>
-                        </div>
-                      </button>
-                      )}
-
-                      {onEmitirNovoCte && (
-                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovoCte) onEmitirNovoCte(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
-                        <div className="w-7 h-7 rounded bg-cyan-100 text-cyan-700 flex items-center justify-center shrink-0 group-hover:bg-cyan-600 group-hover:text-white transition-colors mt-0.5">
-                          <Truck className="w-3.5 h-3.5" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-900 group-hover:text-cyan-700">CT-e (Conhecimento de Transporte)</div>
-                          <div className="text-[10px] text-slate-500">Modelo 57 • Prestação de Frete Rodoviário</div>
-                        </div>
-                      </button>
-                      )}
-
-                      {onEmitirNovaNfae && (
-                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovaNfae) onEmitirNovaNfae(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
-                        <div className="w-7 h-7 rounded bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors mt-0.5">
-                          <FileBadge2 className="w-3.5 h-3.5" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-900 group-hover:text-amber-700">NFA-e (Nota Avulsa Eletrônica)</div>
-                          <div className="text-[10px] text-slate-500">Série 900 • Produtor Rural / MEI / Avulsa SEFAZ</div>
-                        </div>
-                      </button>
-                      )}
-
-                      {onEmitirNovoMdfe && (
-                      <button onClick={() => { setMenuNovaNotaAberto(false); if (onEmitirNovoMdfe) onEmitirNovoMdfe(); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer group">
-                        <div className="w-7 h-7 rounded bg-orange-100 text-orange-700 flex items-center justify-center shrink-0 group-hover:bg-orange-600 group-hover:text-white transition-colors mt-0.5">
-                          <FileArchive className="w-3.5 h-3.5" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-900 group-hover:text-orange-700">MDF-e (Manifesto Eletrônico)</div>
-                          <div className="text-[10px] text-slate-500">Modelo 58 • Manifesto de Documentos Fiscais</div>
-                        </div>
-                      </button>
-                      )}
+                    <div className="absolute right-0 z-30 mt-2 w-80 origin-top-right rounded-xl border border-ink-200 bg-white p-1.5 shadow-float">
+                      <p className="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400">Novo documento</p>
+                      {opcoesEmissao
+                        .filter((o) => o.onEmitir)
+                        .map((o) => (
+                          <button
+                            key={o.titulo}
+                            onClick={() => {
+                              setMenuNovaNotaAberto(false);
+                              o.onEmitir?.();
+                            }}
+                            className="group flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-left hover:bg-ink-50"
+                          >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-ink-200 text-ink-500 transition-colors group-hover:border-brand-200 group-hover:bg-brand-50 group-hover:text-brand-700">
+                              <o.icon className="h-4 w-4" />
+                            </span>
+                            <span>
+                              <span className="block text-sm font-medium text-ink-900">{o.titulo}</span>
+                              <span className="block text-xs text-ink-500">{o.detalhe}</span>
+                            </span>
+                          </button>
+                        ))}
                     </div>
                   </>
                 )}
               </div>
-
-              )}
-
-              {pode('relatorios.exportar') && (
-              <button onClick={handleExportarCsv} className="p-2 text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer" title="Exportar dados da grid para CSV">
-                <FileSpreadsheet className="w-4 h-4" />
-              </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
-        {periodoFiltro !== 'TODOS' && (
-          <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-            <Calendar className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Filtrado por: <strong>{periodosLabels[periodoFiltro]}</strong></span>
-            {periodoFiltro === 'PERSONALIZADO' && dataInicio && dataFim && (
-              <span>
-                ({new Date(dataInicio).toLocaleDateString('pt-BR')} - {new Date(dataFim).toLocaleDateString('pt-BR')})
-              </span>
+        {filtrosAtivos && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-ink-100 pt-2.5 text-xs text-ink-500">
+            <span className="mr-1">Filtros:</span>
+            {tipoFiltro !== 'TODOS' && (
+              <button onClick={() => setTipoFiltro('TODOS')} className="flex cursor-pointer items-center gap-1 rounded-full border border-ink-200 bg-ink-50 px-2 py-0.5 text-ink-700 hover:border-ink-300">
+                {TIPOS.find((t) => t.id === tipoFiltro)?.rotulo} <X className="h-3 w-3 text-ink-400" />
+              </button>
+            )}
+            {statusFiltro !== 'TODOS' && (
+              <button onClick={() => setStatusFiltro('TODOS')} className="flex cursor-pointer items-center gap-1 rounded-full border border-ink-200 bg-ink-50 px-2 py-0.5 text-ink-700 hover:border-ink-300">
+                {STATUS_OPCOES.find((s) => s.id === statusFiltro)?.rotulo} <X className="h-3 w-3 text-ink-400" />
+              </button>
+            )}
+            {periodoFiltro !== 'TODOS' && (
+              <button
+                onClick={() => {
+                  setPeriodoFiltro('TODOS');
+                  setDataInicio('');
+                  setDataFim('');
+                }}
+                className="flex cursor-pointer items-center gap-1 rounded-full border border-ink-200 bg-ink-50 px-2 py-0.5 text-ink-700 hover:border-ink-300"
+              >
+                {periodosLabels[periodoFiltro]}
+                {periodoFiltro === 'PERSONALIZADO' && dataInicio && dataFim && (
+                  <span className="font-mono text-[11px]">
+                    {new Date(dataInicio + 'T00:00:00').toLocaleDateString('pt-BR')}–{new Date(dataFim + 'T00:00:00').toLocaleDateString('pt-BR')}
+                  </span>
+                )}
+                <X className="h-3 w-3 text-ink-400" />
+              </button>
+            )}
+            {busca.trim() && (
+              <button onClick={() => setBusca('')} className="flex cursor-pointer items-center gap-1 rounded-full border border-ink-200 bg-ink-50 px-2 py-0.5 text-ink-700 hover:border-ink-300">
+                “{busca.trim()}” <X className="h-3 w-3 text-ink-400" />
+              </button>
             )}
             <button
               onClick={() => {
+                setTipoFiltro('TODOS');
+                setStatusFiltro('TODOS');
                 setPeriodoFiltro('TODOS');
                 setDataInicio('');
                 setDataFim('');
+                setBusca('');
               }}
-              className="text-slate-400 hover:text-slate-600 transition-colors"
+              className="ml-auto cursor-pointer font-medium text-brand-700 hover:text-brand-800"
             >
-              <X className="w-3.5 h-3.5" />
+              Limpar tudo
             </button>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+      {/* ===== Tabela ===== */}
+      <section className="overflow-hidden rounded-xl border border-ink-200/80 bg-white shadow-card">
+        <div className="max-h-[calc(100vh-300px)] min-h-[320px] overflow-auto">
+          <table className="w-full min-w-[920px] border-separate border-spacing-0 text-left text-[13px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+              <tr>
                 <th className={thClass} onClick={() => handleOrdenar('tipo')}>
-                  <div className="flex items-center">Tipo / Mod <IconeOrdenacao campo="tipo" /></div>
+                  <div className="flex items-center">Doc. <IconeOrdenacao campo="tipo" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('numero')}>
-                  <div className="flex items-center">Número <IconeOrdenacao campo="numero" /></div>
+                  <div className="flex items-center">Número / chave <IconeOrdenacao campo="numero" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('destinatario')}>
-                  <div className="flex items-center">Destinatário / Tomador <IconeOrdenacao campo="destinatario" /></div>
+                  <div className="flex items-center">Destinatário / tomador <IconeOrdenacao campo="destinatario" /></div>
                 </th>
                 <th className={thClass} onClick={() => handleOrdenar('data')}>
-                  <div className="flex items-center">Data Emissão <IconeOrdenacao campo="data" /></div>
+                  <div className="flex items-center">Emissão <IconeOrdenacao campo="data" /></div>
                 </th>
                 <th className={`${thClass} text-right`} onClick={() => handleOrdenar('valor')}>
-                  <div className="flex items-center justify-end">Valor Total <IconeOrdenacao campo="valor" /></div>
+                  <div className="flex items-center justify-end">Valor <IconeOrdenacao campo="valor" /></div>
                 </th>
-                <th className={`${thClass} text-center`} onClick={() => handleOrdenar('status')}>
-                  <div className="flex items-center justify-center">Status <IconeOrdenacao campo="status" /></div>
+                <th className={thClass} onClick={() => handleOrdenar('status')}>
+                  <div className="flex items-center">Situação <IconeOrdenacao campo="status" /></div>
                 </th>
-                <th className="py-3 px-4 text-right">Ações</th>
+                <th className="sticky top-0 z-10 border-b border-ink-200 bg-ink-50 px-4 py-2.5" aria-label="Ações" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {todosDocs.length === 0 ? (
+            <tbody>
+              {docsPagina.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
-                    <Layers className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="font-semibold text-slate-700">Nenhum documento fiscal encontrado</p>
-                    <p className="text-slate-400 text-xs mt-0.5">
-                      {periodoFiltro !== 'TODOS' ? 'Tente ajustar o período ou os filtros' : 'Tente ajustar os termos da busca ou filtros acima.'}
-                    </p>
+                  <td colSpan={7} className="py-16 text-center">
+                    <Layers className="mx-auto mb-2 h-8 w-8 text-ink-300" />
+                    <p className="text-sm font-medium text-ink-800">Nenhum documento encontrado</p>
+                    <p className="mt-0.5 text-xs text-ink-500">{filtrosAtivos ? 'Ajuste ou limpe os filtros acima.' : 'Os documentos emitidos aparecem aqui.'}</p>
                   </td>
                 </tr>
               ) : (
-                todosDocs.map((doc) => (
-                  <tr key={`${doc.tipo}-${doc.id}`} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4">
-                      <span className={`inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded border ${doc.corBadge}`}>
-                        {doc.tipoLabel}
-                      </span>
-                    </td>
+                docsPagina.map((doc) => {
+                  const s = situacao(doc.status);
+                  const cancelada = doc.status === 'CANCELADA';
+                  const data = new Date(doc.data);
+                  return (
+                    <tr key={`${doc.tipo}-${doc.id}`} className="group/linha transition-colors hover:bg-ink-50/70">
+                      <td className="border-b border-ink-100 px-4 py-2.5 align-top">
+                        <span className="inline-block w-14 rounded border border-ink-200 bg-white px-1 py-0.5 text-center font-mono text-[10.5px] font-medium text-ink-600">
+                          {TIPOS.find((t) => t.id === doc.tipo)?.rotulo ?? doc.tipo}
+                        </span>
+                      </td>
 
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900">Nº {doc.numero} <span className="text-slate-400 font-normal">Série {doc.serie}</span></div>
-                      <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono mt-0.5">
-                        <span>Chave: {doc.chave.slice(0, 8)}...{doc.chave.slice(-6)}</span>
-                        <button onClick={() => handleCopiarChave(doc.chave)} className="hover:text-indigo-600 p-0.5 cursor-pointer" title="Copiar chave de acesso completa">
-                          {chaveCopiada === doc.chave ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                        </button>
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900 truncate max-w-xs">{doc.destinatario}</div>
-                      <div className="text-[11px] text-slate-500">{doc.documento}</div>
-                      <div className="text-[10px] text-slate-400 truncate max-w-xs">{doc.detalhes}</div>
-                    </td>
-
-                    <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
-                      <div>{new Date(doc.data).toLocaleDateString('pt-BR')}</div>
-                      <div className="text-[10px] text-slate-400">{new Date(doc.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
-                    </td>
-
-                    <td className="py-3 px-4 text-right whitespace-nowrap font-bold text-slate-900">
-                      {formatarMoeda(doc.valor)}
-                    </td>
-
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border ${
-                        doc.status === 'AUTORIZADA' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                        doc.status === 'CANCELADA' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                        'bg-slate-100 text-slate-600 border-slate-200'
-                      }`}>
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>{doc.status}</span>
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={doc.onView} className="bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 font-medium text-xs px-2.5 py-1.5 rounded transition-colors flex items-center gap-1 cursor-pointer" title="Visualizar documento auxiliar impresso">
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Visualizar</span>
-                        </button>
-
-                        {pode(`${doc.tipo.toLowerCase()}.download`) && (
-                        <button onClick={() => { const blob = new Blob([doc.xml], { type: 'application/xml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${doc.tipo}_${doc.numero}_SUP.xml`; a.click(); }} className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors cursor-pointer" title="Baixar XML assinado pela SEFAZ">
-                          <Download className="w-3.5 h-3.5" />
-                        </button>
+                      <td className="border-b border-ink-100 px-4 py-2.5 align-top">
+                        <div className="font-mono text-[13px] font-medium text-ink-950">
+                          {doc.numero}
+                          <span className="ml-1.5 text-[11px] font-normal text-ink-400">série {doc.serie}</span>
+                        </div>
+                        {doc.chave && (
+                          <button
+                            onClick={() => handleCopiarChave(doc.chave)}
+                            className="mt-0.5 flex cursor-pointer items-center gap-1 font-mono text-[10.5px] text-ink-400 transition-colors hover:text-brand-700"
+                            title={`Copiar chave: ${doc.chave}`}
+                          >
+                            {doc.chave.slice(0, 4)} … {doc.chave.slice(-8)}
+                            {chaveCopiada === doc.chave ? <Check className="h-3 w-3 text-brand-600" /> : <Copy className="h-3 w-3 opacity-0 transition-opacity group-hover/linha:opacity-100" />}
+                          </button>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+
+                      <td className="max-w-[320px] border-b border-ink-100 px-4 py-2.5 align-top">
+                        <div className="truncate font-medium text-ink-900" title={doc.destinatario}>
+                          {doc.destinatario}
+                        </div>
+                        <div className="truncate text-[11px] text-ink-500">
+                          <span className={/\d{11}/.test(doc.documento) ? 'font-mono' : ''}>{formatarDoc(doc.documento)}</span>
+                          {doc.detalhes && <span className="text-ink-400"> · {doc.detalhes}</span>}
+                        </div>
+                      </td>
+
+                      <td className="whitespace-nowrap border-b border-ink-100 px-4 py-2.5 align-top font-mono text-xs text-ink-600">
+                        {data.toLocaleDateString('pt-BR')}
+                        <div className="text-[10.5px] text-ink-400">{data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+                      </td>
+
+                      <td className={`whitespace-nowrap border-b border-ink-100 px-4 py-2.5 text-right align-top ${cancelada ? 'text-ink-400 line-through' : 'font-medium text-ink-950'}`}>
+                        <Dinheiro valor={doc.valor} />
+                      </td>
+
+                      <td className="whitespace-nowrap border-b border-ink-100 px-4 py-2.5 align-top">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${s.classe}`}>
+                          <s.icon className="h-3 w-3" />
+                          {s.rotulo}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap border-b border-ink-100 px-3 py-2 text-right align-top">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={doc.onView}
+                            className="flex cursor-pointer items-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs font-medium text-ink-600 transition-colors hover:border-ink-200 hover:bg-white hover:text-brand-700"
+                            title="Visualizar documento auxiliar"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Ver
+                          </button>
+                          {pode(`${doc.tipo.toLowerCase()}.download`) && (
+                            <button
+                              onClick={() => {
+                                const blob = new Blob([doc.xml], { type: 'application/xml' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `${doc.tipo}_${doc.numero}_SUP.xml`;
+                                a.click();
+                              }}
+                              className="cursor-pointer rounded-md p-1.5 text-ink-400 transition-colors hover:bg-white hover:text-ink-800"
+                              title="Baixar XML"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
-      </div>
 
-      <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
-        <span>Total de documentos: <strong>{todosDocs.length}</strong></span>
-        <span>Faturamento total: <strong>{formatarMoeda(totalFaturado)}</strong></span>
-        <span className="hidden sm:block">
-          Período: <strong>{periodosLabels[periodoFiltro]}</strong>
-          {periodoFiltro === 'PERSONALIZADO' && dataInicio && dataFim && (
-            ` (${new Date(dataInicio).toLocaleDateString('pt-BR')} - ${new Date(dataFim).toLocaleDateString('pt-BR')})`
+        {/* Rodapé: resumo + paginação */}
+        <div className="flex flex-col gap-2 border-t border-ink-200/70 bg-ink-50/60 px-4 py-2.5 text-xs text-ink-500 sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            <span className="font-medium text-ink-800">{todosDocs.length}</span> documentos · autorizado{' '}
+            <Dinheiro valor={valorAutorizado(todosDocs.filter((d) => d.tipo !== 'MDFE'))} className="font-medium text-ink-800" />
+          </span>
+          {totalPaginas > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPagina(Math.max(1, paginaAtual - 1))}
+                disabled={paginaAtual === 1}
+                className="cursor-pointer rounded-md border border-ink-200 bg-white px-2 py-1 text-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <span className="px-2 font-mono tabular-nums">
+                {paginaAtual} / {totalPaginas}
+              </span>
+              <button
+                onClick={() => setPagina(Math.min(totalPaginas, paginaAtual + 1))}
+                disabled={paginaAtual === totalPaginas}
+                className="cursor-pointer rounded-md border border-ink-200 bg-white px-2 py-1 text-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Próxima
+              </button>
+            </div>
           )}
-        </span>
-      </div>
-
+        </div>
+      </section>
     </div>
   );
 };

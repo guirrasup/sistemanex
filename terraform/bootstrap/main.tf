@@ -168,12 +168,18 @@ data "aws_iam_policy_document" "ci_plan_assume" {
     # qualquer branch (sub = "repo:ORG/REPO:ref:refs/heads/*", usado pelo
     # job agendado de drift detection) — sempre deste repo específico.
     # StringLike (não StringEquals) porque o segundo padrão usa wildcard.
+    # Este repo emite o sub com os IDs numéricos de owner/repo
+    # ("repo:ORG@id/REPO@id:...", mesmo formato já tratado no módulo cicd) —
+    # sem os padrões "@*" o assume falha com "Not authorized to perform
+    # sts:AssumeRoleWithWebIdentity". Os padrões sem ID ficam por compatibilidade.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
       values = [
         "repo:${var.github_org}/${var.github_repo}:pull_request",
         "repo:${var.github_org}/${var.github_repo}:ref:refs/heads/*",
+        "repo:${var.github_org}@*/${var.github_repo}@*:pull_request",
+        "repo:${var.github_org}@*/${var.github_repo}@*:ref:refs/heads/*",
       ]
     }
   }

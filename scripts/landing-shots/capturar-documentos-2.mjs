@@ -1,0 +1,21 @@
+export default async (page) => {
+  const base = 'http://localhost:3000/scripts/landing-shots/index.html';
+  const browser = page.context().browser();
+  const ctx = await browser.newContext({ deviceScaleFactor: 2, viewport: { width: 1200, height: 2400 }, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
+  const logs = [];
+  const p = await ctx.newPage();
+  p.on('console', (m) => logs.push(m.type() + ': ' + m.text()));
+  p.on('pageerror', (e) => logs.push('pageerror: ' + e.message));
+  const out = 'C:/sistemanex/public/landing/';
+  await p.goto(base, { waitUntil: 'networkidle' });
+  await p.evaluate(() => document.fonts.ready);
+  await p.waitForTimeout(1200);
+  if (process.env.SKIP_DANFAE !== '1') await p.locator('#shot-danfae > div > div:nth-child(2)').screenshot({ path: out + 'danfae.png', scale: 'device' });
+  await p.goto(base + '?doc=damdfe', { waitUntil: 'networkidle' });
+  await p.addStyleTag({ content: '#shot-damdfe-host > div { flex-direction: column; justify-content: flex-start; }' });
+  await p.evaluate(() => document.fonts.ready);
+  await p.waitForTimeout(1200);
+  await p.locator('#shot-damdfe-host > div > div:nth-child(2)').screenshot({ path: out + 'damdfe.png', scale: 'device' });
+  await ctx.close();
+  return logs.join('\n') || 'no logs';
+};
