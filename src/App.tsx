@@ -6,30 +6,8 @@ import { CommandPalette } from './components/layout/CommandPalette';
 import { LandingPageView } from './components/landing/LandingPageView';
 import { LoginView } from './components/auth/LoginView';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
-import { DashboardReal } from './components/dashboard/DashboardReal';
-import { NfseEmissor } from './components/fiscal/NfseEmissor';
-import { NfeEmissor } from './components/fiscal/NfeEmissor';
-import { NfceEmissor } from './components/fiscal/NfceEmissor';
-import { CteEmissor } from './components/fiscal/CteEmissor';
-import { NfaeEmissor } from './components/fiscal/NfaeEmissor';
 // 🔥 NOVO - MDF-e
-import { MdfeEmissor } from './components/fiscal/MdfeEmissor';
-import { DamdfeViewer } from './components/fiscal/DamdfeViewer';
-import { DocumentosFiscaisList, TipoDocumentoFiltro } from './components/fiscal/DocumentosFiscaisList';
-import { DanfseViewer } from './components/fiscal/DanfseViewer';
-import { DanfeViewer } from './components/fiscal/DanfeViewer';
-import { DanfceViewer } from './components/fiscal/DanfceViewer';
-import { DacteViewer } from './components/fiscal/DacteViewer';
-import { DanfaeViewer } from './components/fiscal/DanfaeViewer';
-import { ProdutosView } from './components/cadastros/ProdutosView';
-import { ClientesView } from './components/cadastros/ClientesView';
-import { FornecedoresView } from './components/cadastros/FornecedoresView';
-import { ServicosView } from './components/cadastros/ServicosView';
-import { TransportadorasView } from './components/cadastros/TransportadorasView';
-import { FinanceiroView } from './components/financeiro/FinanceiroView';
-import { ConfiguracoesView } from './components/config/ConfiguracoesView';
-import { ConsultaCnpjView } from './components/tools/ConsultaCnpjView';
-import { AdminUsuariosView } from './components/admin/AdminUsuariosView';
+import type { TipoDocumentoFiltro } from './components/fiscal/DocumentosFiscaisList';
 import { PermissoesProvider, criarPermissoes } from './hooks/usePermissoes';
 import { VIEW_ADMIN } from './utils/permissoes';
 import { ToastProvider } from './components/ui/ToastProvider';
@@ -55,6 +33,43 @@ import { empresaService } from './services/empresa.service';
 import { LoadingDinamico } from './components/ui/LoadingDinamico';
 import { ShieldOff } from 'lucide-react';
 import api, { EVENTO_SESSAO_EXPIRADA } from './services/api';
+
+// Telas do sistema logado em chunks separados: a landing page e o login não
+// baixam emissores, gráficos, PDF e planilhas — só depois do login.
+const carregar = <T extends string>(nome: T, imp: () => Promise<Record<T, React.ComponentType<any>>>) =>
+  React.lazy(() => imp().then((m) => ({ default: m[nome] })));
+
+// Enquanto o chunk de uma tela baixa (só na primeira visita a ela).
+const CarregandoTela = () => (
+  <div className="flex h-64 items-center justify-center text-sm text-ink-400">
+    <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ink-300 border-t-brand-600" />
+    Carregando…
+  </div>
+);
+
+const DashboardReal = carregar('DashboardReal', () => import('./components/dashboard/DashboardReal'));
+const NfseEmissor = carregar('NfseEmissor', () => import('./components/fiscal/NfseEmissor'));
+const NfeEmissor = carregar('NfeEmissor', () => import('./components/fiscal/NfeEmissor'));
+const NfceEmissor = carregar('NfceEmissor', () => import('./components/fiscal/NfceEmissor'));
+const CteEmissor = carregar('CteEmissor', () => import('./components/fiscal/CteEmissor'));
+const NfaeEmissor = carregar('NfaeEmissor', () => import('./components/fiscal/NfaeEmissor'));
+const MdfeEmissor = carregar('MdfeEmissor', () => import('./components/fiscal/MdfeEmissor'));
+const DamdfeViewer = carregar('DamdfeViewer', () => import('./components/fiscal/DamdfeViewer'));
+const DocumentosFiscaisList = carregar('DocumentosFiscaisList', () => import('./components/fiscal/DocumentosFiscaisList'));
+const DanfseViewer = carregar('DanfseViewer', () => import('./components/fiscal/DanfseViewer'));
+const DanfeViewer = carregar('DanfeViewer', () => import('./components/fiscal/DanfeViewer'));
+const DanfceViewer = carregar('DanfceViewer', () => import('./components/fiscal/DanfceViewer'));
+const DacteViewer = carregar('DacteViewer', () => import('./components/fiscal/DacteViewer'));
+const DanfaeViewer = carregar('DanfaeViewer', () => import('./components/fiscal/DanfaeViewer'));
+const ProdutosView = carregar('ProdutosView', () => import('./components/cadastros/ProdutosView'));
+const ClientesView = carregar('ClientesView', () => import('./components/cadastros/ClientesView'));
+const FornecedoresView = carregar('FornecedoresView', () => import('./components/cadastros/FornecedoresView'));
+const ServicosView = carregar('ServicosView', () => import('./components/cadastros/ServicosView'));
+const TransportadorasView = carregar('TransportadorasView', () => import('./components/cadastros/TransportadorasView'));
+const FinanceiroView = carregar('FinanceiroView', () => import('./components/financeiro/FinanceiroView'));
+const ConfiguracoesView = carregar('ConfiguracoesView', () => import('./components/config/ConfiguracoesView'));
+const ConsultaCnpjView = carregar('ConsultaCnpjView', () => import('./components/tools/ConsultaCnpjView'));
+const AdminUsuariosView = carregar('AdminUsuariosView', () => import('./components/admin/AdminUsuariosView'));
 
 // 🔥 CACHE DE DADOS PARA EVITAR REQUISIÇÕES DUPLICADAS
 interface CacheData {
@@ -689,6 +704,7 @@ export default function App() {
           <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto">
               {/* key: trocar de tela remonta o boundary e limpa o erro anterior */}
+              <React.Suspense fallback={<CarregandoTela />}>
               <ErrorBoundary key={currentView} onVoltar={() => handleNavigate(permissoes.primeiraView() ?? 'dashboard')}>
 
               {!telaPermitida && (
@@ -895,6 +911,7 @@ export default function App() {
               </>)}
 
               </ErrorBoundary>
+              </React.Suspense>
             </div>
           </main>
           </div>
@@ -908,6 +925,7 @@ export default function App() {
           onLogout={handleLogout}
         />
 
+        <React.Suspense fallback={null}>
         {viewingDanfse && (
           <DanfseViewer
             nfseId={viewingDanfse}
@@ -967,6 +985,7 @@ export default function App() {
             </div>
           </div>
         )}
+        </React.Suspense>
 
       </div>
     </ToastProvider>
