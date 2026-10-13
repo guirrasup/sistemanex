@@ -1,4 +1,5 @@
 // src/main.tsx
+import { instalarDiagnostico } from './utils/diagnostico';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
@@ -10,6 +11,9 @@ import '@fontsource-variable/manrope';
 import '@fontsource-variable/dm-sans';
 import './index.css';
 import { aplicarTema, carregarTema } from './utils/tema';
+
+// Antes do primeiro render: passa a guardar console/erros para o "Reportar problema".
+instalarDiagnostico();
 
 // Tema salvo em Configurações → Aparência, aplicado antes do primeiro render.
 aplicarTema(carregarTema());

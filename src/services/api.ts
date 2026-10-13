@@ -4,6 +4,8 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333/api';
 
 // Disparado quando o backend recusa a sessão; o App volta para a tela de login.
+import { registrar } from '../utils/diagnostico';
+
 export const EVENTO_SESSAO_EXPIRADA = 'sup:sessao-expirada';
 
 export const api = axios.create({
@@ -94,6 +96,12 @@ api.interceptors.response.use(
       window.dispatchEvent(new CustomEvent(EVENTO_SESSAO_EXPIRADA));
     }
     
+    // Detalhado no log de diagnóstico (anexado ao "Reportar problema").
+    registrar(
+      'rede',
+      `${(error.config?.method || 'GET').toUpperCase()} ${error.config?.url} → ${error.response?.status ?? 'sem resposta'}`,
+      error.response?.data?.erro || error.response?.data?.message || error.message || '',
+    );
     console.error('❌ Erro na resposta:', error.response?.status, error.config?.url);
     return Promise.reject(error);
   }

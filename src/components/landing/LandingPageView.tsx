@@ -716,19 +716,24 @@ const TelasDoSistema: React.FC = () => {
           </div>
           <span className="truncate rounded-md bg-white px-3 py-0.5 font-mono text-[11px] text-ink-400">app.suptecnologia.com.br</span>
         </div>
-        <AnimatePresence mode="wait">
-          <motion.img
-            key={tela.id}
-            src={tela.img}
-            alt={`Tela real do sistema: ${tela.rotulo} (dados fictícios)`}
-            loading="lazy"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="block w-full"
-          />
-        </AnimatePresence>
+        {/* Área com altura fixa (proporção das capturas, 1600×1111) e todas as
+            telas empilhadas: trocar de aba só cruza a opacidade — nada colapsa
+            nem empurra a página, e as imagens já estão carregadas. */}
+        <div className="relative aspect-[1600/1111] w-full bg-ink-50">
+          {TELAS_SISTEMA.map((t, i) => (
+            <img
+              key={t.id}
+              src={t.img}
+              alt={i === ativo ? `Tela real do sistema: ${t.rotulo} (dados fictícios)` : ''}
+              aria-hidden={i !== ativo}
+              width={1600}
+              height={1111}
+              loading="lazy"
+              decoding="async"
+              className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-300 ${i === ativo ? 'opacity-100' : 'opacity-0'}`}
+            />
+          ))}
+        </div>
       </button>
       <p className="mt-3 text-xs text-ink-400">Telas reais do sistema, com dados fictícios. Clique para ampliar.</p>
       <Lightbox src={ampliado ? tela.img : null} alt={tela.rotulo} onClose={() => setAmpliado(false)} />

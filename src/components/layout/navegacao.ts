@@ -3,6 +3,7 @@
 // pela paleta de comandos (Ctrl/⌘ K). Permissões são aplicadas por quem consome.
 import {
   Briefcase,
+  Bug,
   Building,
   FileArchive,
   FileBadge2,
@@ -20,7 +21,7 @@ import {
   UserPlus,
   type LucideIcon,
 } from 'lucide-react';
-import { VIEW_ADMIN } from '../../utils/permissoes';
+import { VIEW_ADMIN, VIEW_OCORRENCIAS } from '../../utils/permissoes';
 
 export interface ContadoresNav {
   nfseCount?: number;
@@ -98,7 +99,12 @@ export function gruposNavegacao(isAdmin: boolean): GrupoNav[] {
       itens: [
         { id: 'configuracoes', label: 'Dados e certificado A1', icon: Building, palavras: 'configuracoes empresa certificado digital a1 cnpj' },
         { id: 'consulta-cnpj', label: 'Consulta CNPJ', icon: Search, palavras: 'receita federal cadastro publico' },
-        ...(isAdmin ? [{ id: VIEW_ADMIN, label: 'Usuários e permissões', icon: Lock, palavras: 'perfis acesso admin' }] : []),
+        ...(isAdmin
+          ? [
+              { id: VIEW_ADMIN, label: 'Usuários e permissões', icon: Lock, palavras: 'perfis acesso admin' },
+              { id: VIEW_OCORRENCIAS, label: 'Ocorrências do beta', icon: Bug, palavras: 'suporte bugs tickets chamados problemas' },
+            ]
+          : []),
       ],
     },
   ];

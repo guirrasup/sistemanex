@@ -4,6 +4,8 @@
 // aqui só decidimos o que mostrar.
 
 export const VIEW_ADMIN = 'admin-usuarios';
+/** Ocorrências do programa beta — sem mapeamento de permissão: só ADMIN vê. */
+export const VIEW_OCORRENCIAS = 'ocorrencias-beta';
 
 /** Tela → permissões que a liberam (basta uma). */
 const PERMISSOES_POR_VIEW: Record<string, string[]> = {

@@ -9,7 +9,8 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary';
 // 🔥 NOVO - MDF-e
 import type { TipoDocumentoFiltro } from './components/fiscal/DocumentosFiscaisList';
 import { PermissoesProvider, criarPermissoes } from './hooks/usePermissoes';
-import { VIEW_ADMIN } from './utils/permissoes';
+import { VIEW_ADMIN, VIEW_OCORRENCIAS } from './utils/permissoes';
+import { ReportarProblema } from './components/suporte/ReportarProblema';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { StorageService } from './utils/storage';
 import { NFSeDocumento, NFeDocumento, NFCeDocumento, CTeDocumento, NFAeDocumento } from './types/fiscal';
@@ -70,6 +71,7 @@ const FinanceiroView = carregar('FinanceiroView', () => import('./components/fin
 const ConfiguracoesView = carregar('ConfiguracoesView', () => import('./components/config/ConfiguracoesView'));
 const ConsultaCnpjView = carregar('ConsultaCnpjView', () => import('./components/tools/ConsultaCnpjView'));
 const AdminUsuariosView = carregar('AdminUsuariosView', () => import('./components/admin/AdminUsuariosView'));
+const OcorrenciasView = carregar('OcorrenciasView', () => import('./components/suporte/OcorrenciasView'));
 
 // 🔥 CACHE DE DADOS PARA EVITAR REQUISIÇÕES DUPLICADAS
 interface CacheData {
@@ -908,6 +910,8 @@ export default function App() {
                 <AdminUsuariosView usuarioLogadoId={usuarioLogado.id} />
               )}
 
+              {currentView === VIEW_OCORRENCIAS && <OcorrenciasView />}
+
               </>)}
 
               </ErrorBoundary>
@@ -916,6 +920,9 @@ export default function App() {
           </main>
           </div>
         </div>
+
+        {/* Programa beta: reportar problema com captura de tela e log (canto inferior direito) */}
+        <ReportarProblema telaAtual={currentView} />
 
         <CommandPalette
           aberto={paletaAberta}

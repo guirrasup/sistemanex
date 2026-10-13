@@ -3737,3 +3737,35 @@ model LoteMDFe {
   @@index([situacao])
   @@map("lotes_mdfe")
 }
+
+// ============================================
+// OCORRÊNCIAS DO PROGRAMA BETA
+// ============================================
+// Tickets abertos pelo botão flutuante "Reportar problema" (beta testers).
+// Usuário/empresa e data/hora vêm do servidor (token), não do formulário.
+// Sem FK de propósito: é um log de suporte — sobrevive à exclusão do usuário.
+model OcorrenciaBeta {
+  id           String   @id @default(cuid())
+  empresaId    String
+  usuarioId    String
+  usuarioNome  String
+  usuarioEmail String
+  tipo         String   @default("ERRO") @db.VarChar(20) // ERRO | MELHORIA | DUVIDA
+  gravidade    String   @default("MEDIA") @db.VarChar(20) // BAIXA | MEDIA | ALTA | CRITICA
+  titulo       String   @db.VarChar(140)
+  descricao    String   @db.Text
+  tela         String?  @db.VarChar(80)
+  url          String?  @db.VarChar(500)
+  navegador    String?  @db.VarChar(400)
+  resolucao    String?  @db.VarChar(40)
+  versaoApp    String?  @db.VarChar(40)
+  screenshot   String?  @db.Text // data URL (image/jpeg), já reduzida no navegador
+  consoleLog   Json?
+  status       String   @default("ABERTA") @db.VarChar(20) // ABERTA | EM_ANALISE | RESOLVIDA | DESCARTADA
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([empresaId, createdAt])
+  @@index([status])
+  @@map("ocorrencias_beta")
+}
